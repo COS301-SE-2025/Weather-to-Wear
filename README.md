@@ -40,8 +40,8 @@ The goal: **make “What should I wear today?” obsolete**—no matter the seas
 | Photo | Name | Role | LinkedIn |
 |-------|------|------|----------|
 | <img src="docs/assets/team/Kyle.jpg" width="60"> | **Kyle Liebenberg** | Team lead, Scrum Master, Services & Data Engineer, DevOps | [linkedin.com/in/kyle-liebenberg-19a315325/](https://www.linkedin.com/in/kyle-liebenberg-19a315325/) |
-| <img src="docs/assets/team/diya.jpg" width="60"> | **Diya Budhia** | Architect, Integration Engineer, Data Engineer, DevOps  | [linkedin.com/in/diya-budhia-a9124a355/](https://www.linkedin.com/in/diya-budhia-a9124a355/) |
-| <img src="docs/assets/team/Bemo.jpg" width="60"> | **Ibrahim Said** | ML / Recommender Engineer | [linkedin.com/in/ibrahim-said-908156356/](https://www.linkedin.com/in/ibrahim-said-908156356/) |
+| <img src="docs/assets/team/diya.jpg" width="60"> | **Diya Budhia** | Architect, Designer, Integration Engineer, UI Engineer | [linkedin.com/in/diya-budhia-a9124a355/](https://www.linkedin.com/in/diya-budhia-a9124a355/) |
+| <img src="docs/assets/team/Bemo.jpg" width="60"> | **Ibrahim Said** | Architect, Integration Engineer, Data Engineer, DevOps | [linkedin.com/in/ibrahim-said-908156356/](https://www.linkedin.com/in/ibrahim-said-908156356/) |
 | <img src="docs/assets/team/Alisha.jpg" width="60"> | **Alisha Perumal** | Documentation, Designer, UI engineer, DevOps  | [linkedin.com/in/alisha-perumal-6b31bb356/](https://www.linkedin.com/in/alisha-perumal-6b31bb356/) |
 | <img src="docs/assets/team/Taylor.jpg" width="60"> | **Taylor Sergel** | UI Engineer, Designer, Documentation  | [linkedin.com/in/taylor-sergel-aa267a354/](https://www.linkedin.com/in/taylor-sergel-aa267a354/) |
 
