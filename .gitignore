@@ -1,0 +1,33 @@
+### Node ###
+node_modules/
+npm-debug.log*
+pnpm-lock.yaml
+.DS_Store
+
+### React Native & Expo ###
+.expo/
+.expo-shared/
+android/keystores/
+ios/Pods/
+# Gradle & Xcode
+*.gradle
+*.xcworkspace
+*.xcodeproj
+*.swiftpm
+
+### Docker ###
+*.env
+.env.local
+.env.*.local
+docker-data/
+
+### OS / IDE ###
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+### Generated docs / coverage ###
+coverage/
+dist/
+build/
