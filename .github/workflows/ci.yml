@@ -2,19 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop, feature/**]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   lint-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
       - name: Install deps
-        run: pnpm install --frozen-lockfile
+        run: npm ci
       - name: Lint & test workspace
-        run: pnpm npm run lint test     # or npm run lint && npm test
+        run: npm run lint && npm test
