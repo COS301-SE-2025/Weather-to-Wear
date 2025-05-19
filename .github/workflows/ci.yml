@@ -23,5 +23,8 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Lint & test workspace (no scripts yet)
-        run: echo "Skipping lint and test for now"
+      - name: Lint & test workspace
+        run: npm test
+
+      - name: 🐳 Test Docker build
+        run: docker build -t weather-backend .
