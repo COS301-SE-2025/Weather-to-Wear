@@ -9,9 +9,19 @@ on:
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-backend
     steps:
       - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
       - name: Install deps
         run: npm ci
+
       - name: Lint & test workspace
         run: npm run lint && npm test
