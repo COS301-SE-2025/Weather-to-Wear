@@ -23,8 +23,14 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Lint & test workspace
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Reset DB (SQLite)
+        run: npx prisma migrate reset --force --skip-generate --skip-seed
+
+      - name: Run tests
         run: npm test
 
-      - name: 🐳 Test Docker build
+      - name: Test Docker build
         run: docker build -t weather-backend .
