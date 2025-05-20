@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { registerUser, loginUser } from './auth.service';
+import { registerUser, loginUser, removeUser } from './auth.service';
 import { generateToken } from './auth.utils';
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
@@ -49,5 +49,29 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (err: any) {
     res.status(401).json({ error: err.message });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.params.id;
+
+    if (!userId) {
+      res.status(400).json({ error: 'Missing user ID' });
+      return;
+    }
+
+    const deletedUser = await removeUser(userId);
+
+    res.status(200).json({
+      message: 'User deleted successfully',
+      user: {
+        id: deletedUser.id,
+        name: deletedUser.name,
+        email: deletedUser.email
+      }
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 };
