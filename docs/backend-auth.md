@@ -150,7 +150,7 @@ To run the program locally and without docker
 npx ts-node src/server.ts
 
 ```
-And to view the SQLite DB
+And to view the DB
 ```
 npx prisma studio
 ```
