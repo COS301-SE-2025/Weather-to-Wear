@@ -93,6 +93,19 @@ PORT=5000
 
 ---
 
+## Running the auth system 
+To run the program locally and without docker
+```
+npx ts-node src/server.ts
+
+```
+And to view the SQLite DB
+```
+npx prisma studio
+```
+
+---
+
 ## Tests 
 Tests are written with Jest and Supertest. Run them via:
 ```
@@ -113,3 +126,4 @@ docker run -p 5001:5000 weather-backend
 ```
 
 ---
+
