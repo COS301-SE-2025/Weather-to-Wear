@@ -26,17 +26,17 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
         env:
-          DATABASE_URL: "file:./dev.db"
+          DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
 
       - name: Reset DB (SQLite)
         run: npx prisma migrate reset --force --skip-generate --skip-seed
         env:
-          DATABASE_URL: "file:./dev.db"
+          DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
 
       - name: Run tests
         run: npm test
         env:
-          DATABASE_URL: "file:./dev.db"
+          DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
 
       - name: Test Docker build
         run: docker build -t weather-backend .
