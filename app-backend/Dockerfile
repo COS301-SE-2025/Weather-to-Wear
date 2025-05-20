@@ -13,6 +13,9 @@ RUN npm install
 # Copy rest of the app
 COPY . .
 
+# Generate Prisma Client before running server
+RUN npx prisma generate
+
 # Set environment variable (override in prod)
 ENV PORT=5000
 
