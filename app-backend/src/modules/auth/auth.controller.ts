@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { registerUser, loginUser, removeUser } from './auth.service';
 import { generateToken } from './auth.utils';
+import { User } from './auth.types';
+
+interface AuthenticatedRequest extends Request {
+  user?: User;
+}
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -40,7 +45,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({
       message: 'Login successful',
-      token,
+      token,  
       user: {
         id: user.id,
         name: user.name,
@@ -52,17 +57,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+export const deleteUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.params.id;
-
+    const userId = req.params.id; // Changed from req.body.userId to match route parameter
+    console.log('Delete request for userId:', userId, 'by user:', req.user);
+    
     if (!userId) {
       res.status(400).json({ error: 'Missing user ID' });
       return;
     }
 
-    const deletedUser = await removeUser(userId);
+    // Type safety with User interface
+    const authenticatedUser = req.user as User;
+    
+    if (authenticatedUser.id !== userId) {
+      res.status(403).json({ error: 'Cannot delete another user\'s account' });
+      return;
+    }
 
+    const deletedUser = await removeUser(userId);
     res.status(200).json({
       message: 'User deleted successfully',
       user: {
@@ -72,6 +85,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
       }
     });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    console.error('Delete error:', err);
+    res.status(err.message === 'User not found' ? 404 : 400).json({ error: err.message });
   }
 };

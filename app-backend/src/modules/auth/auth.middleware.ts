@@ -10,7 +10,7 @@ interface AuthenticatedRequest extends Request {
 export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Expecting: Bearer <token>
-
+ 
   if (!token) {
     res.status(401).json({ error: 'Missing token' });
     return;
