@@ -25,9 +25,13 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+        env:
+          DATABASE_URL: "file:./dev.db"
 
       - name: Reset DB (SQLite)
         run: npx prisma migrate reset --force --skip-generate --skip-seed
+        env:
+          DATABASE_URL: "file:./dev.db"
 
       - name: Run tests
         run: npm test
