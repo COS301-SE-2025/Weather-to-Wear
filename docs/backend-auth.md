@@ -1,3 +1,4 @@
+
 # Auth API Documentation
 
 This document outlines the authentication system for the **Weather-to-Wear** backend.
@@ -142,9 +143,12 @@ npx prisma studio
 npx prisma generate
 ```
 
+NOTE: `npx prisma generate` in `app-backend` must be ran before any running the subsystem locally or using any testing.
+
 ---
 
 ## Running the auth system 
+Remember to run `npx prisma generate` in `app-backend` before running locally, if it is your first time running locally.
 To run the program locally and without docker
 ```
 npx ts-node src/server.ts
@@ -158,6 +162,7 @@ npx prisma studio
 ---
 
 ## Tests 
+Remember to run `npx prisma generate` in `app-backend` before testing if it is your first time testing.
 Tests are written with Jest and Supertest. Run them via:
 ```
 npm test
@@ -169,7 +174,7 @@ The tests:
 ---
 
 ## Docker 
-You can run the backend using Docker.
+You can run the backend using Docker. Run these commands within the app-backend folder.
 To build:
 ```bash
 docker build -t weather-backend .
