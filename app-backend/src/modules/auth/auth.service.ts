@@ -1,3 +1,6 @@
+//-------------------------------------------------------
+// auth.service.ts
+//-------------------------------------------------------
 import { PrismaClient, User } from '@prisma/client';
 import { comparePasswords, hashPassword } from './auth.utils';
 

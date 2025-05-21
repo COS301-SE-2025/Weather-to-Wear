@@ -1,3 +1,6 @@
+// -------------------------------------------------
+// auth.controller.ts
+//--------------------------------------------------
 import { Request, Response } from 'express';
 import { registerUser, loginUser, removeUser } from './auth.service';
 import { generateToken } from './auth.utils';
