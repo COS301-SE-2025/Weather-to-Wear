@@ -26,6 +26,17 @@ interface FreeWeatherAPIResponse {
   };
 }
 
+interface OpenWeatherMapResponse {
+  name: string;
+  main: {
+    temp: number;
+  };
+  weather: {
+    description: string;
+    icon: string;
+  }[];
+}
+
 // try get user location via IP. if fail return empty string for manual input
 async function detectUserLocation(): Promise<string> {
   try {
@@ -52,12 +63,13 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
     throw new Error('Could not determine user location automatically. Please provide it manually.');
   }
 
-  const weather = await fetchFromFreeWeatherAPI(location);
+  const primaryWeather = await fetchFromFreeWeatherAPI(location);
+  if (primaryWeather) return primaryWeather;
 
-  if (weather) return weather;
+  const fallbackWeather = await fetchFromOpenWeatherMap(location);
+  if (fallbackWeather) return fallbackWeather;
 
-  // fallback will be handled in Step 4 (OpenWeatherMap)
-  throw new Error('Primary weather service failed. Fallback not yet implemented.');
+  throw new Error('Both weather services failed. Please try again later.');
 }
 
 
@@ -87,6 +99,38 @@ async function fetchFromFreeWeatherAPI(location: string): Promise<WeatherData | 
       console.warn(`Free Weather API failed: ${err.message}`);
     } else {
       console.warn('Free Weather API failed:', err);
+    }
+    return null;
+  }
+}
+
+async function fetchFromOpenWeatherMap(location: string): Promise<WeatherData | null> {
+  try {
+    const apiKey = process.env.OPENWEATHER_API_KEY;
+    const baseUrl = process.env.OPENWEATHER_API_URL;
+
+    const response = await axios.get<OpenWeatherMapResponse>(baseUrl!, {
+      params: {
+        q: location,
+        appid: apiKey,
+        units: 'metric', // important: Celsius
+      },
+    });
+
+    const data = response.data;
+
+    return {
+      location: data.name,
+      temperature: data.main.temp,
+      description: data.weather[0].description,
+      icon: `http://openweathermap.org/img/w/${data.weather[0].icon}.png`,
+      source: 'OpenWeatherMap',
+    };
+  } catch (err) {
+    if (err instanceof Error) {
+      console.warn(`OpenWeatherMap fallback failed: ${err.message}`);
+    } else {
+      console.warn('OpenWeatherMap fallback failed:', err);
     }
     return null;
   }
