@@ -13,6 +13,13 @@ jobs:
       run:
         working-directory: app-backend
 
+    env:
+        NODE_ENV: test
+        FREE_WEATHER_API_KEY: test_key
+        FREE_WEATHER_API_URL: https://fakeurl.com
+        OPENWEATHER_API_KEY: test_key
+        OPENWEATHER_API_URL: https://fakeurl.com
+
     services:
       postgres:
         image: postgres:15
