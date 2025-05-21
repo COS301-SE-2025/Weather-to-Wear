@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { WeatherData } from './weather.interface';
-
 import dotenv from 'dotenv';
+import logger from '../../utils/logger';
+
 dotenv.config();
 
 interface IPApiResponse {
@@ -46,9 +47,9 @@ async function detectUserLocation(): Promise<string> {
     }
   } catch (err) {
     if (err instanceof Error) {
-      console.warn('IP location detection failed:', err.message);
+      logger.warn('IP location detection failed:', err.message);
     } else {
-      console.warn('IP location detection failed:', err);
+      logger.warn('IP location detection failed:', err);
     }
   }
   return '';
@@ -96,9 +97,9 @@ async function fetchFromFreeWeatherAPI(location: string): Promise<WeatherData | 
     };
   } catch (err) {
     if (err instanceof Error) {
-      console.warn(`Free Weather API failed: ${err.message}`);
+      logger.warn(`Free Weather API failed: ${err.message}`);
     } else {
-      console.warn('Free Weather API failed:', err);
+      logger.warn('Free Weather API failed:', err);
     }
     return null;
   }
@@ -113,7 +114,7 @@ async function fetchFromOpenWeatherMap(location: string): Promise<WeatherData | 
       params: {
         q: location,
         appid: apiKey,
-        units: 'metric', // important: Celsius
+        units: 'metric', // important for celsius
       },
     });
 
@@ -128,9 +129,9 @@ async function fetchFromOpenWeatherMap(location: string): Promise<WeatherData | 
     };
   } catch (err) {
     if (err instanceof Error) {
-      console.warn(`OpenWeatherMap fallback failed: ${err.message}`);
+      logger.warn(`OpenWeatherMap fallback failed: ${err.message}`);
     } else {
-      console.warn('OpenWeatherMap fallback failed:', err);
+      logger.warn('OpenWeatherMap fallback failed:', err);
     }
     return null;
   }
