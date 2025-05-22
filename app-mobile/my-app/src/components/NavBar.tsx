@@ -195,15 +195,16 @@ const NavBar = () => {
                 feed
               </Link>
               
-              <div className="w-full border-t border-gray-200 my-2"></div>
+              {/* <div className="w-full border-t border-gray-200 my-2"></div> */}
               
-              <Link
+              {/* <Link
                 to="/add"
                 className="px-4 py-2 text-black font-livvic"
               >
                 add to closet
-              </Link>
-              <Link
+              </Link> */}
+              
+              {/* <Link
                 to="/create-outfit"
                 className="px-4 py-2 text-black font-livvic"
               >
@@ -214,9 +215,9 @@ const NavBar = () => {
                 className="px-4 py-2 text-black font-livvic"
               >
                 post to feed
-              </Link>
+              </Link> */}
               
-              <div className="w-full border-t border-gray-200 my-2"></div>
+              {/* <div className="w-full border-t border-gray-200 my-2"></div>
               
               <div className="flex items-center gap-4">
                 <Link to="/profile">
@@ -229,7 +230,7 @@ const NavBar = () => {
                 <button className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic">
                   log out
                 </button>
-              </div>
+              </div> */}
             </div>
           </div>
         )}
