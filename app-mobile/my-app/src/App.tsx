@@ -1,7 +1,7 @@
-// src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import NavBar from "./components/NavBar";  // Updated import path
+import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
+import UnderConstruction from "./pages/UnderConstruction"; // <-- import here
 import ClosetPage from "./pages/UnderConstruction";
 import AddPage from "./pages/UnderConstruction";
 import CalendarPage from "./pages/UnderConstruction";
@@ -10,11 +10,16 @@ import FeedPage from "./pages/UnderConstruction";
 function App() {
   return (
     <Router>
-      <NavBar />  {/* Updated component name */}
+      <NavBar />
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/profile" element={<UnderConstruction />} /> {/* fixed */}
+        <Route path="/" element={<UnderConstruction />} />
         <Route path="/closet" element={<ClosetPage />} />
         <Route path="/add" element={<AddPage />} />
+        
+        <Route path="/create-outfit" element={<UnderConstruction />} />
+        <Route path="/post-to-feed" element={<AddPage />} />
+
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/feed" element={<FeedPage />} />
       </Routes>

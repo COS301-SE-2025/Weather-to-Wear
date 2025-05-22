@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Plus } from "lucide-react";
 
@@ -6,14 +6,25 @@ const NavBar = () => {
   const location = useLocation();
   const currentPath = location.pathname;
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const isActive = (path: string) => {
+    if (menuOpen) return false;
     if (path === "/" && currentPath === "/") return true;
     return path !== "/" && currentPath === path;
   };
 
+  const toggleMenu = () => {
+    setMenuOpen((open) => !open);
+  };
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <>
-      <div className="fixed top-0 left-0 w-full bg-white z-50 shadow-md">
+      <div className="fixed top-0 left-0 w-full bg-white z-50">
         {/* Top Banner */}
         <div className="bg-black text-white py-2 px-4">
           <div className="max-w-screen-xl mx-auto flex items-center justify-center gap-4">
@@ -25,65 +36,97 @@ const NavBar = () => {
         </div>
 
         {/* Nav Bar */}
-       <nav className="py-3 px-4 bg-white relative">
-  <div className="max-w-screen-xl mx-auto flex items-center justify-end relative">
-    
-    {/* Centered Nav Group */}
-    <div className="bg-black rounded-full flex items-center justify-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
-      <Link
-        to="/"
-        className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-          isActive("/") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-        } text-white`}
-      >
-        <span className="font-livvic">home</span>
-      </Link>
-      <Link
-        to="/closet"
-        className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-          isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-        } text-white`}
-      >
-        <span className="font-livvic">closet</span>
-      </Link>
-      <Link
-        to="/add"
-        className="flex items-center justify-center p-1 bg-white rounded-full w-8 h-8"
-      >
-        <Plus size={20} className="text-black" />
-      </Link>
-      <Link
-        to="/calendar"
-        className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-          isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-        } text-white`}
-      >
-        <span className="font-livvic">calendar</span>
-      </Link>
-      <Link
-        to="/feed"
-        className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-          isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-        } text-white`}
-      >
-        <span className="font-livvic">feed</span>
-      </Link>
-    </div>
+        <nav className="py-3 px-4 bg-white relative">
+          <div className="max-w-screen-xl mx-auto flex items-center justify-end relative">
+            {/* Centered Nav Group */}
+            <div className="bg-black rounded-full flex items-center justify-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
+              <Link
+                to="/"
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
+                  isActive("/") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                } text-white`}
+              >
+                <span className="font-livvic">home</span>
+              </Link>
+              <Link
+                to="/closet"
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
+                  isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                } text-white`}
+              >
+                <span className="font-livvic">closet</span>
+              </Link>
+              <button
+                onClick={toggleMenu}
+                className="flex items-center justify-center p-1 bg-white rounded-full w-8 h-8"
+                aria-label="Add options"
+              >
+                <Plus size={20} className="text-black" />
+              </button>
+              <Link
+                to="/calendar"
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
+                  isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                } text-white`}
+              >
+                <span className="font-livvic">calendar</span>
+              </Link>
+              <Link
+                to="/feed"
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
+                  isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                } text-white`}
+              >
+                <span className="font-livvic">feed</span>
+              </Link>
+            </div>
 
-    {/* Right - Logout Button */}
-   <div className="flex items-center gap-3 ml-4">
-  <img
-    src="/profile.png"
-    alt="Profile"
-    className="w-8 h-8 rounded-full object-cover border border-black"
-  />
-  <button className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic">
-    log out
-  </button>
-</div>
-  </div>
-</nav>
+            {/* Right - Logout Button */}
+            <div className="flex items-center gap-3 ml-4">
+              <Link to="/profile">
+                <img
+                  src="/profile.png"
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full object-cover border border-black cursor-pointer"
+                />
+              </Link>
+              <button className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic">
+                log out
+              </button>
+            </div>
+          </div>
 
+          {/* Popup menu - no background, no borders */}
+          <div className="w-full">
+            <div className="max-w-screen-xl mx-auto flex justify-center items-center min-h-[0.5rem]">
+              <div className={`${menuOpen ? "flex" : "hidden"} gap-6`}>
+                <Link
+                  to="/add"
+                  className="relative px-4 py-2 text-black text-sm font-livvic before:absolute before:bottom-0 before:left-1/2 before:h-[2px] before:w-0 before:bg-black before:transition-all before:duration-300 hover:before:w-full hover:before:left-0"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  add to closet
+                </Link>
+
+                <Link
+                  to="/create-outfit"
+                  className="relative px-4 py-2 text-black text-sm font-livvic before:absolute before:bottom-0 before:left-1/2 before:h-[2px] before:w-0 before:bg-black before:transition-all before:duration-300 hover:before:w-full hover:before:left-0"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  create an outfit
+                </Link>
+
+                <Link
+                  to="/post-to-feed"
+                  className="relative px-4 py-2 text-black text-sm font-livvic before:absolute before:bottom-0 before:left-1/2 before:h-[2px] before:w-0 before:bg-black before:transition-all before:duration-300 hover:before:w-full hover:before:left-0"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  post to feed
+                </Link>
+              </div>
+            </div>
+          </div>
+        </nav>
       </div>
 
       {/* Spacer div to push content down below the fixed navbar */}
