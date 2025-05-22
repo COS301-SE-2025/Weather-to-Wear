@@ -1,0 +1,50 @@
+# Functional Requirements Draft 
+## Weather to Wear
+
+---
+
+### F-1 Clothing-Catalog Management
+F-1.1 The system shall allow a user to add a wardrobe item by taking a photo and completing a short form (name, category, material, weather-appropriateness, tags).
+F-1.2 The system shall let the user edit or delete any wardrobe item they own.
+F-1.3 The system shall provide search, filter and sort capabilities over the wardrobe (e.g., by category, colour, material).
+F-1.4 Wardrobe data and images shall be persisted so that a user’s catalog is available across devices.
+
+### F-2 Weather-Data Integration
+F-2.1 The system shall retrieve a location-specific weather forecast (min/max temperature, precipitation, wind) from at least one external API.
+F-2.2 If the primary provider fails, the system shall automatically fallback to a secondary API without user intervention.
+F-2.3 Weather data shall be refreshed at a configurable interval (default: hourly) so that recommendations stay current.
+
+### F-3 Wardrobe-Recommendation Engine
+F-3.1 Given a forecast and the user’s wardrobe, the system shall produce at least one ranked outfit recommendation for a selected day.
+F-3.2 The engine shall learn from user feedback captured through a simple rating mechanism (like / dislike).
+F-3.3 Recommendations shall include layering advice when forecasts indicate significant temperature variation throughout the day.
+F-3.4 The engine shall exclude items marked unsuitable for the predicted conditions (e.g., “water-only jacket when no rain”).
+
+### F-4 Social-Sharing Platform
+F-4.1 Users shall be able to publish an outfit post (image + caption + list of items) to a social feed.
+F-4.2 Followers shall be able to like and comment on a post in real time.
+F-4.3 The system shall filter or block offensive text or images before a post becomes visible.
+F-4.4 Privacy controls shall let the author restrict visibility to public, followers only or private.
+
+### F-5 User-Feedback & Learning
+1. F-5.1 The system shall record each thumb-up / thumb-down action against the corresponding outfit version.
+2. F-5.2 The recommendation engine shall incorporate feedback into future rankings within 24 hours (or upon a refresh).
+
+### F-6 \[O] Virtual-Closet Analytics
+1. The system shall display usage statistics (e.g., most-worn items, cost-per-wear).
+2. Users shall be able to tag clothing by occasion and filter their closet on those tags.
+
+### F-7 \[O] Emergency-Outfit Response
+1. When the forecast changes beyond a configurable threshold (e.g., ≥ 5 °C drop or rain chance > 60 %), the system shall notify the user and suggest a quick-change outfit.
+
+### F-8 \[W] Fashion Time-Machine Planner
+1. The system shall allow users to attach events or trips to future calendar dates.
+2. For each future date with an event, the system shall pre-compute and display an outfit based on the long-range forecast and update it automatically if the forecast changes.
+
+### F-9 \[W] Virtual Try-On
+1. The app shall provide an AR preview that overlays the recommended outfit on a live camera view or 3D avatar.
+
+### F-10 Cross-Cutting Functionalities
+1. Authentication & Authorisation – All user-modifiable endpoints shall require login and respect ownership of data.
+2. Offline Mode – The PWA shall open and display the most recent wardrobe and recommendations while offline, queuing any new posts or ratings until connectivity resumes.
+3. Multiplatform Delivery – The application shall operate on modern mobile browsers (PWA) and installable home-screen shortcuts.
