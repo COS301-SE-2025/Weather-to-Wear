@@ -13,7 +13,7 @@ function App() {
       <NavBar />
       <Routes>
         <Route path="/profile" element={<UnderConstruction />} /> {/* fixed */}
-        <Route path="/" element={<UnderConstruction />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/closet" element={<ClosetPage />} />
         <Route path="/add" element={<AddPage />} />
         
