@@ -12,57 +12,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     cameraBtn.addEventListener('click', async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            console.log('Requesting camera access...');
+            const constraints = {
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
 
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            console.log('Camera access granted');
+
+            // Create camera dialog
             const dialog = document.createElement('div');
-            dialog.className = 'fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50';
+            dialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
             dialog.innerHTML = `
-                <div class="bg-white rounded-lg p-4 max-w-md w-full">
-                    <div class="relative aspect-video mb-4">
-                        <video class="w-full h-full bg-black rounded" id="cameraFeed" autoplay></video>
-                    </div>
+                <div class="bg-white p-4 rounded-lg shadow-lg max-w-xl w-full mx-4">
+                    <video id="cameraFeed" class="w-full h-64 object-cover mb-4" autoplay playsinline></video>
                     <div class="flex justify-between">
-                        <button id="captureBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg">Capture</button>
-                        <button id="cancelBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg">Cancel</button>
+                        <button id="captureBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                            Capture Photo
+                        </button>
+                        <button id="cancelBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                            Cancel
+                        </button>
                     </div>
                 </div>
             `;
 
             document.body.appendChild(dialog);
-
             const cameraFeed = dialog.querySelector('#cameraFeed');
+            
+            // Set up video stream
             cameraFeed.srcObject = stream;
+            await cameraFeed.play().catch(console.error);
 
-            const captureBtn = dialog.querySelector('#captureBtn');
-            const cancelBtn = dialog.querySelector('#cancelBtn');
-
-            captureBtn.addEventListener('click', () => {
+            // Handle capture button
+            dialog.querySelector('#captureBtn').addEventListener('click', () => {
                 const canvas = document.createElement('canvas');
                 canvas.width = cameraFeed.videoWidth;
                 canvas.height = cameraFeed.videoHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(cameraFeed, 0, 0, canvas.width, canvas.height);
-
-                canvas.toBlob(blob => {
+                canvas.getContext('2d').drawImage(cameraFeed, 0, 0);
+                
+                canvas.toBlob((blob) => {
                     currentImageBlob = blob;
                     imagePreview.src = URL.createObjectURL(blob);
                     previewContainer.classList.remove('hidden');
                     resultContainer.classList.add('hidden');
-
-                    stream.getTracks().forEach(track => track.stop());
-                    document.body.removeChild(dialog);
                 }, 'image/jpeg');
-            });
 
-            cancelBtn.addEventListener('click', () => {
+                // Clean up
                 stream.getTracks().forEach(track => track.stop());
                 document.body.removeChild(dialog);
             });
+
+            // Handle cancel button
+            dialog.querySelector('#cancelBtn').addEventListener('click', () => {
+                stream.getTracks().forEach(track => track.stop());
+                document.body.removeChild(dialog);
+            });
+
+            // Error handling
+            cameraFeed.onerror = (err) => {
+                console.error('Camera feed error:', err);
+                stream.getTracks().forEach(track => track.stop());
+                document.body.removeChild(dialog);
+            };
+
         } catch (err) {
+            console.error('Camera access error:', err);
             alert('Error accessing camera: ' + err.message);
         }
     });
-
+    
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file && file.type.startsWith('image/')) {
