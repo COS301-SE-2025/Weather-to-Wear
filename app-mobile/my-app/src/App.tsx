@@ -1,27 +1,110 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+
 import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
-import UnderConstruction from "./pages/UnderConstruction"; // <-- import here
 import ClosetPage from "./pages/ClosetPage";
 import AddPage from "./pages/UnderConstruction";
 import CalendarPage from "./pages/UnderConstruction";
-import FeedPage from "./pages/FeedPage";
+import FeedPage from "./pages/UnderConstruction";
+import ProfilePage from "./pages/UnderConstruction";
+import CreateAnOutfit from "./pages/UnderConstruction";
+import Post from "./pages/Post";
+import UnderConstruction from "./pages/UnderConstruction";
+
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 
 function App() {
   return (
     <Router>
-      <NavBar />
       <Routes>
-        <Route path="/profile" element={<UnderConstruction />} /> {/* fixed */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/closet" element={<ClosetPage />} />
-        <Route path="/add" element={<AddPage />} />
-        
-        <Route path="/create-outfit" element={<UnderConstruction />} />
-        <Route path="/post-to-feed" element={<AddPage />} />
+        {/* Auth Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
-        <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="/feed" element={<FeedPage />} />
+        {/* Main App Routes with NavBar */}
+        <Route
+          path="/"
+          element={
+            <>
+              <NavBar />
+              <HomePage />
+            </>
+          }
+        />
+        <Route
+          path="/closet"
+          element={
+            <>
+              <NavBar />
+              <ClosetPage />
+            </>
+          }
+        />
+        <Route
+          path="/add"
+          element={
+            <>
+              <NavBar />
+              <AddPage />
+            </>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <>
+              <NavBar />
+              <CalendarPage />
+            </>
+          }
+        />
+        <Route
+          path="/feed"
+          element={
+            <>
+              <NavBar />
+              <FeedPage />
+            </>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <>
+              <NavBar />
+              <ProfilePage />
+            </>
+          }
+        />
+        <Route
+          path="/create-outfit"
+          element={
+            <>
+              <NavBar />
+              <CreateAnOutfit />
+            </>
+          }
+        />
+        <Route
+          path="/post-to-feed"
+          element={
+            <>
+              <NavBar />
+              <Post />
+            </>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <>
+              <NavBar />
+              <UnderConstruction />
+            </>
+          }
+        />
       </Routes>
     </Router>
   );
