@@ -1,5 +1,6 @@
 import { Sun, CloudSun } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import Footer from '../components/Footer';
 
 const TypingSlogan = () => {
   const slogan = "Style Made Simple.";
@@ -26,7 +27,7 @@ const TypingSlogan = () => {
     }, typingSpeed);
 
     return () => clearTimeout(timeout);
-  }, [currentIndex, isDeleting]);
+  }, [currentIndex, isDeleting, typingSpeed]);
 
   const simpleStart = slogan.indexOf("Simple");
   const beforeSimple = displayText.slice(0, simpleStart);
@@ -46,12 +47,12 @@ const TypingSlogan = () => {
 export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col lg:flex-row p-4 md:p-8 gap-4 md:gap-8 mt-20">
+      {/* Main content area with adjusted spacing */}
+      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-4 md:gap-8 mt-24 pb-8"> {/* Reduced mt-20 to mt-16 */}
         {/* Left Weather Section */}
         <div className="w-full lg:w-1/3 flex flex-col items-center">
           <div className="w-full max-w-[280px]">
-            <div className="h-[4.5rem] md:h-[5.5rem] lg:h-[6rem] w-full flex items-end">
+            <div className="h-[4rem] md:h-[5rem] lg:h-[5.5rem] w-full flex items-end"> {/* Reduced height */}
               <TypingSlogan />
             </div>
             
@@ -83,8 +84,8 @@ export default function HomePage() {
         </div>
 
         {/* Center Image Section */}
-        <div className="w-full lg:w-1/3 flex justify-center items-center lg:-mt-40">
-          <div className="w-full h-[300px] md:h-[400px] lg:h-[500px] max-w-[280px] md:max-w-[350px] lg:max-w-[400px] flex items-center justify-center bg-gray-200 rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
+        <div className="w-full lg:w-1/3 flex justify-center items-center lg:-mt-32"> {/* Reduced from -mt-40 to -mt-32 */}
+          <div className="w-full h-[280px] md:h-[380px] lg:h-[480px] max-w-[280px] md:max-w-[350px] lg:max-w-[400px] flex items-center justify-center bg-gray-200 rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
             <img 
               src="/outfit.jpg" 
               alt="Selected outfit" 
@@ -97,19 +98,21 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Right Events Section with Adjusted Arch Border */}
-        <div className="w-full lg:w-1/3 flex justify-center lg:-mt-16">
-          <div className="relative w-full max-w-[280px]">
-            {/* Adjusted Arch Border - starts lower and shorter */}
-            <div className="absolute inset-0 border border-black rounded-tl-full rounded-tr-full h-[80%] top-[-10%] pointer-events-none"></div>
-            
-            {/* Content Container with adjusted padding */}
-            <div className="relative z-10 pt-6 pb-4 px-4">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8">Upcoming Events</h2>
-              <div className="space-y-2 md:space-y-3">
-                {[
+   
+
+
+        {/* Right Events Section - Positioned Higher */}
+<div className="w-full lg:w-1/3 flex justify-center -mt-10">
+  <div className="relative w-full max-w-[280px]">
+    {/* Arch Border - Starts higher */}
+    <div className="absolute inset-0 border border-black rounded-tl-full rounded-tr-full h-[100%] -top-[4%] pointer-events-none"></div>
+
+    {/* Content Container - Adjusted padding */}
+    <div className="relative z-10 pt-10 pb-6 px-4">
+      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8">Upcoming Events</h2>
+      <div className="space-y-2 md:space-y-3">
+             {[
                   { date: '30 December', label: "Kyle's Birthday" },
-                  { date: '20 May', label: 'dinner with family' },
                   { date: '21 May', label: '21st birthday' },
                   { date: '3 June', label: 'Random Day' },
                   { date: '4 November', label: "Diya's Birthday" },
@@ -122,11 +125,16 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
+    </div>
+  </div>
+</div>
+
+
+        
+      </div>
+
+      <Footer />
     </div>
   );
 }
