@@ -6,10 +6,19 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model User {
-  id       String @id @default(uuid())
+  id       String   @id @default(cuid()) // or uuid() if you prefer
   name     String
-  email    String @unique
+  email    String   @unique
   password String
+
+} 
+
+model ClothingImage {
+  id        Int      @id @default(autoincrement())
+  filename  String
+  mimetype  String
+  imageData Bytes
+  category  String   // "shirt", "pants", etc.
+  createdAt DateTime @default(now())
 }
