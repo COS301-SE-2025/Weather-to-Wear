@@ -17,10 +17,19 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="w-1/2 flex items-center justify-center bg-white p-8">
-        <form onSubmit={handleLogin} className="w-full max-w-sm">
-          <h2 className="text-2xl font-bold mb-6">Login</h2>
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* ✅ Logo section comes first to appear on top for mobile */}
+      <div className="w-full lg:w-1/2 bg-black flex flex-col items-center justify-center p-6 sm:p-8">
+        <h1 className="text-white text-3xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center">
+          Weather2Wear
+        </h1>
+        <img src="/logo.png" alt="Logo" className="max-w-[200px] sm:max-w-[280px]" />
+      </div>
+
+      {/* Form section */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
+        <form onSubmit={handleLogin} className="w-full max-w-sm sm:max-w-md">
+          <h2 className="text-2xl font-bold mb-6 text-center lg:text-left">Login</h2>
 
           <input
             type="text"
@@ -52,18 +61,11 @@ export default function Login() {
             Login
           </button>
 
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 text-center">
             Don’t have an account yet?{" "}
             <Link to="/signup" className="text-[#3F978F] underline">Signup?</Link>
           </p>
         </form>
-      </div>
-
-      <div className="w-1/2 bg-black flex flex-col items-center justify-center p-8">
-        <h1 className="text-white text-3xl md:text-4xl mb-4 font-bodoni tracking-wide">
-          Weather2Wear
-        </h1>
-        <img src="/logo.png" alt="Logo" className="max-w-[300px]" />
       </div>
     </div>
   );
