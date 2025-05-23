@@ -1,6 +1,7 @@
 import { Sun, CloudSun } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Footer from '../components/Footer';
+import WeatherNow from '../components/WeatherNow';
 
 const TypingSlogan = () => {
   const slogan = "Style Made Simple.";
@@ -58,11 +59,15 @@ export default function HomePage() {
             </div>
             
             <div className="w-full">
-              <div className="flex items-center space-x-2 md:space-x-4 text-3xl md:text-5xl font-bold mb-6 md:mb-10">
+
+             
+              {/* <div className="flex items-center space-x-2 md:space-x-4 text-3xl md:text-5xl font-bold mb-6 md:mb-10">
                 <CloudSun className="w-12 h-12 md:w-16 md:h-16" />
                 <span>22°</span>
                 <span className="text-xl md:text-2xl text-gray-600 font-normal">cloudy</span>
-              </div>
+              </div> */}
+
+              <WeatherNow />
 
               <div className="divide-y divide-black">
                 {[
