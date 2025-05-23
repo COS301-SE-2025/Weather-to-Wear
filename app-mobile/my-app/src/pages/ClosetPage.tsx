@@ -2,40 +2,85 @@ import { useState } from "react";
 import { Heart, Search, X } from "lucide-react";
 import ClosetTabs from "../components/ClosetTabs";
 
-// Mock data
-const categories = ["Category", "Category", "Category", "Category", "Category"];
+// Mock data with specific images
+const mockItems = [
+  { id: 1, name: "Shirt", image: "../images/shirt.jpg", favorite: false },
+  { id: 2, name: "Jeans", image: "/images/jeans.jpg", favorite: false },
+  { id: 3, name: "Jacket", image: "/images/jacket.jpg", favorite: false },
+  { id: 4, name: "Shoes", image: "/images/shoes.jpg", favorite: false },
+  { id: 5, name: "Shirt", image: "/images/shirt2.jpg", favorite: false },
+  { id: 6, name: "Skirt", image: "/images/skirt.jpg", favorite: false },
+];
 
-const mockItems = Array.from({ length: 8 }, (_, i) => ({
-  id: i + 1,
-  name: `Item`,
-  favorite: false,
-}));
+const mockOutfits = [
+  { id: 1, name: "Casual Look", image: "/images/image1.jpg", favorite: false },
+  { id: 2, name: "Formal Look", image: "/images/image2.jpg", favorite: false },
+  { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false },
+  { id: 4, name: "Casual Look", image: "/images/image4.jpg", favorite: false },
+  { id: 5, name: "Sporty Look", image: "/images/image5.jpg", favorite: false },
+  { id: 6, name: "Party Look", image: "/images/image6.jpg", favorite: false },
+];
+
+const mockFavourites = [
+  { id: 1, name: "Fav Shirt", image: "/images/shirt2.jpg", favorite: false },
+  { id: 2, name: "Fav Jeans", image: "/images/image6.jpg", favorite: false },
+  { id: 3, name: "Fav Jacket", image: "/images/shoes.jpg", favorite: false },
+  { id: 4, name: "Fav Shoes", image: "/images/jacket.jpg", favorite: false },
+  { id: 5, name: "Fav Hat", image: "/images/image2.jpg", favorite: false },
+  { id: 6, name: "Fav Scarf", image: "/images/image1.jpg", favorite: false },
+];
 
 const ClosetPage = () => {
-  const [items, setItems] = useState(mockItems);
   const [activeTab, setActiveTab] = useState("items");
+  const [items, setItems] = useState(mockItems);
+  const [outfits, setOutfits] = useState(mockOutfits);
+  const [favourites, setFavourites] = useState(mockFavourites);
 
-  const toggleFavorite = (id: number) => {
-    setItems(
-      items.map((item) =>
-        item.id === id ? { ...item, favorite: !item.favorite } : item
-      )
-    );
+  const toggleFavorite = (id: number, tab: string) => {
+    if (tab === "items") {
+      setItems(
+        items.map((item) =>
+          item.id === id ? { ...item, favorite: !item.favorite } : item
+        )
+      );
+    } else if (tab === "outfits") {
+      setOutfits(
+        outfits.map((item) =>
+          item.id === id ? { ...item, favorite: !item.favorite } : item
+        )
+      );
+    } else if (tab === "favourites") {
+      setFavourites(
+        favourites.map((item) =>
+          item.id === id ? { ...item, favorite: !item.favorite } : item
+        )
+      );
+    }
   };
+
+  // Get the current tab's data based on activeTab
+  const currentData =
+    activeTab === "items"
+      ? items
+      : activeTab === "outfits"
+      ? outfits
+      : favourites;
 
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h1 className="text-3xl font-bold text-center mb-6 text-gray-900">My Closet</h1>
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {categories.map((category, index) => (
-          <button
-            key={index}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors"
-          >
-            {category}
-          </button>
-        ))}
+        {["Shirts", "Pants", "Shoes", "Jackets"].map(
+          (category, index) => (
+            <button
+              key={index}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors"
+            >
+              {category}
+            </button>
+          )
+        )}
       </div>
 
       <div className="relative mb-6">
@@ -51,9 +96,14 @@ const ClosetPage = () => {
       <ClosetTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {items.map((item) => (
+        {currentData.map((item) => (
           <div key={item.id} className="relative">
-            <div className="bg-gray-200 h-48 rounded-lg flex items-center justify-center">
+            <div className="bg-gray-200 h-48 rounded-lg overflow-hidden">
+              <img
+                src={item.image}
+                alt={item.name}
+                className="w-full h-full object-cover"
+              />
               <button className="absolute top-2 right-2 bg-white rounded-full p-1 shadow">
                 <X className="h-4 w-4 text-gray-600" />
               </button>
@@ -61,7 +111,7 @@ const ClosetPage = () => {
             <div className="flex items-center justify-between mt-2">
               <span className="text-gray-700">{item.name}</span>
               <button
-                onClick={() => toggleFavorite(item.id)}
+                onClick={() => toggleFavorite(item.id, activeTab)}
                 className="focus:outline-none"
               >
                 <Heart
