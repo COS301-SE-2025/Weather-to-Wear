@@ -163,7 +163,7 @@ const NavBar = () => {
         {/* Mobile Navigation - Icon-based */}
         {isMobile && (
           <div className="lg:hidden bg-white py-2 px-4">
-            <div className="bg-black rounded-full flex items-center justify-around p-1">
+<div className="w-full max-w-xs mx-auto bg-black rounded-full flex items-center justify-center gap-x-4 p-1">
               <Link
                 to="/"
                 className={`flex items-center justify-center p-2 rounded-full transition-colors ${
