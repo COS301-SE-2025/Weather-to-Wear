@@ -1,7 +1,7 @@
 import { PrismaClient, User } from '@prisma/client';
 import { comparePasswords, hashPassword } from './auth.utils';
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 export async function registerUser(name: string, email: string, password: string): Promise<User> {
   const existing = await prisma.user.findUnique({ where: { email } });

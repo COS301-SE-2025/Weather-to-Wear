@@ -1,6 +1,9 @@
 # Use an official Node.js image
 FROM node:20-alpine
 
+# Install curl for diagnostics
+RUN apk add --no-cache curl
+
 # Set working directory
 WORKDIR /app
 
@@ -10,17 +13,17 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy rest of the app
+# Copy the rest of the app
 COPY . .
 
-# Generate Prisma Client before running server
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Set environment variable (override in prod)
+# Set environment variable
 ENV PORT=5000
 
-# Expose the port
+# Expose app port
 EXPOSE 5000
 
-# Start the app
-CMD ["npx", "ts-node", "src/server.ts"]
+# Deploy migrations before starting server
+CMD npx prisma migrate deploy && npx ts-node src/server.ts
