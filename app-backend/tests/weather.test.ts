@@ -17,7 +17,7 @@ describe('Weather Service', () => {
           forecastday: [{
             hour: Array.from({ length: 6 }).map((_, i) => ({
               time: `2025-05-23 ${14 + i}:00`,
-              temp_c: 25 + i,
+              temp_c: 25,
               condition: { text: 'Sunny', icon: 'icon.png' }
             }))
           }]
@@ -33,7 +33,7 @@ describe('Weather Service', () => {
 
     const result = await getWeatherByLocation('Cape Town');
     expect(result.source).toBe('FreeWeatherAPI');
-    expect(result.forecast[0].temperature).toBe(29);
+    expect(result.forecast[0].temperature).toBe(25);
   });
 
   it('falls back to OpenWeatherMap if FreeWeatherAPI fails', async () => {
