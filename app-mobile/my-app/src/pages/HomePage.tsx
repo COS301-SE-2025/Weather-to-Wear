@@ -1,7 +1,9 @@
 import { Sun, CloudSun } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Footer from '../components/Footer';
-import WeatherNow from '../components/WeatherNow';
+import WeatherDisplay from '../components/WeatherDisplay';
+import HourlyForecast from '../components/HourlyForecast';
+import { useWeather } from '../hooks/useWeather';
 
 const TypingSlogan = () => {
   const slogan = "Style Made Simple.";
@@ -46,6 +48,9 @@ const TypingSlogan = () => {
 };
 
 export default function HomePage() {
+
+  const { weather, loading, error } = useWeather();
+
   return (
     <div className="flex flex-col min-h-screen bg-white">
       {/* Main content area with improved spacing */}
@@ -58,6 +63,7 @@ export default function HomePage() {
               <TypingSlogan />
             </div>
             
+            
             <div className="w-full">
 
              
@@ -67,10 +73,18 @@ export default function HomePage() {
                 <span className="text-xl md:text-2xl text-gray-600 font-normal">cloudy</span>
               </div> */}
 
-              <WeatherNow />
+              
 
-              <div className="divide-y divide-black">
-                {[
+              {weather && (
+  <>
+                  <WeatherDisplay />
+                  <HourlyForecast forecast={weather.forecast} />
+                </>
+)}
+
+
+              {/* <div className="divide-y divide-black"> */}
+                {/* {[
                   { time: '09:00', temp: '24°', desc: 'sunny' },
                   { time: '10:00', temp: '24°', desc: 'sunny' },
                   { time: '11:00', temp: '24°', desc: 'sunny' },
@@ -83,8 +97,10 @@ export default function HomePage() {
                       <span className="text-gray-600">{hour.desc}</span>
                     </span>
                   </div>
-                ))}
-              </div>
+                ))} */}
+
+                
+              {/* </div> */}
             </div>
           </div>
         </div>
