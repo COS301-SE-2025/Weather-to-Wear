@@ -8,21 +8,25 @@ import imageUploads from './modules/closet/imageUpload';
 dotenv.config();
 
 const app = express();
+app.use(express.static(path.join(__dirname, '../public')));
+
 
 // full cors config:
-app.use(cors({
-  origin: ['http://127.0.0.1:5500', 'http://localhost:5500'], // include both forms
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
-}));
+// app.use(cors({
+//   origin: ['http://127.0.0.1:5500', 'http://localhost:5500'], // include both forms
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type'],
+//   credentials: true
+// }));
+
+app.use(cors());
+
 
 // handle preflight requests
 // app.options('*', cors());
 
 
 
-app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
