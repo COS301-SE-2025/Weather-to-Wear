@@ -4,30 +4,30 @@ import ClosetTabs from "../components/ClosetTabs";
 
 // Mock data with specific images
 const mockItems = [
-  { id: 1, name: "Shirt", image: "../images/shirt.jpg", favorite: false },
-  { id: 2, name: "Jeans", image: "/images/jeans.jpg", favorite: false },
-  { id: 3, name: "Jacket", image: "/images/jacket.jpg", favorite: false },
-  { id: 4, name: "Shoes", image: "/images/shoes.jpg", favorite: false },
-  { id: 5, name: "Shirt", image: "/images/shirt2.jpg", favorite: false },
-  { id: 6, name: "Skirt", image: "/images/skirt.jpg", favorite: false },
+  { id: 1, name: "Shirt", image: "../images/shirt.jpg", favorite: false, category: "Shirts" },
+  { id: 2, name: "Jeans", image: "/images/jeans.jpg", favorite: false, category: "Pants" },
+  { id: 3, name: "Jacket", image: "/images/jacket.jpg", favorite: false, category: "Jackets" },
+  { id: 4, name: "Shoes", image: "/images/shoes.jpg", favorite: false, category: "Shoes" },
+  { id: 5, name: "Shirt", image: "/images/shirt2.jpg", favorite: false, category: "Shirts" },
+  { id: 6, name: "Skirt", image: "/images/skirt.jpg", favorite: false, category: "Pants" },
 ];
 
 const mockOutfits = [
-  { id: 1, name: "Casual Look", image: "/images/image1.jpg", favorite: false },
-  { id: 2, name: "Formal Look", image: "/images/image2.jpg", favorite: false },
-  { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false },
-  { id: 4, name: "Casual Look", image: "/images/image4.jpg", favorite: false },
-  { id: 5, name: "Sporty Look", image: "/images/image5.jpg", favorite: false },
-  { id: 6, name: "Party Look", image: "/images/image6.jpg", favorite: false },
+  { id: 1, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
+  { id: 2, name: "Formal Look", image: "/images/image2.jpg", favorite: false, category: "Formal" },
+  { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
+  { id: 4, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
+  { id: 5, name: "Sporty Look", image: "/images/image5.jpg", favorite: false, category: "Sporty" },
+  { id: 6, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
 ];
 
 const mockFavourites = [
-  { id: 1, name: "Fav Shirt", image: "/images/shirt2.jpg", favorite: false },
-  { id: 2, name: "Fav Jeans", image: "/images/image6.jpg", favorite: false },
-  { id: 3, name: "Fav Jacket", image: "/images/shoes.jpg", favorite: false },
-  { id: 4, name: "Fav Shoes", image: "/images/jacket.jpg", favorite: false },
-  { id: 5, name: "Fav Hat", image: "/images/image2.jpg", favorite: false },
-  { id: 6, name: "Fav Scarf", image: "/images/image1.jpg", favorite: false },
+  { id: 1, name: "Fav Shirt", image: "/images/shirt2.jpg", favorite: false, category: "Shirts" },
+  { id: 2, name: "Fav Jeans", image: "/images/image6.jpg", favorite: false, category: "Pants" },
+  { id: 3, name: "Fav Jacket", image: "/images/shoes.jpg", favorite: false, category: "Jackets" },
+  { id: 4, name: "Fav Shoes", image: "/images/jacket.jpg", favorite: false, category: "Shoes" },
+  { id: 5, name: "Fav Hat", image: "/images/image2.jpg", favorite: false, category: "Formal" },
+  { id: 6, name: "Fav Scarf", image: "/images/image1.jpg", favorite: false, category: "Casual" },
 ];
 
 const ClosetPage = () => {
@@ -35,6 +35,7 @@ const ClosetPage = () => {
   const [items, setItems] = useState(mockItems);
   const [outfits, setOutfits] = useState(mockOutfits);
   const [favourites, setFavourites] = useState(mockFavourites);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const toggleFavorite = (id: number, tab: string) => {
     if (tab === "items") {
@@ -58,6 +59,19 @@ const ClosetPage = () => {
     }
   };
 
+  const removeItem = (id: number, tab: string) => {
+    // Add confirmation prompt
+    if (window.confirm("Are you sure you want to remove this item?")) {
+      if (tab === "items") {
+        setItems(items.filter((item) => item.id !== id));
+      } else if (tab === "outfits") {
+        setOutfits(outfits.filter((item) => item.id !== id));
+      } else if (tab === "favourites") {
+        setFavourites(favourites.filter((item) => item.id !== id));
+      }
+    }
+  };
+
   // Get the current tab's data based on activeTab
   const currentData =
     activeTab === "items"
@@ -71,16 +85,17 @@ const ClosetPage = () => {
       <h1 className="text-3xl font-bold text-center mb-6 text-gray-900">My Closet</h1>
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {["Shirts", "Pants", "Shoes", "Jackets"].map(
-          (category, index) => (
-            <button
-              key={index}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors"
-            >
-              {category}
-            </button>
-          )
-        )}
+        {["Shirts", "Pants", "Shoes", "Jackets"].map((category, index) => (
+          <button
+            key={index}
+            className={`px-4 py-2 text-gray-700 rounded-full text-sm font-medium transition-colors ${
+              activeCategory === category ? "bg-gray-400" : "bg-gray-200 hover:bg-gray-300"
+            }`}
+            onClick={() => setActiveCategory(category)}
+          >
+            {category}
+          </button>
+        ))}
       </div>
 
       <div className="relative mb-6">
@@ -104,7 +119,10 @@ const ClosetPage = () => {
                 alt={item.name}
                 className="w-full h-full object-cover"
               />
-              <button className="absolute top-2 right-2 bg-white rounded-full p-1 shadow">
+              <button
+                onClick={() => removeItem(item.id, activeTab)}
+                className="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
+              >
                 <X className="h-4 w-4 text-gray-600" />
               </button>
             </div>
