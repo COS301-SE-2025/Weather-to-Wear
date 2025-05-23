@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Plus, Menu, X, Home, Calendar, Shirt, Users, User } from "lucide-react";
+import { Plus, Home, Calendar, Shirt, Users, User } from "lucide-react";
 
 const NavBar = () => {
   const location = useLocation();
@@ -8,7 +8,6 @@ const NavBar = () => {
   const currentPath = location.pathname;
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   const isActive = (path: string) => {
@@ -17,17 +16,14 @@ const NavBar = () => {
   };
 
   const toggleMenu = () => setMenuOpen((open) => !open);
-  const toggleMobileMenu = () => setMobileMenuOpen((open) => !open);
 
   useEffect(() => {
     setMenuOpen(false);
-    setMobileMenuOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
-      if (window.innerWidth >= 1024) setMobileMenuOpen(false);
     };
 
     window.addEventListener("resize", handleResize);
@@ -48,8 +44,8 @@ const NavBar = () => {
               </h1>
             </div>
 
-            {/* Mobile Profile + Logout */}
-            {isMobile && (
+            {/* Profile + Logout */}
+            {isMobile ? (
               <div className="flex items-center gap-2">
                 <Link to="/profile">
                   <div className="w-8 h-8 flex items-center justify-center rounded-full border border-white cursor-pointer">
@@ -63,16 +59,21 @@ const NavBar = () => {
                   log out
                 </button>
               </div>
+            ) : (
+              <div className="flex items-center gap-3 ml-4">
+                <Link to="/profile">
+                  <div className="w-8 h-8 flex items-center justify-center rounded-full border border-black cursor-pointer">
+                    <User className="text-black w-5 h-5" />
+                  </div>
+                </Link>
+                <button
+                  onClick={() => navigate("/login")}
+                  className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic"
+                >
+                  log out
+                </button>
+              </div>
             )}
-
-            {/* Mobile Menu Toggle */}
-            <button
-              className="lg:hidden text-white absolute right-4"
-              onClick={toggleMobileMenu}
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
           </div>
         </div>
 
@@ -96,21 +97,6 @@ const NavBar = () => {
                 <span className="font-livvic">feed</span>
               </Link>
             </div>
-
-            {/* Right - Profile & Logout */}
-            <div className="flex items-center gap-3 ml-4">
-              <Link to="/profile">
-                <div className="w-8 h-8 flex items-center justify-center rounded-full border border-black cursor-pointer">
-                  <User className="text-black w-5 h-5" />
-                </div>
-              </Link>
-              <button
-                onClick={() => navigate("/login")}
-                className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic"
-              >
-                log out
-              </button>
-            </div>
           </div>
 
           {/* Desktop Popup Menu */}
@@ -129,7 +115,7 @@ const NavBar = () => {
         {isMobile && (
           <div className="lg:hidden bg-white py-2 px-4">
             <div className="w-full max-w-xs mx-auto bg-black rounded-full flex items-center justify-center gap-x-4 p-1">
-              <Link to="/" className={`flex items-center justify-center p-2 rounded-full transition-colors ${currentPath === "/" ? "bg-[#3F978F]" : "hover:bg-[#304946]"}`}>
+              <Link to="/dashboard" className={`flex items-center justify-center p-2 rounded-full transition-colors ${currentPath === "/dashboard" ? "bg-[#3F978F]" : "hover:bg-[#304946]"}`}>
                 <Home className="w-5 h-5 text-white" />
               </Link>
               <Link to="/closet" className={`flex items-center justify-center p-2 rounded-full transition-colors ${currentPath === "/closet" ? "bg-[#3F978F]" : "hover:bg-[#304946]"}`}>
