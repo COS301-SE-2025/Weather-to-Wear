@@ -1,15 +1,36 @@
-import app from './app';
+// import app from './app';
 
+// const PORT = process.env.PORT || 5001;
+
+// try {
+//   app.listen(PORT, () => {
+//     console.log(`Server running on port ${PORT}`);
+//   });
+// } catch (err) {
+//   console.error('Failed to start server:', err);
+// }
+
+// process.on('unhandledRejection', (reason, promise) => {
+//   console.error('Unhandled Promise Rejection:', reason);
+// });
+
+
+
+
+import app from './app';
+import cors from 'cors';
 const PORT = process.env.PORT || 5001;
+
+app.use(cors());
 
 try {
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on PORT ${PORT}`);
   });
 } catch (err) {
   console.error('Failed to start server:', err);
 }
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Promise Rejection:', reason);
+  console.error('Unhandled Promise Rejection:', reason);
 });
