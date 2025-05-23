@@ -24,19 +24,20 @@
 
 // export default router;
 
-import express, { Request } from 'express';
+//-----------------------------------------------------------
+// auth.routes.ts
+//-----------------------------------------------------------
+import express from 'express';
 import { signup, login, deleteUser } from './auth.controller';
 import { authenticateToken } from './auth.middleware';
+import { AuthenticatedRequest } from './auth.types'; 
 
 const router = express.Router();
 
-interface AuthenticatedRequest extends Request {
-  user?: any;
-}
-
 router.post('/signup', signup);
-router.post('/login', login); 
-router.delete('/users/:id', authenticateToken, deleteUser);  // Changed from POST to DELETE
+router.post('/login', login);
+
+router.delete('/users/:id', authenticateToken, deleteUser);
 
 router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res) => {
   res.status(200).json({
