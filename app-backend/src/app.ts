@@ -1,16 +1,16 @@
-//-----------------------------------------------------
-//app.ts
-//-----------------------------------------------------
 import express from 'express';
-import dotenv from 'dotenv';
+import cors from 'cors';
+import bodyParser from 'body-parser';
 import authRoutes from './modules/auth/auth.routes';
-
-dotenv.config();
+import clothingRoutes from './modules/clothing/clothing.routes';
 
 const app = express();
-app.use(express.json());
+app.use(cors());
+app.use(bodyParser.json());
 
-// Routes
+// existing auth
 app.use('/api/auth', authRoutes);
+// new clothing endpoint
+app.use('/api/clothing', clothingRoutes);
 
 export default app;

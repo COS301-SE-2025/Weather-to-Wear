@@ -1,18 +1,12 @@
-//-----------------------------------------------------
-// server.ts
-// -----------------------------------------------------
+import 'dotenv/config';
 import app from './app';
 
-const PORT = process.env.PORT || 5001;
+const PORT = Number(process.env.PORT) || 5000;
 
-try {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-} catch (err) {
-  console.error('Failed to start server:', err);
-}
+app.listen(PORT, () => {
+  console.log(`🚀 Server listening on http://localhost:${PORT}`);
+});
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Promise Rejection:', reason);
 });
