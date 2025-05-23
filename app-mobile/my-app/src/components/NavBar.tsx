@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Plus, Home, Calendar, Shirt, Users } from "lucide-react";
+import { Plus, Home, Calendar, Shirt, Users, User } from "lucide-react";
 
 const NavBar = () => {
   const location = useLocation();
@@ -36,14 +36,36 @@ const NavBar = () => {
       <div className="fixed top-0 left-0 w-full bg-white z-50">
         {/* Top Banner */}
         <div className="bg-black text-white py-2 px-4">
-          <div className="max-w-screen-xl mx-auto flex items-center justify-center relative">
-            <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Weather2Wear logo" className="h-10 w-auto" />
-              <h1 className="text-2xl md:text-4xl font-bodoni font-extrabold tracking-wide">
-                Weather2Wear
-              </h1>
-            </div>
-          </div>
+
+
+<div className="max-w-screen-xl mx-auto flex items-center justify-between">
+  {/* Logo & Title */}
+  <div className="flex items-center gap-4">
+    <img src="/logo.png" alt="Weather2Wear logo" className="h-10 w-auto" />
+    <h1 className="text-2xl md:text-4xl font-bodoni font-extrabold tracking-wide">
+      Weather2Wear
+    </h1>
+  </div>
+
+  {/* Mobile Profile & Logout (only shows if isMobile) */}
+{isMobile && (
+  <div className="flex items-center gap-2">
+    <Link to="/profile">
+      <div className="w-8 h-8 flex items-center justify-center rounded-full border border-white cursor-pointer">
+        <User className="text-white w-5 h-5" />
+      </div>
+    </Link>
+    <button className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm">
+      log out
+    </button>
+  </div>
+)}
+
+</div>
+
+
+
+
         </div>
 
         {/* Desktop Nav Bar */}
@@ -94,13 +116,12 @@ const NavBar = () => {
 
             {/* Right - Logout Button */}
             <div className="flex items-center gap-3 ml-4">
-              <Link to="/profile">
-                <img
-                  src="/profile.png"
-                  alt="Profile"
-                  className="w-8 h-8 rounded-full object-cover border border-black cursor-pointer"
-                />
-              </Link>
+<Link to="/profile">
+  <div className="w-8 h-8 flex items-center justify-center rounded-full border border-black cursor-pointer">
+    <User className="text-black w-5 h-5" />
+  </div>
+</Link>
+
               <button className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic">
                 log out
               </button>

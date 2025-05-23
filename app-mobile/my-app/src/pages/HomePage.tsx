@@ -35,7 +35,7 @@ const TypingSlogan = () => {
   const afterSimple = displayText.slice(simpleStart + 7);
 
   return (
-    <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-6 md:mb-10 font-bodoni tracking-wide text-left w-full">
+    <h2 className="text-5xl md:text-5xl lg:text-6xl font-bold mb-6 md:mb-10 font-bodoni tracking-wide text-left w-full">
       {beforeSimple}
       <span style={{ color: '#3F978F' }}>{simplePart}</span>
       {afterSimple}
@@ -47,12 +47,13 @@ const TypingSlogan = () => {
 export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      {/* Main content area with adjusted spacing */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-4 md:gap-8 mt-24 pb-8"> {/* Reduced mt-20 to mt-16 */}
+      {/* Main content area with improved spacing */}
+      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-8 mt-24 md:mt-20">
+        
         {/* Left Weather Section */}
-        <div className="w-full lg:w-1/3 flex flex-col items-center">
+        <div className="w-full lg:w-1/3 flex flex-col items-center mb-8 lg:mb-0">
           <div className="w-full max-w-[280px]">
-            <div className="h-[4rem] md:h-[5rem] lg:h-[5.5rem] w-full flex items-end"> {/* Reduced height */}
+            <div className="h-[4rem] md:h-[5rem] lg:h-[5.5rem] w-full flex items-end">
               <TypingSlogan />
             </div>
             
@@ -84,34 +85,32 @@ export default function HomePage() {
         </div>
 
         {/* Center Image Section */}
-        <div className="w-full lg:w-1/3 flex justify-center items-center lg:-mt-32"> {/* Reduced from -mt-40 to -mt-32 */}
-          <div className="w-full h-[280px] md:h-[380px] lg:h-[480px] max-w-[280px] md:max-w-[350px] lg:max-w-[400px] flex items-center justify-center bg-gray-200 rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
-            <img 
-              src="/outfit.jpg" 
-              alt="Selected outfit" 
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-outfit.jpg';
-                e.currentTarget.alt = 'Outfit placeholder';
-              }}
-            />
-          </div>
+        <div className="w-full lg:w-1/3 flex justify-center items-center mb-8 lg:mb-0 lg:-mt-32">
+<div className="w-full max-w-xs sm:max-w-sm md:max-w-[350px] lg:max-w-[400px] bg-gray-200 rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
+  <img 
+    src="/outfit.jpg" 
+    alt="Selected outfit" 
+    className="w-full h-auto object-contain aspect-[3/4]" // Custom ratio like portrait
+    onError={(e) => {
+      e.currentTarget.src = '/placeholder-outfit.jpg';
+      e.currentTarget.alt = 'Outfit placeholder';
+    }}
+  />
+</div>
+
         </div>
 
-   
+        {/* Right Events Section */}
+        <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-10">
+          <div className="relative w-full max-w-[280px]">
+            {/* Arch Border */}
+            <div className="absolute inset-0 border border-black rounded-tl-full rounded-tr-full h-full -top-[4%] pointer-events-none"></div>
 
-
-        {/* Right Events Section - Positioned Higher */}
-<div className="w-full lg:w-1/3 flex justify-center -mt-10">
-  <div className="relative w-full max-w-[280px]">
-    {/* Arch Border - Starts higher */}
-    <div className="absolute inset-0 border border-black rounded-tl-full rounded-tr-full h-[100%] -top-[4%] pointer-events-none"></div>
-
-    {/* Content Container - Adjusted padding */}
-    <div className="relative z-10 pt-10 pb-6 px-4">
-      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8">Upcoming Events</h2>
-      <div className="space-y-2 md:space-y-3">
-             {[
+            {/* Content */}
+            <div className="relative z-10 pt-10 pb-6 px-4">
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8">Upcoming Events</h2>
+              <div className="space-y-2 md:space-y-3">
+                {[
                   { date: '30 December', label: "Kyle's Birthday" },
                   { date: '21 May', label: '21st birthday' },
                   { date: '3 June', label: 'Random Day' },
@@ -125,12 +124,10 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))}
-      </div>
-    </div>
-  </div>
-</div>
-
-
+              </div>
+            </div>
+          </div>
+        </div>
         
       </div>
 
