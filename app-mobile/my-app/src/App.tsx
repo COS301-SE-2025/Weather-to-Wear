@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
 import UnderConstruction from "./pages/UnderConstruction"; // <-- import here
-import ClosetPage from "./pages/UnderConstruction";
+import ClosetPage from "./pages/ClosetPage";
 import AddPage from "./pages/UnderConstruction";
 import CalendarPage from "./pages/UnderConstruction";
 import FeedPage from "./pages/UnderConstruction";
