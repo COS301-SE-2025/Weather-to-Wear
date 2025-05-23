@@ -5,7 +5,7 @@ import UnderConstruction from "./pages/UnderConstruction"; // <-- import here
 import ClosetPage from "./pages/ClosetPage";
 import AddPage from "./pages/UnderConstruction";
 import CalendarPage from "./pages/UnderConstruction";
-import FeedPage from "./pages/UnderConstruction";
+import FeedPage from "./pages/FeedPage";
 
 function App() {
   return (

@@ -22,12 +22,12 @@ const mockOutfits = [
 ];
 
 const mockFavourites = [
-  { id: 1, name: "Fav Shirt", image: "/images/shirt2.jpg", favorite: false, category: "Shirts" },
-  { id: 2, name: "Fav Jeans", image: "/images/image6.jpg", favorite: false, category: "Pants" },
-  { id: 3, name: "Fav Jacket", image: "/images/shoes.jpg", favorite: false, category: "Jackets" },
-  { id: 4, name: "Fav Shoes", image: "/images/jacket.jpg", favorite: false, category: "Shoes" },
-  { id: 5, name: "Fav Hat", image: "/images/image2.jpg", favorite: false, category: "Formal" },
-  { id: 6, name: "Fav Scarf", image: "/images/image1.jpg", favorite: false, category: "Casual" },
+  { id: 1, name: "Shirt", image: "/images/shirt2.jpg", favorite: false, category: "Shirts" },
+  { id: 2, name: "Jeans", image: "/images/image6.jpg", favorite: false, category: "Pants" },
+  { id: 3, name: "Jacket", image: "/images/shoes.jpg", favorite: false, category: "Jackets" },
+  { id: 4, name: "Shoes", image: "/images/jacket.jpg", favorite: false, category: "Shoes" },
+  { id: 5, name: "Formal Outift", image: "/images/image2.jpg", favorite: false, category: "Formal" },
+  { id: 6, name: "Casual Outfit", image: "/images/image1.jpg", favorite: false, category: "Casual" },
 ];
 
 const ClosetPage = () => {
@@ -36,6 +36,12 @@ const ClosetPage = () => {
   const [outfits, setOutfits] = useState(mockOutfits);
   const [favourites, setFavourites] = useState(mockFavourites);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false); // Control modal visibility
+  const [itemToRemove, setItemToRemove] = useState<{
+    id: number;
+    tab: string;
+    name: string;
+  } | null>(null); // Track item to remove
 
   const toggleFavorite = (id: number, tab: string) => {
     if (tab === "items") {
@@ -59,9 +65,14 @@ const ClosetPage = () => {
     }
   };
 
-  const removeItem = (id: number, tab: string) => {
-    // Add confirmation prompt
-    if (window.confirm("Are you sure you want to remove this item?")) {
+  const handleRemoveClick = (id: number, tab: string, name: string) => {
+    setItemToRemove({ id, tab, name }); // Store item details
+    setShowModal(true); // Show the modal
+  };
+
+  const confirmRemove = () => {
+    if (itemToRemove) {
+      const { id, tab } = itemToRemove;
       if (tab === "items") {
         setItems(items.filter((item) => item.id !== id));
       } else if (tab === "outfits") {
@@ -70,6 +81,13 @@ const ClosetPage = () => {
         setFavourites(favourites.filter((item) => item.id !== id));
       }
     }
+    setShowModal(false); // Close the modal
+    setItemToRemove(null); // Clear the item to remove
+  };
+
+  const cancelRemove = () => {
+    setShowModal(false); // Close the modal
+    setItemToRemove(null); // Clear the item to remove
   };
 
   // Get the current tab's data based on activeTab
@@ -120,7 +138,7 @@ const ClosetPage = () => {
                 className="w-full h-full object-cover"
               />
               <button
-                onClick={() => removeItem(item.id, activeTab)}
+                onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
                 className="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
               >
                 <X className="h-4 w-4 text-gray-600" />
@@ -142,6 +160,31 @@ const ClosetPage = () => {
           </div>
         ))}
       </div>
+
+      {/* Custom Pop-up Modal */}
+      {showModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Are you sure you want to remove "{itemToRemove?.name}"?
+            </h2>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelRemove}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemove}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
