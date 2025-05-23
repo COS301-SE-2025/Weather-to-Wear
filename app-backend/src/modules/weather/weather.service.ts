@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { WeatherData } from './weather.interface';
+import { WeatherData, HourlyForecast } from './weather.interface';
 import dotenv from 'dotenv';
 import logger from '../../utils/logger';
 
@@ -7,38 +7,11 @@ dotenv.config();
 
 interface IPApiResponse {
   city: string;
-  country: string;
-  regionName: string;
   lat: number;
   lon: number;
   [key: string]: any;
 }
 
-interface FreeWeatherAPIResponse {
-  location: {
-    name: string;
-  };
-  current: {
-    temp_c: number;
-    condition: {
-      text: string;
-      icon: string;
-    };
-  };
-}
-
-interface OpenWeatherMapResponse {
-  name: string;
-  main: {
-    temp: number;
-  };
-  weather: {
-    description: string;
-    icon: string;
-  }[];
-}
-
-// try get user location via IP. if fail return empty string for manual input
 async function detectUserLocation(): Promise<string> {
   try {
     const response = await axios.get<IPApiResponse>('http://ip-api.com/json');
@@ -55,8 +28,6 @@ async function detectUserLocation(): Promise<string> {
   return '';
 }
 
-// public - fetch weather based on location. 
-// automatically detect location if none is passed
 export async function getWeatherByLocation(manualLocation?: string): Promise<WeatherData> {
   const location = manualLocation || await detectUserLocation();
 
@@ -73,28 +44,44 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
   throw new Error('Both weather services failed. Please try again later.');
 }
 
-
+// --- FreeWeatherAPI Integration ---
 async function fetchFromFreeWeatherAPI(location: string): Promise<WeatherData | null> {
   try {
     const apiKey = process.env.FREE_WEATHER_API_KEY;
     const baseUrl = process.env.FREE_WEATHER_API_URL;
 
-    const response = await axios.get<FreeWeatherAPIResponse>(baseUrl!, {
+    const response = await axios.get<any>(baseUrl!, {
       params: {
         key: apiKey,
         q: location,
-      },
+        days: 1,
+        aqi: 'no',
+        alerts: 'no'
+      }
     });
 
-    const data = response.data;
+    const forecastHours = response.data.forecast.forecastday[0].hour;
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    const selected: HourlyForecast[] = forecastHours
+      .filter((h: any) => {
+        const hourTime = new Date(h.time);
+        return hourTime >= now && hourTime <= new Date(now.getTime() + 6 * 60 * 60 * 1000);
+      })
+      .map((h: any) => ({
+        time: h.time,
+        temperature: h.temp_c,
+        description: h.condition.text,
+        icon: h.condition.icon
+      }));
 
     return {
-      location: data.location.name,
-      temperature: data.current.temp_c,
-      description: data.current.condition.text,
-      icon: data.current.condition.icon,
-      source: 'FreeWeatherAPI',
+      location: response.data.location.name,
+      forecast: selected,
+      source: 'FreeWeatherAPI'
     };
+
   } catch (err) {
     if (err instanceof Error) {
       logger.warn(`Free Weather API failed: ${err.message}`);
@@ -105,28 +92,49 @@ async function fetchFromFreeWeatherAPI(location: string): Promise<WeatherData | 
   }
 }
 
+// --- OpenWeatherMap Integration ---
 async function fetchFromOpenWeatherMap(location: string): Promise<WeatherData | null> {
   try {
-    const apiKey = process.env.OPENWEATHER_API_KEY;
-    const baseUrl = process.env.OPENWEATHER_API_URL;
-
-    const response = await axios.get<OpenWeatherMapResponse>(baseUrl!, {
+    // Step 1: Get coordinates for the location
+    const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
       params: {
         q: location,
-        appid: apiKey,
-        units: 'metric', // important for celsius
-      },
+        appid: process.env.OPENWEATHER_API_KEY
+      }
     });
 
-    const data = response.data;
+    if (!geoRes.data.length) throw new Error('Geo lookup failed');
+    const { lat, lon, name } = geoRes.data[0];
+
+    // Step 2: Fetch forecast using 3-hour interval data
+    const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
+      params: {
+        lat,
+        lon,
+        appid: process.env.OPENWEATHER_API_KEY,
+        units: 'metric'
+      }
+    });
+
+    const now = new Date();
+
+    // Step 3: Get next 6 upcoming forecast points (3-hour intervals)
+    const upcoming: HourlyForecast[] = forecastRes.data.list
+      .filter((entry: any) => new Date(entry.dt * 1000) > now)
+      .slice(0, 6) // grab the next 6 entries
+      .map((entry: any) => ({
+        time: entry.dt_txt,
+        temperature: entry.main.temp,
+        description: entry.weather[0].description,
+        icon: `http://openweathermap.org/img/w/${entry.weather[0].icon}.png`
+      }));
 
     return {
-      location: data.name,
-      temperature: data.main.temp,
-      description: data.weather[0].description,
-      icon: `http://openweathermap.org/img/w/${data.weather[0].icon}.png`,
-      source: 'OpenWeatherMap',
+      location: name,
+      forecast: upcoming,
+      source: 'OpenWeatherMap'
     };
+
   } catch (err) {
     if (err instanceof Error) {
       logger.warn(`OpenWeatherMap fallback failed: ${err.message}`);
@@ -136,3 +144,4 @@ async function fetchFromOpenWeatherMap(location: string): Promise<WeatherData | 
     return null;
   }
 }
+

@@ -1,6 +1,15 @@
-version: '3.8'
-
 services:
+  backend:
+    build:
+      context: ./app-backend
+    container_name: weather-backend
+    ports:
+      - "5001:5000"
+    env_file:
+      - ./app-backend/.env
+    depends_on:
+      - db
+
   db:
     image: postgres:15
     restart: always
