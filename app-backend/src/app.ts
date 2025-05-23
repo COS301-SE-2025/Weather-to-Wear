@@ -1,13 +1,20 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 // for authentication
 import authRoutes from './modules/auth/auth.routes';
 // for weather API
 import weatherRoutes from './modules/weather/weather.routes';
 
+const app = express();
+
+// Apply CORS middleware globally before defining any routes
+app.use(cors());
+
 dotenv.config();
 
-const app = express();
+
+
 app.use(express.json());
 
 // Routes

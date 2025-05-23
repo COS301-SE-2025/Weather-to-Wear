@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "lucide-react": "^0.511.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.7"
+  }
+}

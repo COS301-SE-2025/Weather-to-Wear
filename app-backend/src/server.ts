@@ -1,6 +1,10 @@
 import app from './app';
+import cors from 'cors';
 
 const PORT = process.env.PORT || 5000
+
+
+app.use(cors());
 
 try {
   app.listen(PORT, () => {
