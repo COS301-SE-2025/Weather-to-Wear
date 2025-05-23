@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import TypingTitle from '../components/TypingTitle';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -20,41 +21,81 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Logo */}
       <div className="w-full lg:w-1/2 bg-black flex flex-col items-center justify-center p-6 sm:p-8">
-        <h1 className="text-white text-3xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center lg:text-left">
-          Weather2Wear
+        <h1 className="text-white text-4xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center lg:text-left">
+          <TypingTitle text="Weather2Wear" highlight="Wear" />
         </h1>
         <img src="/logo.png" alt="Logo" className="max-w-[200px] sm:max-w-[280px]" />
       </div>
 
-      {/* Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="w-full max-w-md">
-          <h2 className="text-2xl font-bold mb-6 text-center lg:text-left">Sign up</h2>
+<h2 className="text-3xl font-light mb-6 text-center lg:text-left">Sign up</h2>
 
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
-            <input name="firstName" placeholder="First Name" onChange={handleChange} className="w-full sm:w-1/2 px-4 py-2 rounded-full bg-gray-100" required />
-            <input name="lastName" placeholder="Last Name" onChange={handleChange} className="w-full sm:w-1/2 px-4 py-2 rounded-full bg-gray-100" required />
+            <input
+              name="firstName"
+              placeholder="First Name"
+              onChange={handleChange}
+              className="w-full sm:w-1/2 px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+            <input
+              name="lastName"
+              placeholder="Last Name"
+              onChange={handleChange}
+              className="w-full sm:w-1/2 px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
           </div>
 
-          <input name="username" placeholder="Username" onChange={handleChange} className="w-full mb-4 px-4 py-2 rounded-full bg-gray-100" required />
+          <input
+            name="username"
+            placeholder="Username"
+            onChange={handleChange}
+            className="w-full mb-4 px-4 py-2 rounded-full bg-white border border-black"
+            required
+          />
 
           <div className="relative mb-4">
-            <input type={showPassword ? "text" : "password"} name="password" placeholder="Password" onChange={handleChange} className="w-full px-4 py-2 rounded-full bg-gray-100" required />
-            <img src={showPassword ? "/eye_closed.png" : "/eye.png"} alt="Toggle" className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer" onClick={() => setShowPassword(!showPassword)} />
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              placeholder="Password"
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+            <img
+              src={showPassword ? "/eye_closed.png" : "/eye.png"}
+              alt="Toggle"
+              className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer"
+              onClick={() => setShowPassword(!showPassword)}
+            />
           </div>
 
           <div className="relative mb-4">
-            <input type={showConfirm ? "text" : "password"} name="confirmPassword" placeholder="Confirm Password" onChange={handleChange} className="w-full px-4 py-2 rounded-full bg-gray-100" required />
-            <img src={showConfirm ? "/eye_closed.png" : "/eye.png"} alt="Toggle" className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer" onClick={() => setShowConfirm(!showConfirm)} />
+            <input
+              type={showConfirm ? "text" : "password"}
+              name="confirmPassword"
+              placeholder="Confirm Password"
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+            <img
+              src={showConfirm ? "/eye_closed.png" : "/eye.png"}
+              alt="Toggle"
+              className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer"
+              onClick={() => setShowConfirm(!showConfirm)}
+            />
           </div>
 
           <div className="relative mb-6">
             <select
               name="age"
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-full bg-gray-100 appearance-none pr-10"
+              className="w-full px-4 py-2 rounded-full bg-white border border-black appearance-none pr-10"
               required
             >
               <option value="">Age</option>
@@ -65,7 +106,10 @@ export default function Signup() {
             <img src="/arrow.png" alt="Arrow" className="w-4 h-4 absolute top-3.5 right-4 pointer-events-none" />
           </div>
 
-          <button type="submit" className="w-full bg-[#3F978F] text-white py-2 rounded-full mb-2">
+          <button
+            type="submit"
+            className="w-full bg-[#3F978F] hover:bg-[#2c716c] text-white py-2 rounded-full mb-2 transition-colors duration-200"
+          >
             Sign up
           </button>
 
