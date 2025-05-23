@@ -11,7 +11,6 @@ model User {
   name     String
   email    String   @unique
   password String
-
 } 
 
 model ClothingImage {
@@ -19,6 +18,14 @@ model ClothingImage {
   filename  String
   mimetype  String
   imageData Bytes
-  category  String   // "shirt", "pants", etc.
+  category  String  
   createdAt DateTime @default(now())
 }
+
+model ClothingItem {
+  id          Int      @id @default(autoincrement())
+  category    String
+  imageBytes  Bytes
+  createdAt   DateTime @default(now())
+}
+
