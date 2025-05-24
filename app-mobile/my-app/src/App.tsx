@@ -7,7 +7,7 @@ import ClosetPage from "./pages/ClosetPage";
 import AddPage from "./pages/UnderConstruction";
 import CalendarPage from "./pages/UnderConstruction";
 import FeedPage from "./pages/FeedPage";
-import ProfilePage from "./pages/UnderConstruction";
+import ProfilePage from "./pages/Profile";
 import CreateAnOutfit from "./pages/UnderConstruction";
 import Post from "./pages/Post";
 import UnderConstruction from "./pages/UnderConstruction";
