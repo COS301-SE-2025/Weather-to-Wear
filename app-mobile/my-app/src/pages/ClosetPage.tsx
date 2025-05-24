@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Heart, Search, X } from "lucide-react";
 import ClosetTabs from "../components/ClosetTabs";
 
+// Mock data with unique IDs across all tabs
 const mockItems = [
   { id: 1, name: "Shirt", image: "../images/shirt.jpg", favorite: false, category: "Shirts" },
   { id: 2, name: "Jeans", image: "/images/jeans.jpg", favorite: false, category: "Pants" },
@@ -12,22 +13,16 @@ const mockItems = [
 ];
 
 const mockOutfits = [
-  { id: 1, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
-  { id: 2, name: "Formal Look", image: "/images/image2.jpg", favorite: false, category: "Formal" },
-  { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
-  { id: 4, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
-  { id: 5, name: "Sporty Look", image: "/images/image5.jpg", favorite: false, category: "Sporty" },
-  { id: 6, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
+  { id: 101, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
+  { id: 102, name: "Formal Look", image: "/images/image2.jpg", favorite: false, category: "Formal" },
+  { id: 103, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
+  { id: 104, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
+  { id: 105, name: "Sporty Look", image: "/images/image5.jpg", favorite: false, category: "Sporty" },
+  { id: 106, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
 ];
 
-const mockFavourites = [
-  { id: 1, name: "Shirt", image: "/images/shirt2.jpg", favorite: false, category: "Shirts" },
-  { id: 2, name: "Jeans", image: "/images/image6.jpg", favorite: false, category: "Pants" },
-  { id: 3, name: "Jacket", image: "/images/shoes.jpg", favorite: false, category: "Jackets" },
-  { id: 4, name: "Shoes", image: "/images/jacket.jpg", favorite: false, category: "Shoes" },
-  { id: 5, name: "Formal Outfit", image: "/images/image2.jpg", favorite: false, category: "Formal" },
-  { id: 6, name: "Casual Outfit", image: "/images/image1.jpg", favorite: false, category: "Casual" },
-];
+// Start with an empty favourites array, as items will be added dynamically
+const mockFavourites: { id: number; name: string; image: string; favorite: boolean; category: string }[] = [];
 
 const ClosetPage = () => {
   const [activeTab, setActiveTab] = useState("items");
@@ -40,12 +35,55 @@ const ClosetPage = () => {
   const [itemToRemove, setItemToRemove] = useState<{ id: number; tab: string; name: string } | null>(null);
 
   const toggleFavorite = (id: number, tab: string) => {
-    const updateFn = (data: any[], setter: (val: any[]) => void) =>
-      setter(data.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item)));
+    // Helper to update the favorite state in a given dataset
+    const updateFavorite = (data: any[], setter: (val: any[]) => void) => {
+      const updatedData = data.map((item) => {
+        if (item.id === id) {
+          const newFavorite = !item.favorite;
+          // If hearted in items or outfits, add to favourites
+          if (tab !== "favourites" && newFavorite) {
+            const existsInFavourites = favourites.some((fav) => fav.id === id);
+            if (!existsInFavourites) {
+              setFavourites([...favourites, { ...item, favorite: true }]);
+              console.log(`Added to favourites: ${item.name} (ID: ${id})`);
+            }
+          }
+          return { ...item, favorite: newFavorite };
+        }
+        return item;
+      });
+      setter(updatedData);
+    };
 
-    if (tab === "items") updateFn(items, setItems);
-    else if (tab === "outfits") updateFn(outfits, setOutfits);
-    else if (tab === "favourites") updateFn(favourites, setFavourites);
+    // Update favourites tab specifically
+    const updateFavourites = () => {
+      const updatedFavourites = favourites.map((item) => {
+        if (item.id === id) {
+          const newFavorite = !item.favorite;
+          // If unhearted in favourites, remove it
+          if (!newFavorite) {
+            setFavourites(favourites.filter((fav) => fav.id !== id));
+            console.log(`Removed from favourites: ${item.name} (ID: ${id})`);
+          }
+          return { ...item, favorite: newFavorite };
+        }
+        return item;
+      });
+      setFavourites(updatedFavourites);
+
+      // Also update the source tab (items or outfits) to reflect the unheart
+      if (tab === "favourites") {
+        if (items.some((item) => item.id === id)) {
+          updateFavorite(items, setItems);
+        } else if (outfits.some((item) => item.id === id)) {
+          updateFavorite(outfits, setOutfits);
+        }
+      }
+    };
+
+    if (tab === "items") updateFavorite(items, setItems);
+    else if (tab === "outfits") updateFavorite(outfits, setOutfits);
+    else if (tab === "favourites") updateFavourites();
   };
 
   const handleRemoveClick = (id: number, tab: string, name: string) => {
@@ -58,9 +96,23 @@ const ClosetPage = () => {
       const { id, tab } = itemToRemove;
       const filterOut = (data: any[]) => data.filter((item) => item.id !== id);
 
-      if (tab === "items") setItems(filterOut(items));
-      else if (tab === "outfits") setOutfits(filterOut(outfits));
-      else if (tab === "favourites") setFavourites(filterOut(favourites));
+      if (tab === "items") {
+        setItems(filterOut(items));
+        // Remove from favourites if present
+        setFavourites(favourites.filter((fav) => fav.id !== id));
+      } else if (tab === "outfits") {
+        setOutfits(filterOut(outfits));
+        // Remove from favourites if present
+        setFavourites(favourites.filter((fav) => fav.id !== id));
+      } else if (tab === "favourites") {
+        setFavourites(filterOut(favourites));
+        // Also update the source tab to reflect removal
+        if (items.some((item) => item.id === id)) {
+          setItems(filterOut(items));
+        } else if (outfits.some((item) => item.id === id)) {
+          setOutfits(filterOut(outfits));
+        }
+      }
     }
     setShowModal(false);
     setItemToRemove(null);
@@ -116,32 +168,30 @@ const ClosetPage = () => {
         />
       </div>
 
-      {/* Custom ClosetTabs with underline animation */}
-<div className="flex justify-center mb-6 gap-8">
-  {["items", "outfits", "favourites"].map((tab) => (
-    <button
-      key={tab}
-      onClick={() => setActiveTab(tab)}
-      className="relative pb-2 text-lg font-medium text-gray-700 hover:text-teal-600 transition-colors duration-300"
-    >
-      <span className={`${activeTab === tab ? "text-black" : ""}`}>
-        {tab.charAt(0).toUpperCase() + tab.slice(1)}
-      </span>
-      <span
-        className={`absolute left-0 bottom-0 h-[2px] bg-teal-500 transition-all duration-300 ${
-          activeTab === tab ? "w-full" : "w-0 group-hover:w-full"
-        }`}
-      />
-    </button>
-  ))}
-</div>
-
+      <div className="flex justify-center mb-6 gap-8">
+        {["items", "outfits", "favourites"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="relative pb-2 text-lg font-medium text-gray-700 hover:text-teal-600 transition-colors duration-300"
+          >
+            <span className={`${activeTab === tab ? "text-black" : ""}`}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </span>
+            <span
+              className={`absolute left-0 bottom-0 h-[2px] bg-teal-500 transition-all duration-300 ${
+                activeTab === tab ? "w-full" : "w-0 group-hover:w-full"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {getCurrentData().map((item) => (
           <div key={item.id} className="relative">
             <div className="bg-gray-200 h-48 rounded-lg overflow-hidden">
-<img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+              <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
               <button
                 onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
                 className="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
@@ -161,33 +211,29 @@ const ClosetPage = () => {
         ))}
       </div>
 
-{showModal && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-    <div className="bg-white rounded-2xl p-6 shadow-lg max-w-sm w-full">
-      <h2 className="text-center text-base font-normal text-gray-900 mb-6">
-        Are you sure you want to remove "{itemToRemove?.name}"?
-      </h2>
-      <div className="flex justify-center gap-4">
-        <button
-          onClick={cancelRemove}
-          className="px-4 py-2 border border-black text-black bg-white rounded-full hover:bg-black hover:text-white transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={confirmRemove}
-          className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-        >
-          Confirm
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-
-
-
+      {showModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-2xl p-6 shadow-lg max-w-sm w-full">
+            <h2 className="text-center text-base font-normal text-gray-900 mb-6">
+              Are you sure you want to remove "{itemToRemove?.name}"?
+            </h2>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={cancelRemove}
+                className="px-4 py-2 border border-black text-black bg-white rounded-full hover:bg-black hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemove}
+                className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
