@@ -1,5 +1,7 @@
 import { Heart } from "lucide-react";
 import { useState } from "react";
+import Footer from '../components/Footer';
+
 
 interface Post {
   id: number;
@@ -107,7 +109,9 @@ const FeedPage = () => {
           </div>
         ))}
       </div>
+
     </div>
+ 
   );
 };
 

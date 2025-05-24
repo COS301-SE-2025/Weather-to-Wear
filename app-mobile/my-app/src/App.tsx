@@ -14,6 +14,7 @@ import UnderConstruction from "./pages/UnderConstruction";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Footer from "./components/Footer";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
                 <Route path="post-to-feed" element={<Post />} />
                 <Route path="*" element={<UnderConstruction />} />
               </Routes>
+              <Footer />
             </>
           }
         />
