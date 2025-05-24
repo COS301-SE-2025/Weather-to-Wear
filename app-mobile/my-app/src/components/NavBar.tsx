@@ -16,6 +16,13 @@ const NavBar = () => {
 
   const toggleMenu = () => setMenuOpen((open) => !open);
 
+  const handleLogout = () => {
+    // Clear the token from local storage
+    localStorage.removeItem('token');
+    // Navigate to the login page
+    navigate("/login");
+  };
+
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
@@ -51,7 +58,7 @@ const NavBar = () => {
                   </div>
                 </Link>
                 <button
-                  onClick={() => navigate("/login")}
+                  onClick={handleLogout}
                   className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm"
                 >
                   log out
@@ -114,7 +121,7 @@ const NavBar = () => {
                 </div>
               </Link>
               <button
-                onClick={() => navigate("/login")}
+                onClick={handleLogout}
                 className="px-4 py-1 rounded-full border border-black text-black hover:bg-black hover:text-white transition-all font-livvic"
               >
                 log out
