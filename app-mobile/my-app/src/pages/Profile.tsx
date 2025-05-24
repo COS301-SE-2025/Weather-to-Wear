@@ -4,11 +4,11 @@ import { User, Settings, Camera, Edit, Mail, Phone, MapPin, Calendar } from "luc
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [userInfo, setUserInfo] = useState({
-    name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
+    name: "User Name",
+    email: "user@email.com",
     phone: "+1 (555) 123-4567",
-    location: "New York, NY",
-    joinDate: "January 2024",
+    location: "South Africa, SA",
+    joinDate: "May 2024",
   });
 
   const handleSave = () => {
