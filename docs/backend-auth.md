@@ -143,6 +143,8 @@ npx prisma studio
 npx prisma generate
 ```
 
+NOTE: For prototyping purposes, "npx dotenv -e .env.studio -- prisma db push" will be run in the terminal to create the database and tables without migrations. This is useful for quick iterations during development. ( Reason being that the migrations were giving errors.)
+
 NOTE: `npx prisma generate` in `app-backend` must be ran before any running the subsystem locally or using any testing.
 
 ---
