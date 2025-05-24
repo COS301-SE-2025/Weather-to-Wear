@@ -1,23 +1,45 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
+import { signupUser } from '../services/auth';
+import { useNavigate } from 'react-router-dom';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
-    firstName: '', lastName: '', username: '',
-    password: '', confirmPassword: '', age: ''
+    email: '', username: '', 
+    password: '', confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const navigate = useNavigate();
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert('Mock signup complete');
-  };
+  // const handleSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   alert('Mock signup complete');
+  // };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords don't match");
+    return;
+  }
+
+  try {
+    const res = await signupUser(formData.username, formData.email, formData.password);
+    localStorage.setItem('token', res.token);
+navigate('/dashboard');
+    // Optionally redirect or store token
+  } catch (err: any) {
+    alert(err.message);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">

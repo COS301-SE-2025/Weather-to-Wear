@@ -1,21 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
+import { loginUser } from '../services/auth';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username === 'user' && password === '1234') {
-      navigate('/dashboard');
-    } else {
-      alert('Invalid credentials');
-    }
-  };
+  // const handleLogin = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (username === 'user' && password === '1234') {
+  //     navigate('/dashboard');
+  //   } else {
+  //     alert('Invalid credentials');
+  //   }
+  // };
+
+  const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const res = await loginUser(email, password);
+    localStorage.setItem('token', res.token);
+    navigate('/dashboard');
+  } catch (err: any) {
+    alert(err.message);
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -32,9 +44,9 @@ export default function Login() {
 
           <input
             type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full mb-4 px-4 py-2 rounded-full bg-white border border-black"
             required
           />
