@@ -1,10 +1,14 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import path from 'path';
 // for authentication
 import authRoutes from './modules/auth/auth.routes';
 // for weather API
 import weatherRoutes from './modules/weather/weather.routes';
+// for image upload
+import closetRoutes from './modules/closet/closet.route';
+
 
 const app = express();
 
@@ -17,8 +21,16 @@ dotenv.config();
 
 app.use(express.json());
 
+// any request to /uploads/<filename> will serve the file
+app.use(
+    '/uploads',
+    express.static(path.join(__dirname, '..', 'uploads'))
+);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api/closet', closetRoutes);
+
 
 export default app;
