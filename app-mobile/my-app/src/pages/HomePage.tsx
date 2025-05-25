@@ -26,7 +26,7 @@ const StarRating = () => {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1"
+              strokeWidth="0.5"
               strokeLinecap="round"
               strokeLinejoin="round"
               className={`w-10 h-10 transition-transform duration-200 ease-in-out ${
@@ -60,7 +60,7 @@ const TypingSlogan = () => {
         setDisplayText(prev => prev + slogan[currentIndex]);
         setCurrentIndex(prev => prev + 1);
       } else if (!isDeleting && currentIndex === slogan.length) {
-        setTimeout(() => setIsDeleting(true), 2000);
+        setTimeout(() => setIsDeleting(true), 30000);
       } else if (isDeleting && currentIndex > 0) {
         setDisplayText(prev => prev.slice(0, -1));
         setCurrentIndex(prev => prev - 1);
@@ -176,7 +176,7 @@ export default function HomePage() {
 
             {/* Content */}
             <div className="relative z-10 pt-10 pb-6 px-4">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8">Upcoming Events</h2>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-livvic text-center mb-6 md:mb-8">Upcoming Events</h2>
               <div className="space-y-2 md:space-y-3">
                 {[
                   { date: '30 December', label: "Kyle's Birthday" },

@@ -16,13 +16,18 @@ const NavBar = () => {
 
   const toggleMenu = () => setMenuOpen((open) => !open);
 
-  const handleLogout = () => {
-    // Clear the token from local storage
-    localStorage.removeItem('token');
-    // Navigate to the login page
-    navigate("/login");
-  };
-
+// In NavBar component
+const handleLogout = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    // Clear the user-specific favorites
+    localStorage.removeItem(`closet-favs-${token}`);
+  }
+  // Clear the token
+  localStorage.removeItem('token');
+  // Navigate to login
+  navigate("/login");
+};
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);

@@ -14,7 +14,7 @@ const Footer = () => {
               Our Story
             </h3>
             <p className="text-gray-300 leading-relaxed max-w-md">
-              We created GitGood to simplify the daily challenge of choosing outfits. 
+              We created Weather2Wear to simplify the daily challenge of choosing outfits. 
               By curating styles based on live weather and personal taste, we aim to 
               make fashion both effortless and expressive — no more morning guesswork.
             </p>
