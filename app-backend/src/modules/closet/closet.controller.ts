@@ -66,7 +66,6 @@
 // export default new ClosetController();
 
 
-// src/modules/closet/closet.controller.ts
 import { RequestHandler } from 'express';
 import { Category } from '@prisma/client';
 import ClosetService from './closet.service';
@@ -74,25 +73,18 @@ import ClosetService from './closet.service';
 class ClosetController {
   uploadImage: RequestHandler = async (req, res, next) => {
     try {
-      const rawCat = (req.body.category as string || '').toUpperCase();
-
-      // 1. Validate that it's one of our enum values
-      if (!Object.values(Category).includes(rawCat as Category)) {
-        res.status(400).json({ message: `Invalid category: ${rawCat}` });
-        return;
-      }
-      const category = rawCat as Category;
-
-      // 2. Make sure Multer gave us a file
-      const file = req.file;
-      if (!file) {
-        res.status(400).json({ message: 'No file provided' });
-        return;
-      }
-
-      // 3. Delegate to the service
+      // validate...
+      const file = req.file!;
+      const category = req.body.category as Category;
       const item = await ClosetService.saveImage(file, category);
-      res.status(201).json(item);
+
+      // build a public URL for the front end
+      res.status(201).json({
+        id:       item.id,
+        category: item.category,
+        imageUrl: `/uploads/${item.filename}`,
+        createdAt:item.createdAt
+      });
     } catch (err) {
       next(err);
     }
@@ -100,13 +92,16 @@ class ClosetController {
 
   getByCategory: RequestHandler = async (req, res, next) => {
     try {
-      const rawCat = (req.params.category as string || '').toUpperCase();
-      if (!Object.values(Category).includes(rawCat as Category)) {
-        res.status(400).json({ message: `Invalid category: ${rawCat}` });
-        return;
-      }
-      const items = await ClosetService.getImagesByCategory(rawCat as Category);
-      res.status(200).json(items);
+      const category = req.params.category as Category;
+      const items = await ClosetService.getImagesByCategory(category);
+      res.status(200).json(
+        items.map(i => ({
+          id:       i.id,
+          category: i.category,
+          imageUrl: `/uploads/${i.filename}`,
+          createdAt:i.createdAt
+        }))
+      );
     } catch (err) {
       next(err);
     }
