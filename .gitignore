@@ -21,6 +21,7 @@ ios/Pods/
 .env.*.local
 docker-data/
 .env.prod
+.env.studio
 
 ### OS / IDE ###
 Thumbs.db
