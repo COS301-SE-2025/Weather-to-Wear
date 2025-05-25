@@ -7,13 +7,18 @@ const NavBar = () => {
   const navigate = useNavigate();
   const currentPath = location.pathname;
 
+  const isAddRoute =
+  currentPath === "/add" ||
+  currentPath === "/add-item" ||          
+  currentPath.startsWith("/add/") ||
+  currentPath === "/create-outfit" ||
+  currentPath === "/post-to-feed";
+
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
-  const isActive = (path: string) => {
-    return currentPath === path;
-  };
-
+  const isActive = (path: string) => currentPath === path;
   const toggleMenu = () => setMenuOpen((open) => !open);
 
   useEffect(() => {
@@ -21,9 +26,7 @@ const NavBar = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -81,13 +84,20 @@ const NavBar = () => {
               >
                 <span className="font-livvic">closet</span>
               </Link>
+
+              {/* Plus button – teal if on an add-related page */}
               <button
                 onClick={toggleMenu}
-                className="flex items-center justify-center p-1 bg-white rounded-full w-8 h-8"
+                className={`flex items-center justify-center p-1 rounded-full w-8 h-8 transition-colors ${
+                  isAddRoute
+                    ? "bg-[#3F978F] text-white hover:bg-[#3F978F]"
+                    : "bg-white text-black hover:bg-[#304946]"
+                }`}
                 aria-label="Add options"
               >
-                <Plus size={20} className="text-black" />
+                <Plus size={20} />
               </button>
+
               <Link
                 to="/calendar"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
@@ -126,13 +136,25 @@ const NavBar = () => {
           <div className="w-full">
             <div className="max-w-screen-xl mx-auto flex justify-center items-center min-h-[0.5rem]">
               <div className={`${menuOpen ? "flex" : "hidden"} gap-6`}>
-                <Link to="/add" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-black text-sm font-livvic hover:underline">
+                <Link
+                  to="/add"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-black text-sm font-livvic hover:underline"
+                >
                   add to closet
                 </Link>
-                <Link to="/create-outfit" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-black text-sm font-livvic hover:underline">
+                <Link
+                  to="/create-outfit"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-black text-sm font-livvic hover:underline"
+                >
                   create an outfit
                 </Link>
-                <Link to="/post-to-feed" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-black text-sm font-livvic hover:underline">
+                <Link
+                  to="/post-to-feed"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-black text-sm font-livvic hover:underline"
+                >
                   post to feed
                 </Link>
               </div>
@@ -147,7 +169,9 @@ const NavBar = () => {
               <Link
                 to="/dashboard"
                 className={`flex items-center justify-center p-2 rounded-full transition-colors ${
-                  currentPath === "/dashboard" ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  currentPath === "/dashboard"
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 }`}
               >
                 <Home className="w-5 h-5 text-white" />
@@ -155,21 +179,29 @@ const NavBar = () => {
               <Link
                 to="/closet"
                 className={`flex items-center justify-center p-2 rounded-full transition-colors ${
-                  currentPath === "/closet" ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  currentPath === "/closet"
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 }`}
               >
                 <Shirt className="w-5 h-5 text-white" />
               </Link>
               <button
                 onClick={toggleMenu}
-                className="flex items-center justify-center p-1 bg-white rounded-full w-8 h-8"
+                className={`flex items-center justify-center p-1 rounded-full w-8 h-8 transition-colors ${
+                  isAddRoute
+                    ? "bg-[#3F978F] text-white hover:bg-[#3F978F]"
+                    : "bg-white text-black hover:bg-[#304946]"
+                }`}
               >
-                <Plus size={20} className="text-black" />
+                <Plus size={20} />
               </button>
               <Link
                 to="/calendar"
                 className={`flex items-center justify-center p-2 rounded-full transition-colors ${
-                  currentPath === "/calendar" ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  currentPath === "/calendar"
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 }`}
               >
                 <Calendar className="w-5 h-5 text-white" />
@@ -177,7 +209,9 @@ const NavBar = () => {
               <Link
                 to="/feed"
                 className={`flex items-center justify-center p-2 rounded-full transition-colors ${
-                  currentPath === "/feed" ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  currentPath === "/feed"
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 }`}
               >
                 <Users className="w-5 h-5 text-white" />
@@ -187,9 +221,27 @@ const NavBar = () => {
             {/* Mobile Menu Popup */}
             <div className={`${menuOpen ? "block" : "hidden"} mt-2`}>
               <div className="flex flex-col space-y-2">
-                <Link to="/add" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-sm text-black font-livvic">add to closet</Link>
-                <Link to="/create-outfit" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-sm text-black font-livvic">create an outfit</Link>
-                <Link to="/post-to-feed" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-sm text-black font-livvic">post to feed</Link>
+                <Link
+                  to="/add"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-sm text-black font-livvic"
+                >
+                  add to closet
+                </Link>
+                <Link
+                  to="/create-outfit"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-sm text-black font-livvic"
+                >
+                  create an outfit
+                </Link>
+                <Link
+                  to="/post-to-feed"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-sm text-black font-livvic"
+                >
+                  post to feed
+                </Link>
               </div>
             </div>
           </div>
