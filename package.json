@@ -6,6 +6,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "dotenv-cli": "^8.0.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.7"
   }

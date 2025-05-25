@@ -24,7 +24,7 @@ enum Category {
 
 model ClosetItem {
   id         String    @id @default(uuid())
-  image      Bytes
+  filename      String
   category   Category
   createdAt  DateTime  @default(now())
 
