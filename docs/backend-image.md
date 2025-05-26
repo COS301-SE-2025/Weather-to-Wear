@@ -1,12 +1,3 @@
-## Making changes to a database:
-docker-compose up -d
-docker-compose exec backend npx prisma migrate dev --name switch_to_filename
-
-## If the commands above give you an error, then remove any entries (for now we can do this)
-docker-compose up -d
-docker-compose exec backend npx prisma migrate reset --force
-docker-compose exec backend npx prisma migrate dev --name switch_to_filename
-
 # Weather-to-Wear Capstone2 Project
 
 ## Overview
@@ -207,6 +198,18 @@ Then visit:
 > This README covers the Closet Module and environment setup. For frontend integration, see the `frontend/` README (TBD).
 
 
+## Making changes to a database:
+docker-compose up -d
+docker-compose exec backend npx prisma migrate dev --name switch_to_filename
+
+## If the commands above give you an error, then remove any entries (for now we can do this)
+docker-compose up -d
+docker-compose exec backend npx prisma migrate reset --force
+docker-compose exec backend npx prisma migrate dev --name switch_to_filename
+
+# REMEMBER
+- MAKE SURE!!!!! 
+- Add a folder in app-backend called `uploads` and make sure it is mounted in the docker-compose.yml file
 ## My .env files:
 
 ### .env
