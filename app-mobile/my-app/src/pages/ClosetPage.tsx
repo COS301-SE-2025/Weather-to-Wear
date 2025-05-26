@@ -23,7 +23,7 @@ const mockItems: Item[] = [
 ];
 
 const mockOutfits: Item[] = [
-  { id: 1, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
+  //{ id: 1, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
 
   { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
   { id: 4, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
