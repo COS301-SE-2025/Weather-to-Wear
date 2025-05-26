@@ -1,42 +1,53 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import TypingTitle from '../components/TypingTitle';
+import { loginUser } from '../services/auth';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username === 'user' && password === '1234') {
-      navigate('/dashboard');
-    } else {
-      alert('Invalid credentials');
-    }
-  };
+  // const handleLogin = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (username === 'user' && password === '1234') {
+  //     navigate('/dashboard');
+  //   } else {
+  //     alert('Invalid credentials');
+  //   }
+  // };
+
+  const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const res = await loginUser(email, password);
+    localStorage.setItem('token', res.token);
+    navigate('/dashboard');
+  } catch (err: any) {
+    alert(err.message);
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* ✅ Logo section comes first to appear on top for mobile */}
       <div className="w-full lg:w-1/2 bg-black flex flex-col items-center justify-center p-6 sm:p-8">
-        <h1 className="text-white text-3xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center">
-          Weather2Wear
+        <h1 className="text-white text-4xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center lg:text-left">
+          <TypingTitle text="Weather2Wear" highlight="Wear" />
         </h1>
         <img src="/logo.png" alt="Logo" className="max-w-[200px] sm:max-w-[280px]" />
       </div>
 
-      {/* Form section */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
         <form onSubmit={handleLogin} className="w-full max-w-sm sm:max-w-md">
-          <h2 className="text-2xl font-bold mb-6 text-center lg:text-left">Login</h2>
+          <h2 className="text-3xl font-light mb-6 text-center lg:text-left">Login</h2>
 
           <input
             type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full mb-4 px-4 py-2 rounded-full bg-gray-100"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full mb-4 px-4 py-2 rounded-full bg-white border border-black"
             required
           />
 
@@ -46,7 +57,7 @@ export default function Login() {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 rounded-full bg-gray-100"
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
               required
             />
             <img
@@ -57,7 +68,10 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" className="w-full bg-[#3F978F] text-white py-2 rounded-full mb-3">
+          <button
+            type="submit"
+            className="w-full bg-[#3F978F] hover:bg-[#2c716c] text-white py-2 rounded-full mb-3 transition-colors duration-200"
+          >
             Login
           </button>
 

@@ -15,6 +15,8 @@ const app = express();
 // Apply CORS middleware globally before defining any routes
 app.use(cors());
 
+
+
 dotenv.config();
 
 
