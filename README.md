@@ -45,17 +45,17 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification]()     | Details on project requirements            |
+| [Software Requirements Specification](https://www.canva.com/design/DAGn4e4ym68/cJ07x8_HtQvq838tb8P8jA/edit?utm_content=DAGn4e4ym68&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)     | Details on project requirements            |
 | [Architectural Specification]()             | System design overview                     |
-| [Technical Installation Manual]()           |  Instructions for system configuration     |
-| [Coding Standards]()                        | Guidelines for writing code                |
-| [Testing Policy Document]()                 | Testing strategies    |
-| [Usability Testing]()                       | Enhance usability and user experience |
-| [Architecture Diagram]()                 | Diagram of system overview                 |
+| [Coding Standards]()           |  Guidelines for writing code      |
+| [Git and GitHub Standards]()                        | Guidelines for using Git and GitHub               |
+| [Testing Strategy and Standards]()                 | Testing strategies    |
+| [Use-Case Diagrams]()                   | Use Case Diagrams               |
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
-| [Deployment Diagram]()                   | Plan for project deployment                |
-| [Project Board]()                                                           | Team organisation and progress tracking    |
-| [Previous Documentation Iterations]()     | See how our documentation has progressed   |
+| [Architecture Diagram]()                 | Diagram of system overview                 |
+| [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
+| [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 
  <h1 align="center"> Demo Resources </h1>
 
@@ -74,7 +74,7 @@ while expressing their unique fashion sense.
   <div align="Center">
 
 <p>Frontend</p>
-  <img src="https://skillicons.dev/icons?i=react"/>
+  <img src="https://skillicons.dev/icons?i=react,typescript"/>
 <p>Backend</p>
     <img src="https://skillicons.dev/icons?i=typescript,postgresql,express,prisma"/>
 <p>Project Management & Deployment</p>
