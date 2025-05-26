@@ -45,14 +45,14 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification](https://www.canva.com/design/DAGn4e4ym68/cJ07x8_HtQvq838tb8P8jA/edit?utm_content=DAGn4e4ym68&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)     | Details on project requirements            |
-| [Architectural Specification]()             | System design overview                     |
+| [Software Requirements Specification](https://drive.google.com/file/d/1guJnG_6ncGMJJpxW-jUqiyrd7DdU9_IK/view?usp=sharing)     | Details on project requirements            |
+| [Architectural Specification](https://drive.google.com/file/d/11mFORT89BX4LUtz4Tfs2UuB9johuZuNU/view?usp=sharing)             | System design overview                     |
 | [Coding Standards]()           |  Guidelines for writing code      |
 | [Git and GitHub Standards]()                        | Guidelines for using Git and GitHub               |
 | [Testing Strategy and Standards]()                 | Testing strategies    |
-| [Use-Case Diagrams]()                   | Use Case Diagrams               |
-| [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
-| [Architecture Diagram]()                 | Diagram of system overview                 |
+| [Use-Case Diagrams](https://drive.google.com/file/d/1oUrZc5sYPM2Uv8Z9fsRvQ_77zI-ILtT3/view?usp=sharing)                   | Use Case Diagrams               |
+| [Class Diagram](https://drive.google.com/file/d/19ZKLJz5PA6aA5JJyosev8IV4n3s8yZUS/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
+| [Architecture Diagram](https://drive.google.com/file/d/1grpiACs0eybq8eGT0e3xa_YqgJ07UaiZ/view?usp=sharing)                 | Diagram of system overview                 |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
