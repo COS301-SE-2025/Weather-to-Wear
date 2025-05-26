@@ -11,35 +11,51 @@ export default function Signup() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
   const navigate = useNavigate();
 
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // const handleSubmit = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   alert('Mock signup complete');
-  // };
+  const validateForm = () => {
+    const newErrors = [];
+    // Email validation
+    const emailRegex = /\S+@\S+\.\S+/;
+    if (!emailRegex.test(formData.email)) {
+      newErrors.push('Please enter a valid email address.');
+    }
+    // Password strength validation
+    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!passRegex.test(formData.password)) {
+      newErrors.push(
+        'Password must be at least 8 characters and include lowercase, uppercase, and a special character.'
+      );
+    }
+    // Confirm match
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.push("Passwords don't match.");
+    }
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (formData.password !== formData.confirmPassword) {
-    alert("Passwords don't match");
-    return;
-  }
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
-  try {
-    const res = await signupUser(formData.username, formData.email, formData.password);
-    localStorage.setItem('token', res.token);
-navigate('/dashboard');
-    // Optionally redirect or store token
-  } catch (err: any) {
-    alert(err.message);
-  }
-};
-
+    try {
+      const res = await signupUser(formData.username, formData.email, formData.password);
+      localStorage.setItem('token', res.token);
+      navigate('/dashboard');
+    } catch (err) {
+      if (err instanceof Error) {
+        setErrors([err.message]);
+      } else {
+        setErrors(['Signup failed.']);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -51,86 +67,107 @@ navigate('/dashboard');
       </div>
 
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
+        <form onSubmit={handleSubmit} className="w-full max-w-md">
+          <h2 className="text-3xl font-light mb-6 text-center lg:text-left">Sign up</h2>
 
+          {/* Error Popup */}
+          {errors.length > 0 && (
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-rose-500 rounded-lg shadow-md animate-fade-in">
+              {errors.map((err, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center text-rose-600 text-sm font-medium mb-2 last:mb-0"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>{err}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
+          <div className="mb-4">
+            <input
+              name="username"
+              placeholder="Username"
+              value={formData.username}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+          </div>
 
+          <div className="mb-4">
+            <input
+              name="email"
+              placeholder="Email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+          </div>
 
- <form onSubmit={handleSubmit} className="w-full max-w-md">
-  <h2 className="text-3xl font-light mb-6 text-center lg:text-left">Sign up</h2>
+          <div className="relative mb-4">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              placeholder="Password"
+              value={formData.password}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+            <img
+              src={showPassword ? '/eye_closed.png' : '/eye.png'}
+              alt="Toggle"
+              className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer"
+              onClick={() => setShowPassword(!showPassword)}
+            />
+          </div>
 
-  <div className="mb-4">
-    <input
-      name="username"
-      placeholder="Username"
-      onChange={handleChange}
-      className="w-full px-4 py-2 rounded-full bg-white border border-black"
-      required
-    />
-  </div>
+          <div className="relative mb-4">
+            <input
+              type={showConfirm ? 'text' : 'password'}
+              name="confirmPassword"
+              placeholder="Confirm Password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              required
+            />
+            <img
+              src={showConfirm ? '/eye_closed.png' : '/eye.png'}
+              alt="Toggle"
+              className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer"
+              onClick={() => setShowConfirm(!showConfirm)}
+            />
+          </div>
 
-  <div className="mb-4">
-    <input
-      name="email"
-      placeholder="Email"
-      onChange={handleChange}
-      className="w-full px-4 py-2 rounded-full bg-white border border-black"
-      required
-    />
-  </div>
+          <button
+            type="submit"
+            className="w-full bg-[#3F978F] hover:bg-[#2c716c] text-white py-2 rounded-full mb-2 transition-colors duration-200"
+          >
+            Sign up
+          </button>
 
-  <div className="relative mb-4">
-    <input
-      type={showPassword ? "text" : "password"}
-      name="password"
-      placeholder="Password"
-      onChange={handleChange}
-      className="w-full px-4 py-2 rounded-full bg-white border border-black"
-      required
-    />
-    <img
-      src={showPassword ? "/eye_closed.png" : "/eye.png"}
-      alt="Toggle"
-      className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer"
-      onClick={() => setShowPassword(!showPassword)}
-    />
-  </div>
-
-  <div className="relative mb-4">
-    <input
-      type={showConfirm ? "text" : "password"}
-      name="confirmPassword"
-      placeholder="Confirm Password"
-      onChange={handleChange}
-      className="w-full px-4 py-2 rounded-full bg-white border border-black"
-      required
-    />
-    <img
-      src={showConfirm ? "/eye_closed.png" : "/eye.png"}
-      alt="Toggle"
-      className="w-5 h-5 absolute top-2.5 right-4 cursor-pointer"
-      onClick={() => setShowConfirm(!showConfirm)}
-    />
-  </div>
-
-  <button
-    type="submit"
-    className="w-full bg-[#3F978F] hover:bg-[#2c716c] text-white py-2 rounded-full mb-2 transition-colors duration-200"
-  >
-    Sign up
-  </button>
-
-  <p className="text-sm text-gray-700 text-center">
-    Go back to <Link to="/login" className="text-[#3F978F] underline">Login?</Link>
-  </p>
-</form>
-
-
-
-
-
-
-
-
+          <p className="text-sm text-gray-700 text-center">
+            Go back to <Link to="/login" className="text-[#3F978F] underline">Login?</Link>
+          </p>
+        </form>
       </div>
     </div>
   );
