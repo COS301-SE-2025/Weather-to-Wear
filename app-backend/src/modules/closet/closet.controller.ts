@@ -72,6 +72,10 @@ import ClosetService from './closet.service';
 
 class ClosetController {
   uploadImage: RequestHandler = async (req, res, next) => {
+    if (!req.file) {
+      res.status(400).json({ message: 'No file provided' });
+      return;
+    }
     try {
       // validate...
       const file = req.file!;
@@ -107,7 +111,11 @@ class ClosetController {
     }
   };
 
-  uploadImagesBatch: RequestHandler = async (req, res, next) => {
+  uploadImagesBatch: RequestHandler = async (req, res, next) => { 
+    if (!req.file) {
+      res.status(400).json({ message: 'No file provided' });
+      return;
+    }
     try {
       // 1. Validate category
       const rawCat = (req.body.category as string || '').toUpperCase();
