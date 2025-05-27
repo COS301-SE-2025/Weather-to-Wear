@@ -1,0 +1,2 @@
+# app-backend/.env.studio
+DATABASE_URL=postgresql://weatheruser:weatherpass@localhost:5433/weatherdb
