@@ -63,16 +63,6 @@ We use a standardized Git branching model to support team collaboration and feat
 - `feature/<name>` – Individual feature branches created from dev.
 - `hotfix/<name>` – Emergency fixes branched from main.
 
----
-
-<h1 align="center"> Project Boards </h1>
-
-Track our progress on the GitHub Project Board:
-- [Frontend](https://github.com/orgs/COS301-SE-2025/projects/159/views/1)
-- [Backend-authentication](https://github.com/orgs/COS301-SE-2025/projects/180)
-- [Backend-weather-API](https://github.com/orgs/COS301-SE-2025/projects/155)
-
----
 
   <h1 align="center"> Documentation and Resources </h1>
 
@@ -91,7 +81,7 @@ Track our progress on the GitHub Project Board:
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
 | [Architecture Diagram]()                 | Diagram of system overview                 |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
-| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear.wiki.git)                                                           | Team organisation and progress tracking    |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 
  <h1 align="center"> Demo Resources </h1>
