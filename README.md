@@ -22,12 +22,6 @@ Epi-Use Africa     </a>
 
 
 
-🛑 Codecov badge pending due to GitHub organization restrictions. Code coverage is generated with `jest --coverage`. See `/app-backend/coverage/` for details.
-
-
-
-
-
 <h3 align="center">
   Weather to Wear is a web-application that aims to
 simplify weather forecasts into a personalized wardrobe
@@ -56,9 +50,9 @@ while expressing their unique fashion sense.
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | [Software Requirements Specification](https://drive.google.com/file/d/1guJnG_6ncGMJJpxW-jUqiyrd7DdU9_IK/view?usp=sharing)     | Details on project requirements            |
-| [Architectural Specification]()             | System design overview                     |
+| [Architectural Specification](https://drive.google.com/file/d/11mFORT89BX4LUtz4Tfs2UuB9johuZuNU/view?usp=sharing)             | System design overview                     |
 | [Use-Case Diagrams]()                   | Use Case Diagrams               |
-| [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
+| [Class Diagram](https://drive.google.com/file/d/1QIwp0tuGINeBTIbXlFbQ6wUREyfQCKJR/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
 | [Architecture Diagram](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                 | Diagram of system overview                 |
 | [Coding Standards](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)           |  Guidelines for writing code      |
