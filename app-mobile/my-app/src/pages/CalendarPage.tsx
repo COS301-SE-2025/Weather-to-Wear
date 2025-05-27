@@ -26,11 +26,9 @@ interface EventItem {
 }
 
 export default function CalendarPage() {
-  // ─── today fixed once ─────────────────────────────────────────
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => today.toISOString().slice(0, 10), [today]);
 
-  // ─── mock events ───────────────────────────────────────────────
   const [events] = useState<EventItem[]>([
     {
       id: 1,
@@ -42,10 +40,9 @@ export default function CalendarPage() {
       friendNote: "Johnny shares today’s event!",
       outfitImages: ["/outfit1.jpg", "/outfit2.jpg", "/outfit3.jpg"],
     },
-    // add more events here if desired
+    // …more events…
   ]);
 
-  // ─── UI state ─────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [ootdIndex, setOotdIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState(todayKey);
@@ -53,9 +50,8 @@ export default function CalendarPage() {
   const selectedEvent =
     events.find((e) => e.date === selectedDate) || events[0];
 
-  // ─── compute week (Mon–Sun) once ───────────────────────────────
   const weekDates = useMemo(() => {
-    const wd = today.getDay(); // 0=Sun
+    const wd = today.getDay();
     const mon = new Date(today);
     mon.setDate(today.getDate() - ((wd + 6) % 7));
     return Array.from({ length: 7 }).map((_, i) => {
@@ -65,7 +61,6 @@ export default function CalendarPage() {
     });
   }, [today]);
 
-  // ─── calendar math ─────────────────────────────────────────────
   const year = today.getFullYear();
   const month = today.getMonth();
   const firstWeekday = new Date(year, month, 1).getDay();
@@ -75,7 +70,6 @@ export default function CalendarPage() {
     return y === year && m - 1 === month;
   });
 
-  // ─── weather icon helper ──────────────────────────────────────
   const iconFor = (w: EventItem["weather"]) => {
     if (w === "sunny") return <Sun className="w-6 h-6 text-yellow-500" />;
     if (w === "cloudy") return <Cloud className="w-6 h-6 text-gray-400" />;
@@ -86,10 +80,10 @@ export default function CalendarPage() {
     <>
       <NavBar />
 
-      <div className="bg-[#F8F9FA] min-h-screen pt-32 px-4">
+      <div className="bg-[#F8F9FA] dark:bg-gray-800 min-h-screen pt-32 px-4">
         <div className="max-w-screen-xl mx-auto">
 
-          {/* ─── View Mode Tabs ──────────────────────────────────────── */}
+          {/* View Mode Tabs */}
           <div className="flex justify-center space-x-2 mb-6">
             {(["monthly", "weekly", "daily"] as ViewMode[]).map((m) => (
               <button
@@ -101,7 +95,7 @@ export default function CalendarPage() {
                 className={`px-4 py-2 rounded-full transition ${
                   viewMode === m
                     ? "bg-[#3F978F] text-white"
-                    : "bg-white text-black hover:bg-[#3F978F] hover:text-white"
+                    : "bg-white dark:bg-gray-700 text-black dark:text-gray-100 hover:bg-[#3F978F] hover:text-white"
                 }`}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
@@ -109,10 +103,10 @@ export default function CalendarPage() {
             ))}
           </div>
 
-          {/* ─── DAILY VIEW ─────────────────────────────────────────── */}
+          {/* DAILY VIEW */}
           {viewMode === "daily" && (
             <>
-              <div className="text-center bg-gray-200 py-2 rounded-lg mb-6">
+              <div className="text-center bg-gray-200 dark:bg-gray-700 text-black dark:text-gray-100 py-2 rounded-lg mb-6">
                 {today.toLocaleDateString("en-US", {
                   day: "numeric",
                   month: "long",
@@ -120,7 +114,7 @@ export default function CalendarPage() {
                 })}
               </div>
               <div className="flex flex-col md:flex-row gap-6 mb-8">
-                <div className="bg-white rounded-lg shadow p-4 flex flex-col items-center w-full md:w-1/3">
+                <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4 flex flex-col items-center w-full md:w-1/3">
                   {iconFor(selectedEvent.weather)}
                   <div className="mt-2 text-2xl">
                     {Math.floor(Math.random() * 15) + 18}°{" "}
@@ -128,7 +122,7 @@ export default function CalendarPage() {
                       selectedEvent.weather.slice(1)}
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-4 w-full md:w-1/2">
+                <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4 w-full md:w-1/2">
                   <h3 className="font-semibold mb-2">Today's Itinerary</h3>
                   <ul className="list-disc list-inside">
                     {selectedEvent.itinerary.map((item, i) => (
@@ -138,8 +132,8 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <h2 className="text-xl font-semibold mb-4">OOTD</h2>
-              <div className="relative bg-white rounded-lg shadow h-64 mb-6 overflow-hidden">
+              <h2 className="text-xl font-semibold mb-4 text-black dark:text-gray-100">OOTD</h2>
+              <div className="relative bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow h-64 mb-6 overflow-hidden">
                 <button
                   onClick={() =>
                     setOotdIndex((i) =>
@@ -148,7 +142,7 @@ export default function CalendarPage() {
                         : i - 1
                     )
                   }
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full"
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-200 dark:bg-gray-600 p-2 rounded-full"
                 >
                   <ArrowLeft />
                 </button>
@@ -165,7 +159,7 @@ export default function CalendarPage() {
                         : i + 1
                     )
                   }
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-200 dark:bg-gray-600 p-2 rounded-full"
                 >
                   <ArrowRight />
                 </button>
@@ -174,7 +168,9 @@ export default function CalendarPage() {
                     <span
                       key={i}
                       className={`w-2 h-2 rounded-full ${
-                        i === ootdIndex ? "bg-gray-800" : "bg-gray-300"
+                        i === ootdIndex
+                          ? "bg-gray-800 dark:bg-gray-200"
+                          : "bg-gray-300 dark:bg-gray-600"
                       }`}
                     />
                   ))}
@@ -183,19 +179,19 @@ export default function CalendarPage() {
 
               <div className="flex flex-col md:flex-row gap-6 mb-12">
                 <div className="flex-1">
-                  <h3 className="font-semibold mb-2">Mood Tags</h3>
+                  <h3 className="font-semibold mb-2 text-black dark:text-gray-100">Mood Tags</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedEvent.moodTags.map((t, i) => (
                       <span
                         key={i}
-                        className="text-sm text-gray-700 bg-gray-200 px-2 py-1 rounded-full"
+                        className="text-sm text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-full"
                       >
                         {t}
                       </span>
                     ))}
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-4 w-full md:w-1/3">
+                <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4 w-full md:w-1/3">
                   <h3 className="font-semibold mb-2">Friends</h3>
                   <p className="text-sm">{selectedEvent.friendNote}</p>
                 </div>
@@ -203,7 +199,7 @@ export default function CalendarPage() {
             </>
           )}
 
-          {/* ─── WEEKLY VIEW ────────────────────────────────────────── */}
+          {/* WEEKLY VIEW */}
           {viewMode === "weekly" && (
             <>
               <div className="flex items-center gap-2 mb-6 overflow-x-auto">
@@ -217,24 +213,22 @@ export default function CalendarPage() {
                       className={`min-w-[3rem] px-3 py-2 rounded-lg transition ${
                         sel
                           ? "bg-[#3F978F] text-white"
-                          : "bg-white text-black hover:bg-[#3F978F] hover:text-white"
+                          : "bg-white dark:bg-gray-700 text-black dark:text-gray-100 hover:bg-[#3F978F] hover:text-white"
                       }`}
                     >
                       <div className="text-xs">
-                        {d.toLocaleDateString("en-US", {
-                          weekday: "short",
-                        })}
+                        {d.toLocaleDateString("en-US", { weekday: "short" })}
                       </div>
                       <div className="font-semibold">{d.getDate()}</div>
                     </button>
                   );
                 })}
-                <button className="ml-auto p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition">
+                <button className="ml-auto p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition">
                   <Plus />
                 </button>
               </div>
               <div className="flex flex-col lg:flex-row gap-6 mb-12">
-                <div className="bg-white rounded-lg shadow p-4 flex-1">
+                <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4 flex-1">
                   <h3 className="font-semibold mb-2">OOTD</h3>
                   <img
                     src={selectedEvent.outfitImages[0]}
@@ -243,7 +237,7 @@ export default function CalendarPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-6 w-full lg:w-1/3">
-                  <div className="bg-white rounded-lg shadow p-4">
+                  <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4">
                     <h3 className="font-semibold mb-2">Weather</h3>
                     <div className="flex items-center gap-2">
                       <Wind className="w-6 h-6 text-blue-400" />
@@ -252,7 +246,7 @@ export default function CalendarPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-4">
+                  <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4">
                     <h3 className="font-semibold mb-2">Mood Tags</h3>
                     <ul className="list-disc list-inside text-sm">
                       {selectedEvent.moodTags.map((t, i) => (
@@ -260,7 +254,7 @@ export default function CalendarPage() {
                       ))}
                     </ul>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-4">
+                  <div className="bg-white dark:bg-gray-700 text-black dark:text-gray-100 rounded-lg shadow p-4">
                     <h3 className="font-semibold mb-2">Friends</h3>
                     <p className="text-sm">{selectedEvent.friendNote}</p>
                   </div>
@@ -269,31 +263,28 @@ export default function CalendarPage() {
             </>
           )}
 
-          {/* ─── MONTHLY VIEW ───────────────────────────────────────── */}
+          {/* MONTHLY VIEW */}
           {viewMode === "monthly" && (
             <div className="flex flex-col lg:flex-row gap-6">
-              {/* scrollable calendar */}
               <div className="overflow-x-auto flex-1">
-                <div className="min-w-[700px] bg-white border border-gray-300 rounded-lg p-4">
-                  {/* weekdays header */}
+                <div className="min-w-[700px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
                   <div className="grid grid-cols-7 text-center text-xs font-medium mb-2">
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                       (d) => (
                         <div
                           key={d}
-                          className="py-2 bg-gray-200 border-b border-gray-300"
+                          className="py-2 bg-gray-200 dark:bg-gray-600 border-b border-gray-300 dark:border-gray-500"
                         >
                           {d}
                         </div>
                       )
                     )}
                   </div>
-                  {/* day cells */}
                   <div className="grid grid-cols-7 gap-1">
                     {Array.from({ length: firstWeekday }).map((_, i) => (
                       <div
                         key={i}
-                        className="h-24 border border-gray-300 bg-white"
+                        className="h-24 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
                       />
                     ))}
                     {Array.from({ length: daysInMonth }).map((_, idx) => {
@@ -302,17 +293,15 @@ export default function CalendarPage() {
                         2,
                         "0"
                       )}-${String(day).padStart(2, "0")}`;
-                      const onDay = monthEvents.filter(
-                        (e) => e.date === iso
-                      );
+                      const onDay = monthEvents.filter((e) => e.date === iso);
                       return (
                         <div
                           key={iso}
-                          className="relative h-24 border border-gray-300 bg-white rounded"
+                          className="relative h-24 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded"
                         >
                           {onDay.length > 0 && (
-                            <div className="absolute inset-1 border border-gray-300 rounded p-1 flex flex-col items-center justify-center text-xs">
-                              <div className="font-medium leading-none">
+                            <div className="absolute inset-1 border border-gray-300 dark:border-gray-600 rounded p-1 flex flex-col items-center justify-center text-xs">
+                              <div className="font-medium leading-none text-black dark:text-gray-100">
                                 {onDay[0].title}
                               </div>
                               <div className="flex items-center mt-1 space-x-1">
@@ -331,9 +320,11 @@ export default function CalendarPage() {
                   </div>
                 </div>
               </div>
-              {/* event list sidebar */}
-              <aside className="w-full lg:w-80 bg-white border border-gray-300 rounded-lg p-4">
-                <h3 className="font-semibold mb-4">Event List</h3>
+
+              <aside className="w-full lg:w-80 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                <h3 className="font-semibold mb-4 text-black dark:text-gray-100">
+                  Event List
+                </h3>
                 {events
                   .sort((a, b) => a.date.localeCompare(b.date))
                   .map((e) => {
@@ -344,17 +335,19 @@ export default function CalendarPage() {
                     });
                     return (
                       <div key={e.id} className="mb-4">
-                        <div className="text-sm text-gray-500 mb-1">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                           {weekday}
                         </div>
-                        <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-                          <div className="w-16 h-16 bg-white border-r border-gray-300 flex flex-col items-center justify-center text-sm">
-                            <div className="font-semibold">{dayNum}</div>
-                            <div className="text-xs">
+                        <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                          <div className="w-16 h-16 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-sm">
+                            <div className="font-semibold text-black dark:text-gray-100">
+                              {dayNum}
+                            </div>
+                            <div className="text-xs text-black dark:text-gray-100">
                               {weekday.toUpperCase()}
                             </div>
                           </div>
-                          <div className="p-2 flex-1 flex flex-col justify-center text-xs">
+                          <div className="p-2 flex-1 flex flex-col justify-center text-xs text-black dark:text-gray-100">
                             <div className="font-medium">{e.title}</div>
                             <div className="flex items-center mt-1 space-x-1">
                               {iconFor(e.weather)}

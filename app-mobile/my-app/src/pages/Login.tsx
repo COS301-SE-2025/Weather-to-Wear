@@ -1,3 +1,5 @@
+// src/pages/Login.tsx
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
@@ -9,28 +11,19 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  // const handleLogin = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (username === 'user' && password === '1234') {
-  //     navigate('/dashboard');
-  //   } else {
-  //     alert('Invalid credentials');
-  //   }
-  // };
-
   const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    const res = await loginUser(email, password);
-    localStorage.setItem('token', res.token);
-    navigate('/dashboard');
-  } catch (err: any) {
-    alert(err.message);
-  }
-};
+    e.preventDefault();
+    try {
+      const res = await loginUser(email, password);
+      localStorage.setItem('token', res.token);
+      navigate('/dashboard');
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-gray-900">
       <div className="w-full lg:w-1/2 bg-black flex flex-col items-center justify-center p-6 sm:p-8">
         <h1 className="text-white text-4xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center lg:text-left">
           <TypingTitle text="Weather2Wear" highlight="Wear" />
@@ -38,16 +31,18 @@ export default function Login() {
         <img src="/logo.png" alt="Logo" className="max-w-[200px] sm:max-w-[280px]" />
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white dark:bg-gray-800 p-6 sm:p-8">
         <form onSubmit={handleLogin} className="w-full max-w-sm sm:max-w-md">
-          <h2 className="text-3xl font-light mb-6 text-center lg:text-left">Login</h2>
+          <h2 className="text-3xl font-light mb-6 text-center lg:text-left text-black dark:text-gray-100">
+            Login
+          </h2>
 
           <input
             type="text"
             placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full mb-4 px-4 py-2 rounded-full bg-white border border-black"
+            onChange={e => setEmail(e.target.value)}
+            className="w-full mb-4 px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
             required
           />
 
@@ -56,8 +51,8 @@ export default function Login() {
               type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              onChange={e => setPassword(e.target.value)}
+              className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
               required
             />
             <img
@@ -75,9 +70,11 @@ export default function Login() {
             Login
           </button>
 
-          <p className="text-sm text-gray-700 text-center">
+          <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
             Don’t have an account yet?{" "}
-            <Link to="/signup" className="text-[#3F978F] underline">Signup?</Link>
+            <Link to="/signup" className="text-[#3F978F] underline">
+              Signup?
+            </Link>
           </p>
         </form>
       </div>

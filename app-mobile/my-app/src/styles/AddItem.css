@@ -28,9 +28,11 @@
   justify-content: flex-start;
 }
 
+/* image-upload box: always outlined in fg color */
 .upload-box {
   width: 100%;
-  background-color: #eceef1;
+  background-color: var(--card);
+  border: 1px solid var(--fg);
   border-radius: 2rem;
   display: flex;
   align-items: center;
@@ -56,14 +58,16 @@
   font-weight: 500;
 }
 
+/* inputs, selects, textareas pick up page bg & text colours */
 .form-fields input,
 .form-fields select,
 textarea {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 2rem;
-  border: none;
-  background-color: #f3f4f6;
+  border: 1px solid var(--fg);
+  background-color: var(--bg);
+  color:            var(--fg);
   font-size: 1rem;
 }
 
@@ -73,7 +77,7 @@ textarea {
   background-repeat: no-repeat;
   background-position: right 1rem center;
   background-size: 1rem;
-  color: #888;
+  color: var(--fg);
 }
 
 .form-fields select:focus {
@@ -81,7 +85,7 @@ textarea {
 }
 
 .form-fields select option {
-  color: black;
+  color: var(--fg);
 }
 
 .chips {
@@ -92,8 +96,8 @@ textarea {
 }
 
 .chip {
-  background-color: #444;
-  color: white;
+  background-color: var(--border);
+  color:            var(--fg);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   display: inline-flex;
@@ -104,7 +108,7 @@ textarea {
 .chip button {
   background: none;
   border: none;
-  color: white;
+  color: var(--fg);
   font-size: 1.1rem;
   margin-left: 0.5rem;
   cursor: pointer;
@@ -112,8 +116,8 @@ textarea {
 
 .submit-btn {
   margin-top: 1rem;
-  background-color: black;
-  color: white;
+  background-color: var(--fg);
+  color:            var(--bg);
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 2rem;
@@ -152,7 +156,8 @@ textarea {
     aspect-ratio: 4 / 3;
     padding: 1rem;
     border-radius: 2rem;
-    background-color: #eceef1;
+    background-color: var(--card);
+    border: 1px solid var(--fg);
     display: flex;
     align-items: center;
     justify-content: center;

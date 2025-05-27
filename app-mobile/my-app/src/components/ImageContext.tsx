@@ -1,3 +1,5 @@
+// src/components/ImageContext.tsx
+
 import React, { createContext, useState, useContext, ReactNode } from "react";
 
 interface ImageContextType {

@@ -1,3 +1,5 @@
+// src/pages/FeedPage.tsx
+
 import { Heart } from "lucide-react";
 import { useState } from "react";
 
@@ -59,37 +61,49 @@ const FeedPage = () => {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-center">Feed</h1>
+      <h1 className="text-4xl font-bold mb-8 text-center text-black dark:text-gray-100">
+        Feed
+      </h1>
       
       <div className="space-y-8">
         {posts.map(post => (
-          <div key={post.id} className="bg-white border rounded-lg p-4 shadow-sm">
+          <div
+            key={post.id}
+            className="bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-lg p-4 shadow-sm"
+          >
             <div className="flex items-center space-x-3 mb-4">
-              {/* Replace Avatar with a div and img */}
-              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
                 <img
                   src={`/avatars/${post.id}.png`}
                   alt={post.username}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.style.display = "none"; // Hide image on error
-                    e.currentTarget.nextSibling!.textContent = post.avatar; // Show fallback
+                    e.currentTarget.style.display = "none";
+                    (e.currentTarget.nextSibling as HTMLElement).textContent = post.avatar;
                   }}
                 />
-                <span className="text-sm text-gray-700">{post.avatar}</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  {post.avatar}
+                </span>
               </div>
               <div>
-                <div className="font-medium">@{post.username}</div>
-                <div className="text-sm text-gray-500">{post.date}</div>
+                <div className="font-medium text-black dark:text-gray-100">
+                  @{post.username}
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {post.date}
+                </div>
               </div>
             </div>
             
             <div className="mb-4">
-              <p>{post.content}</p>
+              <p className="text-black dark:text-gray-100">
+                {post.content}
+              </p>
             </div>
             
-            <div className="flex justify-between items-center">
-              <div className="bg-gray-200 h-40 w-full rounded-md flex items-center justify-center text-gray-400">
+            <div className="flex justify-between items-center mb-4">
+              <div className="bg-gray-200 dark:bg-gray-500 h-40 w-full rounded-md flex items-center justify-center text-gray-400 dark:text-gray-300">
                 [Outfit Image]
               </div>
             </div>
@@ -99,10 +113,16 @@ const FeedPage = () => {
                 onClick={() => toggleLike(post.id)}
                 className="flex items-center space-x-1 focus:outline-none"
               >
-                <Heart 
-                  className={`h-5 w-5 transition-colors ${post.liked ? "fill-red-500 text-red-500" : "text-gray-400"}`}
+                <Heart
+                  className={`h-5 w-5 transition-colors ${
+                    post.liked
+                      ? "fill-red-500 text-red-500"
+                      : "text-gray-400 dark:text-gray-400"
+                  }`}
                 />
-                <span className="text-sm text-gray-500">{post.likes} likes</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {post.likes} likes
+                </span>
               </button>
             </div>
           </div>
