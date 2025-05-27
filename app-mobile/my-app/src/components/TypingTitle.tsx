@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface TypingTitleProps {
   text: string;
-  highlight?: string; // e.g., "Wear" will be highlighted in Weather2Wear
+  highlight?: string; 
 }
 
 export default function TypingTitle({ text, highlight = '' }: TypingTitleProps) {
@@ -37,7 +37,7 @@ export default function TypingTitle({ text, highlight = '' }: TypingTitleProps) 
   const afterHighlight = displayText.slice(highlightStart + highlight.length);
 
   return (
-    <h1 className="text-white text-3xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center">
+    <h1 className="text-white text-3xl sm:text-4xl mb-4 font-sephir tracking-wide text-center">
       {beforeHighlight}
       <span style={{ color: '#FFFFFF' }}>{highlighted}</span>
       {afterHighlight}

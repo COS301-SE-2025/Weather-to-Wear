@@ -1,40 +1,29 @@
 // components/WeatherDisplay.tsx
 import React from 'react';
-import { useWeather } from '../hooks/useWeather';
 import { MapPin } from 'lucide-react';
+import { WeatherData } from '../hooks/useWeather';
 
-const WeatherDisplay = () => {
-  const { weather, loading, error } = useWeather();
+interface WeatherDisplayProps {
+  weather: WeatherData;
+  setCity: (city: string) => void; // kept in case it's needed elsewhere
+}
 
-  if (loading)
-    return (
-      <div className="flex justify-center items-center h-48 text-gray-600 dark:text-gray-400">
-        Loading weather...
-      </div>
-    );
-
-  if (error)
-    return (
-      <div className="flex justify-center items-center h-48 text-red-600 dark:text-red-400 font-semibold">
-        Error: {error}
-      </div>
-    );
-
+const WeatherDisplay: React.FC<WeatherDisplayProps> = ({ weather }) => {
   if (!weather || !weather.forecast.length) return null;
 
-  const current = weather.forecast[0]; // First forecast entry = current
+  const current = weather.forecast[0];
 
   return (
     <div className="flex flex-col items-start bg-white dark:bg-gray-700 p-4 px-8 pl-6 rounded-lg max-w-[280px] w-full">
       {/* Row 1: Location and Temperature */}
       <div className="flex flex-col items-center w-full mb-4">
         <div className="flex items-center">
-          <MapPin className="w-6 h-6 mr-2 text-gray-600 dark:text-gray-400" />
-          <h2 className="text-2xl md:text-3xl font-bold font-livvic text-center text-black dark:text-gray-100">
+          <MapPin className="w-6 h-6 mr-2 text-gray-600" />
+          <h2 className="text-2xl md:text-3xl font-bold font-livvic text-center">
             {weather.location}
           </h2>
         </div>
-        <p className="text-2xl md:text-3xl font-normal mt-2 text-center text-black dark:text-gray-100">
+        <p className="text-2xl md:text-3xl font-normal mt-2 text-center">
           {Math.round(current.temperature)}°C
         </p>
       </div>

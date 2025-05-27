@@ -22,7 +22,7 @@ const WeatherDisplay = () => {
 
   if (!weather || !weather.forecast.length) return null;
 
-  const current = weather.forecast[0]; // First forecast entry = current
+  const current = weather.forecast[0]; 
 
   return (
     <div className="flex flex-col items-start bg-white p-4 px-8 pl-6 rounded-lg max-w-[280px] w-full">

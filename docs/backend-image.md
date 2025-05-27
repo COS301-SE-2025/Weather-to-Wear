@@ -176,6 +176,28 @@ Then visit:
 
   * **Response**: Array of items with `id`, `category`, `imageUrl`, `createdAt`.
 
+
+  * **Batch Upload**: `POST /api/closet/upload/batch`
+  * **Body** (form-data):
+    * `images` (File) — select multiple files
+    * `category` (Text) — one of `SHIRT`, `HOODIE`, `PANTS`, `SHORTS`, `SHOES`
+  * **Response**: Array of objects:
+    ```json
+    [
+      {
+        "id": "<uuid>",
+        "category": "SHORTS",
+        "imageUrl": "/uploads/<filename>.png",
+        "createdAt": "2025-...Z"
+      },
+      ...
+    ]
+    ```
+
+* **Fetch All Images**: `GET /api/closet/all`
+  * **Response**: Array of all items with `id`, `category`, `imageUrl`, `createdAt`.
+
+
 ---
 
 ## Testing with Postman

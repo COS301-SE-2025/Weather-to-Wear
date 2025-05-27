@@ -1,6 +1,10 @@
 // src/components/NavBar.tsx
 
+
 import React, { useState, useEffect, useRef } from "react";
+
+
+
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Plus, Home, Calendar, Shirt, Users, User } from "lucide-react";
 
@@ -15,6 +19,7 @@ const NavBar = () => {
     currentPath.startsWith("/add/") ||
     currentPath === "/create-outfit" ||
     currentPath === "/post-to-feed";
+
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -32,12 +37,16 @@ const NavBar = () => {
     setMenuOpen(false);
   };
 
+
   const handleLogout = () => {
     const token = localStorage.getItem("token");
-    if (token) localStorage.removeItem(`closet-favs-${token}`);
+    if (token) {
+      localStorage.removeItem(`closet-favs-${token}`);
+    }
     localStorage.removeItem("token");
     navigate("/login");
   };
+
 
   useEffect(() => {
     setMenuOpen(false);
@@ -72,9 +81,13 @@ const NavBar = () => {
           <div className="max-w-screen-xl mx-auto flex items-center justify-between">
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Weather2Wear logo" className="h-10 w-auto" />
-              <h1 className="text-2xl md:text-4xl font-bodoni font-extrabold tracking-wide">
-                Weather2Wear
+              <img
+                src="/logo.png"
+                alt="Weather2Wear logo"
+                className="h-10 w-auto"
+              />
+              <h1 className="text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
+                WeatherToWear
               </h1>
             </div>
 
@@ -122,11 +135,18 @@ const NavBar = () => {
             <div className="bg-black dark:bg-gray-800 rounded-full flex items-center justify-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
               <Link
                 to="/dashboard"
-                className={`px-3 py-1 rounded-full text-white transition-colors ${
+
+                // className={`px-3 py-1 rounded-full text-white transition-colors ${
+                //   isActive("/dashboard")
+                //     ? "bg-[#3F978F]"
+                //     : "hover:bg-[#304946]"
+                // }`}
+
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
                   isActive("/dashboard")
                     ? "bg-[#3F978F]"
                     : "hover:bg-[#304946]"
-                }`}
+                } text-white`}
               >
                 home
               </Link>
@@ -153,11 +173,19 @@ const NavBar = () => {
               </button>
               <Link
                 to="/calendar"
-                className={`px-3 py-1 rounded-full text-white transition-colors ${
+ 
+                // className={`px-3 py-1 rounded-full text-white transition-colors ${
+                //   isActive("/calendar")
+                //     ? "bg-[#3F978F]"
+                //     : "hover:bg-[#304946]"
+                // }`}
+
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
                   isActive("/calendar")
                     ? "bg-[#3F978F]"
                     : "hover:bg-[#304946]"
-                }`}
+                } text-white`}
+
               >
                 calendar
               </Link>
@@ -324,10 +352,15 @@ const NavBar = () => {
         )}
       </div>
 
+
       {/* Spacer so content isn’t hidden under fixed navbar */}
       <div className="h-[140px] lg:h-[140px]" />
+
+      <div className="h-[140px] lg:h-[100px]" />
+
     </>
   );
 };
 
 export default NavBar;
+

@@ -20,6 +20,8 @@ import path from 'path';
 // path.join up two levels to hit app-backend/uploads
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
 
+console.log('→ Multer will write to:', UPLOADS_DIR);
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
   filename: (_req, file, cb) => {

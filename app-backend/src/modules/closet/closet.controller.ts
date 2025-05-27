@@ -72,6 +72,10 @@ import ClosetService from './closet.service';
 
 class ClosetController {
   uploadImage: RequestHandler = async (req, res, next) => {
+    if (!req.file) {
+      res.status(400).json({ message: 'No file provided' });
+      return;
+    }
     try {
       // validate...
       const file = req.file!;
@@ -106,6 +110,61 @@ class ClosetController {
       next(err);
     }
   };
+
+  uploadImagesBatch: RequestHandler = async (req, res, next) => { 
+    if (!req.file) {
+      res.status(400).json({ message: 'No file provided' });
+      return;
+    }
+    try {
+      // 1. Validate category
+      const rawCat = (req.body.category as string || '').toUpperCase();
+      if (!Object.values(Category).includes(rawCat as Category)) {
+        res.status(400).json({ message: `Invalid category: ${rawCat}` });
+        return;
+      }
+      const category = rawCat as Category;
+
+      // 2. Multer gives us an array under req.files
+      const files = req.files as Express.Multer.File[] | undefined;
+      if (!files || files.length === 0) {
+        res.status(400).json({ message: 'No files provided' });
+        return;
+      }
+
+      // 3. Delegate to service
+      const items = await ClosetService.saveImagesBatch(files, category);
+
+      // 4. Return URLs for each new item
+      res.status(201).json(
+        items.map(item => ({
+          id:        item.id,
+          category:  item.category,
+          imageUrl:  `/uploads/${item.filename}`,
+          createdAt: item.createdAt
+        }))
+      );
+    } catch (err) {
+      next(err);
+    }
+  };
+
+getAll: RequestHandler = async (_req, res, next) => {
+  try {
+    const items = await ClosetService.getAllImages();
+    // map each record into the JSON shape your front end expects
+    res.status(200).json(
+      items.map(item => ({
+        id:        item.id,
+        category:  item.category,
+        imageUrl:  `/uploads/${item.filename}`,
+        createdAt: item.createdAt
+      }))
+    );
+  } catch (err) {
+    next(err);
+  }
+};
 }
 
 export default new ClosetController();
