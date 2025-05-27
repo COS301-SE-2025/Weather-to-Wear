@@ -177,22 +177,22 @@ useEffect(() => {
     </div>
 
 
-      {/* Category Filters */}
-      <div className="flex flex-wrap justify-center gap-3 mb-6">
-        {['All', ...getTabCategories()].map((category, index) => {
-          const isActive = activeCategory === category || (category === 'All' && activeCategory === null);
-          return (
-            <button
-              key={index}
-              onClick={() => setActiveCategory(category === 'All' ? null : category)}
-              className={`px-4 py-1 border border-black rounded-full text-sm font-medium transition-colors duration-200
-                ${isActive ? 'bg-black text-white' : 'bg-white text-black hover:bg-black hover:text-white'}`}
-            >
-              {cat}
-            </button>
-          );
-        }) }
-      </div>
+{/* Category Filters */}
+<div className="flex flex-wrap justify-center gap-3 mb-6">
+  {['All', ...getTabCategories()].map((category, index) => {
+    const isActive = activeCategory === category || (category === 'All' && activeCategory === null);
+    return (
+      <button
+        key={index}
+        onClick={() => setActiveCategory(category === 'All' ? null : category)}
+        className={`px-4 py-1 border border-black rounded-full text-sm font-medium transition-colors duration-200
+          ${isActive ? 'bg-black text-white' : 'bg-white text-black hover:bg-black hover:text-white'}`}
+      >
+        {category} {/* This was missing - add the category text here */}
+      </button>
+    );
+  })}
+</div>
 
       {/* Search Bar */}
 <div className="relative mb-6">
