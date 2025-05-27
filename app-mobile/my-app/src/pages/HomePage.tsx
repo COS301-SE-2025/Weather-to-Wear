@@ -32,7 +32,7 @@ const StarRating = () => {
               className={`w-10 h-10 transition-transform duration-200 ease-in-out ${
                 starValue <= (hover || rating) 
                   ? 'text-[#3F978F] fill-[#3F978F]' 
-                  : 'text-black fill-none'
+                  : 'text-none fill-black'
               } ${
                 starValue <= hover 
                   ? 'transform scale-110' // Scales up 10% on hover
@@ -97,10 +97,41 @@ export default function HomePage() {
   const { weather, loading, error } = useWeather();
 
   return (
+
+
+    
     <div className="flex flex-col min-h-screen bg-white">
+
+                  <div 
+   className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6 z-0"
+      style={{
+        backgroundImage: `url(/background.jpg)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 1,
+          marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
+        width: '100vw',
+         marginTop: '-4rem'
+      }}
+    >
+<div className="px-6 py-2 border-2 border-white z-10">
+  <h1 
+    className="text-2xl font-bodoni font-light text-center text-white"
+    style={{
+     // fontFamily: "'Bodoni Moda', serif",
+      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+    }}
+  >
+    WELCOME BACK [user]
+  </h1>
+</div>
+
+
+      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+    </div>
       {/* Main content area with improved spacing */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-8 mt-24 md:mt-20">
-        
+      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-8 mt-24 md:mt-28 z-10">
+
         {/* Left Weather Section */}
         <div className="w-full lg:w-1/3 flex flex-col items-center mb-8 lg:mb-0">
           <div className="w-full max-w-[280px]">
@@ -128,24 +159,7 @@ export default function HomePage() {
 )}
 
 
-              {/* <div className="divide-y divide-black"> */}
-                {/* {[
-                  { time: '09:00', temp: '24°', desc: 'sunny' },
-                  { time: '10:00', temp: '24°', desc: 'sunny' },
-                  { time: '11:00', temp: '24°', desc: 'sunny' },
-                  { time: '12:00', temp: '24°', desc: 'sunny' },
-                ].map((hour, idx) => (
-                  <div key={idx} className="flex justify-between text-base md:text-lg py-2">
-                    <span>{hour.time}</span>
-                    <span className="flex gap-1 md:gap-2">
-                      <span className="font-medium">{hour.temp}</span>
-                      <span className="text-gray-600">{hour.desc}</span>
-                    </span>
-                  </div>
-                ))} */}
-
-                
-              {/* </div> */}
+          
             </div>
           </div>
         </div>
@@ -153,7 +167,27 @@ export default function HomePage() {
 {/* Center Image Section */}
 <div className="w-full lg:w-1/3 flex flex-col items-center mb-8 lg:mb-0 lg:-mt-24"> {/* Increased negative margin */}
   <div className="w-full max-w-xs sm:max-w-sm md:max-w-[350px] lg:max-w-[350px]">
-    <div className="bg-gray-200 rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden aspect-[3/4] h-auto max-h-[500px]">
+    
+
+    <div className="flex justify-center">
+<div className="inline-block py-1 px-3 border-2 border-black z-10 mx-auto">
+  <h1 
+    className="text-xl font-normal text-center text-black"
+    style={{
+      // fontFamily: "'Bodoni Moda', serif",
+      // textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+    }}
+  >
+    OUTFIT OF THE DAY
+  </h1>
+</div>
+</div>
+
+
+    
+    
+    
+    <div className="mt-6 bg-gray-200 rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden aspect-[3/4] h-auto max-h-[500px]">
       <img 
         src="/outfit.jpg" 
         alt="Selected outfit" 
@@ -172,11 +206,41 @@ export default function HomePage() {
         <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-20">
           <div className="relative w-full max-w-[280px]">
             {/* Arch Border */}
-            <div className="absolute inset-0 border border-black rounded-tl-full rounded-tr-full h-full -top-[4%] pointer-events-none"></div>
+            {/* <div className="absolute inset-0 border-[2px] border-black rounded-tl-full rounded-tr-full h-full -top-[4%] pointer-events-none"></div> */}
+
+
+{/* Teal shadow arch */}
+<div
+  className="absolute rounded-tl-full rounded-tr-full h-full pointer-events-none"
+  style={{
+    backgroundColor: '#3F978F',
+    // top: '0.5%',         // shift down a bit
+    left: '5%',        // shift right a bit (adjust as needed)
+    right: '-5%',      // allow it to stick out to the right beyond container
+    bottom: '0',
+    zIndex: 0,
+    position: 'absolute',
+    border: 'none',
+  }}
+></div>
+
+{/* Main arch */}
+<div
+  className="absolute inset-0 rounded-tl-full rounded-tr-full h-full pointer-events-none"
+  style={{
+    backgroundColor: 'white',
+    border: '2px solid black',
+    top: '-4%',
+    left: '0',
+    zIndex: 10,
+    position: 'absolute',
+  }}
+></div>
+
 
             {/* Content */}
             <div className="relative z-10 pt-10 pb-6 px-4">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-livvic text-center mb-6 md:mb-8">Upcoming Events</h2>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular text-center mb-6 md:mb-8">Upcoming Events</h2>
               <div className="space-y-2 md:space-y-3">
                 {[
                   { date: '30 December', label: "Kyle's Birthday" },
@@ -198,7 +262,23 @@ export default function HomePage() {
         </div>
         
       </div>
+                  <div 
+   className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 mb-0"
+      style={{
+        backgroundImage: `url(/header.jpg)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 1,
+          marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
+        width: '100vw',
+         marginTop: '2rem'
+      }}
+    >
 
+
+
+      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+    </div>
       <Footer />
     </div>
   );

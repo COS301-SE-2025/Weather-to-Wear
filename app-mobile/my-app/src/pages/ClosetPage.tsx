@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems } from '../services/closetApi';
 
 
+
 type Item = {
   id: number;
   name: string;
@@ -24,6 +25,8 @@ const mockOutfits: Item[] = [
 ];
 
 const ClosetPage = () => {
+
+  
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<Item[]>(mockOutfits);
@@ -141,11 +144,37 @@ useEffect(() => {
     );
 
   return (
-    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
 
-      <h1 className="text-4xl font-bold text-center mb-6 text-gray-900" style={{ fontFamily: "'Bodoni Moda', serif" }}>
-        My Closet
-      </h1>
+        <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
+    {/* Header Image Section */}
+    <div 
+   className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
+      style={{
+        backgroundImage: `url(/header.jpg)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 1,
+          marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
+        width: '100vw',
+         marginTop: '-1rem'
+      }}
+    >
+<div className="px-6 py-2 border-2 border-white z-10">
+  <h1 
+    className="text-2xl font-bodoni font-light text-center text-white"
+    style={{
+     // fontFamily: "'Bodoni Moda', serif",
+      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+    }}
+  >
+    MY CLOSET
+  </h1>
+</div>
+
+
+      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+    </div>
+
 
       {/* Category Filters */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
@@ -165,16 +194,16 @@ useEffect(() => {
       </div>
 
       {/* Search Bar */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="pl-10 pr-4 py-2 bg-gray-200 text-gray-700 rounded-full w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-          placeholder="Search items..."
-        />
-      </div>
+<div className="relative mb-6">
+  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black h-4 w-4" />
+  <input
+    type="search"
+    value={searchQuery}
+    onChange={e => setSearchQuery(e.target.value)}
+    className="pl-10 pr-4 py-2 bg-white text-black border border-black rounded-full w-full focus:outline-none focus:ring-2 focus:ring-black"
+    placeholder="Search items..."
+  />
+</div>
 
       {/* Tabs */}
       <div className="flex justify-center mb-6 gap-8">
@@ -193,17 +222,19 @@ useEffect(() => {
 
       {/* Grid */}
 {/* Grid */}
-<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
   {getCurrentData().map(item => (
-    <div key={item.id} className="relative aspect-square sm:aspect-square">
+    <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
+
       <div className="bg-gray-200 w-full h-full rounded-lg overflow-hidden flex flex-col text-xs sm:text-sm">
         <div className="flex-grow relative">
-          <img
-            src={item.image}
-            alt={item.name}
-            onClick={() => setPreviewImage(item.image)}
-            className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-          />
+<img
+  src={item.image}
+  alt={item.name}
+  onClick={() => setPreviewImage(item.image)}
+  className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+/>
+
           <button
             onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
             className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"

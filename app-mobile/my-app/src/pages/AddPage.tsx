@@ -86,12 +86,33 @@ const AddPage: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 p-6 md:p-12">
       {/* Header */}
-      <div className="w-full max-w-3xl mx-auto mb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight text-center text-gray-900 font-bodoni">
-          Add New Item
-        </h1>
-      </div>
+    <div 
+   className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
+      style={{
+        backgroundImage: `url(/background.jpg)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 1,
+          marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
+        width: '100vw',
+         marginTop: '-4rem'
+      }}
+    >
+<div className="px-6 py-2 border-2 border-white z-10">
+  <h1 
+    className="text-2xl font-bodoni font-light text-center text-white"
+    style={{
+     // fontFamily: "'Bodoni Moda', serif",
+      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+    }}
+  >
+    ADD AN ITEM
+  </h1>
+</div>
 
+
+      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+    </div>
       {/* Content */}
       <div className="flex flex-col lg:flex-row items-center justify-center gap-10 max-w-5xl mx-auto">
         {/* CAMERA PANE */}
