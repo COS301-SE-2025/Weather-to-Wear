@@ -10,31 +10,42 @@ describe('Weather Service', () => {
   });
 
   it('returns weather from FreeWeatherAPI', async () => {
-    const mockFreeWeatherResponse: AxiosResponse = {
-      data: {
-        location: { name: 'Cape Town' },
-        forecast: {
-          forecastday: [{
-            hour: Array.from({ length: 6 }).map((_, i) => ({
-              time: `2025-05-23 ${14 + i}:00`,
-              temp_c: 25,
-              condition: { text: 'Sunny', icon: 'icon.png' }
-            }))
-          }]
-        }
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {},
-      config: {} as InternalAxiosRequestConfig
+  // generate future times for next 6 hours, was giving errors with 'temperature' not being defined earlier
+  const now = new Date();
+  const mockHours = Array.from({ length: 6 }).map((_, i) => {
+    const hour = new Date(now.getTime() + i * 60 * 60 * 1000); 
+    const formatted = hour.toISOString().slice(0, 13).replace('T', ' ') + ':00'; 
+    return {
+      time: formatted,
+      temp_c: 25,
+      condition: { text: 'Sunny', icon: 'icon.png' }
     };
-
-    mockedAxios.get.mockResolvedValueOnce(mockFreeWeatherResponse);
-
-    const result = await getWeatherByLocation('Cape Town');
-    expect(result.source).toBe('FreeWeatherAPI');
-    expect(result.forecast[0].temperature).toBe(25);
   });
+
+  const mockFreeWeatherResponse: AxiosResponse = {
+    data: {
+      location: { name: 'Cape Town' },
+      forecast: {
+        forecastday: [
+          {
+            hour: mockHours
+          }
+        ]
+      }
+    },
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: {} as InternalAxiosRequestConfig
+  };
+
+  mockedAxios.get
+    .mockResolvedValueOnce(mockFreeWeatherResponse);
+
+  const result = await getWeatherByLocation('Cape Town');
+  expect(result.source).toBe('FreeWeatherAPI');
+  expect(result.forecast[0].temperature).toBe(25);
+});
 
   it('falls back to OpenWeatherMap if FreeWeatherAPI fails', async () => {
     const mockGeoResponse: AxiosResponse = {
@@ -70,9 +81,9 @@ describe('Weather Service', () => {
     };
 
     mockedAxios.get
-      .mockRejectedValueOnce(new Error('FreeWeatherAPI down')) // FreeWeatherAPI
-      .mockResolvedValueOnce(mockGeoResponse) // Geo lookup
-      .mockResolvedValueOnce(mockOpenWeatherResponse); // Forecast
+      .mockRejectedValueOnce(new Error('FreeWeatherAPI down'))
+      .mockResolvedValueOnce(mockGeoResponse)
+      .mockResolvedValueOnce(mockOpenWeatherResponse);
 
     const result = await getWeatherByLocation('Cape Town');
     expect(result.source).toBe('OpenWeatherMap');
