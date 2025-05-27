@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "lucide-react": "^0.511.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "dotenv-cli": "^8.0.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.7"
+  }
+}
