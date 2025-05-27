@@ -47,6 +47,7 @@ export default function Signup() {
     try {
       const res = await signupUser(formData.username, formData.email, formData.password);
       localStorage.setItem('token', res.token);
+      localStorage.setItem('user', JSON.stringify(res.user));
       navigate('/dashboard');
     } catch (err) {
       if (err instanceof Error) {

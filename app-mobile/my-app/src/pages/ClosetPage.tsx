@@ -45,8 +45,7 @@ useEffect(() => {
       const formattedItems: Item[] = res.data.map((item: any) => ({
         id: item.id,
         name: item.category, // or item.name if available
-  image: `http://localhost:5001${item.imageUrl}`, // ✅ USE imageUrl FROM BACKEND
-
+        image: `http://localhost:5001${item.imageUrl}`, 
         favorite: false,
         category: item.category,
       }));
