@@ -9,6 +9,8 @@ services:
       - ./app-backend/.env
     depends_on:
       - db
+    volumes:
+      - ./app-backend/uploads:/app/uploads
 
   db:
     image: postgres:15
@@ -21,7 +23,6 @@ services:
       - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../uploads:/app/uploads 
 
 volumes:
   pgdata:
