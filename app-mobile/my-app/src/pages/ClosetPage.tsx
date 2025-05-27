@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Heart, Search, X } from "lucide-react";
 
 
+// Define the structure for items and tabs
 type Item = {
   id: number;
   name: string;
@@ -14,10 +15,12 @@ type Item = {
 
 type TabType = "items" | "outfits" | "favourites";
 
+// Mock data for items
 const mockItems: Item[] = [
   { id: 1, name: "Shirt", image: "/images/shirt.jpg", favorite: false, category: "Shirts" },
+];
 
-
+// Mock data for outfits
 const mockOutfits: Item[] = [
   { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
   { id: 4, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
@@ -25,19 +28,8 @@ const mockOutfits: Item[] = [
   { id: 6, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
 ];
 
-=======
-const mockOutfits = [
-  { id: 101, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
-  { id: 102, name: "Formal Look", image: "/images/image2.jpg", favorite: false, category: "Formal" },
-  { id: 103, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
-  { id: 104, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
-  { id: 105, name: "Sporty Look", image: "/images/image5.jpg", favorite: false, category: "Sporty" },
-  { id: 106, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
-];
-
-// Start with an empty favourites array, as items will be added dynamically
-const mockFavourites: { id: number; name: string; image: string; favorite: boolean; category: string }[] = [];
-
+// Start with an empty favourites array; items will be added dynamically
+const mockFavourites: Item[] = [];
 
 const ClosetPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>("items");
@@ -57,15 +49,15 @@ const ClosetPage = () => {
       const favs: Item[] = JSON.parse(stored);
       setFavourites(favs);
       setItems(is =>
-        is.map(i => ({ 
-          ...i, 
-          favorite: favs.some(f => f.id === i.id && f.tab === "items") 
+        is.map(i => ({
+          ...i,
+          favorite: favs.some(f => f.id === i.id && f.tab === "items"),
         }))
       );
       setOutfits(of =>
         of.map(o => ({
           ...o,
-          favorite: favs.some(f => f.id === o.id && f.tab === "outfits")
+          favorite: favs.some(f => f.id === o.id && f.tab === "outfits"),
         }))
       );
     }
@@ -83,11 +75,10 @@ const ClosetPage = () => {
     localStorage.setItem(`closet-favs-${token}`, JSON.stringify(newFavs));
 
     const apply = (lst: Item[], fn: (v: Item[]) => void) =>
-      fn(lst.map(x => x.id === item.id ? { ...x, favorite: !x.favorite } : x));
+      fn(lst.map(x => (x.id === item.id ? { ...x, favorite: !x.favorite } : x)));
 
     if (tab === "items") apply(items, setItems);
     else apply(outfits, setOutfits);
-
   };
 
   const handleRemoveClick = (id: number, tab: TabType, name: string) => {
@@ -101,7 +92,6 @@ const ClosetPage = () => {
       if (tab === "items") setItems(it => it.filter(i => i.id !== id));
       if (tab === "outfits") setOutfits(of => of.filter(o => o.id !== id));
       if (tab === "favourites") setFavourites(f => f.filter(i => i.id !== id));
-
     }
     setShowModal(false);
   };
@@ -135,7 +125,7 @@ const ClosetPage = () => {
 
       {/* Category Filters */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
-        {["All", ...getTabCategories()].map((cat, i) => {
+        { ["All", ...getTabCategories()].map((cat, i) => {
           const sel = (cat === "All" && !activeCategory) || activeCategory === cat;
           return (
             <button
@@ -143,7 +133,7 @@ const ClosetPage = () => {
               onClick={() => setActiveCategory(cat === "All" ? null : cat)}
               className={`
                 px-4 py-1 rounded-full text-sm font-medium transition-colors duration-200
-                ${sel
+                ${ sel
                   ? "bg-black text-white"
                   : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-black hover:text-white"
                 }
@@ -153,7 +143,7 @@ const ClosetPage = () => {
               {cat}
             </button>
           );
-        })}
+        }) }
       </div>
 
       {/* Search */}
@@ -173,7 +163,6 @@ const ClosetPage = () => {
         />
       </div>
 
-
       {/* Tabs */}
       <div className="flex justify-center mb-6 gap-8">
         {(["items", "outfits", "favourites"] as TabType[]).map(tab => (
@@ -182,25 +171,22 @@ const ClosetPage = () => {
             onClick={() => setActiveTab(tab)}
             className={`
               px-4 py-2 rounded-full font-medium transition
-              ${activeTab === tab
+              ${ activeTab === tab
                 ? "bg-black text-white"
                 : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 border border-black dark:border-gray-700 hover:bg-black hover:text-white"
               }
             `}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
-
           </button>
         ))}
       </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {getCurrentData().map(item => (
+        { getCurrentData().map(item => (
           <div key={item.id} className="relative">
-
             <div className="h-48 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800">
-
               <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
               <button
                 onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
@@ -214,28 +200,25 @@ const ClosetPage = () => {
               <button
                 onClick={() => {
                   const origin = activeTab === "favourites"
-                    ? favourites.find(f => f.id === item.id)?.tab || "items"
+                    ? (favourites.find(f => f.id === item.id)?.tab || "items")
                     : (activeTab as "items" | "outfits");
                   toggleFavorite(item, origin);
                 }}
                 className="focus:outline-none"
               >
                 <Heart
-                  className={`h-5 w-5 ${
-                    favourites.some(f => f.id === item.id)
-                      ? "fill-red-500 text-red-500"
-                      : "text-gray-400 dark:text-gray-400"
-                  }`}
-                />
+                  className={`h-5 w-5 ${ favourites.some(f => f.id === item.id)
+                    ? "fill-red-500 text-red-500"
+                    : "text-gray-400 dark:text-gray-400"
+                  }`} />
               </button>
             </div>
           </div>
-        ))}
+        )) }
       </div>
 
-
       {/* Remove Modal */}
-      {showModal && (
+      { showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg max-w-sm w-full">
             <h2 className="text-center mb-6 text-base font-normal text-gray-900 dark:text-gray-100">
@@ -244,7 +227,6 @@ const ClosetPage = () => {
             <div className="flex justify-center gap-4">
               <button
                 onClick={cancelRemove}
-
                 className="
                   px-4 py-2 rounded-full transition-colors
                   bg-white dark:bg-gray-800
@@ -252,7 +234,6 @@ const ClosetPage = () => {
                   border border-black dark:border-gray-700
                   hover:bg-black hover:text-white dark:hover:bg-gray-700
                 "
-
               >
                 Cancel
               </button>
@@ -265,7 +246,7 @@ const ClosetPage = () => {
             </div>
           </div>
         </div>
-      )}
+      ) }
     </div>
   );
 };

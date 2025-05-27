@@ -20,7 +20,6 @@ import AddPage from "./pages/AddPage";
 import { ImageProvider } from "./components/ImageContext";
 import Footer from "./components/Footer";
 
-
 function App() {
   return (
     <ImageProvider>
@@ -42,7 +41,7 @@ function App() {
                   <Route path="add-item" element={<AddItem />} />
                   <Route path="calendar" element={<CalendarPage />} />
                   <Route path="feed" element={<FeedPage />} />
-+                 <Route path="appearance" element={<Appearance />} />
+                  <Route path="appearance" element={<Appearance />} />
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="create-outfit" element={<CreateAnOutfit />} />
                   <Route path="post-to-feed" element={<Post />} />
@@ -53,7 +52,7 @@ function App() {
           />
         </Routes>
       </Router>
-
+    </ImageProvider>
   );
 }
 
