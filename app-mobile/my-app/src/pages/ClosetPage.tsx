@@ -1,7 +1,7 @@
 // src/pages/ClosetPage.tsx
-
 import { useState, useEffect } from "react";
 import { Heart, Search, X } from "lucide-react";
+
 
 type Item = {
   id: number;
@@ -16,12 +16,7 @@ type TabType = "items" | "outfits" | "favourites";
 
 const mockItems: Item[] = [
   { id: 1, name: "Shirt", image: "/images/shirt.jpg", favorite: false, category: "Shirts" },
-  { id: 2, name: "Jeans", image: "/images/jeans.jpg", favorite: false, category: "Pants" },
-  { id: 3, name: "Jacket", image: "/images/jacket.jpg", favorite: false, category: "Jackets" },
-  { id: 4, name: "Shoes", image: "/images/shoes.jpg", favorite: false, category: "Shoes" },
-  { id: 5, name: "Shirt", image: "/images/shirt2.jpg", favorite: false, category: "Shirts" },
-  { id: 6, name: "Skirt", image: "/images/skirt.jpg", favorite: false, category: "Pants" },
-];
+
 
 const mockOutfits: Item[] = [
   { id: 3, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
@@ -29,6 +24,20 @@ const mockOutfits: Item[] = [
   { id: 5, name: "Sporty Look", image: "/images/image5.jpg", favorite: false, category: "Sporty" },
   { id: 6, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
 ];
+
+=======
+const mockOutfits = [
+  { id: 101, name: "Casual Look", image: "/images/image1.jpg", favorite: false, category: "Casual" },
+  { id: 102, name: "Formal Look", image: "/images/image2.jpg", favorite: false, category: "Formal" },
+  { id: 103, name: "Party Look", image: "/images/image3.jpg", favorite: false, category: "Party" },
+  { id: 104, name: "Casual Look", image: "/images/image4.jpg", favorite: false, category: "Casual" },
+  { id: 105, name: "Sporty Look", image: "/images/image5.jpg", favorite: false, category: "Sporty" },
+  { id: 106, name: "Party Look", image: "/images/image6.jpg", favorite: false, category: "Party" },
+];
+
+// Start with an empty favourites array, as items will be added dynamically
+const mockFavourites: { id: number; name: string; image: string; favorite: boolean; category: string }[] = [];
+
 
 const ClosetPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>("items");
@@ -78,6 +87,7 @@ const ClosetPage = () => {
 
     if (tab === "items") apply(items, setItems);
     else apply(outfits, setOutfits);
+
   };
 
   const handleRemoveClick = (id: number, tab: TabType, name: string) => {
@@ -91,6 +101,7 @@ const ClosetPage = () => {
       if (tab === "items") setItems(it => it.filter(i => i.id !== id));
       if (tab === "outfits") setOutfits(of => of.filter(o => o.id !== id));
       if (tab === "favourites") setFavourites(f => f.filter(i => i.id !== id));
+
     }
     setShowModal(false);
   };
@@ -162,6 +173,7 @@ const ClosetPage = () => {
         />
       </div>
 
+
       {/* Tabs */}
       <div className="flex justify-center mb-6 gap-8">
         {(["items", "outfits", "favourites"] as TabType[]).map(tab => (
@@ -177,6 +189,7 @@ const ClosetPage = () => {
             `}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
+
           </button>
         ))}
       </div>
@@ -185,7 +198,9 @@ const ClosetPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {getCurrentData().map(item => (
           <div key={item.id} className="relative">
+
             <div className="h-48 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800">
+
               <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
               <button
                 onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
@@ -218,6 +233,7 @@ const ClosetPage = () => {
         ))}
       </div>
 
+
       {/* Remove Modal */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
@@ -228,6 +244,7 @@ const ClosetPage = () => {
             <div className="flex justify-center gap-4">
               <button
                 onClick={cancelRemove}
+
                 className="
                   px-4 py-2 rounded-full transition-colors
                   bg-white dark:bg-gray-800
@@ -235,6 +252,7 @@ const ClosetPage = () => {
                   border border-black dark:border-gray-700
                   hover:bg-black hover:text-white dark:hover:bg-gray-700
                 "
+
               >
                 Cancel
               </button>

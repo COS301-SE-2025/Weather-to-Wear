@@ -2,6 +2,8 @@
 
 import { Heart } from "lucide-react";
 import { useState } from "react";
+import Footer from '../components/Footer';
+
 
 interface Post {
   id: number;
@@ -61,9 +63,11 @@ const FeedPage = () => {
 
   return (
     <div className="max-w-2xl mx-auto">
+
       <h1 className="text-4xl font-bold mb-8 text-center text-black dark:text-gray-100">
         Feed
       </h1>
+
       
       <div className="space-y-8">
         {posts.map(post => (
@@ -72,7 +76,9 @@ const FeedPage = () => {
             className="bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-lg p-4 shadow-sm"
           >
             <div className="flex items-center space-x-3 mb-4">
+
               <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+
                 <img
                   src={`/avatars/${post.id}.png`}
                   alt={post.username}
@@ -128,7 +134,9 @@ const FeedPage = () => {
           </div>
         ))}
       </div>
+
     </div>
+ 
   );
 };
 

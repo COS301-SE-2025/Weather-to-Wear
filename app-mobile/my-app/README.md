@@ -50,3 +50,4 @@ To learn React, check out the [React documentation](https://reactjs.org/).
 - npm install
 - npm install lucide-react
 - npm install react react-dom
+- npm install axios

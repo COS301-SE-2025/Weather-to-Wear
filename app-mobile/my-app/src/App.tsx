@@ -9,7 +9,6 @@ import ClosetPage from "./pages/ClosetPage";
 import CalendarPage from "./pages/CalendarPage";
 import FeedPage from "./pages/FeedPage";
 import Appearance from "./pages/Appearance";
-
 import ProfilePage from "./pages/Profile";
 import CreateAnOutfit from "./pages/UnderConstruction";
 import Post from "./pages/Post";
@@ -19,6 +18,8 @@ import Signup from "./pages/Signup";
 import AddItem from "./pages/AddItem";
 import AddPage from "./pages/AddPage";
 import { ImageProvider } from "./components/ImageContext";
+import Footer from "./components/Footer";
+
 
 function App() {
   return (
@@ -52,7 +53,7 @@ function App() {
           />
         </Routes>
       </Router>
-    </ImageProvider>
+
   );
 }
 
