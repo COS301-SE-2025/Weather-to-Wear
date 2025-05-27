@@ -4,7 +4,6 @@ import { Heart } from "lucide-react";
 import { useState } from "react";
 import Footer from '../components/Footer';
 
-
 interface Post {
   id: number;
   username: string;
@@ -59,8 +58,6 @@ const recommendedAccounts: Account[] = [
   { id: 103, username: "closetqueen", avatar: "Q" },
 ];
 
-// ...imports stay the same
-
 const FeedPage = () => {
   const [posts, setPosts] = useState(initialPosts);
 
@@ -82,77 +79,71 @@ const FeedPage = () => {
   return (
     <div className="w-full max-w-screen-xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-10">
       {/* Spacer on left for centering */}
-      <div className="hidden md:block w-4"></div>
+      <div className="hidden md:block w-4" />
 
       {/* Feed Section */}
-      <div className="w-full md:w-[58%]">
-        {/* <h1 className="text-3xl md:text-4xl font-bodoni tracking-wide mb-6 text-center md:text-left">
-          Your Feed
-        </h1> */}
-
-        <div className="space-y-6">
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="bg-white rounded-3xl p-5 shadow-md border border-black"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-gray-700 font-semibold relative">
-                  <img
-                    src={`/avatars/${post.id}.png`}
-                    alt={post.username}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.nextSibling!.textContent = post.avatar;
-                    }}
-                  />
-                  <span className="absolute">{post.avatar}</span>
-                </div>
-                <div>
-                  <div className="font-medium text-sm">@{post.username}</div>
-                  <div className="text-xs text-gray-500">{post.date}</div>
-                </div>
+      <div className="w-full md:w-[58%] space-y-6">
+        {posts.map((post) => (
+          <div
+            key={post.id}
+            className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-black dark:border-gray-700"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+                <img
+                  src={`/avatars/${post.id}.png`}
+                  alt={post.username}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    e.currentTarget.nextSibling!.textContent = post.avatar;
+                  }}
+                />
+                <span className="absolute">{post.avatar}</span>
               </div>
-
-              <p className="text-sm text-gray-800 mb-3">{post.content}</p>
-
-              <div className="rounded-xl overflow-hidden bg-gray-100 h-[400px] flex items-center justify-center text-gray-400">
-                [Outfit Image]
-              </div>
-
-              <div className="mt-3 flex items-center">
-                <button
-                  onClick={() => toggleLike(post.id)}
-                  className="flex items-center space-x-1 focus:outline-none"
-                >
-                  <Heart
-                    className={`h-5 w-5 transition-colors ${
-                      post.liked
-                        ? "fill-red-500 text-red-500"
-                        : "text-gray-400"
-                    }`}
-                  />
-                  <span className="text-sm text-gray-500">
-                    {post.likes} likes
-                  </span>
-                </button>
+              <div>
+                <div className="font-medium text-sm dark:text-gray-100">@{post.username}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{post.date}</div>
               </div>
             </div>
-          ))}
-        </div>
+
+            <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{post.content}</p>
+
+            <div className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 h-[400px] flex items-center justify-center text-gray-400 dark:text-gray-500">
+              [Outfit Image]
+            </div>
+
+            <div className="mt-3 flex items-center">
+              <button
+                onClick={() => toggleLike(post.id)}
+                className="flex items-center space-x-1 focus:outline-none"
+              >
+                <Heart
+                  className={`h-5 w-5 transition-colors ${
+                    post.liked
+                      ? "fill-red-500 text-red-500"
+                      : "text-gray-400 dark:text-gray-400"
+                  }`}
+                />
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {post.likes} likes
+                </span>
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Sidebar */}
       <div className="w-full md:w-[32%]">
-        <h2 className="text-xl font-livvic mb-4">Recommended Accounts</h2>
+        <h2 className="text-xl font-livvic mb-4 dark:text-gray-100">Recommended Accounts</h2>
         <div className="space-y-5">
           {recommendedAccounts.map((account) => (
             <div
               key={account.id}
-              className="bg-white rounded-3xl p-4 shadow-md border border-black flex items-center gap-4"
+              className="bg-white dark:bg-gray-800 rounded-3xl p-4 shadow-md border border-black dark:border-gray-700 flex items-center gap-4"
             >
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-bold relative overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold relative overflow-hidden">
                 <img
                   src={`/avatars/${account.id}.png`}
                   alt={account.username}
@@ -164,7 +155,9 @@ const FeedPage = () => {
                 />
                 <span className="absolute">{account.avatar}</span>
               </div>
-              <div className="text-sm font-medium">@{account.username}</div>
+              <div className="text-sm font-medium dark:text-gray-100">
+                @{account.username}
+              </div>
             </div>
           ))}
         </div>
@@ -174,5 +167,3 @@ const FeedPage = () => {
 };
 
 export default FeedPage;
-
-

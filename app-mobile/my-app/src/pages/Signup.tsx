@@ -1,4 +1,5 @@
 // src/pages/Signup.tsx
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
@@ -66,19 +67,19 @@ export default function Signup() {
         <img src="/logo.png" alt="Logo" className="max-w-[200px] sm:max-w-[280px]" />
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white dark:bg-gray-800 p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="w-full max-w-md">
-          <h2 className="text-3xl font-light mb-6 text-center lg:text-left">
+          <h2 className="text-3xl font-light mb-6 text-center lg:text-left dark:text-gray-100">
             Sign up
           </h2>
 
           {/* Error Popup */}
           {errors.length > 0 && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-rose-500 rounded-lg shadow-md animate-fade-in">
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900 border-l-4 border-rose-500 dark:border-rose-300 rounded-lg shadow-md animate-fade-in">
               {errors.map((err, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center text-rose-600 text-sm font-medium mb-2 last:mb-0"
+                  className="flex items-center text-rose-600 dark:text-rose-300 text-sm font-medium mb-2 last:mb-0"
                 >
                   <svg
                     className="w-5 h-5 mr-2"
@@ -106,7 +107,7 @@ export default function Signup() {
               placeholder="Username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-gray-900 dark:text-gray-200"
               required
             />
           </div>
@@ -118,7 +119,7 @@ export default function Signup() {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-gray-900 dark:text-gray-200"
               required
             />
           </div>
@@ -130,7 +131,7 @@ export default function Signup() {
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-gray-900 dark:text-gray-200"
               required
             />
             <img
@@ -148,7 +149,7 @@ export default function Signup() {
               placeholder="Confirm Password"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-full bg-white border border-black"
+              className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-gray-900 dark:text-gray-200"
               required
             />
             <img
@@ -166,7 +167,7 @@ export default function Signup() {
             Sign up
           </button>
 
-          <p className="text-sm text-gray-700 text-center">
+          <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
             Go back to{' '}
             <Link to="/login" className="text-[#3F978F] underline">
               Login?

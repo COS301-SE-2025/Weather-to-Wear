@@ -11,7 +11,7 @@ import FeedPage from "./pages/FeedPage";
 import Appearance from "./pages/Appearance";
 import ProfilePage from "./pages/Profile";
 import CreateAnOutfit from "./pages/UnderConstruction";
-import Post from "./pages/Post";
+import Post from "./pages/UnderConstruction";
 import UnderConstruction from "./pages/UnderConstruction";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";

@@ -84,39 +84,37 @@ const AddPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 p-6 md:p-12">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12">
       {/* Header */}
-    <div 
-   className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
-      style={{
-        backgroundImage: `url(/background.jpg)`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
-        width: '100vw',
-         marginTop: '-4rem'
-      }}
-    >
-<div className="px-6 py-2 border-2 border-white z-10">
-  <h1 
-    className="text-2xl font-bodoni font-light text-center text-white"
-    style={{
-     // fontFamily: "'Bodoni Moda', serif",
-      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-    }}
-  >
-    ADD AN ITEM
-  </h1>
-</div>
+      <div
+        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
+        style={{
+          backgroundImage: `url(/background.jpg)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 1,
+          marginLeft: 'calc(-50vw + 50%)',
+          width: '100vw',
+          marginTop: '-4rem'
+        }}
+      >
+        <div className="px-6 py-2 border-2 border-white z-10">
+          <h1
+            className="text-2xl font-bodoni font-light text-center text-white"
+            style={{
+              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+            }}
+          >
+            ADD AN ITEM
+          </h1>
+        </div>
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      </div>
 
-
-      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-    </div>
       {/* Content */}
       <div className="flex flex-col lg:flex-row items-center justify-center gap-10 max-w-5xl mx-auto">
         {/* CAMERA PANE */}
-        <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white rounded-3xl border border-gray-300 shadow-md">
+        <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-300 dark:border-gray-700 shadow-md">
           <div className="relative w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black">
             {!stream && !cameraPreview && (
               <button
@@ -155,7 +153,7 @@ const AddPage: React.FC = () => {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="border border-black rounded-full px-5 py-3 text-black bg-white font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 transition w-full max-w-xs"
+                className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
               >
                 <option value="">Select Category</option>
                 <option value="SHIRT">Shirt</option>
@@ -192,11 +190,11 @@ const AddPage: React.FC = () => {
         </div>
 
         {/* DIVIDER */}
-        <div className="hidden lg:block mx-6 h-96 border-l border-gray-300" />
-        <div className="block lg:hidden w-3/4 border-t border-gray-300 my-8" />
+        <div className="hidden lg:block mx-6 h-96 border-l border-gray-300 dark:border-gray-700" />
+        <div className="block lg:hidden w-3/4 border-t border-gray-300 dark:border-gray-700 my-8" />
 
         {/* UPLOAD PANE */}
-        <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white rounded-3xl border border-gray-300 shadow-md">
+        <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-300 dark:border-gray-700 shadow-md">
           <div className="w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black flex items-center justify-center">
             {!uploadPreview ? (
               <label className="flex items-center justify-center gap-3 w-full h-full text-white bg-black hover:bg-teal-600 transition-colors rounded-xl cursor-pointer font-semibold text-lg select-none">
@@ -229,7 +227,7 @@ const AddPage: React.FC = () => {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="border border-black rounded-full px-5 py-3 text-black bg-white font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 transition w-full max-w-xs"
+                className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
               >
                 <option value="">Select Category</option>
                 <option value="SHIRT">Shirt</option>
