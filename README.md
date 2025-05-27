@@ -14,14 +14,8 @@ Epi-Use Africa     </a>
 ![GitHub last commit](https://img.shields.io/github/last-commit/COS301-SE-2025/Weather-To-Wear)
 ![GitHub repo size](https://img.shields.io/github/repo-size/COS301-SE-2025/Weather-To-Wear)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-
-Code Coverage 
 [![codecov](https://codecov.io/gh/COS301-SE-2025/Weather-To-Wear/main/graph/badge.svg)](https://codecov.io/gh/COS301-SE-2025/Weather-To-Wear)
-
-Build Status
 [![Build Status](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml/badge.svg)](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml)
-
-Docker Support 
 ![Dockerized](https://img.shields.io/badge/docker-ready-blue)
 
 
@@ -97,7 +91,7 @@ Track our progress on the GitHub Project Board:
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
 | [Architecture Diagram]()                 | Diagram of system overview                 |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
-| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear.wiki.git)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 
  <h1 align="center"> Demo Resources </h1>
