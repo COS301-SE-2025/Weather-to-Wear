@@ -1,28 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Heart, Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { fetchAllItems } from '../services/closetApi';
 
-// Define types for your items
+
 type Item = {
   id: number;
   name: string;
   image: string;
   favorite: boolean;
   category: string;
-  tab?: 'items' | 'outfits'; // Only these two values are allowed
+  tab?: 'items' | 'outfits';
 };
 
 type TabType = 'items' | 'outfits' | 'favourites';
 
-const mockItems: Item[] = [
-  { id: 1, name: 'Shirt', image: '/images/shirt.jpg', favorite: false, category: 'Shirts' },
-  { id: 2, name: 'Jeans', image: '/images/jeans.jpg', favorite: false, category: 'Pants' },
-  { id: 3, name: 'Jacket', image: '/images/jacket.jpg', favorite: false, category: 'Jackets' },
-  { id: 4, name: 'Shoes', image: '/images/shoes.jpg', favorite: false, category: 'Shoes' },
-  { id: 5, name: 'Shirt', image: '/images/shirt2.jpg', favorite: false, category: 'Shirts' },
-  { id: 6, name: 'Skirt', image: '/images/skirt.jpg', favorite: false, category: 'Pants' },
-];
-
+// Mock data for outfits
 const mockOutfits: Item[] = [
   { id: 3, name: 'Party Look', image: '/images/image3.jpg', favorite: false, category: 'Party' },
   { id: 4, name: 'Casual Look', image: '/images/image4.jpg', favorite: false, category: 'Casual' },
@@ -32,7 +25,7 @@ const mockOutfits: Item[] = [
 
 const ClosetPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>('items');
-  const [items, setItems] = useState<Item[]>(mockItems);
+  const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<Item[]>(mockOutfits);
   const [favourites, setFavourites] = useState<Item[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -41,6 +34,31 @@ const ClosetPage = () => {
   const [itemToRemove, setItemToRemove] = useState<{ id: number; tab: TabType; name: string } | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Fetch items from backend
+useEffect(() => {
+  const fetchItems = async () => {
+    try {
+      const res = await fetchAllItems();
+      const formattedItems: Item[] = res.data.map((item: any) => ({
+        id: item.id,
+        name: item.category, // or item.name if available
+  image: `http://localhost:5001${item.imageUrl}`, // ✅ USE imageUrl FROM BACKEND
+
+        favorite: false,
+        category: item.category,
+      }));
+
+      setItems(formattedItems);
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+  };
+
+  fetchItems();
+}, []);
+
+
+  // Load favourites from localStorage
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -49,13 +67,25 @@ const ClosetPage = () => {
     if (storedFavs) {
       const parsedFavs: Item[] = JSON.parse(storedFavs);
       setFavourites(parsedFavs);
-      setItems(prev => prev.map(item => ({ ...item, favorite: parsedFavs.some(fav => fav.id === item.id && fav.tab === 'items') })));
-      setOutfits(prev => prev.map(o => ({ ...o, favorite: parsedFavs.some(fav => fav.id === o.id && fav.tab === 'outfits') })));
+      setItems(prev =>
+        prev.map(item => ({
+          ...item,
+          favorite: parsedFavs.some(fav => fav.id === item.id && fav.tab === 'items'),
+        }))
+      );
+      setOutfits(prev =>
+        prev.map(item => ({
+          ...item,
+          favorite: parsedFavs.some(fav => fav.id === item.id && fav.tab === 'outfits'),
+        }))
+      );
     }
   }, []);
 
   const toggleFavorite = (item: Item, tab: 'items' | 'outfits') => {
-    const token = localStorage.getItem('token'); if (!token) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
     const isFav = favourites.some(fav => fav.id === item.id && fav.tab === tab);
     const updatedFavs = isFav
       ? favourites.filter(fav => !(fav.id === item.id && fav.tab === tab))
@@ -64,7 +94,9 @@ const ClosetPage = () => {
     setFavourites(updatedFavs);
     localStorage.setItem(`closet-favs-${token}`, JSON.stringify(updatedFavs));
 
-    const toggleList = (list: Item[], setter: (v: Item[]) => void) => setter(list.map(el => el.id === item.id ? { ...el, favorite: !el.favorite } : el));
+    const toggleList = (list: Item[], setter: (v: Item[]) => void) =>
+      setter(list.map(el => (el.id === item.id ? { ...el, favorite: !el.favorite } : el)));
+
     tab === 'items' ? toggleList(items, setItems) : toggleList(outfits, setOutfits);
   };
 
@@ -87,32 +119,35 @@ const ClosetPage = () => {
     setItemToRemove(null);
   };
 
-  const cancelRemove = () => { setShowModal(false); setItemToRemove(null); };
+  const cancelRemove = () => {
+    setShowModal(false);
+    setItemToRemove(null);
+  };
 
   const getCurrentData = () => {
     const data = activeTab === 'items' ? items : activeTab === 'outfits' ? outfits : favourites;
-    return data.filter(item =>
-      (!activeCategory || item.category === activeCategory) &&
-      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return data.filter(
+      item =>
+        (!activeCategory || item.category === activeCategory) &&
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   };
 
   const getTabCategories = () =>
     Array.from(
       new Set(
-        (activeTab === 'items' ? items : activeTab === 'outfits' ? outfits : favourites).map(
-          i => i.category
-        )
+        (activeTab === 'items' ? items : activeTab === 'outfits' ? outfits : favourites).map(i => i.category)
       )
     );
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
+
       <h1 className="text-4xl font-bold text-center mb-6 text-gray-900" style={{ fontFamily: "'Bodoni Moda', serif" }}>
         My Closet
       </h1>
 
-      {/* Category filters */}
+      {/* Category Filters */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
         {['All', ...getTabCategories()].map((category, index) => {
           const isActive = activeCategory === category || (category === 'All' && activeCategory === null);
@@ -129,7 +164,7 @@ const ClosetPage = () => {
         })}
       </div>
 
-      {/* Search bar */}
+      {/* Search Bar */}
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
         <input
@@ -138,7 +173,6 @@ const ClosetPage = () => {
           onChange={e => setSearchQuery(e.target.value)}
           className="pl-10 pr-4 py-2 bg-gray-200 text-gray-700 rounded-full w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
           placeholder="Search items..."
-          aria-label="Search items"
         />
       </div>
 
@@ -157,45 +191,53 @@ const ClosetPage = () => {
         ))}
       </div>
 
-      {/* Items grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {getCurrentData().map(item => (
-          <div key={item.id} className="relative">
-            <div className="bg-gray-200 h-48 rounded-lg overflow-hidden">
-              <img
-                src={item.image}
-                alt={item.name}
-                onClick={() => setPreviewImage(item.image)}
-                className="w-full h-full object-contain cursor-pointer"
-              />
-              <button
-                onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-                className="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
-              >
-                <X className="h-4 w-4 text-gray-600" />
-              </button>
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-gray-700">{item.name}</span>
-              <button
-                onClick={() => toggleFavorite(
-                  item,
-                  activeTab === 'favourites'
-                    ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
-                    : (activeTab as 'items' | 'outfits')
-                )}
-                className="focus:outline-none"
-              >
-                <Heart
-                  className={`h-5 w-5 ${favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                />
-              </button>
-            </div>
-          </div>
-        ))}
+      {/* Grid */}
+{/* Grid */}
+<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+  {getCurrentData().map(item => (
+    <div key={item.id} className="relative aspect-square sm:aspect-square">
+      <div className="bg-gray-200 w-full h-full rounded-lg overflow-hidden flex flex-col text-xs sm:text-sm">
+        <div className="flex-grow relative">
+          <img
+            src={item.image}
+            alt={item.name}
+            onClick={() => setPreviewImage(item.image)}
+            className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+          />
+          <button
+            onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
+            className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+          >
+            <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+          </button>
+        </div>
+        <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+          <span className="text-gray-700 truncate">{item.name}</span>
+          <button
+            onClick={() =>
+              toggleFavorite(
+                item,
+                activeTab === 'favourites'
+                  ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
+                  : (activeTab as 'items' | 'outfits')
+              )
+            }
+            className="focus:outline-none"
+          >
+            <Heart
+              className={`h-4 w-4 sm:h-5 sm:w-5 ${
+                favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
+              }`}
+            />
+          </button>
+        </div>
       </div>
+    </div>
+  ))}
+</div>
 
-      {/* Remove confirmation modal */}
+
+      {/* Modals */}
       <AnimatePresence>
         {showModal && itemToRemove && (
           <motion.div
@@ -232,7 +274,6 @@ const ClosetPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Image preview overlay */}
       <AnimatePresence>
         {previewImage && (
           <motion.div
@@ -242,9 +283,18 @@ const ClosetPage = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
           >
-            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }} transition={{ duration: 0.3 }} className="relative">
-              <motion.img src={previewImage} alt="Preview" className="w-4/5 h-4/5 object-contain" /> 
-              <button onClick={() => setPreviewImage(null)} className="absolute top-2 right-2 text-white bg-gray-800 bg-opacity-50 rounded-full p-1">
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              className="relative"
+            >
+              <motion.img src={previewImage} alt="Preview" className="w-4/5 h-4/5 object-contain" />
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute top-2 right-2 text-white bg-gray-800 bg-opacity-50 rounded-full p-1"
+              >
                 <X className="h-6 w-6" />
               </button>
             </motion.div>
