@@ -82,9 +82,9 @@ const FeedPage = () => {
 
       {/* Feed Section */}
       <div className="w-full md:w-[58%]">
-        <h1 className="text-3xl md:text-4xl font-bodoni tracking-wide mb-6 text-center md:text-left">
+        {/* <h1 className="text-3xl md:text-4xl font-bodoni tracking-wide mb-6 text-center md:text-left">
           Your Feed
-        </h1>
+        </h1> */}
 
         <div className="space-y-6">
           {posts.map((post) => (

@@ -262,7 +262,7 @@ const NavBar = () => {
         )}
       </div>
 
-      <div className="h-[140px] lg:h-[140px]" />
+      <div className="h-[140px] lg:h-[100px]" />
     </>
   );
 };

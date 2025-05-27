@@ -50,6 +50,7 @@ export default function Signup() {
         formData.password
       );
       localStorage.setItem('token', res.token);
+      localStorage.setItem('user', JSON.stringify(res.user));
       navigate('/dashboard');
     } catch (err: any) {
       setErrors([err.message || 'Signup failed.']);
