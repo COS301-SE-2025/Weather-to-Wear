@@ -22,12 +22,6 @@ Epi-Use Africa     </a>
 
 
 
-🛑 Codecov badge pending due to GitHub organization restrictions. Code coverage is generated with `jest --coverage`. See `/app-backend/coverage/` for details.
-
-
-
-
-
 <h3 align="center">
   Weather to Wear is a web-application that aims to
 simplify weather forecasts into a personalized wardrobe
@@ -46,23 +40,6 @@ while expressing their unique fashion sense.
 
 [Our Website](https://gitgood.netlify.app/)  
 
----
-
-<h1 align="center"> Git Structure & Branching Strategy </h1>
-
-The Weather to Wear project follows a monorepo structure, consolidating all components into a single GitHub repository for easier collaboration, integration, and deployment. The repository contains two main applications:
-- `app-backend/` – Node.js backend with PostgreSQL, Dockerized and tested using Jest.
-- `app-mobile/` – Frontend/mobile interface (under development).
-- `.github/` – GitHub Actions workflows for CI/CD.
-- `docs/` – Project documentation and planning assets.
-- `infra/` – Infrastructure and deployment configurations.
-
-We use a standardized Git branching model to support team collaboration and feature isolation:
-- `main` – Stable production-ready branch.
-- `dev` – Integration branch for completed features and testing.
-- `feature/<name>` – Individual feature branches created from dev.
-- `hotfix/<name>` – Emergency fixes branched from main.
-
 
   <h1 align="center"> Documentation and Resources </h1>
 
@@ -72,16 +49,15 @@ We use a standardized Git branching model to support team collaboration and feat
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification](https://www.canva.com/design/DAGn4e4ym68/cJ07x8_HtQvq838tb8P8jA/edit?utm_content=DAGn4e4ym68&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)     | Details on project requirements            |
-| [Architectural Specification]()             | System design overview                     |
-| [Coding Standards]()           |  Guidelines for writing code      |
-| [Git and GitHub Standards]()                        | Guidelines for using Git and GitHub               |
-| [Testing Strategy and Standards]()                 | Testing strategies    |
+| [Software Requirements Specification](https://drive.google.com/file/d/1guJnG_6ncGMJJpxW-jUqiyrd7DdU9_IK/view?usp=sharing)     | Details on project requirements            |
+| [Architectural Specification](https://drive.google.com/file/d/11mFORT89BX4LUtz4Tfs2UuB9johuZuNU/view?usp=sharing)             | System design overview                     |
 | [Use-Case Diagrams]()                   | Use Case Diagrams               |
-| [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
-| [Architecture Diagram]()                 | Diagram of system overview                 |
-| [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
+| [Class Diagram](https://drive.google.com/file/d/1QIwp0tuGINeBTIbXlFbQ6wUREyfQCKJR/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
+| [Architecture Diagram](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                 | Diagram of system overview                 |
+| [Coding Standards](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)           |  Guidelines for writing code      |
+| [Git and GitHub Standards](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                        | Guidelines for using Git and GitHub               |
+| [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 
  <h1 align="center"> Demo Resources </h1>
