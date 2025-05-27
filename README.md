@@ -51,7 +51,7 @@ while expressing their unique fashion sense.
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | [Software Requirements Specification](https://drive.google.com/file/d/1guJnG_6ncGMJJpxW-jUqiyrd7DdU9_IK/view?usp=sharing)     | Details on project requirements            |
 | [Architectural Specification](https://drive.google.com/file/d/11mFORT89BX4LUtz4Tfs2UuB9johuZuNU/view?usp=sharing)             | System design overview                     |
-| [Use-Case Diagrams]()                   | Use Case Diagrams               |
+| [Use-Case Diagrams](https://drive.google.com/file/d/1oUrZc5sYPM2Uv8Z9fsRvQ_77zI-ILtT3/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1QIwp0tuGINeBTIbXlFbQ6wUREyfQCKJR/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
 | [Architecture Diagram](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                 | Diagram of system overview                 |
