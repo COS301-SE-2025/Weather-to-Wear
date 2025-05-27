@@ -56,7 +56,7 @@ while expressing their unique fashion sense.
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
 | [Architecture Diagram](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                 | Diagram of system overview                 |
 | [Coding Standards](https://drive.google.com/file/d/1jDCNPA01MVGYEUl6qKIn-3oT2Eb7WuG2/view?usp=sharing)           |  Guidelines for writing code      |
-| [Git and GitHub Standards](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                        | Guidelines for using Git and GitHub               |
+| [Git and GitHub Standards](https://drive.google.com/file/d/11A0Hghik9lQZAMy_GqH7wGo2ieDZL616/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 
