@@ -1,13 +1,15 @@
+// src/pages/Signup.tsx
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { signupUser } from '../services/auth';
-import { useNavigate } from 'react-router-dom';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
-    email: '', username: '', 
-    password: '', confirmPassword: ''
+    email: '',
+    username: '',
+    password: '',
+    confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -19,20 +21,18 @@ export default function Signup() {
   };
 
   const validateForm = () => {
-    const newErrors = [];
-    // Email validation
+    const newErrors: string[] = [];
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(formData.email)) {
       newErrors.push('Please enter a valid email address.');
     }
-    // Password strength validation
-    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    const passRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
     if (!passRegex.test(formData.password)) {
       newErrors.push(
         'Password must be at least 8 characters and include lowercase, uppercase, and a special character.'
       );
     }
-    // Confirm match
     if (formData.password !== formData.confirmPassword) {
       newErrors.push("Passwords don't match.");
     }
@@ -43,33 +43,34 @@ export default function Signup() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) return;
-
     try {
-      const res = await signupUser(formData.username, formData.email, formData.password);
+      const res = await signupUser(
+        formData.username,
+        formData.email,
+        formData.password
+      );
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify(res.user));
       navigate('/dashboard');
-    } catch (err) {
-      if (err instanceof Error) {
-        setErrors([err.message]);
-      } else {
-        setErrors(['Signup failed.']);
-      }
+    } catch (err: any) {
+      setErrors([err.message || 'Signup failed.']);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       <div className="w-full lg:w-1/2 bg-black flex flex-col items-center justify-center p-6 sm:p-8">
-        <h1 className="text-white text-4xl sm:text-4xl mb-4 font-bodoni tracking-wide text-center lg:text-left">
-          <TypingTitle text="Weather2Wear" highlight="Wear" />
+        <h1 className="text-white text-4xl sm:text-4xl mb-4 font-sephir font-semibold tracking-tight text-center lg:text-left">
+          <TypingTitle text="WeatherToWear" highlight="ToWear" />
         </h1>
         <img src="/logo.png" alt="Logo" className="max-w-[200px] sm:max-w-[280px]" />
       </div>
 
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="w-full max-w-md">
-          <h2 className="text-3xl font-light mb-6 text-center lg:text-left">Sign up</h2>
+          <h2 className="text-3xl font-light mb-6 text-center lg:text-left">
+            Sign up
+          </h2>
 
           {/* Error Popup */}
           {errors.length > 0 && (
@@ -166,7 +167,10 @@ export default function Signup() {
           </button>
 
           <p className="text-sm text-gray-700 text-center">
-            Go back to <Link to="/login" className="text-[#3F978F] underline">Login?</Link>
+            Go back to{' '}
+            <Link to="/login" className="text-[#3F978F] underline">
+              Login?
+            </Link>
           </p>
         </form>
       </div>

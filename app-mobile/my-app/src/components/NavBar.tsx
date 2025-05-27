@@ -1,3 +1,4 @@
+// src/components/NavBar.tsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Plus, Home, Calendar, Shirt, Users, User } from "lucide-react";
@@ -8,12 +9,11 @@ const NavBar = () => {
   const currentPath = location.pathname;
 
   const isAddRoute =
-  currentPath === "/add" ||
-  currentPath === "/add-item" ||          
-  currentPath.startsWith("/add/") ||
-  currentPath === "/create-outfit" ||
-  currentPath === "/post-to-feed";
-
+    currentPath === "/add" ||
+    currentPath === "/add-item" ||
+    currentPath.startsWith("/add/") ||
+    currentPath === "/create-outfit" ||
+    currentPath === "/post-to-feed";
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -21,18 +21,15 @@ const NavBar = () => {
   const isActive = (path: string) => currentPath === path;
   const toggleMenu = () => setMenuOpen((open) => !open);
 
-// In NavBar component
-const handleLogout = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    // Clear the user-specific favorites
-    localStorage.removeItem(`closet-favs-${token}`);
-  }
-  // Clear the token
-  localStorage.removeItem('token');
-  // Navigate to login
-  navigate("/login");
-};
+  const handleLogout = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      localStorage.removeItem(`closet-favs-${token}`);
+    }
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
@@ -51,9 +48,13 @@ const handleLogout = () => {
           <div className="max-w-screen-xl mx-auto flex items-center justify-between">
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Weather2Wear logo" className="h-10 w-auto" />
-              <h1 className="text-2xl md:text-4xl font-bodoni font-extrabold tracking-wide">
-                Weather2Wear
+              <img
+                src="/logo.png"
+                alt="Weather2Wear logo"
+                className="h-10 w-auto"
+              />
+              <h1 className="text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
+                WeatherToWear
               </h1>
             </div>
 
@@ -83,7 +84,9 @@ const handleLogout = () => {
               <Link
                 to="/dashboard"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  isActive("/dashboard")
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 } text-white`}
               >
                 <span className="font-livvic">home</span>
@@ -96,8 +99,6 @@ const handleLogout = () => {
               >
                 <span className="font-livvic">closet</span>
               </Link>
-
-              {/* Plus button – teal if on an add-related page */}
               <button
                 onClick={toggleMenu}
                 className={`flex items-center justify-center p-1 rounded-full w-8 h-8 transition-colors ${
@@ -109,11 +110,12 @@ const handleLogout = () => {
               >
                 <Plus size={20} />
               </button>
-
               <Link
                 to="/calendar"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  isActive("/calendar")
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 } text-white`}
               >
                 <span className="font-livvic">calendar</span>
