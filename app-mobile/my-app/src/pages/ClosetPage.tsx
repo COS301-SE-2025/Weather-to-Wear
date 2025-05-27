@@ -141,7 +141,8 @@ useEffect(() => {
     );
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
+
       <h1 className="text-4xl font-bold text-center mb-6 text-gray-900" style={{ fontFamily: "'Bodoni Moda', serif" }}>
         My Closet
       </h1>
@@ -191,46 +192,50 @@ useEffect(() => {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {getCurrentData().map(item => (
-          <div key={item.id} className="relative">
-            <div className="bg-gray-200 h-48 rounded-lg overflow-hidden">
-              <img
-                src={item.image}
-                alt={item.name}
-                onClick={() => setPreviewImage(item.image)}
-                className="w-full h-full object-contain cursor-pointer"
-              />
-              <button
-                onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-                className="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
-              >
-                <X className="h-4 w-4 text-gray-600" />
-              </button>
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-gray-700">{item.name}</span>
-              <button
-                onClick={() =>
-                  toggleFavorite(
-                    item,
-                    activeTab === 'favourites'
-                      ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
-                      : (activeTab as 'items' | 'outfits')
-                  )
-                }
-                className="focus:outline-none"
-              >
-                <Heart
-                  className={`h-5 w-5 ${
-                    favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        ))}
+{/* Grid */}
+<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+  {getCurrentData().map(item => (
+    <div key={item.id} className="relative aspect-square sm:aspect-square">
+      <div className="bg-gray-200 w-full h-full rounded-lg overflow-hidden flex flex-col text-xs sm:text-sm">
+        <div className="flex-grow relative">
+          <img
+            src={item.image}
+            alt={item.name}
+            onClick={() => setPreviewImage(item.image)}
+            className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+          />
+          <button
+            onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
+            className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+          >
+            <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+          </button>
+        </div>
+        <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+          <span className="text-gray-700 truncate">{item.name}</span>
+          <button
+            onClick={() =>
+              toggleFavorite(
+                item,
+                activeTab === 'favourites'
+                  ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
+                  : (activeTab as 'items' | 'outfits')
+              )
+            }
+            className="focus:outline-none"
+          >
+            <Heart
+              className={`h-4 w-4 sm:h-5 sm:w-5 ${
+                favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
+              }`}
+            />
+          </button>
+        </div>
       </div>
+    </div>
+  ))}
+</div>
+
 
       {/* Modals */}
       <AnimatePresence>
