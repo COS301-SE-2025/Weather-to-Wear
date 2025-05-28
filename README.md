@@ -67,7 +67,7 @@ while expressing their unique fashion sense.
 
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
-| Demo 1 | [Demo 1 Video]() | [Demo 1 Slides]() |
+| Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1gTC9mgx2KzzU62mEJRF217-XlyrK0ZIi/view?usp=sharing) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 
 
 </div>
