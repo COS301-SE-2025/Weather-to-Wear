@@ -62,4 +62,5 @@ jobs:
           DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
 
       - name: Test Docker build
+      
         run: docker build -t weather-backend .
