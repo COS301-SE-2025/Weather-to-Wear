@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+  password String
+}
+
+enum Category {
+  SHIRT
+  HOODIE
+  PANTS
+  SHORTS
+  SHOES
+}
+
+model ClosetItem {
+  id         String    @id @default(uuid())
+  filename      String
+  category   Category
+  createdAt  DateTime  @default(now())
+
+  /// (Optional) If you later want to associate items with users:
+  // ownerId    String?
+  // owner      User?     @relation(fields: [ownerId], references: [id])
+
+  @@map("closet_items")
+}

@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./app-backend
+    container_name: weather-backend
+    ports:
+      - "5001:5000"
+    env_file:
+      - ./app-backend/.env
+    depends_on:
+      - db
+    volumes:
+      - ./app-backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./app-mobile/my-app
+    container_name: weather-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app-mobile/my-app:/app
+    stdin_open: true
+    tty: true
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: weatheruser
+      POSTGRES_PASSWORD: weatherpass
+      POSTGRES_DB: weatherdb
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
