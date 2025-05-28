@@ -12,6 +12,19 @@ services:
     volumes:
       - ./app-backend/uploads:/app/uploads
 
+  frontend:
+    build:
+      context: ./app-mobile/my-app
+    container_name: weather-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app-mobile/my-app:/app
+    stdin_open: true
+    tty: true
+    depends_on:
+      - backend
+
   db:
     image: postgres:15
     restart: always
