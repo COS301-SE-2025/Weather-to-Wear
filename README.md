@@ -2,25 +2,28 @@
   <img src="docs/assets/Weather_To_Wear.png" height="auto">
 
   <h1 align="center">A Capstone Project for
-   <a href="https://www.epiuselabs.com/">
-Epi-Use Labs     </a>
+   <a href="https://www.epiuse.com">
+Epi-Use Africa     </a>
   </h1>
 
 <div align="center">
 
-![GitHub issues](https://img.shields.io/github/issues/COS301-SE-2025/Weather-To-Wear)
+[![Issues](https://img.shields.io/github/issues/COS301-SE-2025/Weather-To-Wear)](https://github.com/COS301-SE-2025/weather-to-wear/issues)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/COS301-SE-2025/Weather-To-Wear)
-![GitHub pull requests](https://img.shields.io/github/languages/count/COS301-SE-2025/Weather-To-Wear)
-![GitHub pull requests](https://img.shields.io/github/last-commit/COS301-SE-2025/Weather-To-Wear)
-![GitHub pull requests](https://img.shields.io/github/repo-size/COS301-SE-2025/Weather-To-Wear)
-[![codecov](https://codecov.io/gh/COS301-SE-2025/Weather-To-Wear/graph/badge.svg?token=YpKw4Ek8cq)](https://codecov.io/gh/COS301-SE-2025/Weather-To-Wear)
+![GitHub languages](https://img.shields.io/github/languages/count/COS301-SE-2025/Weather-To-Wear)
+![GitHub last commit](https://img.shields.io/github/last-commit/COS301-SE-2025/Weather-To-Wear)
+![GitHub repo size](https://img.shields.io/github/repo-size/COS301-SE-2025/Weather-To-Wear)
+![License](https://img.shields.io/badge/license-MIT-blue)
+[![codecov](https://codecov.io/gh/COS301-SE-2025/Weather-To-Wear/main/graph/badge.svg)](https://codecov.io/gh/COS301-SE-2025/Weather-To-Wear)
+[![Build Status](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml/badge.svg)](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml)
+![Dockerized](https://img.shields.io/badge/docker-ready-blue)
 
 
 
 
 
 <h3 align="center">
-  Weather to Wear is a mobile application that aims to
+  Weather to Wear is a web-application that aims to
 simplify weather forecasts into a personalized wardrobe
 consultant. By analysing real-time weather forecasts
 with the combination of a user's personalised styling
@@ -30,7 +33,7 @@ user's personal clothing collection. The application
 seeks to streamline the daily challenge of choosing
 outfits that are weather-appropriate, ensuring users
 step out confidently prepared for any weather condition
-while expressing their unique fashion sense.
+while expressing their unique fashion sense. 
 </h3>
 
 </p>
@@ -47,14 +50,13 @@ while expressing their unique fashion sense.
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | [Software Requirements Specification](https://drive.google.com/file/d/1guJnG_6ncGMJJpxW-jUqiyrd7DdU9_IK/view?usp=sharing)     | Details on project requirements            |
 | [Architectural Specification](https://drive.google.com/file/d/11mFORT89BX4LUtz4Tfs2UuB9johuZuNU/view?usp=sharing)             | System design overview                     |
-| [Coding Standards]()           |  Guidelines for writing code      |
-| [Git and GitHub Standards]()                        | Guidelines for using Git and GitHub               |
-| [Testing Strategy and Standards]()                 | Testing strategies    |
 | [Use-Case Diagrams](https://drive.google.com/file/d/1oUrZc5sYPM2Uv8Z9fsRvQ_77zI-ILtT3/view?usp=sharing)                   | Use Case Diagrams               |
-| [Class Diagram](https://drive.google.com/file/d/19ZKLJz5PA6aA5JJyosev8IV4n3s8yZUS/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
+| [Class Diagram](https://drive.google.com/file/d/1QIwp0tuGINeBTIbXlFbQ6wUREyfQCKJR/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
 | [Architecture Diagram](https://drive.google.com/file/d/1grpiACs0eybq8eGT0e3xa_YqgJ07UaiZ/view?usp=sharing)                 | Diagram of system overview                 |
+| [Coding Standards](https://drive.google.com/file/d/1jDCNPA01MVGYEUl6qKIn-3oT2Eb7WuG2/view?usp=sharing)           |  Guidelines for writing code      |
+| [Git and GitHub Standards](https://drive.google.com/file/d/11A0Hghik9lQZAMy_GqH7wGo2ieDZL616/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
-| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 
  <h1 align="center"> Demo Resources </h1>
@@ -64,7 +66,8 @@ while expressing their unique fashion sense.
 
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
-| Demo 1 | [Demo 1 Video]() | [Demo 1 Slides]() |
+| Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1gTC9mgx2KzzU62mEJRF217-XlyrK0ZIi/view?usp=sharing) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
+
 
 
 </div>

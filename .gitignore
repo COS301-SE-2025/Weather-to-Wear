@@ -21,6 +21,8 @@ ios/Pods/
 .env.prod
 .env.*.local
 docker-data/
+.env.prod
+.env.studio
 
 ### OS / IDE ###
 Thumbs.db
@@ -32,3 +34,6 @@ Thumbs.db
 coverage/
 dist/
 build/
+
+### Ignore uploaded images
+/app-backend/uploads/

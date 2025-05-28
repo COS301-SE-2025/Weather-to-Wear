@@ -2,19 +2,65 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop, feature/**]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-backend
+
+    env:
+        NODE_ENV: test
+        FREE_WEATHER_API_KEY: test_key
+        FREE_WEATHER_API_URL: https://fakeurl.com
+        OPENWEATHER_API_KEY: test_key
+        OPENWEATHER_API_URL: https://fakeurl.com
+
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: weatherdb
+          POSTGRES_USER: weatheruser
+          POSTGRES_PASSWORD: weatherpass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
         with:
-          version: 8
+          node-version: 20
+
       - name: Install deps
-        run: pnpm install --frozen-lockfile
-      - name: Lint & test workspace
-        run: pnpm npm run lint test     # or npm run lint && npm test
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
+
+      - name: Reset DB (PostgreSQL)
+        run: npx prisma migrate reset --force --skip-generate --skip-seed
+        env:
+          DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
+
+      - name: Run tests
+        run: npm test
+        env:
+          DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
+
+      - name: Test Docker build
+      
+        run: docker build -t weather-backend .
