@@ -54,7 +54,7 @@ while expressing their unique fashion sense.
 | [Use-Case Diagrams](https://drive.google.com/file/d/1oUrZc5sYPM2Uv8Z9fsRvQ_77zI-ILtT3/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1QIwp0tuGINeBTIbXlFbQ6wUREyfQCKJR/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
-| [Architecture Diagram](https://drive.google.com/drive/u/0/folders/1_SFQuSG5GLU1X_V9gnsJ8IzWIRDbHbZv)                 | Diagram of system overview                 |
+| [Architecture Diagram](https://drive.google.com/file/d/1grpiACs0eybq8eGT0e3xa_YqgJ07UaiZ/view?usp=sharing)                 | Diagram of system overview                 |
 | [Coding Standards](https://drive.google.com/file/d/1jDCNPA01MVGYEUl6qKIn-3oT2Eb7WuG2/view?usp=sharing)           |  Guidelines for writing code      |
 | [Git and GitHub Standards](https://drive.google.com/file/d/11A0Hghik9lQZAMy_GqH7wGo2ieDZL616/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
