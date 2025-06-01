@@ -35,7 +35,7 @@ describe('ClosetService', () => {
 
   it('saveImage calls prisma.closetItem.create with buffer & category', async () => {
     const fakeFile = { buffer: Buffer.from('x') } as Express.Multer.File;
-    const result = await service.saveImage(fakeFile, 'SHOES' as any);
+    const result = await service.saveImage(fakeFile, 'SHOES' as any, 'test-user-id');
 
     expect((service as any).prisma.closetItem.create).toHaveBeenCalledWith({
       data: { filename: fakeFile.filename, category: 'SHOES' }
@@ -44,7 +44,7 @@ describe('ClosetService', () => {
   });
 
   it('getAllImages calls prisma.closetItem.findMany and returns array', async () => {
-    const items = await service.getAllImages();
+    const items = await service.getAllImages('test-user-id');
     expect((service as any).prisma.closetItem.findMany).toHaveBeenCalled();
     expect(items).toEqual([]);
   });
@@ -77,7 +77,8 @@ describe('ClosetController', () => {
         id: "1",
         filename: 'img.png',
         category: 'SHOES',
-        createdAt: new Date('2025-05-27T00:00:00.000Z')
+        createdAt: new Date('2025-05-27T00:00:00.000Z'),
+        ownerId: 'test-user-id'
       });
       req.file = fakeFile;
       req.body = { category: 'SHOES' };
@@ -86,9 +87,9 @@ describe('ClosetController', () => {
       expect(service.saveImage).toHaveBeenCalledWith(fakeFile, 'SHOES');
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
-        id:        '1',
-        category:  'SHOES',
-        imageUrl:  '/uploads/img.png',
+        id: '1',
+        category: 'SHOES',
+        imageUrl: '/uploads/img.png',
         createdAt: expect.any(Date)
       });
     });
@@ -105,7 +106,7 @@ describe('ClosetController', () => {
 
   describe('getAll', () => {
     it('returns 200 + formatted URLs', async () => {
-      const items = [{ id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date() }];
+      const items = [{ id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }];
       (service.getAllImages as jest.Mock) = jest.fn().mockResolvedValue(items);
 
       (req as any).protocol = 'http';
@@ -136,10 +137,10 @@ describe('ClosetController', () => {
   describe('getByCategory', () => {
     it('filters and returns 200', async () => {
       const items = [
-        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date() }
+        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
       ];
       jest.spyOn(service, 'getImagesByCategory').mockResolvedValue(items as any);
-      
+
       (req as any).params = { category: 'SHOES' };
       (req as any).protocol = 'http';
       (req as any).get = () => 'localhost:5001';
@@ -150,9 +151,9 @@ describe('ClosetController', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith([
         {
-          id:        1,
-          category:  'SHOES',
-          imageUrl:  '/uploads/a.png',
+          id: 1,
+          category: 'SHOES',
+          imageUrl: '/uploads/a.png',
           createdAt: expect.any(Date)
         }
       ]);
@@ -168,13 +169,13 @@ describe('Closet Routes', () => {
     jest
       .spyOn(service, 'getAllImages')
       .mockResolvedValue([
-        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date() }
+        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
       ] as any);
 
     jest
       .spyOn(service, 'getImagesByCategory')
       .mockResolvedValue([
-        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date() }
+        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
       ] as any);
 
     // 2) Spin up an Express app with the static uploads and your router
@@ -195,9 +196,9 @@ describe('Closet Routes', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
       expect.objectContaining({
-        id:        1,
-        category:  'SHOES',
-        imageUrl:  '/uploads/a.png',
+        id: 1,
+        category: 'SHOES',
+        imageUrl: '/uploads/a.png',
         createdAt: expect.any(String) // if JSON‐stringified date
       })
     ]);
@@ -208,9 +209,9 @@ describe('Closet Routes', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
       expect.objectContaining({
-        id:        1,
-        category:  'SHOES',
-        imageUrl:  '/uploads/a.png',
+        id: 1,
+        category: 'SHOES',
+        imageUrl: '/uploads/a.png',
         createdAt: expect.any(String)
       })
     ]);

@@ -1,35 +1,35 @@
-// src/modules/closet/closet.routes.ts
-import { Router, Request, Response } from 'express';
-import path from 'path';                      // ← for showing absolute paths
+import { Router } from 'express';
+import path from 'path';
 import closetController from './closet.controller';
 import { upload } from '../../middleware/upload.middleware';
+import { authenticateToken } from '../auth/auth.middleware';
 
 const router = Router();
 
-
-// POST /api/closet/upload
+// protect all closet endpoints with authentication
 router.post(
   '/upload',
+  authenticateToken,
   upload.single('image'),
   closetController.uploadImage
 );
 
-// POST /api/closet/upload/batch
 router.post(
   '/upload/batch',
+  authenticateToken,
   upload.array('images', 20),
   closetController.uploadImagesBatch
 );
 
-// GET /api/closet/category/:category
 router.get(
   '/category/:category',
+  authenticateToken,
   closetController.getByCategory
 );
 
-// GET /api/closet/all
 router.get(
   '/all',
+  authenticateToken,
   closetController.getAll
 );
 

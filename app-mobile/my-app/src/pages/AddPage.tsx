@@ -62,11 +62,16 @@ const AddPage: React.FC = () => {
     formData.append("image", blob, "upload.png");
     formData.append("category", category);
 
+    const token = localStorage.getItem('token');
+
     try {
       const response = await fetch("http://localhost:5001/api/closet/upload", {
-        method: "POST",
-        body: formData,
-      });
+      method: "POST",
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
       if (!response.ok) {
         throw new Error("Upload failed");
