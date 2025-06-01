@@ -1,36 +1,3 @@
-// import { PrismaClient, ClosetItem as PrismaClosetItem, Category } from '@prisma/client';
-// import { Express } from 'express';
-
-// export type ClosetItem = PrismaClosetItem;
-
-// class ClosetService {
-//   private prisma = new PrismaClient();
-
-//   /**
-//    * Save uploaded image buffer to DB
-//    */
-//   async saveImage(file: Express.Multer.File, category: Category): Promise<ClosetItem> {
-//     // Since your Prisma field is `Bytes`, use memoryStorage in multer so file.buffer is populated
-//     const item = await this.prisma.closetItem.create({
-//       data: {
-//         image: file.buffer,
-//         category,
-//       }
-//     });
-//     return item;
-//   }
-
-//   /**
-//    * Fetch all items matching a category
-//    */
-//   async getImagesByCategory(category: Category): Promise<ClosetItem[]> {
-//     return this.prisma.closetItem.findMany({ where: { category } });
-//   }
-// }
-
-// export default new ClosetService();
-
-
 import { PrismaClient, ClosetItem as PrismaClosetItem, Category } from '@prisma/client';
 import { Express } from 'express';
 import { Multer } from 'multer';
@@ -41,6 +8,12 @@ export type ClosetItem = PrismaClosetItem;
 class ClosetService {
   private prisma = new PrismaClient();
 
+  /**
+   * Saves a single uploaded image to the database
+   * @param file - The uploaded file from multer middleware
+   * @param category - The category of the clothing item
+   * @returns Promise resolving to the created closet item
+   */
   async saveImage(file: Express.Multer.File, category: Category): Promise<ClosetItem> {
     return this.prisma.closetItem.create({
       data: {
@@ -50,10 +23,21 @@ class ClosetService {
     });
   }
 
+  /**
+   * Retrieves all images matching a specific category
+   * @param category - The category to filter by
+   * @returns Promise resolving to an array of matching closet items
+   */
   async getImagesByCategory(category: Category): Promise<ClosetItem[]> {
     return this.prisma.closetItem.findMany({ where: { category } });
   }
 
+  /**
+   * Saves multiple images in a batch operation
+   * @param files - Array of uploaded files from multer middleware
+   * @param category - The category for all uploaded items
+   * @returns Promise resolving to an array of created closet items
+   */
   async saveImagesBatch(
     files: Express.Multer.File[],
     category: Category
@@ -67,6 +51,10 @@ class ClosetService {
     return Promise.all(creations);
   }
 
+  /**
+   * Retrieves all images from the closet
+   * @returns Promise resolving to an array of all closet items
+   */
   async getAllImages(): Promise<ClosetItem[]> {
   return this.prisma.closetItem.findMany();
   }
