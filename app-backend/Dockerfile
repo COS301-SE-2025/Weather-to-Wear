@@ -2,7 +2,7 @@
 FROM node:20-alpine
 
 # Install curl for diagnostics
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl postgresql-client
 
 # Set working directory
 WORKDIR /app

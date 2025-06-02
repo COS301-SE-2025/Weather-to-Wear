@@ -5,12 +5,17 @@ services:
     container_name: weather-backend
     ports:
       - "5001:5000"
+    environment:
+      POSTGRES_USER: weatheruser
+      POSTGRES_PASSWORD: weatherpass
+      POSTGRES_DB: weatherdb
     env_file:
       - ./app-backend/.env
     depends_on:
       - db
     volumes:
       - ./app-backend/uploads:/app/uploads
+      - ./app-backend/prisma:/app/prisma
 
   frontend:
     build:
