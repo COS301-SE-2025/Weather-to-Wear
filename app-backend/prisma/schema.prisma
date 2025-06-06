@@ -12,6 +12,7 @@ model User {
   name     String
   email    String @unique
   password String
+  closetItems ClosetItem[]
 }
 
 enum Category {
@@ -24,13 +25,12 @@ enum Category {
 
 model ClosetItem {
   id         String    @id @default(uuid())
-  filename      String
+  filename   String
   category   Category
   createdAt  DateTime  @default(now())
 
-  /// (Optional) If you later want to associate items with users:
-  // ownerId    String?
-  // owner      User?     @relation(fields: [ownerId], references: [id])
+  ownerId    String
+  owner      User      @relation(fields: [ownerId], references: [id])
 
   @@map("closet_items")
 }
