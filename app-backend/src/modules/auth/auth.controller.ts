@@ -12,9 +12,11 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     }
 
     const user = await registerUser(name, email, password);
+    const token = generateToken({ id: user.id, email: user.email }); 
 
     res.status(201).json({
       message: 'User registered successfully',
+      token, 
       user: {
         id: user.id,
         name: user.name,
