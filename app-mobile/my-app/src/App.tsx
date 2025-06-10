@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AddItem from "./pages/AddItem";
 import AddPage from "./pages/AddPage";
+import HelpPage from "./pages/HelpPage";
 import { ImageProvider } from "./components/ImageContext";
 import Footer from "./components/Footer";
 
@@ -45,6 +46,7 @@ function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="create-outfit" element={<CreateAnOutfit />} />
                   <Route path="post-to-feed" element={<Post />} />
+                  <Route path="help" element={<HelpPage />} />
                   <Route path="*" element={<UnderConstruction />} />
                 </Routes>
               </>

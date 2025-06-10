@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Plus, Home, Calendar, Shirt, Users, User } from "lucide-react";
+import { Plus, Home, Calendar, Shirt, Users, User, HelpCircle } from "lucide-react";
 
 const NavBar = () => {
   const location = useLocation();
@@ -94,6 +94,13 @@ const NavBar = () => {
             {/* Mobile Profile & Logout */}
             {isMobile && (
               <div className="flex items-center gap-2 relative" ref={profileRef}>
+                <button
+                  onClick={() => navigate("/help")} // Navigate to /help route
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
+                  aria-label="Help"
+                  >
+                <HelpCircle className="text-black dark:text-gray-100 w-5 h-5" />
+                </button>
                 <button
                   onClick={toggleProfile}
                   className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
@@ -203,6 +210,13 @@ const NavBar = () => {
 
             {/* Right - Profile & Logout */}
             <div className="flex items-center gap-3 ml-4 relative" ref={profileRef}>
+               <button
+                onClick={() => navigate("/help")}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
+                aria-label="Help"
+              >
+                <HelpCircle className="text-black dark:text-gray-100 w-5 h-5" />
+              </button>
               <button
                 onClick={toggleProfile}
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
