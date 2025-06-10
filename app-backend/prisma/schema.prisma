@@ -7,6 +7,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Category {
+  SHIRT
+  HOODIE
+  PANTS
+  SHORTS
+  SHOES
+  // additional ones - subject to change 
+  TSHIRT
+  LONGSLEEVE
+  SWEATER
+  JACKET
+  JEANS
+  BEANIE
+  HAT
+  SCARF
+  GLOVES
+  RAINCOAT
+  UMBRELLA
+  // etc.
+}
+
+enum Style {
+  Formal
+  Casual
+  Athletic
+  Party
+  Business
+  Outdoor
+}
+
+enum Material {
+  Cotton
+  Wool
+  Polyester
+  Leather
+  Nylon
+  Fleece
+}
+
 enum LayerCategory {
   base_top
   base_bottom
@@ -18,79 +57,45 @@ enum LayerCategory {
   accessory
 }
 
-enum ClothingType {
-  TShirt
-  LongSleeve
-  Sweater
-  Hoodie
-  Jacket
-  Pants
-  Jeans
-  Shorts
-  Shoes
-  Beanie
-  Hat
-  Scarf
-  Gloves
-  Raincoat
-  Umbrella
-  // TODO: Add more if necessary
-}
-
-enum Style {
+enum OverallStyle {
   Formal
   Casual
   Athletic
   Party
   Business
   Outdoor
-  // TODO: Add more if necessary
-}
-
-enum Material {
-  Cotton
-  Wool
-  Polyester
-  Leather
-  Nylon
-  Fleece
-  // TODO: Add more if necessary
-}
-
-enum OverallStyle {
-  Formal
-  Casual
-  Athletic
-  // TODO: Add more if necessary
+  // Add more as needed
 }
 
 model User {
-  id            String         @id @default(uuid())
-  name          String
-  email         String         @unique
-  password      String
-  outfits       Outfit[]
-  closetItems   ClosetItem[]
-  preference    UserPreference?
-  events        Event[]
+  id         String      @id @default(uuid())
+  name       String
+  email      String      @unique
+  password   String
+  closetItems ClosetItem[]
+  outfits    Outfit[]
+  preference UserPreference?
+  events     Event[]
 }
 
 model ClosetItem {
-  id            String         @id @default(uuid())
-  userId        String
-  user          User           @relation(fields: [userId], references: [id])
-  layer         LayerCategory
-  type          ClothingType
-  filename      String
-  createdAt     DateTime       @default(now())
-  colorHex      String
-  warmthFactor  Int
-  waterproof    Boolean
-  style         Style
-  material      Material
+  id         String    @id @default(uuid())
+  filename   String
+  category   Category
+  createdAt  DateTime  @default(now())
 
-  // Outfits that use this item (reverse relation)
-  outfitItems   OutfitItem[]
+  // New fields (safe to add as nullable if code doesn't expect them yet)
+  colorHex      String?
+  warmthFactor  Int?
+  waterproof    Boolean?
+  style         Style?
+  material      Material?
+
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id])
+
+  outfitItems OutfitItem[]
+  @@map("closet_items")
 }
 
 model Outfit {
