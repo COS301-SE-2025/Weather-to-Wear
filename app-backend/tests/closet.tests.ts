@@ -82,7 +82,7 @@
 //       });
 //       req.file = fakeFile;
 //       req.body = { category: 'SHOES' };
-      
+
 //       await controller.uploadImage(req as Request, res as Response, next);
 
 //       expect(service.saveImage).toHaveBeenCalledWith(fakeFile, 'SHOES');
@@ -311,9 +311,14 @@ describe('ClosetController', () => {
       jest.spyOn(service, 'saveImage').mockResolvedValue({
         id: "1",
         filename: 'img.png',
-        category: 'SHOES',
+        category: 'SHOES', // or Category.SHOES if you import the enum
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
-        ownerId: 'test-user-id'
+        ownerId: 'test-user-id',
+        colorHex: null,        // Add these lines!
+        warmthFactor: null,
+        waterproof: null,
+        style: null,
+        material: null,
       });
       let req: Partial<AuthenticatedRequest> = {};
       req.file = fakeFile;
