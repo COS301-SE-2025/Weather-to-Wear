@@ -1,4 +1,6 @@
 import { PrismaClient, ClosetItem as PrismaClosetItem, Category } from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
 import { Express } from 'express';
 import { Multer } from 'multer';
 
@@ -42,6 +44,29 @@ class ClosetService {
       where: { ownerId: userId }
     });
   }
+
+
+async deleteImage(id: string, ownerId: string): Promise<void> {
+    const item = await this.prisma.closetItem.findFirst({
+      where: { id, ownerId }
+    });
+    if (!item) {
+      const err = new Error('Item not found');
+      throw err;
+    }
+
+    await this.prisma.closetItem.delete({
+      where: { id }
+    });
+
+    const uploadDir = path.join(__dirname, '../../uploads');
+    const filePath  = path.join(uploadDir, item.filename);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+  
 }
 
 export default new ClosetService();
