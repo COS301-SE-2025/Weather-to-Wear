@@ -17,17 +17,31 @@ type UpdateData = {
   material?: Material;
 };
 
+type Extras = {
+  colorHex?: string;
+  warmthFactor?: number;
+  waterproof?: boolean;
+  style?: Style;
+  material?: Material;
+};
+
 class ClosetService {
   private prisma = new PrismaClient();
 
-  async saveImage(file: Express.Multer.File, category: Category, userId: string): Promise<ClosetItem> {
-    return this.prisma.closetItem.create({
-      data: {
-        filename: file.filename,
-        category,
-        ownerId: userId,
-      }
-    });
+  async saveImage(
+      file: Express.Multer.File,
+      category: Category,
+      userId: string,
+      extras?: Extras
+    ): Promise<ClosetItem> {
+      return this.prisma.closetItem.create({
+        data: {
+          filename: file.filename,
+          category,
+          ownerId: userId,
+          ...extras,
+        }
+      });
   }
 
   async getImagesByCategory(category: Category, userId: string): Promise<ClosetItem[]> {
@@ -36,14 +50,21 @@ class ClosetService {
     });
   }
 
-  async saveImagesBatch(
+
+    async saveImagesBatch(
     files: Express.Multer.File[],
     category: Category,
-    userId: string
+    userId: string,
+    extras?: Extras
   ): Promise<ClosetItem[]> {
     const creations = files.map(file =>
       this.prisma.closetItem.create({
-        data: { filename: file.filename, category, ownerId: userId }
+        data: {
+          filename: file.filename,
+          category,
+          ownerId: userId,
+          ...extras,
+        }
       })
     );
     return Promise.all(creations);
