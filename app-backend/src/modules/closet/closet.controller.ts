@@ -1,6 +1,6 @@
 // closetService.controller.ts
 import { Request, Response, NextFunction } from 'express';
-import { Category } from '@prisma/client';
+import { Style, Material, Category } from '@prisma/client';
 import ClosetService from './closet.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import closetService from './closet.service';
@@ -118,7 +118,7 @@ class ClosetController {
     next: NextFunction
   ):Promise<void> => {
     try {
-      const id = req.params.id;                       // it's a string
+      const id = req.params.id;                 
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
         res.status(401).json({ message: 'Unauthorized' });
@@ -127,8 +127,49 @@ class ClosetController {
 
       await ClosetService.deleteImage(id, user.id);
 
-      // 204 No Content for a successful delete
       res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  updateItem = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const id = req.params.id;
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const { category, colorHex, warmthFactor, waterproof, style, material } = req.body;
+      const updateData: any = {};
+      if (category)    updateData.category    = category as Category;
+      if (colorHex)    updateData.colorHex    = colorHex;
+      if (warmthFactor !== undefined)
+                         updateData.warmthFactor = Number(warmthFactor);
+      if (waterproof !== undefined)
+                         updateData.waterproof   = Boolean(waterproof);
+      if (style)       updateData.style       = style as Style;
+      if (material)    updateData.material    = material as Material;
+
+      const updated = await ClosetService.updateImage(id, user.id, updateData);
+
+      res.status(200).json({
+        id:         updated.id,
+        category:   updated.category,
+        imageUrl:   `/uploads/${updated.filename}`,
+        createdAt:  updated.createdAt,
+        colorHex:   updated.colorHex,
+        warmthFactor: updated.warmthFactor,
+        waterproof: updated.waterproof,
+        style:      updated.style,
+        material:   updated.material
+      });
     } catch (err) {
       next(err);
     }

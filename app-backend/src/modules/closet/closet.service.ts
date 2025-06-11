@@ -1,4 +1,5 @@
-import { PrismaClient, ClosetItem as PrismaClosetItem, Category } from '@prisma/client';
+import { Category, Style, Material, PrismaClient, ClosetItem as PrismaClosetItem } from '@prisma/client';
+
 import path from 'path';
 import fs from 'fs';
 import { Express } from 'express';
@@ -6,6 +7,15 @@ import { Multer } from 'multer';
 
 
 export type ClosetItem = PrismaClosetItem;
+
+type UpdateData = {
+  category?: Category;
+  colorHex?: string;
+  warmthFactor?: number;
+  waterproof?: boolean;
+  style?: Style;
+  material?: Material;
+};
 
 class ClosetService {
   private prisma = new PrismaClient();
@@ -66,7 +76,24 @@ async deleteImage(id: string, ownerId: string): Promise<void> {
       fs.unlinkSync(filePath);
     }
   }
-  
+
+  async updateImage(
+    id: string,
+    ownerId: string,
+    data: UpdateData
+  ): Promise<ClosetItem> {
+    const existing = await this.prisma.closetItem.findFirst({
+      where: { id, ownerId }
+    });
+    if (!existing) {
+      throw new Error('Item not found');
+    }
+
+    return this.prisma.closetItem.update({
+      where: { id },
+      data
+    });
+  }
 }
 
 export default new ClosetService();

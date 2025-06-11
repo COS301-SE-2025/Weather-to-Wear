@@ -40,4 +40,10 @@ router.delete(
   closetController.deleteItem
 );
 
+router.patch(
+  '/:id',
+  authenticateToken,
+  closetController.updateItem
+);
+
 export default router;
