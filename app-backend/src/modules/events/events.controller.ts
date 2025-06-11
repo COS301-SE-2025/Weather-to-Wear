@@ -1,90 +1,170 @@
 import { Request, Response, NextFunction } from 'express';
+import { PrismaClient, Style } from '@prisma/client';
+import { AuthenticatedRequest } from '../auth/auth.middleware';
 
-class eventsController{
+const prisma = new PrismaClient();
 
-    //GET 
-    // => /api/events
-    getEvents = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            // Simulate fetching events from a database or service
-            const events = [
-                { id: 1, name: 'Event 1', date: '2023-10-01' },
-                { id: 2, name: 'Event 2', date: '2023-10-02' }
-            ];
-            res.status(200).json(events);
-        } catch (err) {
-            next(err);
-        }
+class EventsController {
+  // GET all events for authenticated user
+  getEvents = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const events = await prisma.event.findMany({
+        where: { userId: user.id },
+      });
+      res.status(200).json(events);
+    } catch (err) {
+      next(err);
     }
+  };
 
-    //POST
-    // => /api/events
-    createEvent = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const newEvent = req.body; // Assuming the event data is in the request body
-            // Simulate saving the event to a database or service
-            newEvent.id = Math.floor(Math.random() * 1000); // Mock ID generation
-            res.status(201).json(newEvent);
-        } catch (err) {
-            next(err);
-        }
+  // GET single event by ID
+  getEventById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const eventId = req.query.id as string; // Get ID from query params
+      if (!eventId) {
+        res.status(400).json({ message: 'Event ID is required' });
+        return;
+      }
+
+      const event = await prisma.event.findFirst({
+        where: { id: eventId, userId: user.id },
+      });
+
+      if (!event) {
+        res.status(404).json({ message: 'Event not found' });
+        return;
+      }
+
+      res.status(200).json(event);
+    } catch (err) {
+      next(err);
     }
+  };
 
-    //POST 
-    // => /api/events/:id
-    addEvent = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const eventId = parseInt(req.params.id);
-            const addEvent = req.body; // Assuming the updated event data is in the request body
-            // Simulate updating the event in a database or service
-            addEvent.id = eventId; // Mock ID assignment
-            res.status(200).json(addEvent);
-        } catch (err) {
-            next(err);
-        }
+  // POST create new event
+  createEvent = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const { location, weather, dateFrom, dateTo, style } = req.body;
+      const newEvent = await prisma.event.create({
+        data: {
+          userId: user.id,
+          location,
+          weather,
+          dateFrom: new Date(dateFrom),
+          dateTo: new Date(dateTo),
+          style: style as Style,
+        },
+      });
+      res.status(201).json(newEvent);
+    } catch (err) {
+      next(err);
     }
+  };
 
-    //POST 
-    // => /api/events/:id
-    updateEvent = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const eventId = parseInt(req.params.id);
-            const updatedEvent = req.body; // Assuming the updated event data is in the request body
-            // Simulate updating the event in a database or service
-            updatedEvent.id = eventId; // Mock ID assignment
-            res.status(200).json(updatedEvent);
-        } catch (err) {
-            next(err);
-        }
+  // PUT update existing event
+  updateEvent = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const eventId = req.body.id;
+      if (!eventId) {
+        res.status(400).json({ message: 'Event ID is required' });
+        return;
+      }
+
+      // Only destructure the fields that might be provided
+      const { location, weather, dateFrom, dateTo, style } = req.body;
+
+      const existing = await prisma.event.findUnique({
+        where: { id: eventId },
+      });
+
+      if (!existing || existing.userId !== user.id) {
+        res.status(404).json({ message: 'Event not found' });
+        return;
+      }
+
+      // Create update data object with only provided fields
+      const updateData: any = {};
+
+      if (location !== undefined) updateData.location = location;
+      if (weather !== undefined) updateData.weather = weather;
+      if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
+      if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
+      if (style !== undefined) updateData.style = style as Style;
+
+      // Ensure at least one field is being updated
+      if (Object.keys(updateData).length === 0) {
+        res.status(400).json({ message: 'No fields to update' });
+        return;
+      }
+
+      const updatedEvent = await prisma.event.update({
+        where: { id: eventId },
+        data: updateData,
+      });
+
+      res.status(200).json(updatedEvent);
+    } catch (err) {
+      next(err);
     }
+  };
 
-    //DELETE
-    // => /api/events/:id
-    deleteEvent = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const eventId = parseInt(req.params.id);
-            // Simulate deleting the event from a database or service
-            res.status(204).send(); // No content to return
-        } catch (err) {
-            next(err);
-        }
+  // DELETE event
+  deleteEvent = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const eventId = req.body.id; // Get ID from request body
+      if (!eventId) {
+        res.status(400).json({ message: 'Event ID is required' });
+        return;
+      }
+
+      const existing = await prisma.event.findUnique({
+        where: { id: eventId },
+      });
+
+      if (!existing || existing.userId !== user.id) {
+        res.status(404).json({ message: 'Event not found' });
+        return;
+      }
+
+      await prisma.event.delete({
+        where: { id: eventId },
+      });
+
+      res.status(204).send();
+    } catch (err) {
+      next(err);
     }
-
-    //GET
-    // => /api/events/:id
-    getEventById = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const eventId = parseInt(req.params.id);
-            // Simulate fetching the event from a database or service
-            const event = { id: eventId, name: `Event ${eventId}`, date: '2023-10-01' };
-            res.status(200).json(event);
-        } catch (err) {
-            next(err);
-        }
-    }
-
-
-
+  };
 }
 
-export default new eventsController();
+export default new EventsController();
