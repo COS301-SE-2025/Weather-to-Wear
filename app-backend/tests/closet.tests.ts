@@ -84,10 +84,10 @@ describe('ClosetController', () => {
       jest.spyOn(service, 'saveImage').mockResolvedValue({
         id: "1",
         filename: 'img.png',
-        category: 'SHOES', // or Category.SHOES if you import the enum
+        category: 'SHOES', 
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         ownerId: 'test-user-id',
-        colorHex: null,        // Add these lines!
+        colorHex: null,
         warmthFactor: null,
         waterproof: null,
         style: null,
