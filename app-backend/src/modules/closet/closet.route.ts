@@ -1,3 +1,4 @@
+//closet.route.ts
 import { Router } from 'express';
 import path from 'path';
 import closetController from './closet.controller';
@@ -31,6 +32,12 @@ router.get(
   '/all',
   authenticateToken,
   closetController.getAll
+);
+
+router.delete(
+  '/:id',
+  authenticateToken,
+  closetController.deleteItem
 );
 
 export default router;
