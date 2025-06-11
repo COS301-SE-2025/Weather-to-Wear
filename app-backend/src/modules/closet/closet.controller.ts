@@ -1,7 +1,9 @@
+// closetService.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { Category } from '@prisma/client';
 import ClosetService from './closet.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
+import closetService from './closet.service';
 
 class ClosetController {
   uploadImage = async (req: Request, res: Response, next: NextFunction) => {
@@ -105,6 +107,28 @@ class ClosetController {
           createdAt: item.createdAt
         }))
       );
+    } catch (err) {
+      next(err);
+    }
+  };
+
+    deleteItem = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ):Promise<void> => {
+    try {
+      const id = req.params.id;                       // it's a string
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      await ClosetService.deleteImage(id, user.id);
+
+      // 204 No Content for a successful delete
+      res.status(204).end();
     } catch (err) {
       next(err);
     }
