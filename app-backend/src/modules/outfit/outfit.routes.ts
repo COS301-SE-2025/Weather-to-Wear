@@ -5,7 +5,8 @@ import { authenticateToken } from '../auth/auth.middleware';
 const router = Router();
 
 router.post('/', authenticateToken, outfitController.create);
+router.get('/', authenticateToken, outfitController.getAll);
+router.get('/:id', authenticateToken, outfitController.getById);
 
-// (Add other routes later: GET, PUT, DELETE, etc.)
 
 export default router;

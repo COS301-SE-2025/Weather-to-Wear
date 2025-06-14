@@ -18,6 +18,7 @@ export type CreateOutfitInput = {
   userRating?: number;
 };
 
+// create outfit
 export async function createOutfit(data: CreateOutfitInput): Promise<Outfit & { outfitItems: OutfitItem[] }> {
   // Validate all closetItemIds belong to userId
   const closetItems = await prisma.closetItem.findMany({
@@ -51,6 +52,34 @@ export async function createOutfit(data: CreateOutfitInput): Promise<Outfit & { 
     }
   });
 
+  return outfit;
+}
+
+// get all
+export async function getAllOutfitsForUser(userId: string) {
+  return prisma.outfit.findMany({
+    where: { userId },
+    include: {
+      outfitItems: {
+        include: {
+          closetItem: true // include details about each clothing item
+        }
+      }
+    }
+  });
+}
+
+// get single
+export async function getOutfitById(id: string, userId: string) {
+  const outfit = await prisma.outfit.findUnique({
+    where: { id },
+    include: {
+      outfitItems: {
+        include: { closetItem: true }
+      }
+    }
+  });
+  if (!outfit || outfit.userId !== userId) throw new Error('Outfit not found or forbidden');
   return outfit;
 }
 
