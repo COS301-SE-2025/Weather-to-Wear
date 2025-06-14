@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { createOutfit, getAllOutfitsForUser, getOutfitById } from './outfit.service';
+import { createOutfit, getAllOutfitsForUser, getOutfitById, updateOutfit } from './outfit.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { OverallStyle, LayerCategory } from '@prisma/client';
 
@@ -62,6 +62,7 @@ class OutfitController {
     }
   };
 
+  // get single
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -76,6 +77,33 @@ class OutfitController {
       res.status(404).json({ error: err.message });
     }
   };
+
+  // edit 
+  update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    if (!user || !user.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const { id } = req.params;
+    const { userRating, outfitItems, overallStyle } = req.body;
+
+    // Validate enums as before if present
+    const updated = await updateOutfit({
+      userId: user.id,
+      outfitId: id,
+      userRating,
+      outfitItems,
+      overallStyle
+    });
+
+    res.status(200).json(updated);
+  } catch (err: any) {
+    res.status(404).json({ error: err.message });
+  }
+};
+
 
 
 }

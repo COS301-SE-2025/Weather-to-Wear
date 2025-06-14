@@ -2,6 +2,8 @@ import { PrismaClient, Outfit, OutfitItem, OverallStyle, LayerCategory } from '@
 
 const prisma = new PrismaClient();
 
+// TYPES
+// following needed for creating an outfit
 export type CreateOutfitItemInput = {
   closetItemId: string;
   layerCategory: LayerCategory; // already enum
@@ -16,6 +18,19 @@ export type CreateOutfitInput = {
   overallStyle: OverallStyle;
   weatherSummary?: string;
   userRating?: number;
+};
+
+// following needed for updating an outfit
+type UpdateOutfitInput = {
+  userId: string;
+  outfitId: string;
+  userRating?: number;
+  outfitItems?: {
+    closetItemId: string;
+    layerCategory: LayerCategory;
+    sortOrder: number;
+  }[];
+  overallStyle?: OverallStyle;
 };
 
 // create outfit
@@ -83,3 +98,43 @@ export async function getOutfitById(id: string, userId: string) {
   return outfit;
 }
 
+export async function updateOutfit(data: UpdateOutfitInput) {
+  // Confirm outfit belongs to user
+  const outfit = await prisma.outfit.findUnique({ where: { id: data.outfitId } });
+  if (!outfit || outfit.userId !== data.userId) throw new Error('Outfit not found or forbidden');
+
+  // if outfitItems array provided, remove all current and re-add (simplest for NOW)
+  let updatedOutfit;
+  if (data.outfitItems) {
+    await prisma.outfitItem.deleteMany({ where: { outfitId: data.outfitId } });
+    updatedOutfit = await prisma.outfit.update({
+      where: { id: data.outfitId },
+      data: {
+        userRating: data.userRating,
+        overallStyle: data.overallStyle,
+        outfitItems: {
+          create: data.outfitItems.map(item => ({
+            closetItem: { connect: { id: item.closetItemId } },
+            layerCategory: item.layerCategory,
+            sortOrder: item.sortOrder
+          }))
+        }
+      },
+      include: {
+        outfitItems: { include: { closetItem: true } }
+      }
+    });
+  } else {
+    updatedOutfit = await prisma.outfit.update({
+      where: { id: data.outfitId },
+      data: {
+        userRating: data.userRating,
+        overallStyle: data.overallStyle
+      },
+      include: {
+        outfitItems: { include: { closetItem: true } }
+      }
+    });
+  }
+  return updatedOutfit;
+}
