@@ -138,3 +138,13 @@ export async function updateOutfit(data: UpdateOutfitInput) {
   }
   return updatedOutfit;
 }
+
+export async function deleteOutfit(userId: string, outfitId: string) {
+  // Confirm outfit belongs to user
+  const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
+  if (!outfit || outfit.userId !== userId) throw new Error('Outfit not found or forbidden');
+
+  await prisma.outfitItem.deleteMany({ where: { outfitId } });
+  await prisma.outfit.delete({ where: { id: outfitId } });
+  return { success: true };
+}
