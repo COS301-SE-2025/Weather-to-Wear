@@ -2,7 +2,10 @@ import { PrismaClient, Outfit, OutfitItem, OverallStyle, LayerCategory } from '@
 
 const prisma = new PrismaClient();
 
-// TYPES
+// -------------------------------
+//           TYPES
+// -------------------------------
+
 // following needed for creating an outfit
 export type CreateOutfitItemInput = {
   closetItemId: string;
@@ -33,9 +36,14 @@ type UpdateOutfitInput = {
   overallStyle?: OverallStyle;
 };
 
-// create outfit
+
+// -----------------------------------------------
+//                  Outfit
+// ----------------------------------------------
+
+// Create an outfit 
 export async function createOutfit(data: CreateOutfitInput): Promise<Outfit & { outfitItems: OutfitItem[] }> {
-  // Validate all closetItemIds belong to userId
+  // validate all closetItemIds belong to userId
   const closetItems = await prisma.closetItem.findMany({
     where: {
       id: { in: data.outfitItems.map(item => item.closetItemId) },
@@ -70,7 +78,7 @@ export async function createOutfit(data: CreateOutfitInput): Promise<Outfit & { 
   return outfit;
 }
 
-// get all
+// Get all outfits
 export async function getAllOutfitsForUser(userId: string) {
   return prisma.outfit.findMany({
     where: { userId },
@@ -84,7 +92,7 @@ export async function getAllOutfitsForUser(userId: string) {
   });
 }
 
-// get single
+// Get single outfit
 export async function getOutfitById(id: string, userId: string) {
   const outfit = await prisma.outfit.findUnique({
     where: { id },
@@ -98,8 +106,9 @@ export async function getOutfitById(id: string, userId: string) {
   return outfit;
 }
 
+// Update an outfit
 export async function updateOutfit(data: UpdateOutfitInput) {
-  // Confirm outfit belongs to user
+  // confirm outfit belongs to user
   const outfit = await prisma.outfit.findUnique({ where: { id: data.outfitId } });
   if (!outfit || outfit.userId !== data.userId) throw new Error('Outfit not found or forbidden');
 
@@ -139,6 +148,7 @@ export async function updateOutfit(data: UpdateOutfitInput) {
   return updatedOutfit;
 }
 
+// Delete an outfit
 export async function deleteOutfit(userId: string, outfitId: string) {
   // Confirm outfit belongs to user
   const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
@@ -146,5 +156,56 @@ export async function deleteOutfit(userId: string, outfitId: string) {
 
   await prisma.outfitItem.deleteMany({ where: { outfitId } });
   await prisma.outfit.delete({ where: { id: outfitId } });
+  return { success: true };
+}
+
+
+// -----------------------------------------------
+//                Outfit Item
+// -----------------------------------------------
+
+// Get items for an outfit
+export async function getItemsForOutfit(outfitId: string, userId: string) {
+  // Check outfit belongs to user
+  const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
+  if (!outfit || outfit.userId !== userId) throw new Error('Outfit not found or forbidden');
+  return prisma.outfitItem.findMany({
+    where: { outfitId },
+    include: { closetItem: true }
+  });
+}
+
+// Add item to an outfit
+export async function addItemToOutfit(outfitId: string, userId: string, data: {
+  closetItemId: string;
+  layerCategory: LayerCategory;
+  sortOrder: number;
+}) {
+  // Confirm outfit belongs to user
+  const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
+  if (!outfit || outfit.userId !== userId) throw new Error('Outfit not found or forbidden');
+
+  // Confirm closet item belongs to user
+  const closetItem = await prisma.closetItem.findUnique({ where: { id: data.closetItemId } });
+  if (!closetItem || closetItem.ownerId !== userId) throw new Error('Closet item not found or forbidden');
+
+  return prisma.outfitItem.create({
+    data: {
+      outfitId,
+      closetItemId: data.closetItemId,
+      layerCategory: data.layerCategory,
+      sortOrder: data.sortOrder
+    }
+  });
+}
+
+// Remove item from an outfit
+export async function removeItemFromOutfit(outfitId: string, itemId: string, userId: string) {
+  // Check the outfit and item belong to user
+  const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
+  if (!outfit || outfit.userId !== userId) throw new Error('Outfit not found or forbidden');
+  const item = await prisma.outfitItem.findUnique({ where: { id: itemId } });
+  if (!item || item.outfitId !== outfitId) throw new Error('OutfitItem not found or forbidden');
+  await prisma.outfitItem.delete({ where: { id: itemId } });
   return { success: true };
 }
