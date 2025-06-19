@@ -16,6 +16,15 @@ class EventsController {
 
       const events = await prisma.event.findMany({
         where: { userId: user.id },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          weather: true,
+          dateFrom: true,
+          dateTo: true,
+          style: true,
+        },
       });
       res.status(200).json(events);
     } catch (err) {
@@ -32,7 +41,7 @@ class EventsController {
         return;
       }
 
-      const eventId = req.query.id as string; // Get ID from query params
+      const eventId = req.query.id as string;
       if (!eventId) {
         res.status(400).json({ message: 'Event ID is required' });
         return;
@@ -40,6 +49,15 @@ class EventsController {
 
       const event = await prisma.event.findFirst({
         where: { id: eventId, userId: user.id },
+        select: {
+          id: true,
+          location: true,
+          weather: true,
+          dateFrom: true,
+          dateTo: true,
+          style: true,
+          name: true,
+        },
       });
 
       if (!event) {
@@ -62,15 +80,30 @@ class EventsController {
         return;
       }
 
-      const { location, weather, dateFrom, dateTo, style } = req.body;
+      const { name, location, weather, dateFrom, dateTo, style } = req.body;
+      if (!name) {
+        res.status(400).json({ message: 'Event name is required' });
+        return;
+      }
+
       const newEvent = await prisma.event.create({
         data: {
           userId: user.id,
+          name,
           location,
           weather,
           dateFrom: new Date(dateFrom),
           dateTo: new Date(dateTo),
           style: style as Style,
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          weather: true,
+          dateFrom: true,
+          dateTo: true,
+          style: true,
         },
       });
       res.status(201).json(newEvent);
@@ -94,8 +127,7 @@ class EventsController {
         return;
       }
 
-      // Only destructure the fields that might be provided
-      const { location, weather, dateFrom, dateTo, style } = req.body;
+      const { name, location, weather, dateFrom, dateTo, style } = req.body;
 
       const existing = await prisma.event.findUnique({
         where: { id: eventId },
@@ -106,16 +138,14 @@ class EventsController {
         return;
       }
 
-      // Create update data object with only provided fields
       const updateData: any = {};
-
+      if (name !== undefined) updateData.name = name;
       if (location !== undefined) updateData.location = location;
       if (weather !== undefined) updateData.weather = weather;
       if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
 
-      // Ensure at least one field is being updated
       if (Object.keys(updateData).length === 0) {
         res.status(400).json({ message: 'No fields to update' });
         return;
@@ -124,6 +154,15 @@ class EventsController {
       const updatedEvent = await prisma.event.update({
         where: { id: eventId },
         data: updateData,
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          weather: true,
+          dateFrom: true,
+          dateTo: true,
+          style: true,
+        },
       });
 
       res.status(200).json(updatedEvent);
@@ -141,7 +180,7 @@ class EventsController {
         return;
       }
 
-      const eventId = req.body.id; // Get ID from request body
+      const eventId = req.body.id;
       if (!eventId) {
         res.status(400).json({ message: 'Event ID is required' });
         return;
