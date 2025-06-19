@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 interface UserPreference {
   style: "Formal" | "Casual" | "Athletic" | "Party" | "Business" | "Outdoor";
@@ -6,19 +6,34 @@ interface UserPreference {
   learningWeight?: number | null;
 }
 
+interface SeasonRange {
+  season: string;
+  ranges: { min: number; max: number }[];
+}
+
+const seasonRanges: SeasonRange[] = [
+  { season: "Winter", ranges: [{ min: 170, max: 255 }] }, // Blues, purples, reds
+  { season: "Spring", ranges: [{ min: 0, max: 60 }, { min: 100, max: 140 }] }, // Pinks, yellows, light greens
+  { season: "Summer", ranges: [{ min: 60, max: 170 }] }, // Yellows, greens, light blues
+  { season: "Autumn", ranges: [{ min: 20, max: 60 }] }, // Oranges, browns
+];
+
+// Generate palette colors for a range
+const getPaletteColors = (range: { min: number; max: number }) => {
+  const count = 4; // Number of swatches
+  const step = (range.max - range.min) / (count - 1);
+  return Array.from({ length: count }, (_, i) => range.min + i * step);
+};
+
 const Appearance = () => {
-  // Theme state
   const [theme, setTheme] = useState<"light" | "dark">(
     (localStorage.getItem("theme") as "light" | "dark") || "light"
   );
-
-  // Preferences state
   const [preferences, setPreferences] = useState<UserPreference | null>(null);
   const [style, setStyle] = useState<UserPreference["style"]>("Casual");
-  const [colourRanges, setColourRanges] = useState<{ min: number; max: number }[]>([]);
+  const [selectedSeasons, setSelectedSeasons] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Apply theme
   useEffect(() => {
@@ -27,113 +42,54 @@ const Appearance = () => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Fetch preferences
+  // Fetch preferences on mount
   useEffect(() => {
     const fetchPreferences = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch("/api/preferences", {
+        console.log("Fetching preferences with token:", token);
+        const response = await fetch("http://localhost:3000/api/preferences", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         if (!response.ok) {
-          throw new Error("Failed to fetch preferences");
+          const text = await response.text();
+          console.error("Response text:", text);
+          const data = response.headers.get("content-type")?.includes("application/json")
+            ? await response.json()
+            : { message: "Server returned non-JSON response" };
+          throw new Error(data.message || "Failed to fetch preferences");
         }
         const data: UserPreference = await response.json();
         setPreferences(data);
         setStyle(data.style);
-        // Normalize hues from 0–255 to 0–360
-        setColourRanges(
-          data.preferredColours.map(range => ({
-            min: Math.round((range.min / 255) * 360),
-            max: Math.round((range.max / 255) * 360),
-          }))
-        );
-      } catch (err) {
-        setError("Could not load preferences. Please try again.");
+        // Map backend ranges to seasons
+        const selected = seasonRanges
+          .filter(season =>
+            season.ranges.some(range =>
+              data.preferredColours.some(
+                pref => pref.min === range.min && pref.max === range.max
+              )
+            )
+          )
+          .map(season => season.season);
+        setSelectedSeasons(selected);
+      } catch (err: any) {
+        setError(err.message || "Could not load preferences. Please try again.");
       }
     };
     fetchPreferences();
   }, []);
 
-  // Draw color wheel
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = canvas.width / 2 - 10;
-    const segments = 12; // 30-degree arcs
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let i = 0; i < 360; i += 360 / segments) {
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        (i * Math.PI) / 180,
-        ((i + 360 / segments) * Math.PI) / 180
-      );
-      ctx.fillStyle = `hsl(${i}, 70%, 50%)`;
-      ctx.fill();
-      ctx.strokeStyle = theme === "dark" ? "#fff" : "#000";
-      ctx.stroke();
-    }
-
-    // Highlight selected ranges
-    colourRanges.forEach(range => {
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        (range.min * Math.PI) / 180,
-        (range.max * Math.PI) / 180
-      );
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-      ctx.lineWidth = 4;
-      ctx.stroke();
-    });
-  }, [colourRanges, theme]);
-
-  // Handle color wheel click
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - canvas.width / 2;
-    const y = e.clientY - rect.top - canvas.height / 2;
-    let angle = (Math.atan2(y, x) * 180) / Math.PI; // Degrees from -180 to 180
-    // Normalize to 0–360
-    if (angle < 0) angle += 360;
-    const segment = Math.floor(angle / 30) * 30; // Snap to 30-degree segments
-    const newRange = { min: segment, max: segment + 30 };
-
-    // Avoid overlapping ranges
-    if (
-      colourRanges.some(
-        r => r.min < newRange.max && r.max > newRange.min
-      )
-    ) {
-      setError("Selected range overlaps with existing range.");
-      return;
-    }
-
-    setColourRanges([...colourRanges, newRange]);
+  // Handle season toggle
+  const toggleSeason = (season: string) => {
+    setSelectedSeasons(prev =>
+      prev.includes(season)
+        ? prev.filter(s => s !== season)
+        : [...prev, season]
+    );
     setError(null);
-  };
-
-  // Remove a color range
-  const removeColourRange = (index: number) => {
-    setColourRanges(colourRanges.filter((_, i) => i !== index));
   };
 
   // Handle form submission
@@ -142,33 +98,27 @@ const Appearance = () => {
     setError(null);
     setSuccess(null);
 
-    // Validate inputs
-    if (colourRanges.length === 0) {
-      setError("Please select at least one color range.");
+    if (selectedSeasons.length === 0) {
+      setError("Please select at least one season.");
       return;
     }
-    for (const range of colourRanges) {
-      if (range.min > range.max || range.min < 0 || range.max > 360) {
-        setError("Invalid color range.");
-        return;
-      }
-    }
 
-    // Normalize hues to 0–255 for backend
-    const normalizedRanges = colourRanges.map(range => ({
-      min: Math.round((range.min / 360) * 255),
-      max: Math.round((range.max / 360) * 255),
-    }));
+    // Combine ranges from selected seasons
+    const preferredColours = selectedSeasons
+      .flatMap(season =>
+        seasonRanges.find(s => s.season === season)?.ranges || []
+      );
 
     const updatedPrefs: UserPreference = {
       style,
-      preferredColours: normalizedRanges,
+      preferredColours,
       learningWeight: preferences?.learningWeight || null,
     };
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("/api/preferences", {
+      console.log("Sending PUT to /api/preferences with:", updatedPrefs, "Token:", token);
+      const response = await fetch("http://localhost:3000/api/preferences", {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -177,7 +127,11 @@ const Appearance = () => {
         body: JSON.stringify(updatedPrefs),
       });
       if (!response.ok) {
-        const data = await response.json();
+        const text = await response.text();
+        console.error("Response text:", text);
+        const data = response.headers.get("content-type")?.includes("application/json")
+          ? await response.json()
+          : { message: "Server returned non-JSON response" };
         throw new Error(data.message || "Failed to update preferences");
       }
       setSuccess("Preferences updated successfully!");
@@ -189,7 +143,7 @@ const Appearance = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-      {/* Light/Dark Theme */}
+      {/* Theme Section */}
       <h1 className="text-3xl font-bold">Appearance</h1>
       <p className="text-gray-600 dark:text-gray-300">Choose your preferred theme:</p>
       <div className="grid grid-cols-2 gap-6">
@@ -217,16 +171,16 @@ const Appearance = () => {
         </button>
       </div>
 
-      {/* User Preferences */}
+      {/* Preferences Section */}
       <div className="mt-8">
-        <h2 className="text-3xl font-bold">User Preferences</h2>
+        <h2 className="text-2xl font-semibold">User Preferences</h2>
         <p className="text-gray-600 dark:text-gray-300 mb-4">
           Customize your style and color preferences:
         </p>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {success && <p className="text-green-500 mb-4">{success}</p>}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Preferred Styles */}
+          {/* Preferred Style */}
           <div>
             <label
               htmlFor="style"
@@ -267,45 +221,78 @@ const Appearance = () => {
               Preferred Colors
             </label>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              Click the color wheel to select hue ranges (30-degree segments).
+              Select one or more seasonal color palettes:
             </p>
-            <canvas
-              ref={canvasRef}
-              width="300"
-              height="300"
-              className="mx-auto cursor-pointer"
-              onClick={handleCanvasClick}
-            />
-            <div className="mt-4 space-y-2">
-              {colourRanges.map((range, index) => (
+            <div className="grid grid-cols-2 gap-4">
+              {seasonRanges.map(({ season, ranges }) => (
                 <div
-                  key={index}
-                  className="flex items-center space-x-4"
+                  key={season}
+                  className={`p-4 border rounded-lg transition cursor-pointer ${
+                    selectedSeasons.includes(season)
+                      ? "border-teal-500 bg-teal-50 dark:bg-gray-800"
+                      : "hover:border-gray-400 dark:hover:border-gray-600"
+                  }`}
+                  onClick={() => toggleSeason(season)}
                 >
-                  <div
-                    className="h-6 w-24 rounded"
-                    style={{
-                      background: `linear-gradient(to right, hsl(${range.min}, 70%, 50%), hsl(${range.max}, 70%, 50%))`,
-                    }}
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Hue {range.min}°–{range.max}°
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeColourRange(index)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex space-x-2 mb-2">
+                    {ranges.flatMap(range =>
+                      getPaletteColors(range).map((hue, i) => (
+                        <div
+                          key={`${season}-${range.min}-${i}`}
+                          className="h-6 w-6 rounded"
+                          style={{ backgroundColor: `hsl(${Math.round((hue / 255) * 360)}, 70%, 50%)` }}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedSeasons.includes(season)}
+                      onChange={() => toggleSeason(season)}
+                      className="mr-2"
+                    />
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{season}</span>
+                  </div>
                 </div>
               ))}
             </div>
+            <div className="mt-4 space-y-2">
+              {selectedSeasons.flatMap(season =>
+                seasonRanges
+                  .find(s => s.season === season)
+                  ?.ranges.map((range, index) => (
+                    <div key={`${season}-${index}`} className="flex items-center space-x-4">
+                      <div className="flex space-x-1">
+                        {getPaletteColors(range).map((hue, i) => (
+                          <div
+                            key={`${season}-${range.min}-${i}`}
+                            className="h-6 w-6 rounded"
+                            style={{ backgroundColor: `hsl(${Math.round((hue / 255) * 360)}, 70%, 50%)` }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {season}: Hue {Math.round((range.min / 255) * 360)}°–
+                        {Math.round((range.max / 255) * 360)}°
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSeason(season)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+              )}
+            </div>
           </div>
 
+          {/* Submit Button */}
           <button
             type="submit"
-            className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition"
+            className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition"
           >
             Save Preferences
           </button>
