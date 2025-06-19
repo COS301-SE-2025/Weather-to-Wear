@@ -219,7 +219,7 @@ const Appearance = () => {
 
       {/* User Preferences */}
       <div className="mt-8">
-        <h2 className="text-2xl font-semibold">User Preferences</h2>
+        <h2 className="text-3xl font-bold">User Preferences</h2>
         <p className="text-gray-600 dark:text-gray-300 mb-4">
           Customize your style and color preferences:
         </p>
