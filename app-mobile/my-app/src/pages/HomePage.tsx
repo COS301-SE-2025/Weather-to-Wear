@@ -10,6 +10,8 @@ import { fetchAllItems } from '../services/closetApi';
 import { useNavigate } from 'react-router-dom';
 import { fetchAllEvents } from '../services/eventsApi';
 
+
+
 type Item = {
   id: number;
   name: string;
@@ -25,6 +27,7 @@ type Event = {
   date: string;
   location: string;
   style?: string;
+  name: string;
 };
 
 const StarRating = () => {
@@ -179,35 +182,24 @@ export default function HomePage() {
             title: '21st Birthday',
             date: '21 May',
             location: 'New York',
-            style: 'CASUAL'
+            style: 'CASUAL',
+            name: 'John bday'
           },
           {
             id: '2',
             title: 'Work Meeting',
             date: '3 June',
             location: 'Office',
-            style: 'FORMAL'
+            style: 'FORMAL',
+            name: 'Jane bday'
           },
           {
             id: '3',
             title: "Diya's Birthday",
             date: '4 November',
             location: 'Restaurant',
-            style: 'SEMI_FORMAL'
-          },
-          {
-            id: '4',
-            title: "Kyle's Birthday",
-            date: '30 December',
-            location: 'Beach House',
-            style: 'CASUAL'
-          },
-          {
-            id: '5',
-            title: 'Wedding',
-            date: '15 July',
-            location: 'Church',
-            style: 'FORMAL'
+            style: 'SEMI_FORMAL',
+            name: 'Diya bday'
           }
         ]);
       }
@@ -375,46 +367,56 @@ export default function HomePage() {
                 <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular dark:text-gray-100">
                   Upcoming Events
                 </h2>
-                
+
               </div>
 
               <div className="space-y-2 md:space-y-3">
-                {events.length > 0 ? (
-                  events.slice(0, 5).map((event, idx) => (
-                    <div key={event.id}>
-                      {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
-                      <div className="flex justify-between text-base md:text-lg py-1 md:py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-black dark:text-gray-100">
-                            {event.date}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full ${event.style === 'FORMAL' ? 'bg-blue-100 text-blue-800' :
-                              event.style === 'SEMI_FORMAL' ? 'bg-purple-100 text-purple-800' :
-                                'bg-green-100 text-green-800'
-                              }`}
-                          >
-                            {event.style?.replace('_', ' ') || 'CASUAL'}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-gray-600 dark:text-gray-400">{event.title}</p>
-                          <p className="text-xs text-gray-500">{event.location}</p>
+                {events.length > 0 ?
+                  (
+                    events.slice(0, 5).map((event, idx) => (
+                      <div key={event.id}>
+                        {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
+                        <div className="flex justify-between text-sm md:text-base py-1 md:py-2">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-black dark:text-gray-100">
+                              {event.date}
+
+                            </span>
+                            <span className="text-xs text-gray-500">{event.location}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-[#3F978F] dark:text-[#5ed0c3]">
+                              {event.name}
+                            </p>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${event.style === 'FORMAL'
+                                ? 'bg-blue-100 text-blue-800'
+                                : event.style === 'SEMI_FORMAL'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-green-100 text-green-800'
+                                }`}
+                            >
+                              {event.style?.replace('_', ' ') || 'CASUAL'}
+                            </span>
+                          </div>
                         </div>
                       </div>
+                    ))
+
+                  )
+
+
+                  : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-500">No upcoming events</p>
+                      <button
+                        onClick={() => {/* Add navigation to create event */ }}
+                        className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
+                      >
+                        Add Your First Event
+                      </button>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500">No upcoming events</p>
-                    <button
-                      onClick={() => {/* Add navigation to create event */ }}
-                      className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
-                    >
-                      Add Your First Event
-                    </button>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
