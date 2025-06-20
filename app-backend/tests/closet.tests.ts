@@ -1,4 +1,4 @@
-// tests/closet.tests.ts    
+
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import path from 'path';
@@ -13,7 +13,6 @@ import type { AuthenticatedRequest } from '../src/modules/auth/auth.middleware';
 
 const TEST_USER = { id: 'test-user-id', email: 'test@test.com' };
 const TEST_TOKEN = jwt.sign(TEST_USER, process.env.JWT_SECRET || 'defaultsecret');
-
 
 describe('Upload Middleware', () => {
   it('has a `.single("image")` method', () => {
@@ -30,11 +29,10 @@ describe('Upload Middleware', () => {
 
 describe('ClosetService', () => {
   beforeEach(() => {
-    // stub out prisma client
     (service as any).prisma = {
       closetItem: {
-        create: jest.fn().mockResolvedValue({ id: 123, filename: 'foo.png', category: 'SHOES', ownerId: 'test-user-id' }),
-        findMany: jest.fn().mockResolvedValue([])
+        create: jest.fn().mockResolvedValue({ id: '123', filename: 'foo.png', category: 'SHOES', ownerId: 'test-user-id' }),
+        findMany: jest.fn().mockResolvedValue([]),
       }
     };
   });
@@ -46,7 +44,7 @@ describe('ClosetService', () => {
     expect((service as any).prisma.closetItem.create).toHaveBeenCalledWith({
       data: { filename: fakeFile.filename, category: 'SHOES', ownerId: 'test-user-id' }
     });
-    expect(result).toEqual({ id: 123, filename: 'foo.png', category: 'SHOES', ownerId: 'test-user-id' });
+    expect(result).toEqual({ id: '123', filename: 'foo.png', category: 'SHOES', ownerId: 'test-user-id' });
   });
 
   it('getAllImages calls prisma.closetItem.findMany and returns array', async () => {
@@ -84,10 +82,10 @@ describe('ClosetController', () => {
       jest.spyOn(service, 'saveImage').mockResolvedValue({
         id: "1",
         filename: 'img.png',
-        category: 'SHOES', // or Category.SHOES if you import the enum
+        category: 'SHOES', 
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         ownerId: 'test-user-id',
-        colorHex: null,        // Add these lines!
+        colorHex: null,
         warmthFactor: null,
         waterproof: null,
         style: null,
@@ -106,7 +104,12 @@ describe('ClosetController', () => {
         id: '1',
         category: 'SHOES',
         imageUrl: '/uploads/img.png',
-        createdAt: expect.any(Date)
+        createdAt: new Date('2025-05-27T00:00:00.000Z'),
+        colorHex: null,
+        warmthFactor: null,
+        waterproof: null,
+        style: null,
+        material: null
       });
     });
 
@@ -140,8 +143,7 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: 1,
           category: 'SHOES',
-          imageUrl: '/uploads/a.png',
-          createdAt: expect.any(Date)
+          imageUrl: '/uploads/a.png'
         })
       ]);
     });
@@ -183,30 +185,96 @@ describe('ClosetController', () => {
       ]);
     });
   });
+
+  describe('updateItem', () => {
+    it('updates item successfully', async () => {
+    jest.spyOn(service, 'updateImage').mockResolvedValue({
+      id: '1',
+      filename: 'shirt.png',
+      category: 'SHIRT',
+      createdAt: new Date(),
+      colorHex: null,
+      warmthFactor: null,
+      waterproof: null,
+      style: 'Casual',
+      material: null,
+      ownerId: 'test-user-id'
+    });
+
+      let req: Partial<AuthenticatedRequest> = {
+        params: { id: '1' },
+        body: { category: 'SHIRT', favorite: true },
+        user: { ...TEST_USER }
+      };
+
+      await controller.updateItem(req as Request, res as Response, next);
+
+      expect(service.updateImage).toHaveBeenCalledWith('1', 'test-user-id', { category: 'SHIRT' });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        id: '1',
+        category: 'SHIRT',
+        imageUrl: '/uploads/shirt.png',
+        createdAt: expect.any(Date),
+        colorHex: null,
+        warmthFactor: null,
+        waterproof: null,
+        style: 'Casual',
+        material: null
+      });
+
+    });
+  });
+
+  describe('deleteItem', () => {
+    it('deletes item successfully', async () => {
+    jest.spyOn(service, 'deleteImage').mockResolvedValue(undefined);
+
+      let req: Partial<AuthenticatedRequest> = {
+        params: { id: '1' },
+        user: { ...TEST_USER }
+      };
+
+      await controller.deleteItem(req as Request, res as Response, next);
+
+      expect(service.deleteImage).toHaveBeenCalledWith('1', 'test-user-id');
+      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.json).not.toHaveBeenCalled();
+    });
+  });
 });
 
-describe('Closet Routes', () => {
+describe('Closet Routes Extended', () => {
   let app: express.Express;
 
   beforeEach(() => {
-    jest
-      .spyOn(service, 'getAllImages')
-      .mockResolvedValue([
-        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
-      ] as any);
+    jest.spyOn(service, 'getAllImages').mockResolvedValue([
+      { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
+    ] as any);
 
-    jest
-      .spyOn(service, 'getImagesByCategory')
-      .mockResolvedValue([
-        { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
-      ] as any);
+    jest.spyOn(service, 'getImagesByCategory').mockResolvedValue([
+      { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
+    ] as any);
+
+  jest.spyOn(service, 'updateImage').mockResolvedValue({
+    id: '1',
+    filename: 'shirt.png',
+    category: 'SHIRT',
+    createdAt: new Date(),
+    colorHex: null,
+    warmthFactor: null,
+    waterproof: null,
+    style: 'Casual',
+    material: null,
+    ownerId: 'test-user-id'
+  });
+
+
+  jest.spyOn(service, 'deleteImage').mockResolvedValue(undefined);
 
     app = express();
     app.use(express.json());
-    app.use(
-      '/uploads',
-      express.static(path.join(__dirname, '../src/uploads'))
-    );
+    app.use('/uploads', express.static(path.join(__dirname, '../src/uploads')));
     app.use('/api/closet', closetRoutes);
   });
 
@@ -238,5 +306,33 @@ describe('Closet Routes', () => {
         createdAt: expect.any(String),
       })
     ]);
+  });
+
+  it('PATCH /api/closet/:id → updates item', async () => {
+    const res = await request(app)
+      .patch('/api/closet/1')
+      .set('Authorization', `Bearer ${TEST_TOKEN}`)
+      .send({ category: 'SHIRT', favorite: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      id: '1',
+      category: 'SHIRT',
+      imageUrl: expect.stringContaining('/uploads/'),
+      createdAt: expect.any(String),
+      colorHex: null,
+      warmthFactor: null,
+      waterproof: null,
+      style: 'Casual',
+      material: null
+    }))
+  });
+
+  it('DELETE /api/closet/:id → deletes item', async () => {
+    const res = await request(app)
+      .delete('/api/closet/1')
+      .set('Authorization', `Bearer ${TEST_TOKEN}`);
+
+    expect(res.status).toBe(204);
   });
 });

@@ -1,13 +1,16 @@
 // src/pages/HomePage.tsx
 
 import { useState, useEffect } from 'react';
-import { Sun, CloudSun } from 'lucide-react';
+import { Sun, CloudSun, Plus } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
 import { fetchAllItems } from '../services/closetApi';
 import { useNavigate } from 'react-router-dom';
+import { fetchAllEvents } from '../services/eventsApi';
+
+
 
 type Item = {
   id: number;
@@ -16,6 +19,15 @@ type Item = {
   favorite: boolean;
   category: string;
   tab?: 'items' | 'outfits';
+};
+
+type Event = {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  style?: string;
+  name: string;
 };
 
 const StarRating = () => {
@@ -43,11 +55,10 @@ const StarRating = () => {
               strokeWidth="0.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={`w-10 h-10 transition-transform duration-200 ease-in-out ${
-                starValue <= (hover || rating)
-                  ? 'text-[#3F978F] fill-[#3F978F]'
-                  : 'text-none fill-black'
-              } ${starValue <= hover ? 'transform scale-110' : ''}`}
+              className={`w-10 h-10 transition-transform duration-200 ease-in-out ${starValue <= (hover || rating)
+                ? 'text-[#3F978F] fill-[#3F978F]'
+                : 'text-none fill-black'
+                } ${starValue <= hover ? 'transform scale-110' : ''}`}
             >
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
@@ -111,6 +122,8 @@ export default function HomePage() {
   const [username, setUsername] = useState<string | null>(null);
   const [missingCategories, setMissingCategories] = useState<string[]>([]);
 
+  const [events, setEvents] = useState<Event[]>([]);
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -153,6 +166,46 @@ export default function HomePage() {
     };
 
     fetchOutfitItems();
+  }, []);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const eventsData = await fetchAllEvents();
+        setEvents(eventsData);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        // Fallback to mock data if API fails
+        setEvents([
+          {
+            id: '1',
+            title: '21st Birthday',
+            date: '21 May',
+            location: 'New York',
+            style: 'CASUAL',
+            name: 'John bday'
+          },
+          {
+            id: '2',
+            title: 'Work Meeting',
+            date: '3 June',
+            location: 'Office',
+            style: 'FORMAL',
+            name: 'Jane bday'
+          },
+          {
+            id: '3',
+            title: "Diya's Birthday",
+            date: '4 November',
+            location: 'Restaurant',
+            style: 'SEMI_FORMAL',
+            name: 'Diya bday'
+          }
+        ]);
+      }
+    };
+
+    fetchEvents();
   }, []);
 
   return (
@@ -240,13 +293,12 @@ export default function HomePage() {
                 items.map((item) => (
                   <div
                     key={item.id}
-                    className={`bg-white-200 dark:bg-gray-800 rounded-3xl overflow-hidden flex items-center justify-center ${
-                      item.category === 'SHOES'
-                        ? 'aspect-[3/3] max-h-[60px]'
-                        : item.category === 'SHIRT'
+                    className={`bg-white-200 dark:bg-gray-800 rounded-3xl overflow-hidden flex items-center justify-center ${item.category === 'SHOES'
+                      ? 'aspect-[3/3] max-h-[60px]'
+                      : item.category === 'SHIRT'
                         ? 'aspect-[3/4] max-h-[160px]'
                         : 'aspect-[3/4] max-h-[200px]'
-                    }`}
+                      }`}
                   >
                     <img
                       src={item.image}
@@ -283,6 +335,7 @@ export default function HomePage() {
         </div>
 
         {/* Events Section */}
+        {/* Events Section */}
         <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-20">
           <div className="relative w-full max-w-[280px]">
             {/* Teal shadow arch */}
@@ -310,28 +363,60 @@ export default function HomePage() {
 
             {/* Content */}
             <div className="relative z-10 pt-10 pb-6 px-4">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular text-center mb-6 md:mb-8 dark:text-gray-100">
-                Upcoming Events
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular dark:text-gray-100">
+                  Upcoming Events
+                </h2>
+
+              </div>
+
               <div className="space-y-2 md:space-y-3">
-                {[
-                  { date: '21 May', label: '21st birthday' },
-                  { date: '3 June', label: 'Random Day' },
-                  { date: '4 November', label: "Diya's Birthday" },
-                  { date: '30 December', label: "Kyle's Birthday" },
-                ].map((event, idx) => (
-                  <div key={idx}>
-                    {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
-                    <div className="flex justify-between text-base md:text-lg py-1 md:py-2">
-                      <span className="font-semibold text-black dark:text-gray-100">
-                        {event.date}
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {event.label}
-                      </span>
+                {events.length > 0 ?
+                  (
+                    events.slice(0, 5).map((event, idx) => (
+                      <div key={event.id}>
+                        {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
+                        <div className="flex justify-between text-sm md:text-base py-1 md:py-2">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-black dark:text-gray-100">
+                              {event.date}
+
+                            </span>
+                            <span className="text-xs text-gray-500">{event.location}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-[#3F978F] dark:text-[#5ed0c3]">
+                              {event.name}
+                            </p>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${event.style === 'FORMAL'
+                                ? 'bg-blue-100 text-blue-800'
+                                : event.style === 'SEMI_FORMAL'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-green-100 text-green-800'
+                                }`}
+                            >
+                              {event.style?.replace('_', ' ') || 'CASUAL'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+
+                  )
+
+
+                  : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-500">No upcoming events</p>
+                      <button
+                        onClick={() => {/* Add navigation to create event */ }}
+                        className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
+                      >
+                        Add Your First Event
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  )}
               </div>
             </div>
           </div>
