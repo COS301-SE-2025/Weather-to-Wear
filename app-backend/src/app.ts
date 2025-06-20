@@ -9,26 +9,17 @@ import weatherRoutes from './modules/weather/weather.routes';
 // for image upload
 import closetRoutes from './modules/closet/closet.route';
 import eventsRoutes from './modules/events/events.route';
+import outfitRoutes from './modules/outfit/outfit.routes';
+
 
 
 const app = express();
 
-// Apply CORS middleware globally before defining any routes
 app.use(cors());
-
-
 
 dotenv.config();
 
-
-
 app.use(express.json());
-
-// any request to /uploads/<filename> will serve the file
-// app.use(
-//     '/uploads',
-//     express.static(path.join(__dirname, '..', 'uploads'))
-// );
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(UPLOADS_DIR));
@@ -38,6 +29,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/closet', closetRoutes);
 app.use('/api/events', eventsRoutes);
+app.use('/api/outfits', outfitRoutes);
+
 
 
 export default app;
