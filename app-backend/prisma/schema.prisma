@@ -7,20 +7,75 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id       String @id @default(uuid())
-  name     String
-  email    String @unique
-  password String
-  closetItems ClosetItem[]
-}
-
 enum Category {
   SHIRT
   HOODIE
   PANTS
   SHORTS
   SHOES
+  // additional ones - subject to change 
+  TSHIRT
+  LONGSLEEVE
+  SWEATER
+  JACKET
+  JEANS
+  BEANIE
+  HAT
+  SCARF
+  GLOVES
+  RAINCOAT
+  UMBRELLA
+  // etc.
+}
+
+enum Style {
+  Formal
+  Casual
+  Athletic
+  Party
+  Business
+  Outdoor
+}
+
+enum Material {
+  Cotton
+  Wool
+  Polyester
+  Leather
+  Nylon
+  Fleece
+}
+
+enum LayerCategory {
+  base_top
+  base_bottom
+  mid_top
+  mid_bottom
+  outerwear
+  footwear
+  headwear
+  accessory
+}
+
+enum OverallStyle {
+  Formal
+  Casual
+  Athletic
+  Party
+  Business
+  Outdoor
+  // Add more as needed
+}
+
+model User {
+  id         String      @id @default(uuid())
+  name       String
+  email      String      @unique
+  password   String
+  closetItems ClosetItem[]
+  outfits    Outfit[]
+  preference UserPreference?
+  events     Event[]
 }
 
 model ClosetItem {
@@ -29,8 +84,60 @@ model ClosetItem {
   category   Category
   createdAt  DateTime  @default(now())
 
-  ownerId    String
-  owner      User      @relation(fields: [ownerId], references: [id])
+  // New fields (safe to add as nullable if code doesn't expect them yet)
+  colorHex      String?
+  warmthFactor  Int?
+  waterproof    Boolean?
+  style         Style?
+  material      Material?
 
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id])
+
+  outfitItems OutfitItem[]
   @@map("closet_items")
+}
+
+model Outfit {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  createdAt      DateTime       @default(now())
+  weatherSummary String?        // Store as JSON string (weather snapshot)
+  warmthRating   Int
+  waterproof     Boolean
+  userRating     Int?
+  overallStyle   OverallStyle
+  outfitItems    OutfitItem[]
+}
+
+model OutfitItem {
+  id             String         @id @default(uuid())
+  outfitId       String
+  outfit         Outfit         @relation(fields: [outfitId], references: [id])
+  closetItemId   String
+  closetItem     ClosetItem     @relation(fields: [closetItemId], references: [id])
+  layerCategory  LayerCategory
+  sortOrder      Int
+}
+
+model Event {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id])
+  location    String
+  weather     String?        // JSON string, or reference to weather snapshot
+  dateFrom    DateTime
+  dateTo      DateTime
+  style       Style
+}
+
+model UserPreference {
+  id                    String      @id @default(uuid())
+  userId                String      @unique
+  user                  User        @relation(fields: [userId], references: [id])
+  style                 Style
+  preferredColours      Json        // e.g. [{min:0, max:20}, ...]
+  learningWeight        Float?
+  updatedAt             DateTime    @updatedAt
 }
