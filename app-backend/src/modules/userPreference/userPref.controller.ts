@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserPreference } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
-import { prisma } from '../prisma/client'; 
 
 class UserPref {
   // GET /api/preferences
