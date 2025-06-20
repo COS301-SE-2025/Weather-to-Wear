@@ -1,9 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import UserPrefController from '../../src/userPref.controller';
-import userPrefRoutes from '../../src/userPref.routes';
-import { prisma } from '../../src/prisma/client';
+import UserPrefController from '../src/modules/userPreference/userPref.controller';
+import userPrefRoutes from '../src/modules/userPreference/userPref.routes';
+import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+import { AuthenticatedRequest } from '../src/auth/auth.middleware'; // Import AuthenticatedRequest
 
+const prisma = new PrismaClient();
 const TEST_USER = { id: 'test-user-id', email: 'test@test.com' };
 const TEST_TOKEN = jwt.sign(TEST_USER, process.env.JWT_SECRET || 'defaultsecret');
 
@@ -24,6 +26,17 @@ describe('UserPref', () => {
 
   describe('Controller', () => {
     describe('getUserPref', () => {
+      it('returns 401 if user is not authenticated', async () => {
+        (req as AuthenticatedRequest).user = undefined;
+
+        await UserPrefController.getUserPref(req as Request, res as Response, next);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: 'Unauthorized: User not authenticated' });
+        expect(prisma.userPreference.findUnique).not.toHaveBeenCalled();
+        expect(next).not.toHaveBeenCalled();
+      });
+
       it('returns 200 with user preferences', async () => {
         const mockPreferences = {
           id: 'pref-123',
@@ -31,10 +44,10 @@ describe('UserPref', () => {
           style: 'Casual',
           preferredColours: [{ min: 127, max: 153 }],
           learningWeight: null,
-          updatedAt: new Date('2025-06-20T19:45:00Z'),
+          updatedAt: new Date('2025-06-21T00:05:00Z'),
         };
         (prisma.userPreference.findUnique as jest.Mock).mockResolvedValue(mockPreferences);
-        req.user = { ...TEST_USER };
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
 
         await UserPrefController.getUserPref(req as Request, res as Response, next);
 
@@ -48,7 +61,7 @@ describe('UserPref', () => {
 
       it('returns 404 when preferences not found', async () => {
         (prisma.userPreference.findUnique as jest.Mock).mockResolvedValue(null);
-        req.user = { ...TEST_USER };
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
 
         await UserPrefController.getUserPref(req as Request, res as Response, next);
 
@@ -63,7 +76,7 @@ describe('UserPref', () => {
       it('forwards errors to next()', async () => {
         const error = new Error('Database error');
         (prisma.userPreference.findUnique as jest.Mock).mockRejectedValue(error);
-        req.user = { ...TEST_USER };
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
 
         await UserPrefController.getUserPref(req as Request, res as Response, next);
 
@@ -77,6 +90,17 @@ describe('UserPref', () => {
     });
 
     describe('updateUserPref', () => {
+      it('returns 401 if user is not authenticated', async () => {
+        (req as AuthenticatedRequest).user = undefined;
+
+        await UserPrefController.updateUserPref(req as Request, res as Response, next);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: 'Unauthorized: User not authenticated' });
+        expect(prisma.userPreference.upsert).not.toHaveBeenCalled();
+        expect(next).not.toHaveBeenCalled();
+      });
+
       it('updates preferences and returns 200', async () => {
         const mockUpdatedPreferences = {
           id: 'pref-123',
@@ -84,9 +108,9 @@ describe('UserPref', () => {
           style: 'Athletic',
           preferredColours: [{ min: 127, max: 153 }],
           learningWeight: null,
-          updatedAt: new Date('2025-06-20T19:45:00Z'),
+          updatedAt: new Date('2025-06-21T00:05:00Z'),
         };
-        req.user = { ...TEST_USER };
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
         req.body = {
           style: 'Athletic',
           preferredColours: [{ min: 127, max: 153 }],
@@ -117,7 +141,7 @@ describe('UserPref', () => {
 
       it('forwards errors to next()', async () => {
         const error = new Error('Database error');
-        req.user = { ...TEST_USER };
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
         req.body = {
           style: 'Athletic',
           preferredColours: [{ min: 127, max: 153 }],
@@ -149,7 +173,7 @@ describe('UserPref', () => {
   });
 
   describe('Routes', () => {
-    describe('GET /api/preferences', () => {
+    describe('GET /', () => {
       it('returns 200 with user preferences', async () => {
         const mockPreferences = {
           id: 'pref-123',
@@ -157,14 +181,17 @@ describe('UserPref', () => {
           style: 'Casual',
           preferredColours: [{ min: 127, max: 153 }],
           learningWeight: null,
-          updatedAt: new Date('2025-06-20T19:45:00Z'),
+          updatedAt: new Date('2025-06-21T00:05:00Z'),
         };
         (prisma.userPreference.findUnique as jest.Mock).mockResolvedValue(mockPreferences);
-        req.user = { ...TEST_USER }; // Simulate authenticateToken
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
 
         const routeHandler = userPrefRoutes.stack.find(
-          (layer) => layer.route?.path === '/api/preferences' && layer.route?.methods.get
+          (layer) => layer.route?.path === '/' && layer.route?.methods['get'] === true
         )?.route?.stack[1].handle;
+        if (!routeHandler) {
+          throw new Error('Route handler for GET / not found');
+        }
         await routeHandler(req as Request, res as Response, next);
 
         expect(prisma.userPreference.findUnique).toHaveBeenCalledWith({
@@ -177,11 +204,14 @@ describe('UserPref', () => {
 
       it('returns 404 when preferences not found', async () => {
         (prisma.userPreference.findUnique as jest.Mock).mockResolvedValue(null);
-        req.user = { ...TEST_USER }; // Simulate authenticateToken
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
 
         const routeHandler = userPrefRoutes.stack.find(
-          (layer) => layer.route?.path === '/api/preferences' && layer.route?.methods.get
+          (layer) => layer.route?.path === '/' && layer.route?.methods['get'] === true
         )?.route?.stack[1].handle;
+        if (!routeHandler) {
+          throw new Error('Route handler for GET / not found');
+        }
         await routeHandler(req as Request, res as Response, next);
 
         expect(prisma.userPreference.findUnique).toHaveBeenCalledWith({
@@ -191,9 +221,26 @@ describe('UserPref', () => {
         expect(res.json).toHaveBeenCalledWith({ message: 'User preferences not found.' });
         expect(next).not.toHaveBeenCalled();
       });
+
+      it('returns 401 if user is not authenticated', async () => {
+        (req as AuthenticatedRequest).user = undefined;
+
+        const routeHandler = userPrefRoutes.stack.find(
+          (layer) => layer.route?.path === '/' && layer.route?.methods['get'] === true
+        )?.route?.stack[1].handle;
+        if (!routeHandler) {
+          throw new Error('Route handler for GET / not found');
+        }
+        await routeHandler(req as Request, res as Response, next);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: 'Unauthorized: User not authenticated' });
+        expect(prisma.userPreference.findUnique).not.toHaveBeenCalled();
+        expect(next).not.toHaveBeenCalled();
+      });
     });
 
-    describe('PUT /api/preferences', () => {
+    describe('PUT /', () => {
       it('updates preferences and returns 200', async () => {
         const mockUpdatedPreferences = {
           id: 'pref-123',
@@ -201,9 +248,9 @@ describe('UserPref', () => {
           style: 'Athletic',
           preferredColours: [{ min: 127, max: 153 }],
           learningWeight: null,
-          updatedAt: new Date('2025-06-20T19:45:00Z'),
+          updatedAt: new Date('2025-06-21T00:05:00Z'),
         };
-        req.user = { ...TEST_USER }; // Simulate authenticateToken
+        (req as AuthenticatedRequest).user = { ...TEST_USER };
         req.body = {
           style: 'Athletic',
           preferredColours: [{ min: 127, max: 153 }],
@@ -212,8 +259,11 @@ describe('UserPref', () => {
         (prisma.userPreference.upsert as jest.Mock).mockResolvedValue(mockUpdatedPreferences);
 
         const routeHandler = userPrefRoutes.stack.find(
-          (layer) => layer.route?.path === '/api/preferences' && layer.route?.methods.put
+          (layer) => layer.route?.path === '/' && layer.route?.methods['put'] === true
         )?.route?.stack[1].handle;
+        if (!routeHandler) {
+          throw new Error('Route handler for PUT / not found');
+        }
         await routeHandler(req as Request, res as Response, next);
 
         expect(prisma.userPreference.upsert).toHaveBeenCalledWith({
@@ -234,17 +284,39 @@ describe('UserPref', () => {
         expect(res.json).toHaveBeenCalledWith(mockUpdatedPreferences);
         expect(next).not.toHaveBeenCalled();
       });
+
+      it('returns 401 if user is not authenticated', async () => {
+        (req as AuthenticatedRequest).user = undefined;
+        req.body = {
+          style: 'Athletic',
+          preferredColours: [{ min: 127, max: 153 }],
+          learningWeight: null,
+        };
+
+        const routeHandler = userPrefRoutes.stack.find(
+          (layer) => layer.route?.path === '/' && layer.route?.methods['put'] === true
+        )?.route?.stack[1].handle;
+        if (!routeHandler) {
+          throw new Error('Route handler for PUT / not found');
+        }
+        await routeHandler(req as Request, res as Response, next);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: 'Unauthorized: User not authenticated' });
+        expect(prisma.userPreference.upsert).not.toHaveBeenCalled();
+        expect(next).not.toHaveBeenCalled();
+      });
     });
   });
 });
 
 // Mock authenticateToken
-jest.mock('../../src/auth/auth.middleware', () => ({
+jest.mock('../src/auth/auth.middleware', () => ({
   authenticateToken: (req: any, res: any, next: any) => {
     if (req.headers.authorization === `Bearer ${TEST_TOKEN}`) {
-      req.user = { ...TEST_USER };
+      (req as AuthenticatedRequest).user = { ...TEST_USER };
     } else {
-      res.status(401).json({ message: 'Unauthorized' });
+      (req as AuthenticatedRequest).user = undefined;
     }
     next();
   },

@@ -1,18 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
-import { UserPreference } from '@prisma/client';
+import { PrismaClient, UserPreference } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
+
+export const prisma = new PrismaClient();
 
 class UserPref {
   // GET /api/preferences
-  getUserPref = async function (req: Request, res: Response, next: NextFunction) {
+  getUserPref = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { user } = req as AuthenticatedRequest;
+    if (!user) {
+      res.status(401).json({ message: 'Unauthorized: User not authenticated' });
+      return;
+    }
     try {
       const preferences = await prisma.userPreference.findUnique({
         where: { userId: user.id },
       });
 
       if (!preferences) {
-        return res.status(404).json({ message: 'User preferences not found.' });
+        res.status(404).json({ message: 'User preferences not found.' });
+        return;
       }
 
       res.status(200).json(preferences);
@@ -22,8 +29,12 @@ class UserPref {
   };
 
   // PUT /api/preferences
-  updateUserPref = async function (req: Request, res: Response, next: NextFunction) {
+  updateUserPref = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { user } = req as AuthenticatedRequest;
+    if (!user) {
+      res.status(401).json({ message: 'Unauthorized: User not authenticated' });
+      return;
+    }
     const { style, preferredColours, learningWeight } = req.body;
 
     try {

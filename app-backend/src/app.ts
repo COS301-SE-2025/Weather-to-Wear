@@ -37,7 +37,7 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 app.use('/api/auth', authRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/closet', closetRoutes);
-app.use('/api/userPref', userPrefRoutes);
+app.use('/api/preferences', userPrefRoutes);
 
 
 export default app;
