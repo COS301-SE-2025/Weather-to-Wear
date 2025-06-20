@@ -8,6 +8,7 @@ import authRoutes from './modules/auth/auth.routes';
 import weatherRoutes from './modules/weather/weather.routes';
 // for image upload
 import closetRoutes from './modules/closet/closet.route';
+import outfitRoutes from './modules/outfit/outfit.routes';
 
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 app.use('/api/auth', authRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/closet', closetRoutes);
+app.use('/api/outfits', outfitRoutes);
 
 
 export default app;
