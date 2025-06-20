@@ -306,6 +306,7 @@ describe('Closet Routes Extended', () => {
       })
     ]);
   });
+});
 
   it('PATCH /api/closet/:id → updates item', async () => {
     const res = await request(app)
@@ -335,3 +336,4 @@ describe('Closet Routes Extended', () => {
     expect(res.status).toBe(204);
   });
 });
+
