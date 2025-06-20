@@ -1,4 +1,3 @@
- 
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import path from 'path';
@@ -82,7 +81,7 @@ describe('ClosetController', () => {
       jest.spyOn(service, 'saveImage').mockResolvedValue({
         id: "1",
         filename: 'img.png',
-        category: 'SHOES',
+        category: 'SHOES', 
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         ownerId: 'test-user-id',
         colorHex: null,
@@ -334,6 +333,5 @@ describe('Closet Routes Extended', () => {
       .set('Authorization', `Bearer ${TEST_TOKEN}`);
 
     expect(res.status).toBe(204);
-    // expect(res.body).toEqual({ message: 'Deleted item with id 1' });
   });
 });
