@@ -1,6 +1,6 @@
 // closetService.controller.ts
 import { Request, Response, NextFunction } from 'express';
-import { Style, Material, Category } from '@prisma/client';
+import { Style, Material, Category, LayerCategory  } from '@prisma/client';
 import ClosetService from './closet.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import closetService from './closet.service';
@@ -30,7 +30,9 @@ class ClosetController {
         material: req.body.material as Material,
       };
 
-      const item = await ClosetService.saveImage(file, category, user.id);
+      const layerCategory = req.body.layerCategory as any;
+
+      const item = await ClosetService.saveImage(file, category, layerCategory, user.id, extras);
 
       res.status(201).json({
         id: item.id,
@@ -110,7 +112,8 @@ class ClosetController {
         res.status(400).json({ message: 'No files provided' });
         return;
       }
-      const items = await ClosetService.saveImagesBatch(files, category, user.id);
+      const layerCategory = req.body.layerCategory as any; // For now, all files get same layerCategory
+      const items = await ClosetService.saveImagesBatch(files, category, layerCategory, user.id, extras);
 
       res.status(201).json(
         items.map(item => ({
@@ -190,7 +193,7 @@ class ClosetController {
         return;
       }
 
-      const { category, colorHex, warmthFactor, waterproof, style, material } = req.body;
+      const { category, layerCategory, colorHex, warmthFactor, waterproof, style, material } = req.body;
       const updateData: any = {};
       if (category)    
         updateData.category = category as Category;
@@ -204,6 +207,8 @@ class ClosetController {
         updateData.style = style as Style;
       if (material)    
         updateData.material = material as Material;
+      if (layerCategory)
+        updateData.layerCategory = layerCategory as any;
 
       const updated = await ClosetService.updateImage(id, user.id, updateData);
 

@@ -1,4 +1,4 @@
-import { Category, Style, Material, PrismaClient, ClosetItem as PrismaClosetItem } from '@prisma/client';
+import { Category, LayerCategory, Style, Material, PrismaClient, ClosetItem as PrismaClosetItem } from '@prisma/client';
 
 import path from 'path';
 import fs from 'fs';
@@ -31,6 +31,7 @@ class ClosetService {
   async saveImage(
       file: Express.Multer.File,
       category: Category,
+      layerCategory: any, // or LayerCategory if imported
       userId: string,
       extras?: Extras
     ): Promise<ClosetItem> {
@@ -38,6 +39,7 @@ class ClosetService {
         data: {
           filename: file.filename,
           category,
+          layerCategory,
           ownerId: userId,
           ...extras,
         }
@@ -54,6 +56,7 @@ class ClosetService {
     async saveImagesBatch(
     files: Express.Multer.File[],
     category: Category,
+    layerCategory: any,
     userId: string,
     extras?: Extras
   ): Promise<ClosetItem[]> {
@@ -62,6 +65,7 @@ class ClosetService {
         data: {
           filename: file.filename,
           category,
+          layerCategory,
           ownerId: userId,
           ...extras,
         }

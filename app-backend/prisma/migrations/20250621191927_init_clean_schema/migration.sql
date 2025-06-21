@@ -28,12 +28,14 @@ CREATE TABLE "closet_items" (
     "id" TEXT NOT NULL,
     "filename" TEXT NOT NULL,
     "category" "Category" NOT NULL,
+    "layerCategory" "LayerCategory" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "colorHex" TEXT,
     "warmthFactor" INTEGER,
     "waterproof" BOOLEAN,
     "style" "Style",
     "material" "Material",
+    "favourite" BOOLEAN NOT NULL DEFAULT false,
     "ownerId" TEXT NOT NULL,
 
     CONSTRAINT "closet_items_pkey" PRIMARY KEY ("id")
@@ -49,6 +51,8 @@ CREATE TABLE "Outfit" (
     "waterproof" BOOLEAN NOT NULL,
     "userRating" INTEGER,
     "overallStyle" "OverallStyle" NOT NULL,
+    "favourite" BOOLEAN NOT NULL DEFAULT false,
+    "eventId" TEXT,
 
     CONSTRAINT "Outfit_pkey" PRIMARY KEY ("id")
 );
@@ -73,6 +77,7 @@ CREATE TABLE "Event" (
     "dateFrom" TIMESTAMP(3) NOT NULL,
     "dateTo" TIMESTAMP(3) NOT NULL,
     "style" "Style" NOT NULL,
+    "name" TEXT,
 
     CONSTRAINT "Event_pkey" PRIMARY KEY ("id")
 );
@@ -100,6 +105,9 @@ ALTER TABLE "closet_items" ADD CONSTRAINT "closet_items_ownerId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "Outfit" ADD CONSTRAINT "Outfit_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Outfit" ADD CONSTRAINT "Outfit_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OutfitItem" ADD CONSTRAINT "OutfitItem_outfitId_fkey" FOREIGN KEY ("outfitId") REFERENCES "Outfit"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
