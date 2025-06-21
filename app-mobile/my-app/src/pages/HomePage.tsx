@@ -229,10 +229,7 @@ export default function HomePage() {
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-light text-white text-center"
-            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
-          >
+          <h1 className="text-2xl font-light text-white text-center">
             {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
           </h1>
         </div>
@@ -240,142 +237,123 @@ export default function HomePage() {
       </div>
 
       {/* Main Sections */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-8 mt-24 md:mt-28 z-10">
-        {/* Weather Section */}
-        <div className="w-full lg:w-1/3 flex flex-col items-center mb-8">
-          <div className="w-full max-w-[280px]">
-            <div className="h-[5rem] w-full flex items-end">
-              <TypingSlogan />
-            </div>
-            <div className="flex flex-col gap-4">
-              {weather && (
-                <>
-                  <WeatherDisplay weather={weather} setCity={setCity} />
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Select City"
-                      className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setCity((e.target as HTMLInputElement).value.trim());
-                        }
-                      }}
-                    />
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                  </div>
+      {/* Top Content: Typing Slogan + Outfit + Weather */}
+      <div className="flex flex-col gap-12 px-4 md:px-8">
+        <div className="flex flex-col lg:flex-row gap-8 justify-between">
 
-                  <HourlyForecast forecast={weather.forecast} />
-                </>
-              )}
+          {/* Typing Slogan */}
+          <div className="flex-1 flex flex-col items-start justify-center">
+            <TypingSlogan />
+          </div>
+
+          {/* Outfit Section */}
+          <div className="flex-1 flex flex-col items-center">
+            {/* Reuse existing Outfit code */}
+            <div className="w-full max-w-[350px]">
+              <div className="flex justify-center">
+                <div className="inline-block py-1 px-3 border-2 border-black dark:border-gray-600">
+                  <h1 className="text-xl text-black dark:text-gray-100 text-center">
+                    OUTFIT OF THE DAY
+                  </h1>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-4">
+                {items.length > 0 ? (
+                  items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`bg-white-200 dark:bg-gray-800 rounded-3xl overflow-hidden flex items-center justify-center ${item.category === 'SHOES'
+                        ? 'aspect-[3/3] max-h-[60px]'
+                        : item.category === 'SHIRT'
+                          ? 'aspect-[3/4] max-h-[160px]'
+                          : 'aspect-[3/4] max-h-[200px]'
+                        }`}
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="max-w-full max-h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder-outfit.jpg';
+                          e.currentTarget.alt = 'Outfit placeholder';
+                        }}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <img
+                    src="/placeholder-outfit.jpg"
+                    alt="Outfit placeholder"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+
+                {missingCategories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => (window.location.href = '/add')}
+                    className="bg-[#3F978F] text-white py-2 px-4 rounded-xl border border-black hover:bg-[#347e77] transition"
+                  >
+                    No {category.toLowerCase()} found — add more to wardrobe
+                  </button>
+                ))}
+              </div>
+
+              <StarRating />
             </div>
           </div>
-        </div>
 
-        {/* Outfit Section */}
-        <div className="w-full lg:w-1/3 flex flex-col items-center lg:-mt-28">
-          <div className="w-full max-w-[350px]">
-            <div className="flex justify-center">
-              <div className="inline-block py-1 px-3 border-2 border-black dark:border-gray-600">
-                <h1 className="text-xl text-black dark:text-gray-100 text-center">
-                  OUTFIT OF THE DAY
-                </h1>
+          {/* Weather Section */}
+          <div className="flex-1 flex flex-col items-center">
+            <div className="w-full max-w-[280px]">
+              <div className="flex flex-col gap-4">
+                {weather && (
+                  <>
+                    <WeatherDisplay weather={weather} setCity={setCity} />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Select City"
+                        className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setCity((e.target as HTMLInputElement).value.trim());
+                          }
+                        }}
+                      />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    <HourlyForecast forecast={weather.forecast} />
+                  </>
+                )}
               </div>
             </div>
-
-            <div className="mt-6 flex flex-col gap-4">
-              {items.length > 0 ? (
-                items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`bg-white-200 dark:bg-gray-800 rounded-3xl overflow-hidden flex items-center justify-center ${item.category === 'SHOES'
-                      ? 'aspect-[3/3] max-h-[60px]'
-                      : item.category === 'SHIRT'
-                        ? 'aspect-[3/4] max-h-[160px]'
-                        : 'aspect-[3/4] max-h-[200px]'
-                      }`}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="max-w-full max-h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src = '/placeholder-outfit.jpg';
-                        e.currentTarget.alt = 'Outfit placeholder';
-                      }}
-                    />
-                  </div>
-                ))
-              ) : (
-                <img
-                  src="/placeholder-outfit.jpg"
-                  alt="Outfit placeholder"
-                  className="w-full h-full object-cover"
-                />
-              )}
-
-              {missingCategories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => (window.location.href = '/add')}
-                  className="bg-[#3F978F] text-white py-2 px-4 rounded-xl border border-black hover:bg-[#347e77] transition"
-                >
-                  No {category.toLowerCase()} found — add more to wardrobe
-                </button>
-              ))}
-            </div>
-
-            <StarRating />
           </div>
         </div>
 
-        {/* Events Section */}
-        {/* Events Section */}
-        <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-20">
-          <div className="relative w-full max-w-[280px]">
-            {/* Teal shadow arch */}
-            <div
-              className="absolute rounded-tl-full rounded-tr-full h-full pointer-events-none bg-[#3F978F]"
-              style={{
-                left: '5%',
-                right: '-5%',
-                bottom: '0',
-                zIndex: 0,
-                position: 'absolute',
-              }}
-            ></div>
-
-            {/* Main arch */}
-            <div
-              className="absolute inset-0 rounded-tl-full rounded-tr-full h-full pointer-events-none bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600"
-              style={{
-                top: '-4%',
-                left: '0',
-                zIndex: 10,
-                position: 'absolute',
-              }}
-            ></div>
-
-            {/* Content */}
-            <div className="relative z-10 pt-10 pb-6 px-4">
+        {/* Events Section - Full Width */}
+        <div className="w-full mt-12">
+          <div className="max-w-4xl mx-auto relative">
+            <div className="relative z-10 pt-10 pb-6 px-4 bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 rounded-t-3xl">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular dark:text-gray-100">
                   Upcoming Events
                 </h2>
-                
               </div>
 
               <div className="space-y-2 md:space-y-3">
@@ -408,7 +386,7 @@ export default function HomePage() {
                   <div className="text-center py-4">
                     <p className="text-gray-500">No upcoming events</p>
                     <button
-                      onClick={() => {/* Add navigation to create event */ }}
+                      onClick={() => { }}
                       className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
                     >
                       Add Your First Event
@@ -420,6 +398,7 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
 
       {/* Bottom Banner */}
       <div
