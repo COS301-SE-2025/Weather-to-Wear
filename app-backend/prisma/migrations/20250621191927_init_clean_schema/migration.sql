@@ -1,14 +1,5 @@
-/*
-  Warnings:
-
-  - You are about to drop the `closet_items` table. If the table is not empty, all the data it contains will be lost.
-
-*/
 -- CreateEnum
-CREATE TYPE "LayerCategory" AS ENUM ('base_top', 'base_bottom', 'mid_top', 'mid_bottom', 'outerwear', 'footwear', 'headwear', 'accessory');
-
--- CreateEnum
-CREATE TYPE "ClothingType" AS ENUM ('TShirt', 'LongSleeve', 'Sweater', 'Hoodie', 'Jacket', 'Pants', 'Jeans', 'Shorts', 'Shoes', 'Beanie', 'Hat', 'Scarf', 'Gloves', 'Raincoat', 'Umbrella');
+CREATE TYPE "Category" AS ENUM ('SHIRT', 'HOODIE', 'PANTS', 'SHORTS', 'SHOES', 'TSHIRT', 'LONGSLEEVE', 'SWEATER', 'JACKET', 'JEANS', 'BEANIE', 'HAT', 'SCARF', 'GLOVES', 'RAINCOAT', 'UMBRELLA');
 
 -- CreateEnum
 CREATE TYPE "Style" AS ENUM ('Formal', 'Casual', 'Athletic', 'Party', 'Business', 'Outdoor');
@@ -17,32 +8,37 @@ CREATE TYPE "Style" AS ENUM ('Formal', 'Casual', 'Athletic', 'Party', 'Business'
 CREATE TYPE "Material" AS ENUM ('Cotton', 'Wool', 'Polyester', 'Leather', 'Nylon', 'Fleece');
 
 -- CreateEnum
-CREATE TYPE "OverallStyle" AS ENUM ('Formal', 'Casual', 'Athletic');
+CREATE TYPE "LayerCategory" AS ENUM ('base_top', 'base_bottom', 'mid_top', 'mid_bottom', 'outerwear', 'footwear', 'headwear', 'accessory');
 
--- DropForeignKey
-ALTER TABLE "closet_items" DROP CONSTRAINT "closet_items_ownerId_fkey";
-
--- DropTable
-DROP TABLE "closet_items";
-
--- DropEnum
-DROP TYPE "Category";
+-- CreateEnum
+CREATE TYPE "OverallStyle" AS ENUM ('Formal', 'Casual', 'Athletic', 'Party', 'Business', 'Outdoor');
 
 -- CreateTable
-CREATE TABLE "ClosetItem" (
+CREATE TABLE "User" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "layer" "LayerCategory" NOT NULL,
-    "type" "ClothingType" NOT NULL,
-    "filename" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "colorHex" TEXT NOT NULL,
-    "warmthFactor" INTEGER NOT NULL,
-    "waterproof" BOOLEAN NOT NULL,
-    "style" "Style" NOT NULL,
-    "material" "Material" NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
 
-    CONSTRAINT "ClosetItem_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "closet_items" (
+    "id" TEXT NOT NULL,
+    "filename" TEXT NOT NULL,
+    "category" "Category" NOT NULL,
+    "layerCategory" "LayerCategory" NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "colorHex" TEXT,
+    "warmthFactor" INTEGER,
+    "waterproof" BOOLEAN,
+    "style" "Style",
+    "material" "Material",
+    "favourite" BOOLEAN NOT NULL DEFAULT false,
+    "ownerId" TEXT NOT NULL,
+
+    CONSTRAINT "closet_items_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -55,6 +51,8 @@ CREATE TABLE "Outfit" (
     "waterproof" BOOLEAN NOT NULL,
     "userRating" INTEGER,
     "overallStyle" "OverallStyle" NOT NULL,
+    "favourite" BOOLEAN NOT NULL DEFAULT false,
+    "eventId" TEXT,
 
     CONSTRAINT "Outfit_pkey" PRIMARY KEY ("id")
 );
@@ -79,6 +77,7 @@ CREATE TABLE "Event" (
     "dateFrom" TIMESTAMP(3) NOT NULL,
     "dateTo" TIMESTAMP(3) NOT NULL,
     "style" "Style" NOT NULL,
+    "name" TEXT,
 
     CONSTRAINT "Event_pkey" PRIMARY KEY ("id")
 );
@@ -96,19 +95,25 @@ CREATE TABLE "UserPreference" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "UserPreference_userId_key" ON "UserPreference"("userId");
 
 -- AddForeignKey
-ALTER TABLE "ClosetItem" ADD CONSTRAINT "ClosetItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "closet_items" ADD CONSTRAINT "closet_items_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Outfit" ADD CONSTRAINT "Outfit_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Outfit" ADD CONSTRAINT "Outfit_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "OutfitItem" ADD CONSTRAINT "OutfitItem_outfitId_fkey" FOREIGN KEY ("outfitId") REFERENCES "Outfit"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "OutfitItem" ADD CONSTRAINT "OutfitItem_closetItemId_fkey" FOREIGN KEY ("closetItemId") REFERENCES "ClosetItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "OutfitItem" ADD CONSTRAINT "OutfitItem_closetItemId_fkey" FOREIGN KEY ("closetItemId") REFERENCES "closet_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Event" ADD CONSTRAINT "Event_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

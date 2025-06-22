@@ -1,3 +1,15 @@
+export interface WeatherSummary {
+  avgTemp: number;
+  minTemp: number;
+  maxTemp: number;
+  willRain: boolean;
+  mainCondition: string;
+}
+
+export interface WeatherDataWithSummary extends WeatherData {
+  summary: WeatherSummary;
+}
+
 export interface HourlyForecast {
   time: string; 
   temperature: number;

@@ -27,6 +27,7 @@
 
 * Most endpoints (except `signup` and `login`) require a valid JWT in the `Authorization: Bearer <token>` header.
 * All user-specific routes use the authenticated user’s ID from the JWT.
+* Endpoints marked with 🟡 are not yet implemented but recommended for future work.
 
 ---
 
@@ -35,7 +36,6 @@
 #### **Signup**
 
 * **POST** `/api/auth/signup`
-
   * **Body:** `{ name, email, password }`
   * **Response:** `{ user, token }`
 * **Notes:** Creates user, returns JWT.

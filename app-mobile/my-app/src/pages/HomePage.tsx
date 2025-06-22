@@ -172,43 +172,7 @@ export default function HomePage() {
         setEvents(eventsData);
       } catch (error) {
         console.error('Error fetching events:', error);
-        // Fallback to mock data if API fails
         setEvents([
-          // {
-          //   id: '1',
-          //   title: '21st Birthday',
-          //   date: '21 May',
-          //   location: 'New York',
-          //   style: 'CASUAL'
-          // },
-          // {
-          //   id: '2',
-          //   title: 'Work Meeting',
-          //   date: '3 June',
-          //   location: 'Office',
-          //   style: 'FORMAL'
-          // },
-          // {
-          //   id: '3',
-          //   title: "Diya's Birthday",
-          //   date: '4 November',
-          //   location: 'Restaurant',
-          //   style: 'SEMI_FORMAL'
-          // },
-          // {
-          //   id: '4',
-          //   title: "Kyle's Birthday",
-          //   date: '30 December',
-          //   location: 'Beach House',
-          //   style: 'CASUAL'
-          // },
-          // {
-          //   id: '5',
-          //   title: 'Wedding',
-          //   date: '15 July',
-          //   location: 'Church',
-          //   style: 'FORMAL'
-          // }
         ]);
       }
     };

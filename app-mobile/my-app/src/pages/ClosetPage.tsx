@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Heart, Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems } from '../services/closetApi';
+import { deleteItem} from '../services/closetApi';
+
 
 
 
@@ -110,18 +112,37 @@ useEffect(() => {
     setShowModal(true);
   };
 
-  const confirmRemove = () => {
-    if (itemToRemove) {
-      const { id, tab } = itemToRemove;
+  // const confirmRemove = () => {
+  //   if (itemToRemove) {
+  //     const { id, tab } = itemToRemove;
+  //     const filterFn = (arr: Item[]) => arr.filter(it => it.id !== id);
+  //     tab === 'items'
+  //       ? setItems(filterFn(items))
+  //       : tab === 'outfits'
+  //       ? setOutfits(filterFn(outfits))
+  //       : setFavourites(filterFn(favourites));
+  //   }
+  //   setShowModal(false);
+  // };
+
+  const confirmRemove = async () => {
+  if (itemToRemove) {
+    const { id, tab } = itemToRemove;
+
+    try {
+      await deleteItem(id.toString());
+      // only remove from UI if the API call succeeded
       const filterFn = (arr: Item[]) => arr.filter(it => it.id !== id);
-      tab === 'items'
-        ? setItems(filterFn(items))
-        : tab === 'outfits'
-        ? setOutfits(filterFn(outfits))
-        : setFavourites(filterFn(favourites));
+      if (tab === 'items') setItems(filterFn(items));
+      else if (tab === 'outfits') setOutfits(filterFn(outfits));
+      else setFavourites(filterFn(favourites));
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      // optionally show an error toast/modal
     }
-    setShowModal(false);
-  };
+  }
+  setShowModal(false);
+};
 
   const cancelRemove = () => {
     setShowModal(false);

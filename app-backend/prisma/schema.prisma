@@ -82,6 +82,7 @@
     id         String    @id @default(uuid())
     filename   String
     category   Category
+    layerCategory  LayerCategory
     createdAt  DateTime  @default(now())
 
     // New fields (safe to add as nullable if code doesn't expect them yet)
@@ -90,6 +91,7 @@
     waterproof    Boolean?
     style         Style?
     material      Material?
+    favourite     Boolean  @default(false)
 
     ownerId   String
     owner     User      @relation(fields: [ownerId], references: [id])
@@ -109,6 +111,10 @@
     userRating     Int?
     overallStyle   OverallStyle
     outfitItems    OutfitItem[]
+    favourite      Boolean        @default(false)
+    eventId        String?
+    event          Event?         @relation(fields: [eventId], references: [id])
+
   }
 
   model OutfitItem {
@@ -131,6 +137,7 @@
     dateTo      DateTime
     style       Style
     name        String?
+    outfits     Outfit[]
   }
 
   model UserPreference {
