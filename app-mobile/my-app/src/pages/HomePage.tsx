@@ -22,10 +22,12 @@ type Item = {
 type Event = {
   id: string;
   name: string;
-  date: string;
   location: string;
+  dateFrom: string;
+  dateTo: string;
   style?: string;
 };
+
 
 const StarRating = () => {
   const [rating, setRating] = useState(0);
@@ -235,7 +237,7 @@ export default function HomePage() {
               </div>
 
               <div className="mt-6 flex flex-col gap-4">
-                {items.length > 0 ? (
+                {items.length > 0 &&
                   items.map((item) => (
                     <div
                       key={item.id}
@@ -257,13 +259,7 @@ export default function HomePage() {
                       />
                     </div>
                   ))
-                ) : (
-                  <img
-                    src="/placeholder-outfit.jpg"
-                    alt="Outfit placeholder"
-                    className="w-full h-full object-cover"
-                  />
-                )}
+               }
 
                 {missingCategories.map((category) => (
                   <button
@@ -360,14 +356,17 @@ export default function HomePage() {
                       <span className="text-sm font-bold text-black dark:text-white text-center px-2 truncate">
                         {event.name}
                       </span>
+                      
                       <span className="text-xs text-gray-500 dark:text-gray-300">
-                        {new Date(event.date).toLocaleDateString('en-GB', {
+                        {new Date(event.dateFrom).toLocaleDateString('en-GB', {
                           day: 'numeric',
                           month: 'short',
-                          year: 'numeric',
+                        })} - {new Date(event.dateTo).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
                         })}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-300">{event.date}</span>
+
                       <span
                         className={`text-[10px] mt-1 px-2 py-1 rounded-full ${event.style === 'Formal'
                           ? 'bg-blue-100 text-blue-800'
