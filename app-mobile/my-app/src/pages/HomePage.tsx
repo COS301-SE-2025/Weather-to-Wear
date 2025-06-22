@@ -8,7 +8,7 @@ import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
 import { fetchAllItems } from '../services/closetApi';
 import { useNavigate } from 'react-router-dom';
-import { fetchAllEvents } from '../services/eventsApi';
+import { fetchAllEvents, createEvent } from '../services/eventsApi';
 
 type Item = {
   id: number;
@@ -21,7 +21,7 @@ type Item = {
 
 type Event = {
   id: string;
-  title: string;
+  name: string;
   date: string;
   location: string;
   style?: string;
@@ -174,47 +174,59 @@ export default function HomePage() {
         console.error('Error fetching events:', error);
         // Fallback to mock data if API fails
         setEvents([
-          {
-            id: '1',
-            title: '21st Birthday',
-            date: '21 May',
-            location: 'New York',
-            style: 'CASUAL'
-          },
-          {
-            id: '2',
-            title: 'Work Meeting',
-            date: '3 June',
-            location: 'Office',
-            style: 'FORMAL'
-          },
-          {
-            id: '3',
-            title: "Diya's Birthday",
-            date: '4 November',
-            location: 'Restaurant',
-            style: 'SEMI_FORMAL'
-          },
-          {
-            id: '4',
-            title: "Kyle's Birthday",
-            date: '30 December',
-            location: 'Beach House',
-            style: 'CASUAL'
-          },
-          {
-            id: '5',
-            title: 'Wedding',
-            date: '15 July',
-            location: 'Church',
-            style: 'FORMAL'
-          }
+          // {
+          //   id: '1',
+          //   title: '21st Birthday',
+          //   date: '21 May',
+          //   location: 'New York',
+          //   style: 'CASUAL'
+          // },
+          // {
+          //   id: '2',
+          //   title: 'Work Meeting',
+          //   date: '3 June',
+          //   location: 'Office',
+          //   style: 'FORMAL'
+          // },
+          // {
+          //   id: '3',
+          //   title: "Diya's Birthday",
+          //   date: '4 November',
+          //   location: 'Restaurant',
+          //   style: 'SEMI_FORMAL'
+          // },
+          // {
+          //   id: '4',
+          //   title: "Kyle's Birthday",
+          //   date: '30 December',
+          //   location: 'Beach House',
+          //   style: 'CASUAL'
+          // },
+          // {
+          //   id: '5',
+          //   title: 'Wedding',
+          //   date: '15 July',
+          //   location: 'Church',
+          //   style: 'FORMAL'
+          // }
         ]);
       }
     };
 
     fetchEvents();
   }, []);
+
+
+  const [showModal, setShowModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    name: '',
+    location: '',
+    weather: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'CASUAL',
+  });
+
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
@@ -349,6 +361,8 @@ export default function HomePage() {
         {/* Events Section - Full Width */}
         <div className="w-full mt-12">
           <div className="max-w-4xl mx-auto relative">
+
+
             <div className="relative z-10 pt-10 pb-6 px-4 bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 rounded-t-3xl">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular dark:text-gray-100">
@@ -362,23 +376,37 @@ export default function HomePage() {
                     <div key={event.id}>
                       {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
                       <div className="flex justify-between text-base md:text-lg py-1 md:py-2">
-                        <div className="flex items-center gap-2">
+
+                        {/* Left side: Date + Name */}
+                        <div className="flex flex-col">
                           <span className="font-semibold text-black dark:text-gray-100">
                             {event.date}
                           </span>
+                          <p className="text-gray-600 dark:text-gray-400">{event.name}</p>
+                        </div>
+
+                        {/* Right side: Style + Location */}
+                        <div className="text-right flex flex-col items-end gap-1">
                           <span
-                            className={`text-xs px-2 py-1 rounded-full ${event.style === 'FORMAL' ? 'bg-blue-100 text-blue-800' :
-                              event.style === 'SEMI_FORMAL' ? 'bg-purple-100 text-purple-800' :
-                                'bg-green-100 text-green-800'
+                            className={`text-xs px-2 py-1 rounded-full ${event.style === 'Formal'
+                                ? 'bg-blue-100 text-blue-800'
+                                : event.style === 'Business'
+                                  ? 'bg-gray-100 text-gray-800'
+                                  : event.style === 'Athletic'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : event.style === 'Party'
+                                      ? 'bg-pink-100 text-pink-800'
+                                      : event.style === 'Outdoor'
+                                        ? 'bg-green-200 text-green-900'
+                                        : 'bg-green-100 text-green-800'
                               }`}
                           >
-                            {event.style?.replace('_', ' ') || 'CASUAL'}
+                            {event.style}
                           </span>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-gray-600 dark:text-gray-400">{event.title}</p>
+
                           <p className="text-xs text-gray-500">{event.location}</p>
                         </div>
+
                       </div>
                     </div>
                   ))
@@ -386,7 +414,8 @@ export default function HomePage() {
                   <div className="text-center py-4">
                     <p className="text-gray-500">No upcoming events</p>
                     <button
-                      onClick={() => { }}
+                      onClick={() => setShowModal(true)}
+
                       className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
                     >
                       Add Your First Event
@@ -394,6 +423,10 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
+
+
+
+
             </div>
           </div>
         </div>
@@ -413,6 +446,106 @@ export default function HomePage() {
       >
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
+
+      {/* Modal: Create New Event */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-lg border border-black relative">
+            <h2 className="text-xl font-semibold mb-4 dark:text-white">Create New Event</h2>
+
+            <div className="space-y-3">
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Event Name"
+                value={newEvent.name}
+                onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Location"
+                value={newEvent.location}
+                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateFrom}
+                onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateTo}
+                onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+              />
+
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Weather"
+                value={newEvent.weather}
+                onChange={(e) => setNewEvent({ ...newEvent, weather: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newEvent.style}
+                onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
+              >
+                <option value="">Select a style</option>
+                <option value="Formal">Formal</option>
+                <option value="Casual">Casual</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
+              </select>
+
+            </div>
+
+            <div className="flex justify-end mt-4 gap-2">
+              <button
+                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-[#3F978F] text-white px-4 py-2 rounded hover:bg-[#347e77]"
+                onClick={async () => {
+                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+                    alert('Please fill in the event name, style, and both dates.');
+                    return;
+                  }
+                  try {
+                    const created = await createEvent({
+                      ...newEvent,
+                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
+                      dateTo: new Date(newEvent.dateTo).toISOString(),
+                    });
+                    setEvents([...events, created]);
+                    setNewEvent({
+                      name: '',
+                      location: '',
+                      weather: '',
+                      dateFrom: '',
+                      dateTo: '',
+                      style: '',
+                    });
+                    setShowModal(false);
+                  } catch (err) {
+                    console.error('Error creating event:', err);
+                    alert('Failed to create event');
+                  }
+                }}
+
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       <Footer />
     </div>

@@ -17,18 +17,21 @@ export const fetchAllEvents = async () => {
   }
 };
 
-export const createEvent = async (eventData: any) => {
-  try {
-    const response = await axios.post(API_URL + '/createEvent', eventData, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error creating event:', error);
-    throw error;
-  }
+export const createEvent = async (eventData: {
+  name: string;
+  location: string;
+  weather: string;
+  dateFrom: string;
+  dateTo: string;
+  style: string;
+}) => {
+  const token = localStorage.getItem('token'); // assuming you store JWT here
+  const res = await axios.post(`${API_URL}/createEvent`, eventData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
 };
 
 // Add other CRUD operations as needed
