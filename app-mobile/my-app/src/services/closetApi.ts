@@ -22,10 +22,23 @@ export const fetchByCategory = (category: string) =>
     },
   });
 
-export const uploadImage = (image: File, category: string) => {
+// export const uploadImage = (image: File, category: string) => {
+//   const formData = new FormData();
+//   formData.append('image', image);
+//   formData.append('category', category);
+//   return axios.post(`${BASE_URL}/upload`, formData, {
+//     headers: {
+//       'Content-Type': 'multipart/form-data',
+//       ...getAuthHeader(),
+//     },
+//   });
+// };
+
+export const uploadImage = (image: File, category: string, layerCategory: string) => {
   const formData = new FormData();
   formData.append('image', image);
   formData.append('category', category);
+  formData.append('layerCategory', layerCategory);
   return axios.post(`${BASE_URL}/upload`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
