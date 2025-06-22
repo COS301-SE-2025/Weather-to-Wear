@@ -21,7 +21,6 @@ export const fetchAllEvents = async () => {
 export const createEvent = async (eventData: {
   name: string;
   location: string;
-  weather: string;
   dateFrom: string;
   dateTo: string;
   style: string;
@@ -39,7 +38,6 @@ export const updateEvent = async (eventData: {
   id: string;
   name?: string;
   location?: string;
-  weather?: string;
   dateFrom?: string;
   dateTo?: string;
   style?: string;

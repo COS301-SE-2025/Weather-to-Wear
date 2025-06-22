@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, Style } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
+import { getWeatherByLocation } from '../weather/weather.service';
 
 const prisma = new PrismaClient();
 
@@ -80,18 +81,22 @@ class EventsController {
         return;
       }
 
-      const { name, location, weather, dateFrom, dateTo, style } = req.body;
-      if (!name) {
-        res.status(400).json({ message: 'Event name is required' });
+      const { name, location, dateFrom, dateTo, style } = req.body;
+      if (!name || !location || !dateFrom || !dateTo || !style) {
+        res.status(400).json({ message: 'Missing required fields' });
         return;
       }
+
+      // use weather api to fetch weather summary
+      const weatherData = await getWeatherByLocation(location);
+      const weatherSummary = weatherData.summary.mainCondition;
 
       const newEvent = await prisma.event.create({
         data: {
           userId: user.id,
           name,
           location,
-          weather,
+          weather: weatherSummary,
           dateFrom: new Date(dateFrom),
           dateTo: new Date(dateTo),
           style: style as Style,
@@ -106,11 +111,13 @@ class EventsController {
           style: true,
         },
       });
+
       res.status(201).json(newEvent);
     } catch (err) {
       next(err);
     }
   };
+
 
   // PUT update existing event
   updateEvent = async (req: Request, res: Response, next: NextFunction) => {
@@ -127,7 +134,7 @@ class EventsController {
         return;
       }
 
-      const { name, location, weather, dateFrom, dateTo, style } = req.body;
+      const { name, location, dateFrom, dateTo, style } = req.body;
 
       const existing = await prisma.event.findUnique({
         where: { id: eventId },
@@ -140,8 +147,13 @@ class EventsController {
 
       const updateData: any = {};
       if (name !== undefined) updateData.name = name;
-      if (location !== undefined) updateData.location = location;
-      if (weather !== undefined) updateData.weather = weather;
+      if (location !== undefined) {
+        updateData.location = location;
+
+        // fetch updated weather for new location
+        const weatherData = await getWeatherByLocation(location);
+        updateData.weather = weatherData.summary.mainCondition;
+      }
       if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
@@ -170,6 +182,7 @@ class EventsController {
       next(err);
     }
   };
+
 
   // DELETE event
   deleteEvent = async (req: Request, res: Response, next: NextFunction) => {

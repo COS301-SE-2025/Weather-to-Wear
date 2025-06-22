@@ -185,7 +185,6 @@ export default function HomePage() {
   const [newEvent, setNewEvent] = useState({
     name: '',
     location: '',
-    weather: '',
     dateFrom: '',
     dateTo: '',
     style: 'CASUAL',
@@ -456,12 +455,6 @@ export default function HomePage() {
                 onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
               />
 
-              <input
-                className="w-full p-2 border rounded"
-                placeholder="Weather"
-                value={newEvent.weather}
-                onChange={(e) => setNewEvent({ ...newEvent, weather: e.target.value })}
-              />
               <select
                 className="w-full p-2 border rounded"
                 value={newEvent.style}
@@ -494,15 +487,17 @@ export default function HomePage() {
                   }
                   try {
                     const created = await createEvent({
-                      ...newEvent,
+                      name: newEvent.name,
+                      location: newEvent.location,
+                      style: newEvent.style,
                       dateFrom: new Date(newEvent.dateFrom).toISOString(),
                       dateTo: new Date(newEvent.dateTo).toISOString(),
                     });
+
                     setEvents([...events, created]);
                     setNewEvent({
                       name: '',
                       location: '',
-                      weather: '',
                       dateFrom: '',
                       dateTo: '',
                       style: '',
