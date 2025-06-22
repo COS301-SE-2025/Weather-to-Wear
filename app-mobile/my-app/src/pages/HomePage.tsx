@@ -229,7 +229,8 @@ export default function HomePage() {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
+
       {/* Hero Background */}
       <div
         className="w-screen relative flex items-center justify-center h-64 mb-6 z-0"
@@ -360,69 +361,81 @@ export default function HomePage() {
 
         {/* Events Section - Full Width */}
         <div className="w-full mt-12">
-          <div className="max-w-4xl mx-auto relative">
+          <div className="max-w-4xl mx-auto relative scroll-mt-20 snap-start">
 
 
-            <div className="relative z-10 pt-10 pb-6 px-4 bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 rounded-t-3xl">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular dark:text-gray-100">
-                  Upcoming Events
-                </h2>
+
+            <div className="relative z-10 pt-10 pb-6 px-4bg-transparent dark:bg-transparent pt-10 pb-6 px-4
+">
+
+              <div className="flex justify-center mb-6">
+                <div className="flex items-center justify-center gap-3">
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold dark:text-gray-100 text-center">
+                    Upcoming Events
+                  </h2>
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="ml-2 p-2 rounded-full border border-black dark:border-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                    aria-label="Add Event"
+                  >
+                    <Plus className="w-5 h-5 text-black dark:text-white" />
+                  </button>
+                </div>
+
               </div>
 
-              <div className="space-y-2 md:space-y-3">
-                {events.length > 0 ? (
-                  events.slice(0, 5).map((event, idx) => (
-                    <div key={event.id}>
-                      {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
-                      <div className="flex justify-between text-base md:text-lg py-1 md:py-2">
 
-                        {/* Left side: Date + Name */}
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-black dark:text-gray-100">
-                            {event.date}
-                          </span>
-                          <p className="text-gray-600 dark:text-gray-400">{event.name}</p>
-                        </div>
+              {events.length > 0 ? (
+                <div className="flex flex-wrap justify-center gap-6 overflow-x-auto px-2 py-4 scroll-smooth snap-x snap-mandatory">
 
-                        {/* Right side: Style + Location */}
-                        <div className="text-right flex flex-col items-end gap-1">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full ${event.style === 'Formal'
-                                ? 'bg-blue-100 text-blue-800'
-                                : event.style === 'Business'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : event.style === 'Athletic'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : event.style === 'Party'
-                                      ? 'bg-pink-100 text-pink-800'
-                                      : event.style === 'Outdoor'
-                                        ? 'bg-green-200 text-green-900'
-                                        : 'bg-green-100 text-green-800'
-                              }`}
-                          >
-                            {event.style}
-                          </span>
-
-                          <p className="text-xs text-gray-500">{event.location}</p>
-                        </div>
-
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500">No upcoming events</p>
-                    <button
-                      onClick={() => setShowModal(true)}
-
-                      className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
+                  {events.slice(0, 5).map((event) => (
+                    <div
+                      key={event.id}
+                      className="snap-center flex flex-col items-center justify-center bg-white dark:bg-gray-700 rounded-full w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 shadow-md border border-black dark:border-gray-500 transition-transform duration-300 hover:scale-110"
                     >
-                      Add Your First Event
-                    </button>
-                  </div>
-                )}
-              </div>
+
+                      <span className="text-sm font-bold text-black dark:text-white text-center px-2 truncate">
+                        {event.name}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-300">
+                        {new Date(event.date).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-300">{event.date}</span>
+                      <span
+                        className={`text-[10px] mt-1 px-2 py-1 rounded-full ${event.style === 'Formal'
+                          ? 'bg-blue-100 text-blue-800'
+                          : event.style === 'Business'
+                            ? 'bg-gray-100 text-gray-800'
+                            : event.style === 'Athletic'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : event.style === 'Party'
+                                ? 'bg-pink-100 text-pink-800'
+                                : event.style === 'Outdoor'
+                                  ? 'bg-green-200 text-green-900'
+                                  : 'bg-green-100 text-green-800'
+                          }`}
+                      >
+                        {event.style}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">No upcoming events</p>
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
+                  >
+                    Add Your First Event
+                  </button>
+                </div>
+              )}
+
 
 
 

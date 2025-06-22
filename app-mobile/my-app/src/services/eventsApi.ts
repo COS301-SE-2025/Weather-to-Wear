@@ -1,5 +1,6 @@
 // src/services/eventsApi.ts
 import axios from 'axios';
+import exp from 'constants';
 
 const API_URL = 'http://localhost:5001/api/events';
 
@@ -33,5 +34,31 @@ export const createEvent = async (eventData: {
   });
   return res.data;
 };
+
+export const updateEvent = async (eventData: {
+  id: string;
+  name?: string;
+  location?: string;
+  weather?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  style?: string;
+}) => {
+  const token = localStorage.getItem('token');
+  const res = await axios.put(`${API_URL}/updateEvent`, eventData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+};
+
+export const deleteEvent = async (id: string) => {
+  const token = localStorage.getItem('token');
+  const res = await axios.delete(`${API_URL}/deleteEvent`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { id },
+  });
+  return res.data;
+};
+
 
 // Add other CRUD operations as needed
