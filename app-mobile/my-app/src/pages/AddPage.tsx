@@ -66,6 +66,7 @@ const MATERIAL_OPTIONS = [
 ];
 
 
+// State hooks
 const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
@@ -75,6 +76,9 @@ const AddPage: React.FC = () => {
 
   const [style, setStyle] = useState("");
   const [material, setMaterial] = useState("");
+  const [warmthFactor, setWarmthFactor] = useState<number | "">("");
+  const [waterproof, setWaterproof] = useState(false);
+
 
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -145,6 +149,9 @@ const AddPage: React.FC = () => {
 
     if (style) formData.append("style", style);
     if (material) formData.append("material", material);
+    if (warmthFactor !== "") formData.append("warmthFactor", warmthFactor.toString());
+    formData.append("waterproof", waterproof.toString());
+
 
 
     const token = localStorage.getItem("token");
@@ -296,6 +303,33 @@ const AddPage: React.FC = () => {
               </select>
             </div>
 
+            <div className="w-full max-w-xs flex flex-col items-start">
+              <label className="font-semibold text-black dark:text-gray-200 mb-1">
+                Warmth Factor: {warmthFactor}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={warmthFactor}
+                onChange={(e) => setWarmthFactor(Number(e.target.value))}
+                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+              />
+            </div>
+
+            <div className="w-full max-w-xs flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={waterproof}
+                onChange={(e) => setWaterproof(e.target.checked)}
+                className="form-checkbox text-teal-600"
+              />
+              <label className="text-black dark:text-gray-200 font-semibold">
+                Waterproof
+              </label>
+            </div>
+
 
             <button
               onClick={capturePhoto}
@@ -412,6 +446,34 @@ const AddPage: React.FC = () => {
               ))}
             </select>
           </div>
+
+            <div className="w-full max-w-xs flex flex-col items-start">
+              <label className=" font-semibold text-black dark:text-gray-200 mb-1">
+                Warmth Factor: {warmthFactor}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={warmthFactor}
+                onChange={(e) => setWarmthFactor(Number(e.target.value))}
+                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+              />
+            </div>
+
+            <div className="w-full max-w-xs flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={waterproof}
+                onChange={(e) => setWaterproof(e.target.checked)}
+                className="form-checkbox text-teal-600"
+              />
+              <label className="text-black dark:text-gray-200 font-semibold">
+                Waterproof
+              </label>
+            </div>
+
 
 
             <button
