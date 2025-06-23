@@ -65,6 +65,17 @@ const MATERIAL_OPTIONS = [
   { value: "Fleece", label: "Fleece" },
 ];
 
+const COLOR_OPTIONS = [
+  { value: "", label: "Select Color" },
+  { value: "Red", label: "Red" },
+  { value: "Blue", label: "Blue" },
+  { value: "Green", label: "Green" },
+  { value: "Black", label: "Black" },
+  { value: "White", label: "White" },
+  { value: "Yellow", label: "Yellow" },
+  { value: "Grey", label: "Grey" },
+];
+
 
 // State hooks
 const AddPage: React.FC = () => {
@@ -78,7 +89,7 @@ const AddPage: React.FC = () => {
   const [material, setMaterial] = useState("");
   const [warmthFactor, setWarmthFactor] = useState<number | "">("");
   const [waterproof, setWaterproof] = useState(false);
-
+  const [color, setColor] = useState("");
 
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -151,7 +162,7 @@ const AddPage: React.FC = () => {
     if (material) formData.append("material", material);
     if (warmthFactor !== "") formData.append("warmthFactor", warmthFactor.toString());
     formData.append("waterproof", waterproof.toString());
-
+    if (color) formData.append("colorHex", color); // backend accepts colorHex
 
 
     const token = localStorage.getItem("token");
@@ -318,16 +329,33 @@ const AddPage: React.FC = () => {
               />
             </div>
 
-            <div className="w-full max-w-xs flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                checked={waterproof}
-                onChange={(e) => setWaterproof(e.target.checked)}
-                className="form-checkbox text-teal-600"
-              />
-              <label className="text-black dark:text-gray-200 font-semibold">
-                Waterproof
-              </label>
+
+            <div className="flex gap-4 w-full max-w-xs items-center">
+              {/* Waterproof */}
+              <div className="flex items-center gap-2 w-1/2">
+                <input
+                  type="checkbox"
+                  checked={waterproof}
+                  onChange={(e) => setWaterproof(e.target.checked)}
+                  className="form-checkbox text-teal-600"
+                />
+                <label className="text-sm text-black dark:text-gray-200 font-semibold">
+                  Waterproof
+                </label>
+              </div>
+
+              {/* Color */}
+              <select
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {COLOR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
 
@@ -465,18 +493,33 @@ const AddPage: React.FC = () => {
               />
             </div>
 
-            <div className="w-full max-w-xs flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                checked={waterproof}
-                onChange={(e) => setWaterproof(e.target.checked)}
-                className="form-checkbox text-teal-600"
-              />
-              <label className="text-black dark:text-gray-200 font-semibold">
-                Waterproof
-              </label>
-            </div>
+            <div className="flex gap-4 w-full max-w-xs items-center">
+              {/* Waterproof */}
+              <div className="flex items-center gap-2 w-1/2">
+                <input
+                  type="checkbox"
+                  checked={waterproof}
+                  onChange={(e) => setWaterproof(e.target.checked)}
+                  className="form-checkbox text-teal-600"
+                />
+                <label className="text-sm text-black dark:text-gray-200 font-semibold">
+                  Waterproof
+                </label>
+              </div>
 
+              {/* Color */}
+              <select
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {COLOR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
 
             <button
