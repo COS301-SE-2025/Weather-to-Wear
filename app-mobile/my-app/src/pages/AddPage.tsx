@@ -10,9 +10,11 @@ const LAYER_OPTIONS = [
   { value: "base_top", label: "Base Top" },
   { value: "base_bottom", label: "Base Bottom" },
   { value: "mid_top", label: "Mid Top" },
+  // { value: "mid_bottom", label: "Mid Bottom" },
   { value: "outerwear", label: "Outerwear" },
   { value: "footwear", label: "Footwear" },
   { value: "headwear", label: "Headwear" },
+  // { value: "accessory", label: "Accessory" },
 ];
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
@@ -43,6 +45,12 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: "BEANIE", label: "Beanie" },
     { value: "HAT", label: "Hat" },
   ],
+  // accessory: [
+  //   { value: "SCARF", label: "Scarf" },
+  //   { value: "GLOVES", label: "Gloves" },
+  //   { value: "UMBRELLA", label: "Umbrella" },
+  // ],
+  // mid_bottom: [],
 };
 
 const STYLE_OPTIONS = [
