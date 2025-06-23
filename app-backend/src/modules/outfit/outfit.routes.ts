@@ -16,4 +16,8 @@ router.get('/:id/items', authenticateToken, outfitController.getItems);
 router.post('/:id/items', authenticateToken, outfitController.addItem);
 router.delete('/:id/items/:itemId', authenticateToken, outfitController.removeItem);
 
+// outfit generation 
+router.post('/recommend', authenticateToken, outfitController.recommend);
+
+
 export default router;

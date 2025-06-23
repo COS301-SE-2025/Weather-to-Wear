@@ -1,16 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
-import { 
-  createOutfit, 
-  getAllOutfitsForUser, 
-  getOutfitById, 
-  updateOutfit, 
+import {
+  createOutfit,
+  getAllOutfitsForUser,
+  getOutfitById,
+  updateOutfit,
   deleteOutfit,
   getItemsForOutfit,
-  addItemToOutfit, 
+  addItemToOutfit,
   removeItemFromOutfit
 
 } from './outfit.service';
+
+import { recommendOutfits } from './outfitRecommender.service';
+import { RecommendOutfitsRequest } from './outfit.types';
+
 import { AuthenticatedRequest } from '../auth/auth.middleware';
+
 import { OverallStyle, LayerCategory } from '@prisma/client';
 
 class OutfitController {
@@ -196,6 +201,23 @@ class OutfitController {
       res.status(200).json(result);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
+    }
+  };
+
+  // ---------------------------------
+  //           Recommend
+  // ----------------------------------
+  recommend = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user || !user.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const recommendations = await recommendOutfits(user.id, req.body);
+      res.status(200).json(recommendations);
+    } catch (err) {
+      next(err);
     }
   };
 
