@@ -55,6 +55,16 @@ const STYLE_OPTIONS = [
   { value: "Outdoor", label: "Outdoor" },
 ];
 
+const MATERIAL_OPTIONS = [
+  { value: "", label: "Select Material" },
+  { value: "Cotton", label: "Cotton" },
+  { value: "Wool", label: "Wool" },
+  { value: "Polyester", label: "Polyester" },
+  { value: "Leather", label: "Leather" },
+  { value: "Nylon", label: "Nylon" },
+  { value: "Fleece", label: "Fleece" },
+];
+
 
 const AddPage: React.FC = () => {
   const { setImage } = useImage();
@@ -64,6 +74,8 @@ const AddPage: React.FC = () => {
   const [category, setCategory] = useState<string>("");
 
   const [style, setStyle] = useState("");
+  const [material, setMaterial] = useState("");
+
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -132,6 +144,7 @@ const AddPage: React.FC = () => {
     formData.append("category", category);
 
     if (style) formData.append("style", style);
+    if (material) formData.append("material", material);
 
 
     const token = localStorage.getItem("token");
@@ -255,18 +268,33 @@ const AddPage: React.FC = () => {
               ))}
             </select>
 
-            {/* Style */}
-            <select
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
-            >
-              {STYLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-4 w-full max-w-xs">
+              {/* Style */}
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {STYLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Material */}
+              <select
+                value={material}
+                onChange={(e) => setMaterial(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {MATERIAL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
 
             <button
@@ -357,11 +385,12 @@ const AddPage: React.FC = () => {
               ))}
             </select>
 
+           <div className="flex gap-4 w-full max-w-xs">
             {/* Style */}
             <select
               value={style}
               onChange={(e) => setStyle(e.target.value)}
-              className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
+              className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
             >
               {STYLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -369,6 +398,20 @@ const AddPage: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            {/* Material */}
+            <select
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+            >
+              {MATERIAL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
 
             <button
