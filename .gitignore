@@ -37,3 +37,28 @@ build/
 
 ### Ignore uploaded images
 /app-backend/uploads/
+
+
+### U-2-Net background removal ###
+# Ignore model weights
+app-backend/scripts/background-removal/U-2-Net/saved_models/**/*.pth
+
+# Ignore test data and test output
+app-backend/scripts/background-removal/U-2-Net/test_data/
+app-backend/scripts/background-removal/U-2-Net/test_output/
+app-backend/scripts/background-removal/U-2-Net/train_data/
+
+# Python cache and build artifacts
+**/__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.log
+
+
+# Ignore image test files for background removal
+app-backend/scripts/background-removal/**/*.jpg
+app-backend/scripts/background-removal/**/*.JPG
+app-backend/scripts/background-removal/**/*.jpeg
+app-backend/scripts/background-removal/**/*.png
+app-backend/scripts/background-removal/**/*.gif
