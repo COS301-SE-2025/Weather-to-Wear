@@ -113,14 +113,25 @@ const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <div
-        className="w-screen overflow-x-hidden relative flex items-center justify-center min-h-[30rem] mb-6 bg-black"
+        className="w-screen overflow-x-hidden relative flex items-center min-h-[30rem] mb-6 bg-black"
+        style={{ position: 'relative', overflow: 'hidden' }}
       >
-        <div className="px-8 py-4 z-10">
+        <div className="pl-10 pr-8 py-4 z-10 ml-0 w-full">
           <TypingSlogan />
-          <p className="text-lg text-white mb-6 max-w-2xl mx-auto">
-            Your personal weather-based clothing assistant. Never be caught off-guard by the weather again.
+          <p className="text-lg text-white mb-6 max-w-2xl">
+            Your personal weather-based clothing assistant.
           </p>
         </div>
+        <div
+          className="absolute top-0 right-0 h-full w-1/2 bg-teal-800"
+          style={{
+            clipPath: 'circle(50% at 100% 0)',
+            overflow: 'hidden',
+            zIndex: 0,
+          }}
+        >
+        </div>
+
       </div>
 
       {/* What is Weather to Wear */}
@@ -175,7 +186,7 @@ const LandingPage: React.FC = () => {
       {/* How It Works Section */}
       <section className="bg-gray-200 dark:bg-gray-800 py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-white text-center mb-12">
             How It Works
           </h2>
           <div className="flex flex-col sm:flex-row justify-between gap-6">
