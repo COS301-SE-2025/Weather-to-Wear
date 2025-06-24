@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, Style } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
-import { getWeatherByLocation } from '../weather/weather.service';
+import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
 
 const prisma = new PrismaClient();
 
@@ -88,7 +88,8 @@ class EventsController {
       }
 
       // use weather api to fetch weather summary
-      const weatherData = await getWeatherByLocation(location);
+      const weatherDate = new Date(dateFrom).toISOString().split('T')[0];
+      const weatherData = await getWeatherByDay(location, weatherDate);
       const weatherSummary = weatherData.summary.mainCondition;
 
       const newEvent = await prisma.event.create({
@@ -145,18 +146,24 @@ class EventsController {
         return;
       }
 
-      const updateData: any = {};
+      // Prepare update payload
+      const updateData: Record<string, any> = {};
       if (name !== undefined) updateData.name = name;
-      if (location !== undefined) {
-        updateData.location = location;
-
-        // fetch updated weather for new location
-        const weatherData = await getWeatherByLocation(location);
-        updateData.weather = weatherData.summary.mainCondition;
-      }
+      if (location !== undefined) updateData.location = location;
       if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
+
+      // If either location or dateFrom changed, refresh weather
+      if (location !== undefined || dateFrom !== undefined) {
+        const newLocation = location ?? existing.location;
+        const newDate = dateFrom !== undefined
+          ? new Date(dateFrom).toISOString().split('T')[0]
+          : existing.dateFrom.toISOString().split('T')[0];
+
+        const weatherData = await getWeatherByDay(newLocation, newDate);
+        updateData.weather = weatherData.summary.mainCondition;
+      }
 
       if (Object.keys(updateData).length === 0) {
         res.status(400).json({ message: 'No fields to update' });
@@ -182,7 +189,6 @@ class EventsController {
       next(err);
     }
   };
-
 
   // DELETE event
   deleteEvent = async (req: Request, res: Response, next: NextFunction) => {
