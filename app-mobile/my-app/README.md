@@ -51,3 +51,7 @@ To learn React, check out the [React documentation](https://reactjs.org/).
 - npm install lucide-react
 - npm install react react-dom
 - npm install axios
+- npm install react-color
+-npm install --save-dev @types/react-color
+-npm install zod
+

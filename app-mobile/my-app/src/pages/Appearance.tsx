@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
+import { ChromePicker } from "react-color";
 
 interface UserPreference {
   style: "Formal" | "Casual" | "Athletic" | "Party" | "Business" | "Outdoor";
-  preferredColours: { min: number; max: number }[];
+  preferredColours: string[];
   learningWeight?: number | null;
 }
 
@@ -12,10 +13,12 @@ const Appearance = () => {
   );
   const [preferences, setPreferences] = useState<UserPreference | null>(null);
   const [style, setStyle] = useState<UserPreference["style"]>("Casual");
-  const [colourRanges, setColourRanges] = useState<{ min: number; max: number }[]>([]);
+  const [preferredColours, setPreferredColours] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentColor, setCurrentColor] = useState<string>("#FFFFFF");
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -25,10 +28,10 @@ const Appearance = () => {
 
   useEffect(() => {
     const fetchPreferences = async () => {
+      setIsLoading(true);
       try {
         const token = localStorage.getItem("token");
-        console.log("Fetching preferences with token:", token);
-        const response = await fetch("/api/preferences", {
+        const response = await fetch("http://localhost:5001/api/preferences", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -40,123 +43,51 @@ const Appearance = () => {
         const data: UserPreference = await response.json();
         setPreferences(data);
         setStyle(data.style);
-        setColourRanges(
-          data.preferredColours.map(range => ({
-            min: Math.round((range.min / 255) * 360),
-            max: Math.round((range.max / 255) * 360),
-          }))
-        );
+        setPreferredColours(data.preferredColours || []);
       } catch (err: any) {
         setError(err.message || "Could not load preferences. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchPreferences();
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = canvas.width / 2 - 10;
-    const segments = 12;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let i = 0; i < 360; i += 360 / segments) {
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        (i * Math.PI) / 180,
-        ((i + 360 / segments) * Math.PI) / 180
-      );
-      ctx.fillStyle = `hsl(${i}, 70%, 50%)`;
-      ctx.fill();
-      ctx.strokeStyle = theme === "dark" ? "#fff" : "#000";
-      ctx.stroke();
-    }
-
-    colourRanges.forEach(range => {
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        (range.min * Math.PI) / 180,
-        (range.max * Math.PI) / 180
-      );
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-      ctx.lineWidth = 4;
-      ctx.stroke();
-    });
-  }, [colourRanges, theme]);
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - canvas.width / 2;
-    const y = e.clientY - rect.top - canvas.height / 2;
-    let angle = (Math.atan2(y, x) * 180) / Math.PI;
-    if (angle < 0) angle += 360;
-    const segment = Math.floor(angle / 30) * 30;
-    const newRange = { min: segment, max: segment + 30 };
-
-    if (
-      colourRanges.some(
-        r => r.min < newRange.max && r.max > newRange.min
-      )
-    ) {
-      setError("Selected range overlaps with existing range.");
+  const addColor = () => {
+    if (preferredColours.includes(currentColor)) {
+      setError("Color already selected.");
       return;
     }
-
-    setColourRanges([...colourRanges, newRange]);
+    setPreferredColours([...preferredColours, currentColor]);
     setError(null);
+    setShowPicker(false);
   };
 
-  const removeColourRange = (index: number) => {
-    setColourRanges(colourRanges.filter((_, i) => i !== index));
+  const removeColor = (color: string) => {
+    setPreferredColours(preferredColours.filter(c => c !== color));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setIsLoading(true);
 
-    if (colourRanges.length === 0) {
-      setError("Please select at least one color range.");
+    if (preferredColours.length === 0) {
+      setError("Please select at least one color.");
+      setIsLoading(false);
       return;
     }
-    for (const range of colourRanges) {
-      if (range.min > range.max || range.min < 0 || range.max > 360) {
-        setError("Invalid color range.");
-        return;
-      }
-    }
-
-    const normalizedRanges = colourRanges.map(range => ({
-      min: Math.round((range.min / 360) * 255),
-      max: Math.round((range.max / 360) * 255),
-    }));
 
     const updatedPrefs: UserPreference = {
       style,
-      preferredColours: normalizedRanges,
+      preferredColours,
       learningWeight: preferences?.learningWeight || null,
     };
 
     try {
       const token = localStorage.getItem("token");
-      console.log("Sending PUT to /api/preferences with:", updatedPrefs, "Token:", token);
-      const response = await fetch("api/preferences", {
+      const response = await fetch("http://localhost:5001/api/preferences", {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -166,13 +97,14 @@ const Appearance = () => {
       });
       if (!response.ok) {
         const data = await response.json();
-        console.error("Error response:", data);
         throw new Error(data.message || "Failed to update preferences");
       }
       setSuccess("Preferences updated successfully!");
       setPreferences(updatedPrefs);
     } catch (err: any) {
       setError(err.message || "Could not update preferences. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -210,6 +142,7 @@ const Appearance = () => {
         <p className="text-gray-600 dark:text-gray-300 mb-4">
           Customize your style and color preferences:
         </p>
+        {isLoading && <div className="text-center">Loading...</div>}
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {success && <p className="text-green-500 mb-4">{success}</p>}
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -218,7 +151,7 @@ const Appearance = () => {
               htmlFor="style"
               className="block text-sm font-medium text-gray-700 dark:text-gray-200"
             >
-              Preferred Style
+              Preferred Style:
             </label>
             <select
               id="style"
@@ -249,36 +182,46 @@ const Appearance = () => {
             <label
               className="block text-sm font-medium text-gray-700 dark:text-gray-200"
             >
-              Preferred Colors
+              Preferred Colors:
             </label>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              Click the color wheel to select hue ranges (30-degree segments).
+              Select colors to add to your preferences.
             </p>
-            <canvas
-              ref={canvasRef}
-              width="300"
-              height="300"
-              className="mx-auto cursor-pointer"
-              onClick={handleCanvasClick}
-            />
-            <div className="mt-4 space-y-2">
-              {colourRanges.map((range, index) => (
-                <div
-                  key={index}
-                  className="flex items-center space-x-4"
+            <button
+              type="button"
+              onClick={() => setShowPicker(!showPicker)}
+              className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition"
+            >
+              {showPicker ? "Close Picker" : "Open Color Picker"}
+            </button>
+            {showPicker && (
+              <div className="mt-2">
+                <ChromePicker
+                  color={currentColor}
+                  onChange={(color) => setCurrentColor(color.hex)}
+                />
+                <button
+                  type="button"
+                  onClick={addColor}
+                  className="mt-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition"
                 >
+                  Add Color
+                </button>
+              </div>
+            )}
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              {preferredColours.map((color, index) => (
+                <div key={index} className="flex items-center space-x-2">
                   <div
-                    className="h-6 w-24 rounded"
-                    style={{
-                      background: `linear-gradient(to right, hsl(${range.min}, 70%, 50%), hsl(${range.max}, 70%, 50%))`,
-                    }}
+                    className="h-6 w-6 rounded"
+                    style={{ backgroundColor: color }}
                   />
                   <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Hue {range.min}°–{range.max}°
+                    {color}
                   </span>
                   <button
                     type="button"
-                    onClick={() => removeColourRange(index)}
+                    onClick={() => removeColor(color)}
                     className="text-red-500 hover:text-red-700"
                   >
                     Remove
@@ -290,9 +233,12 @@ const Appearance = () => {
 
           <button
             type="submit"
-            className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition"
+            disabled={isLoading}
+            className={`px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
-            Save Preferences
+            {isLoading ? "Saving..." : "Save Preferences"}
           </button>
         </form>
       </div>
