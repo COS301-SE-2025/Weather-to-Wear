@@ -62,3 +62,7 @@ app-backend/scripts/background-removal/**/*.JPG
 app-backend/scripts/background-removal/**/*.jpeg
 app-backend/scripts/background-removal/**/*.png
 app-backend/scripts/background-removal/**/*.gif
+
+# Ignore the zone identifiers
+app-backend/scripts/background-removal/U-2-Net/saved_models/*/.pth:Zone.Identifier
+app-backend/scripts/background-removal/*/.jpg:Zone.Identifier
