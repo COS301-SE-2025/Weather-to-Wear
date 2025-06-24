@@ -63,7 +63,29 @@ const STYLE_OPTIONS = [
   { value: "Outdoor", label: "Outdoor" },
 ];
 
+const MATERIAL_OPTIONS = [
+  { value: "", label: "Select Material" },
+  { value: "Cotton", label: "Cotton" },
+  { value: "Wool", label: "Wool" },
+  { value: "Polyester", label: "Polyester" },
+  { value: "Leather", label: "Leather" },
+  { value: "Nylon", label: "Nylon" },
+  { value: "Fleece", label: "Fleece" },
+];
 
+const COLOR_OPTIONS = [
+  { value: "", label: "Select Color" },
+  { value: "Red", label: "Red" },
+  { value: "Blue", label: "Blue" },
+  { value: "Green", label: "Green" },
+  { value: "Black", label: "Black" },
+  { value: "White", label: "White" },
+  { value: "Yellow", label: "Yellow" },
+  { value: "Grey", label: "Grey" },
+];
+
+
+// State hooks
 const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
@@ -72,6 +94,11 @@ const AddPage: React.FC = () => {
   const [category, setCategory] = useState<string>("");
 
   const [style, setStyle] = useState("");
+  const [material, setMaterial] = useState("");
+  const [warmthFactor, setWarmthFactor] = useState<number | "">("");
+  const [waterproof, setWaterproof] = useState(false);
+  const [color, setColor] = useState("");
+
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -140,6 +167,10 @@ const AddPage: React.FC = () => {
     formData.append("category", category);
 
     if (style) formData.append("style", style);
+    if (material) formData.append("material", material);
+    if (warmthFactor !== "") formData.append("warmthFactor", warmthFactor.toString());
+    formData.append("waterproof", waterproof.toString());
+    if (color) formData.append("colorHex", color); // backend accepts colorHex
 
 
     const token = localStorage.getItem("token");
@@ -263,42 +294,104 @@ const AddPage: React.FC = () => {
               ))}
             </select>
 
-            {/* Style */}
-            <select
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
-            >
-              {STYLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-4 w-full max-w-xs">
+              {/* Style */}
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {STYLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Material */}
+              <select
+                value={material}
+                onChange={(e) => setMaterial(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {MATERIAL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full max-w-xs flex flex-col items-start">
+              <label className="font-semibold text-black dark:text-gray-200 mb-1">
+                Warmth Factor: {warmthFactor}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={warmthFactor}
+                onChange={(e) => setWarmthFactor(Number(e.target.value))}
+                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+              />
+            </div>
 
 
-            <button
-              onClick={capturePhoto}
-              className="flex items-center justify-center p-3 rounded-full bg-black hover:bg-teal-600 transition-colors text-white shadow-md"
-              title="Capture Photo"
-            >
-              <img src="/camera.png" alt="Capture" className="w-7 h-7" />
-            </button>
+            <div className="flex gap-4 w-full max-w-xs items-center">
+              {/* Waterproof */}
+              <div className="flex items-center gap-2 w-1/2">
+                <input
+                  type="checkbox"
+                  checked={waterproof}
+                  onChange={(e) => setWaterproof(e.target.checked)}
+                  className="form-checkbox text-teal-600"
+                />
+                <label className="text-sm text-black dark:text-gray-200 font-semibold">
+                  Waterproof
+                </label>
+              </div>
 
+              {/* Color */}
+              <select
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {COLOR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+
+          <div className="flex justify-center gap-4 w-full">
             <button
               onClick={() => handleDone("camera")}
               disabled={!cameraPreview}
-              className="px-8 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+              className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
             >
               Done
             </button>
 
             <button
               onClick={() => setCameraPreview(null)}
-              className="px-8 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+              className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
             >
               Redo
             </button>
+            <button
+              onClick={capturePhoto}
+              className="flex items-center justify-center px-4 py-3 rounded-full bg-black hover:bg-teal-600 transition-colors text-white font-semibold shadow-md"
+              title="Capture Photo"
+            >
+              <img src="/camera.png" alt="Capture" className="w-5 h-5 mr-2" />
+              Take
+            </button>
+          </div>
+          
           </div>
         )}
       </div>
@@ -365,11 +458,12 @@ const AddPage: React.FC = () => {
               ))}
             </select>
 
+           <div className="flex gap-4 w-full max-w-xs">
             {/* Style */}
             <select
               value={style}
               onChange={(e) => setStyle(e.target.value)}
-              className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
+              className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
             >
               {STYLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -377,6 +471,63 @@ const AddPage: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            {/* Material */}
+            <select
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+            >
+              {MATERIAL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+            <div className="w-full max-w-xs flex flex-col items-start">
+              <label className=" font-semibold text-black dark:text-gray-200 mb-1">
+                Warmth Factor: {warmthFactor}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={warmthFactor}
+                onChange={(e) => setWarmthFactor(Number(e.target.value))}
+                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+              />
+            </div>
+
+            <div className="flex gap-4 w-full max-w-xs items-center">
+              {/* Waterproof */}
+              <div className="flex items-center gap-2 w-1/2">
+                <input
+                  type="checkbox"
+                  checked={waterproof}
+                  onChange={(e) => setWaterproof(e.target.checked)}
+                  className="form-checkbox text-teal-600"
+                />
+                <label className="text-sm text-black dark:text-gray-200 font-semibold">
+                  Waterproof
+                </label>
+              </div>
+
+              {/* Color */}
+              <select
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {COLOR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
 
             <button

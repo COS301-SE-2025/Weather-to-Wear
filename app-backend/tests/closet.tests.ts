@@ -39,7 +39,7 @@ describe('ClosetService', () => {
 
   it('saveImage calls prisma.closetItem.create with buffer & category', async () => {
     const fakeFile = { buffer: Buffer.from('x'), filename: 'foo.png' } as Express.Multer.File;
-    const result = await service.saveImage(fakeFile, 'SHOES' as any, 'test-user-id');
+    const result = await service.saveImage(fakeFile, 'SHOES' as any, undefined, 'test-user-id');
 
     expect((service as any).prisma.closetItem.create).toHaveBeenCalledWith({
       data: { filename: fakeFile.filename, category: 'SHOES', ownerId: 'test-user-id' }
@@ -70,7 +70,7 @@ describe('ClosetController', () => {
     it('returns 400 if no file', async () => {
       let req: Partial<AuthenticatedRequest> = {};
       req.file = undefined;
-      req.body = { category: 'SHOES' };
+      req.body = { category: 'SHOES', layerCategory: 'footwear' };
       req.user = { ...TEST_USER };
       await controller.uploadImage(req as Request, res as Response, next);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -79,10 +79,12 @@ describe('ClosetController', () => {
 
     it('calls service.saveImage and returns 201 + payload', async () => {
       const fakeFile = { buffer: Buffer.from(''), filename: 'img.png' } as any;
+
       jest.spyOn(service, 'saveImage').mockResolvedValue({
         id: "1",
         filename: 'img.png',
-        category: 'SHOES', 
+        category: 'SHOES',
+        layerCategory: 'footwear',
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         ownerId: 'test-user-id',
         colorHex: null,
@@ -90,15 +92,29 @@ describe('ClosetController', () => {
         waterproof: null,
         style: null,
         material: null,
+        favourite: false,
       });
+
       let req: Partial<AuthenticatedRequest> = {};
       req.file = fakeFile;
-      req.body = { category: 'SHOES' };
+      req.body = { category: 'SHOES', layerCategory: 'footwear' }; // ✅ Add this
       req.user = { ...TEST_USER };
 
       await controller.uploadImage(req as Request, res as Response, next);
 
-      expect(service.saveImage).toHaveBeenCalledWith(fakeFile, 'SHOES', 'test-user-id');
+      expect(service.saveImage).toHaveBeenCalledWith(
+        fakeFile,
+        'SHOES',
+        'footwear',
+        'test-user-id',
+        {
+          colorHex: undefined,
+          warmthFactor: undefined,
+          waterproof: undefined,
+          style: undefined,
+          material: undefined,
+        }
+      );
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
         id: '1',
@@ -109,7 +125,7 @@ describe('ClosetController', () => {
         warmthFactor: null,
         waterproof: null,
         style: null,
-        material: null
+        material: null,
       });
     });
 
@@ -192,13 +208,15 @@ describe('ClosetController', () => {
       id: '1',
       filename: 'shirt.png',
       category: 'SHIRT',
+      layerCategory: 'base_top',
       createdAt: new Date(),
       colorHex: null,
       warmthFactor: null,
       waterproof: null,
       style: 'Casual',
       material: null,
-      ownerId: 'test-user-id'
+      ownerId: 'test-user-id',
+      favourite: false
     });
 
       let req: Partial<AuthenticatedRequest> = {
@@ -260,13 +278,15 @@ describe('Closet Routes Extended', () => {
     id: '1',
     filename: 'shirt.png',
     category: 'SHIRT',
+    layerCategory: 'base_top',
     createdAt: new Date(),
     colorHex: null,
     warmthFactor: null,
     waterproof: null,
     style: 'Casual',
     material: null,
-    ownerId: 'test-user-id'
+    ownerId: 'test-user-id',
+    favourite: false
   });
 
 
