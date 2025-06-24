@@ -1,9 +1,6 @@
-// src/App.tsx
-
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
-
 import HomePage from "./pages/HomePage";
 import ClosetPage from "./pages/ClosetPage";
 import CalendarPage from "./pages/CalendarPage";
@@ -20,16 +17,16 @@ import AddPage from "./pages/AddPage";
 import HelpPage from "./pages/HelpPage";
 import { ImageProvider } from "./components/ImageContext";
 import Footer from "./components/Footer";
+import LandingPage from "./pages/LandingPage";
 
 function App() {
   return (
     <ImageProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-
           <Route
             path="/*"
             element={
@@ -49,6 +46,7 @@ function App() {
                   <Route path="help" element={<HelpPage />} />
                   <Route path="*" element={<UnderConstruction />} />
                 </Routes>
+                <Footer />
               </>
             }
           />
