@@ -100,7 +100,7 @@ const HelpPage = () => {
       >
         <div className="px-6 py-2 border-2 border-white z-10">
           <h1
-            className="text-2xl font-bodoni font-light text-center text-white"
+            className="text-2xl font-light text-center text-white"
             style={{
               textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
             }}
@@ -112,12 +112,28 @@ const HelpPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 min-h-[800px]">
+        <h1 className="text-3xl font-sephir font-bold text-gray-900 dark:text-white text-center mb-6">
           Weather to Wear Help Center
         </h1>
-        <p className="text-gray-700 dark:text-gray-300 mb-8">
-          Welcome to the Weather to Wear Help Center. Here you can find answers to common questions about using our platform.
+        <p className="text-gray-700 dark:text-gray-300 text-center mb-8">
+          Welcome to the Weather to Wear Help Center. Below is a video tutorial on how to use Weather to Wear.
+        </p>
+
+        {/* Video Section */}
+  <div className="mb-8">
+    <video
+      className="w-full rounded-lg shadow-md"
+      controls
+      poster="/path/to/poster-image.jpg" 
+    >
+      <source src="DEMO1_VIDEO.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <p className="text-gray-700 dark:text-gray-300 text-center mb-8">
+          Below you can find answers to frequently asked questions about the Weather to Wear platform.
         </p>
 
         {/* FAQ Sections */}
@@ -125,7 +141,7 @@ const HelpPage = () => {
           <div key={index} className="mb-4">
             <button
               onClick={() => toggleSection(index)}
-              className="w-full text-left bg-gray-200 dark:bg-gray-800 p-4 rounded-lg flex justify-between items-center hover:bg-gray-300 dark:hover:bg-gray-700 transition"
+              className="w-full text-left bg-stone-200 dark:bg-gray-800 p-4 rounded-lg flex justify-between items-center hover:bg-gray-300 dark:hover:bg-gray-700 transition md-8"
             >
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {section.category}

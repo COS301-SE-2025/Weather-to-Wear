@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { CloudSun, Shirt, Calendar, Users } from "lucide-react";
 import Footer from "../components/Footer";
-import { ChevronLeft, ChevronRight } from "lucide-react"; // Assuming lucide-react for arrows
+import { ChevronLeft, ChevronRight } from "lucide-react"; 
 
 // TypingSlogan Component
 const TypingSlogan = () => {
@@ -81,35 +81,35 @@ const LandingPage: React.FC = () => {
       quote: "I've recently started paying more attention to my outfits/wardrobe and this app has been a big help. I can put together sample outfits, keep records of what I've worn. Lots of features I like and it's a free app!",
       author: "Alisha P.",
       role: "Weather To Wear user",
-      image: "/LPtest1.jpg", // Replace with your image path
+      image: "/LPtest1.jpg", 
     },
     {
       id: 2,
       quote: "Weather to Wear makes getting dressed so easy! I love how it matches my style to the forecast.",
       author: "Diya B.",
       role: "Weather To Wear user",
-      image: "/LPtest2.jpg", // Optional additional image
+      image: "/LPtest2.jpg", 
     },
     {
       id: 3,
       quote: "I've recently started paying more attention to my outfits/wardrobe and this app has been a big help. I can put together sample outfits, keep records of what I've worn. Lots of features I like and it's a free app!",
       author: "Kyle L.",
       role: "Weather To Wear user",
-      image: "/LPtest1.jpg", // Optional additional image
+      image: "/LPtest1.jpg",
     },
     {
       id: 4,
       quote: "Weather to Wear makes getting dressed so easy! I love how it matches my style to the forecast.",
       author: "Taylor S.",
       role: "Weather To Wear user",
-      image: "/LPtest2.jpg", // Optional additional image
+      image: "/LPtest2.jpg", 
     },
     {
       id: 5,
       quote: "I've recently started paying more attention to my outfits/wardrobe and this app has been a big help. I can put together sample outfits, keep records of what I've worn. Lots of features I like and it's a free app!",
       author: "Bemo S.",
       role: "Weather To Wear user",
-      image: "LPtest1.jpg", // Optional additional image
+      image: "LPtest1.jpg", 
     }
   ];
 
@@ -180,10 +180,9 @@ const LandingPage: React.FC = () => {
         >
         </div>
 
-        {/* Events Section */}
+        {/* Arch Section */}
         <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-20">
-          <div className="relative w-full max-w-[280px] h-[350px]"> {/* Height changed to 350px */}
-            {/* Main arch */}
+          <div className="relative w-full max-w-[280px] h-[350px]"> 
             <div
               className="absolute rounded-tl-full rounded-tr-full h-full pointer-events-none bg-white dark:bg-gray-800"
               style={{
@@ -204,14 +203,12 @@ const LandingPage: React.FC = () => {
               />
             </div>
             </div>
-
-            {/* Content */}
            
           </div>
         </div>
       </div>
 
-      {/* What is Weather to Wear */}
+      {/* What is Weather to Wear Section*/}
       <section className="bg-stone-200 dark:bg-gray-800 py-16 h-[400px]">
   <div className="max-w-3xl mx-auto px-4 sm:px-6 h-full flex flex-col justify-center">
     <h2 className="text-4xl font-sephir font-bold text-gray-900 dark:text-white text-center mb-12">
@@ -230,7 +227,7 @@ const LandingPage: React.FC = () => {
   </div>
 </section>
 
-{/* Features */}
+{/* Features Section*/}
      <section className="py-16 max-w-8xl mx-auto px-4 sm:px-6">
   <h2 className="text-4xl font-sephir font-bold text-gray-900 dark:text-white text-center mb-12">
     Features
@@ -283,14 +280,14 @@ const LandingPage: React.FC = () => {
           </h2>
           <div
             className="flex flex-col sm:flex-row items-center gap-8 rounded-lg p-6 bg-white shadow-md"
-            style={{ minHeight: "400px" }} // Fixed minimum height for the container
+            style={{ minHeight: "400px" }} 
           >
             <div className="w-full sm:w-1/3 flex justify-center">
               <img
                 src={testimonials[currentTestimonial].image}
                 alt="Testimonial outfit"
-                className="w-[300px] h-[300px] rounded-full object-cover" // Fixed width and height
-                style={{}} // Removed inline maxWidth/maxHeight since w-[300px] h-[300px] takes precedence
+                className="w-[300px] h-[300px] rounded-full object-cover" 
+                style={{}} 
               />
             </div>
             <div className="w-full sm:w-2/3 flex flex-col justify-between">
