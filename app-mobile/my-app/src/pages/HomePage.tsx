@@ -1,16 +1,15 @@
 // src/pages/HomePage.tsx
 
 import { useState, useEffect } from 'react';
-import { Sun, CloudSun, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
-//import { fetchAllItems } from '../services/closetApi';
-//import { useNavigate } from 'react-router-dom';
 import { fetchAllEvents, createEvent, } from '../services/eventsApi';
 import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
 import StarRating from '../components/StarRating';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 
 
@@ -31,46 +30,6 @@ type Event = {
   dateTo: string;
   style?: string;
 };
-
-
-// const StarRating = () => {
-//   const [rating, setRating] = useState(0);
-//   const [hover, setHover] = useState(0);
-
-//   return (
-//     <div className="w-full grid grid-cols-5 gap-1 mt-4 mb-8 px-2">
-//       {[...Array(5)].map((_, index) => {
-//         const starValue = index + 1;
-//         return (
-//           <button
-//             key={index}
-//             type="button"
-//             className="flex justify-center items-center"
-//             onClick={() => setRating(starValue)}
-//             onMouseEnter={() => setHover(starValue)}
-//             onMouseLeave={() => setHover(0)}
-//           >
-//             <svg
-//               xmlns="http://www.w3.org/2000/svg"
-//               viewBox="0 0 24 24"
-//               fill="none"
-//               stroke="currentColor"
-//               strokeWidth="0.5"
-//               strokeLinecap="round"
-//               strokeLinejoin="round"
-//               className={`w-10 h-10 transition-transform duration-200 ease-in-out ${starValue <= (hover || rating)
-//                 ? 'text-[#3F978F] fill-[#3F978F]'
-//                 : 'text-none fill-black'
-//                 } ${starValue <= hover ? 'transform scale-110' : ''}`}
-//             >
-//               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-//             </svg>
-//           </button>
-//         );
-//       })}
-//     </div>
-//   );
-// };
 
 const TypingSlogan = () => {
   const slogan = 'Style Made Simple.';
@@ -145,40 +104,6 @@ export default function HomePage() {
       } catch { }
     }
   }, []);
-
-  //   const fetchOutfitItems = async () => {
-  //     try {
-  //       const res = await fetchAllItems();
-
-  //       const shirt = res.data.find((item: Item) => item.category === 'SHIRT');
-  //       const pants = res.data.find((item: Item) => item.category === 'PANTS');
-  //       const shoes = res.data.find((item: Item) => item.category === 'SHOES');
-
-  //       const selectedItems = [shirt, pants, shoes].filter(Boolean);
-  //       const missing = [];
-  //       if (!shirt) missing.push('SHIRT');
-  //       if (!pants) missing.push('PANTS');
-  //       if (!shoes) missing.push('SHOES');
-
-  //       setMissingCategories(missing);
-
-  //       setItems(
-  //         selectedItems.map((item) => ({
-  //           id: item.id,
-  //           name: item.name || item.category,
-  //           image: `http://localhost:5001${item.imageUrl}`,
-  //           favorite: false,
-  //           category: item.category,
-  //         }))
-  //       );
-  //     } catch (error) {
-  //       console.error('Error fetching outfit items:', error);
-  //     }
-  //   };
-
-  //   fetchOutfitItems();
-  // }, []);
-
 
   useEffect(() => {
     if (!weather) return;
@@ -266,7 +191,6 @@ export default function HomePage() {
             <TypingSlogan />
           </div>
 
-
           {/* Outfit Section */}
           <div className="flex-1 flex flex-col items-center">
             <div className="w-full max-w-[350px]">
@@ -281,10 +205,12 @@ export default function HomePage() {
 
               {!loadingOutfits && outfits.length > 0 && (
                 <>
-                  
+                  {/* ← Prev / Next + counter → */}
                   <div className="flex justify-between items-center mb-2 w-full">
                     <button
-                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
+                      onClick={() =>
+                        setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)
+                      }
                       className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
                     >
                       ‹ Prev
@@ -293,40 +219,113 @@ export default function HomePage() {
                       {currentIndex + 1} / {outfits.length}
                     </span>
                     <button
-                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
+                      onClick={() =>
+                        setCurrentIndex(i => (i + 1) % outfits.length)
+                      }
                       className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
                     >
                       Next ›
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    {outfits[currentIndex].outfitItems.map(item => (
-                      <div
-                        key={item.closetItemId}
-                        className="aspect-square rounded-3xl overflow-hidden flex items-center justify-center"
-                      >
-                        <img
-                          src={
-                            item.imageUrl.startsWith('http')
-                              ? item.imageUrl
-                              : `http://localhost:5001${item.imageUrl}`
-                          }
-                          alt={item.category}
-                          className="object-contain max-w-full max-h-full"
-                        />
-                      </div>
-                    ))}
+                  <div className="mb-4 space-y-2">
+                    {/* Row 1: headwear + accessory (collapsed if none) */}
+                    <div
+                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                        i =>
+                          i.layerCategory === 'headwear' ||
+                          i.layerCategory === 'accessory'
+                      )
+                          ? 'h-auto'
+                          : 'h-0 overflow-hidden'
+                        }`}
+                    >
+                      {outfits[currentIndex].outfitItems
+                        .filter(
+                          i =>
+                            i.layerCategory === 'headwear' ||
+                            i.layerCategory === 'accessory'
+                        )
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-32 h-32 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+
+                    {/* Row 2: base_top, mid_top, outerwear */}
+                    <div className="flex justify-center space-x-2">
+                      {outfits[currentIndex].outfitItems
+                        .filter(
+                          i =>
+                            i.layerCategory === 'base_top' ||
+                            i.layerCategory === 'mid_top' ||
+                            i.layerCategory === 'outerwear'
+                        )
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-32 h-32 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+
+                    {/* Row 3: base_bottom */}
+                    <div className="flex justify-center space-x-2">
+                      {outfits[currentIndex].outfitItems
+                        .filter(i => i.layerCategory === 'base_bottom')
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-32 h-32 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+
+                    {/* Row 4: footwear */}
+                    <div className="flex justify-center space-x-2">
+                      {outfits[currentIndex].outfitItems
+                        .filter(i => i.layerCategory === 'footwear')
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-28 h-28 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
                   </div>
 
-                  <StarRating
-                    disabled={saving}
-                    onSelect={handleSaveRating}
-                  />
+                  <StarRating disabled={saving} onSelect={handleSaveRating} />
                 </>
               )}
             </div>
           </div>
+
 
           {/* Weather Section */}
           <div className="flex-1 flex flex-col items-center">
@@ -449,10 +448,6 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
-
-
-
-
 
             </div>
           </div>
