@@ -123,6 +123,7 @@ const ClosetPage = () => {
   const [itemToRemove, setItemToRemove] = useState<{ id: number; tab: TabType; name: string } | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  const [showEditSuccess, setShowEditSuccess] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<Item & { tab: TabType } | null>(null);
@@ -200,7 +201,7 @@ const ClosetPage = () => {
     tab === 'items' ? toggleList(items, setItems) : toggleList(outfits, setOutfits);
   };
 
-    const handleSaveEdit = async () => {
+  const handleSaveEdit = async () => {
     if (!itemToEdit) return;
     const token = localStorage.getItem('token');
     try {
@@ -214,37 +215,39 @@ const ClosetPage = () => {
           },
           body: JSON.stringify({
             layerCategory: itemToEdit.layerCategory,
-            category:     editedCategory,
-            colorHex:     editedColorHex,
+            category: editedCategory,
+            colorHex: editedColorHex,
             warmthFactor: editedWarmthFactor,
-            waterproof:   editedWaterproof,
-            style:        editedStyle,
-            material:     editedMaterial,
+            waterproof: editedWaterproof,
+            style: editedStyle,
+            material: editedMaterial,
           }),
         }
       );
       // if (!res.ok) throw new Error(`Status ${res.status}`);
 
       if (!res.ok) {
-      // try to parse any JSON error message
-      let errMsg = `Status ${res.status}`;
-      try {
-        const body = await res.json();
-        errMsg += ` — ${JSON.stringify(body)}`;
-      } catch {}
-      throw new Error(errMsg);
-    }
+        // try to parse any JSON error message
+        let errMsg = `Status ${res.status}`;
+        try {
+          const body = await res.json();
+          errMsg += ` — ${JSON.stringify(body)}`;
+        } catch { }
+        throw new Error(errMsg);
+      }
+
+      setShowEditSuccess(true);
 
       // update local state…
       const updated = {
         ...itemToEdit,
         layerCategory: itemToEdit.layerCategory,
-        category:     editedCategory,
-        colorHex:     editedColorHex,
+        category: editedCategory,
+        colorHex: editedColorHex,
         warmthFactor: editedWarmthFactor,
-        waterproof:   editedWaterproof,
-        style:        editedStyle,
-        material:     editedMaterial,
+        waterproof: editedWaterproof,
+        style: editedStyle,
+        material: editedMaterial,
       };
       const updater = (arr: Item[]) =>
         arr.map(i => (i.id === updated.id ? updated : i));
@@ -674,9 +677,29 @@ const ClosetPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      {showEditSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              🎉 Saved Successfully! 🎉
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              Changes have been saved.
+            </p>
+            <button
+              onClick={() => setShowEditSuccess(false)}
+              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
 
     </div>
+
+
   );
 };
 
