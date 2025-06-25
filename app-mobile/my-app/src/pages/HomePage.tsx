@@ -6,19 +6,12 @@ import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
-<<<<<<< feature/outfit-events
-import { fetchAllItems } from '../services/closetApi';
-import { fetchRecommendedOutfits } from '../services/outfitApi';
 import { useNavigate } from 'react-router-dom';
-import { fetchAllEvents, createEvent } from '../services/eventsApi';
-=======
 import { fetchAllEvents, createEvent, } from '../services/eventsApi';
 import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
 import StarRating from '../components/StarRating';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-
->>>>>>> feature/frontend-events
 
 type Item = {
   id: number;
@@ -134,6 +127,16 @@ export default function HomePage() {
   }, [weather]);
 
 
+  useEffect(() => {
+    fetchAllEvents()
+      .then(fetched => {
+        setEvents(fetched);
+      })
+      .catch(err => {
+        console.error('Error loading events on mount:', err);
+      });
+  }, []);
+
   //handle rating logic (save outfit to closet when a user rates it)
   const handleSaveRating = async (rating: number) => {
     const outfit = outfits[currentIndex];
@@ -244,8 +247,8 @@ export default function HomePage() {
                           i.layerCategory === 'headwear' ||
                           i.layerCategory === 'accessory'
                       )
-                          ? 'h-auto'
-                          : 'h-0 overflow-hidden'
+                        ? 'h-auto'
+                        : 'h-0 overflow-hidden'
                         }`}
                     >
                       {outfits[currentIndex].outfitItems
@@ -267,12 +270,6 @@ export default function HomePage() {
                           />
                         ))}
                     </div>
-<<<<<<< feature/outfit-events
-                  ))
-                }
-=======
->>>>>>> feature/frontend-events
-
                     {/* Row 2: base_top, mid_top, outerwear */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
@@ -382,118 +379,67 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Events Section - Full Width */}
+        {/* — Events Section — */}
         <div className="w-full mt-12">
-          <div className="max-w-4xl mx-auto relative scroll-mt-20 snap-start">
-
-
-
-            <div className="relative z-10 pt-10 pb-6 px-4bg-transparent dark:bg-transparent pt-10 pb-6 px-4
-">
-
-              <div className="flex justify-center mb-6">
-                <div className="flex items-center justify-center gap-3">
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold dark:text-gray-100 text-center">
-                    Upcoming Events
-                  </h2>
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="ml-2 p-2 rounded-full border border-black dark:border-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                    aria-label="Add Event"
-                  >
-                    <Plus className="w-5 h-5 text-black dark:text-white" />
-                  </button>
-                </div>
-
-              </div>
-
-
-              {events.length > 0 ? (
-                <div className="flex flex-wrap justify-center gap-6 overflow-x-auto px-2 py-4 scroll-smooth snap-x snap-mandatory">
-
-                  {events.slice(0, 5).map((event) => (
-                    <div
-                      key={event.id}
-                      className="snap-center flex flex-col items-center justify-center bg-white dark:bg-gray-700 rounded-full w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 shadow-md border border-black dark:border-gray-500 transition-transform duration-300 hover:scale-110"
-                    >
-
-                      <span className="text-sm font-bold text-black dark:text-white text-center px-2 truncate">
-                        {event.name}
-                      </span>
-
-                      <span className="text-xs text-gray-500 dark:text-gray-300">
-                        {new Date(event.dateFrom).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })} - {new Date(event.dateTo).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                      </span>
-
-                      <span
-                        className={`text-[10px] mt-1 px-2 py-1 rounded-full ${event.style === 'Formal'
-                          ? 'bg-blue-100 text-blue-800'
-                          : event.style === 'Business'
-                            ? 'bg-gray-100 text-gray-800'
-                            : event.style === 'Athletic'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : event.style === 'Party'
-                                ? 'bg-pink-100 text-pink-800'
-                                : event.style === 'Outdoor'
-                                  ? 'bg-green-200 text-green-900'
-                                  : 'bg-green-100 text-green-800'
-                          }`}
-                      >
-                        {event.style}
-                      </span>
-
-                      {(() => {
-                        let summaries: { date: string; summary: any }[] = [];
-                        try {
-                          summaries = event.weather ? JSON.parse(event.weather) : [];
-                        } catch {
-                          summaries = [];
-                        }
-
-                        if (summaries.length > 0) {
-                          return (
-                            <div className="text-xs mt-2 text-center text-gray-700 dark:text-gray-300">
-                              {summaries.map(({ date, summary }) =>
-                                summary ? (
-                                  <div key={date}>
-                                    <span className="font-medium">{date}:</span>{' '}
-                                    {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
-                                  </div>
-                                ) : (
-                                  <div key={date}>
-                                    <span className="font-medium">{date}:</span> <span className="text-red-400">No data</span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">No upcoming events</p>
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
-                  >
-                    Add Your First Event
-                  </button>
-                </div>
-              )}
-
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="relative mb-4">
+              {/* Centered title */}
+              <h2 className="text-3xl font-bold text-center">
+                Upcoming Events
+              </h2>
+              {/* Add button in the top-right */}
+              <button
+                onClick={() => setShowModal(true)}
+                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 rounded-full border hover:bg-gray-100"
+                aria-label="Add Event"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
+
+            {events.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-6 overflow-x-auto py-2">
+                {events.map(ev => (
+                  <div
+                    key={ev.id}
+                    className="
+              flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36
+              bg-white dark:bg-gray-700 rounded-full shadow-md border 
+              flex flex-col items-center justify-center text-center p-2
+              transition-transform hover:scale-105
+            "
+                  >
+                    <div className="font-semibold truncate">{ev.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      &nbsp;–&nbsp;
+                      {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <div className="
+              mt-1 text-[10px] px-2 py-1 rounded-full
+              bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200
+            ">
+                      {ev.style}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No upcoming events</p>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="bg-[#3F978F] text-white px-4 py-2 rounded-lg hover:bg-[#347e77] transition"
+                >
+                  Add Your First Event
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+
+
       </div>
 
 
