@@ -30,7 +30,7 @@ export async function recommendOutfits(
 ): Promise<OutfitRecommendation[]> {
     // fetch closet items for this user
     const closetItems = await prisma.closetItem.findMany({
-        where: { ownerId: userId }
+        where: { ownerId: userId },
     });
 
     // fetch user preferences
