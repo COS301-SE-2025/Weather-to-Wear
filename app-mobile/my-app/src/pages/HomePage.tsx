@@ -11,6 +11,7 @@ import { useWeather } from '../hooks/useWeather';
 import { fetchAllEvents, createEvent, } from '../services/eventsApi';
 import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
 import StarRating from '../components/StarRating';
+import { fetchAllItems, type ClosetItem } from '../services/closetApi'
 
 
 type Item = {
@@ -136,6 +137,9 @@ export default function HomePage() {
   const [outfitError, setOutfitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  //closet
+  const [closetMap, setClosetMap] = useState<Record<string, ClosetItem>>({})
+
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
@@ -144,6 +148,21 @@ export default function HomePage() {
       } catch { }
     }
   }, []);
+
+  useEffect(() => {
+    fetchAllItems()
+      .then(res => {
+        // res.data is ClosetItem[]
+        const map: Record<string, ClosetItem> = {}
+        res.forEach(item => {
+          map[item.id] = item
+        })
+        setClosetMap(map)
+      })
+      .catch(err => {
+        console.error('failed to load closet items', err)
+      })
+  }, [])
 
   //   const fetchOutfitItems = async () => {
   //     try {
@@ -281,26 +300,31 @@ export default function HomePage() {
               {!loadingOutfits && outfits.length > 0 && (
                 <>
                   <div className="grid grid-cols-3 gap-4 mb-4">
-                    {outfits[currentIndex].outfitItems.map(item => (
-                      <div
-                        key={item.closetItemId}
-                        className="aspect-square rounded-3xl overflow-hidden flex items-center justify-center"
-                      >
-                        <img
-                          src={`http://localhost:5001/images/${item.closetItemId}`}
-                          alt={item.category}
-                          className="object-contain max-w-full max-h-full"
-                        />
-                      </div>
-                    ))}
-                  </div>
+                    {outfits[currentIndex].outfitItems.map(it => {
+                      const closet = closetMap[it.closetItemId]
+                      // if closet exists, grab its imageUrl field; fallback to placeholder
+                      const src = closet
+                        ? `http://localhost:5001${closet.imageUrl}`
+                        : '/placeholder-outfit.jpg'
 
-                  <StarRating
-                    disabled={saving}
-                    onSelect={handleSaveRating}
-                  />
+                      return (
+                        <div
+                          key={it.closetItemId}
+                          className="aspect-square rounded-3xl overflow-hidden flex items-center justify-center"
+                        >
+                          <img
+                            src={src}
+                            alt={it.category}
+                            className="object-contain max-w-full max-h-full"
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <StarRating disabled={saving} onSelect={handleSaveRating} />
                 </>
               )}
+
             </div>
           </div>
 
