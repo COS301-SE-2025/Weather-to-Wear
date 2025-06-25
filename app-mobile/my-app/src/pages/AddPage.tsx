@@ -34,8 +34,8 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: "HOODIE", label: "Hoodie" },
   ],
   outerwear: [
-    { value: "COAT", label: "Coat" },
-    { value: "BLAZER", label: "Blazer" },
+    // { value: "COAT", label: "Coat" },
+    // { value: "BLAZER", label: "Blazer" },
     { value: "JACKET", label: "Jacket" },
     { value: "RAINCOAT", label: "Raincoat" },
   ],
