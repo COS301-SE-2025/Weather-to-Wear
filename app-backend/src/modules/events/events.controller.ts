@@ -87,10 +87,27 @@ class EventsController {
         return;
       }
 
+      // Error handling for not looking too far into future or looking into past
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Midnight for accurate comparison
+      today.setHours(0, 0, 0, 0);
+
+      // past date
+      if (fromDate < today) {
+        res.status(400).json({ message: 'Event start date cannot be in the past.' });
+        return;
+      }
+
+      // FreeWeatherAPI allows 3 days, OWM 5 days
+      const MAX_FORECAST_DAYS = 3;
+      const maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
+
+      if (fromDate > maxAllowedDate) {
+        res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
+        return;
+      }
 
       // use weather api to fetch weather summary
       const weatherDate = new Date(dateFrom).toISOString().split('T')[0];
@@ -142,6 +159,28 @@ class EventsController {
       }
 
       const { name, location, dateFrom, dateTo, style } = req.body;
+
+      // Error handling for not looking too far into future or looking into past
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // past date
+      if (fromDate < today) {
+        res.status(400).json({ message: 'Event start date cannot be in the past.' });
+        return;
+      }
+
+      // FreeWeatherAPI allows 3 days, OWM 5 days
+      const MAX_FORECAST_DAYS = 3;
+      const maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
+
+      if (fromDate > maxAllowedDate) {
+        res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
+        return;
+      }
 
       const existing = await prisma.event.findUnique({
         where: { id: eventId },
