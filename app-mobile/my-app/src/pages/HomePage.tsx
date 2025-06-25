@@ -6,9 +6,12 @@ import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
-import { fetchAllItems } from '../services/closetApi';
-import { useNavigate } from 'react-router-dom';
-import { fetchAllEvents, createEvent } from '../services/eventsApi';
+//import { fetchAllItems } from '../services/closetApi';
+//import { useNavigate } from 'react-router-dom';
+import { fetchAllEvents, createEvent, } from '../services/eventsApi';
+import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
+import StarRating from '../components/StarRating';
+
 
 type Item = {
   id: number;
@@ -29,44 +32,44 @@ type Event = {
 };
 
 
-const StarRating = () => {
-  const [rating, setRating] = useState(0);
-  const [hover, setHover] = useState(0);
+// const StarRating = () => {
+//   const [rating, setRating] = useState(0);
+//   const [hover, setHover] = useState(0);
 
-  return (
-    <div className="w-full grid grid-cols-5 gap-1 mt-4 mb-8 px-2">
-      {[...Array(5)].map((_, index) => {
-        const starValue = index + 1;
-        return (
-          <button
-            key={index}
-            type="button"
-            className="flex justify-center items-center"
-            onClick={() => setRating(starValue)}
-            onMouseEnter={() => setHover(starValue)}
-            onMouseLeave={() => setHover(0)}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="0.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`w-10 h-10 transition-transform duration-200 ease-in-out ${starValue <= (hover || rating)
-                ? 'text-[#3F978F] fill-[#3F978F]'
-                : 'text-none fill-black'
-                } ${starValue <= hover ? 'transform scale-110' : ''}`}
-            >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          </button>
-        );
-      })}
-    </div>
-  );
-};
+//   return (
+//     <div className="w-full grid grid-cols-5 gap-1 mt-4 mb-8 px-2">
+//       {[...Array(5)].map((_, index) => {
+//         const starValue = index + 1;
+//         return (
+//           <button
+//             key={index}
+//             type="button"
+//             className="flex justify-center items-center"
+//             onClick={() => setRating(starValue)}
+//             onMouseEnter={() => setHover(starValue)}
+//             onMouseLeave={() => setHover(0)}
+//           >
+//             <svg
+//               xmlns="http://www.w3.org/2000/svg"
+//               viewBox="0 0 24 24"
+//               fill="none"
+//               stroke="currentColor"
+//               strokeWidth="0.5"
+//               strokeLinecap="round"
+//               strokeLinejoin="round"
+//               className={`w-10 h-10 transition-transform duration-200 ease-in-out ${starValue <= (hover || rating)
+//                 ? 'text-[#3F978F] fill-[#3F978F]'
+//                 : 'text-none fill-black'
+//                 } ${starValue <= hover ? 'transform scale-110' : ''}`}
+//             >
+//               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+//             </svg>
+//           </button>
+//         );
+//       })}
+//     </div>
+//   );
+// };
 
 const TypingSlogan = () => {
   const slogan = 'Style Made Simple.';
@@ -116,82 +119,111 @@ const TypingSlogan = () => {
 };
 
 export default function HomePage() {
-  const [items, setItems] = useState<Item[]>([]);
+
   const { weather, setCity } = useWeather();
+  // user
   const [username, setUsername] = useState<string | null>(null);
-  const [missingCategories, setMissingCategories] = useState<string[]>([]);
 
+  // events
   const [events, setEvents] = useState<Event[]>([]);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUsername(parsedUser.name);
-      } catch (error) {
-        console.error('Failed to parse user from localStorage', error);
-      }
-    }
-
-    const fetchOutfitItems = async () => {
-      try {
-        const res = await fetchAllItems();
-
-        const shirt = res.data.find((item: Item) => item.category === 'SHIRT');
-        const pants = res.data.find((item: Item) => item.category === 'PANTS');
-        const shoes = res.data.find((item: Item) => item.category === 'SHOES');
-
-        const selectedItems = [shirt, pants, shoes].filter(Boolean);
-        const missing = [];
-        if (!shirt) missing.push('SHIRT');
-        if (!pants) missing.push('PANTS');
-        if (!shoes) missing.push('SHOES');
-
-        setMissingCategories(missing);
-
-        setItems(
-          selectedItems.map((item) => ({
-            id: item.id,
-            name: item.name || item.category,
-            image: `http://localhost:5001${item.imageUrl}`,
-            favorite: false,
-            category: item.category,
-          }))
-        );
-      } catch (error) {
-        console.error('Error fetching outfit items:', error);
-      }
-    };
-
-    fetchOutfitItems();
-  }, []);
-
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const eventsData = await fetchAllEvents();
-        setEvents(eventsData);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-        setEvents([
-        ]);
-      }
-    };
-
-    fetchEvents();
-  }, []);
-
-
   const [showModal, setShowModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    name: '',
-    location: '',
-    dateFrom: '',
-    dateTo: '',
-    style: 'CASUAL',
-  });
+  const [newEvent, setNewEvent] = useState({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
 
+  // outfits
+  const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadingOutfits, setLoadingOutfits] = useState(false);
+  const [outfitError, setOutfitError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      try {
+        setUsername(JSON.parse(stored).name);
+      } catch { }
+    }
+  }, []);
+
+  //   const fetchOutfitItems = async () => {
+  //     try {
+  //       const res = await fetchAllItems();
+
+  //       const shirt = res.data.find((item: Item) => item.category === 'SHIRT');
+  //       const pants = res.data.find((item: Item) => item.category === 'PANTS');
+  //       const shoes = res.data.find((item: Item) => item.category === 'SHOES');
+
+  //       const selectedItems = [shirt, pants, shoes].filter(Boolean);
+  //       const missing = [];
+  //       if (!shirt) missing.push('SHIRT');
+  //       if (!pants) missing.push('PANTS');
+  //       if (!shoes) missing.push('SHOES');
+
+  //       setMissingCategories(missing);
+
+  //       setItems(
+  //         selectedItems.map((item) => ({
+  //           id: item.id,
+  //           name: item.name || item.category,
+  //           image: `http://localhost:5001${item.imageUrl}`,
+  //           favorite: false,
+  //           category: item.category,
+  //         }))
+  //       );
+  //     } catch (error) {
+  //       console.error('Error fetching outfit items:', error);
+  //     }
+  //   };
+
+  //   fetchOutfitItems();
+  // }, []);
+
+
+  useEffect(() => {
+    if (!weather) return;
+
+    const { avgTemp, minTemp, maxTemp, willRain, mainCondition } = weather.summary;
+
+    setLoadingOutfits(true);
+    fetchRecommendedOutfits({ avgTemp, minTemp, maxTemp, willRain, mainCondition })
+    // …
+  }, [weather]);
+
+
+
+  //handle rating logic (save outfit to closet when a user rates it)
+  const handleSaveRating = async (rating: number) => {
+    const outfit = outfits[currentIndex];
+    if (!outfit) return;
+
+    const payload = {
+      outfitItems: outfit.outfitItems.map((i) => ({
+        closetItemId: i.closetItemId,
+        layerCategory: i.layerCategory,
+        sortOrder: 0,
+      })),
+      warmthRating: outfit.warmthRating,
+      waterproof: outfit.waterproof,
+      overallStyle: outfit.overallStyle,
+      weatherSummary: JSON.stringify({
+        temperature: outfit.weatherSummary.avgTemp,
+        condition: outfit.weatherSummary.mainCondition,
+      }),
+      userRating: rating,
+    };
+
+    setSaving(true);
+    try {
+      await createOutfit(payload);
+      // advance to the next outfit
+      setCurrentIndex((i) => Math.min(i + 1, outfits.length - 1));
+    } catch (err) {
+      console.error('Save failed', err);
+      alert('Failed to save your rating.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
@@ -224,57 +256,45 @@ export default function HomePage() {
             <TypingSlogan />
           </div>
 
+
           {/* Outfit Section */}
           <div className="flex-1 flex flex-col items-center">
-            {/* Reuse existing Outfit code */}
             <div className="w-full max-w-[350px]">
-              <div className="flex justify-center">
-                <div className="inline-block py-1 px-3 border-2 border-black dark:border-gray-600">
-                  <h1 className="text-xl text-black dark:text-gray-100 text-center">
-                    OUTFIT OF THE DAY
-                  </h1>
-                </div>
+              <div className="flex justify-center mb-4">
+                <h1 className="text-xl border-2 border-black px-3 py-1">
+                  OUTFIT OF THE DAY
+                </h1>
               </div>
 
-              <div className="mt-6 flex flex-col gap-4">
-                {items.length > 0 &&
-                  items.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`bg-white-200 dark:bg-gray-800 rounded-3xl overflow-hidden flex items-center justify-center ${item.category === 'SHOES'
-                        ? 'aspect-[3/3] max-h-[60px]'
-                        : item.category === 'SHIRT'
-                          ? 'aspect-[3/4] max-h-[160px]'
-                          : 'aspect-[3/4] max-h-[200px]'
-                        }`}
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="max-w-full max-h-full object-contain"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder-outfit.jpg';
-                          e.currentTarget.alt = 'Outfit placeholder';
-                        }}
-                      />
-                    </div>
-                  ))
-               }
+              {loadingOutfits && <p>Loading outfits…</p>}
+              {outfitError && <p className="text-red-500">{outfitError}</p>}
 
-                {missingCategories.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => (window.location.href = '/add')}
-                    className="bg-[#3F978F] text-white py-2 px-4 rounded-xl border border-black hover:bg-[#347e77] transition"
-                  >
-                    No {category.toLowerCase()} found — add more to wardrobe
-                  </button>
-                ))}
-              </div>
+              {!loadingOutfits && outfits.length > 0 && (
+                <>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    {outfits[currentIndex].outfitItems.map(item => (
+                      <div
+                        key={item.closetItemId}
+                        className="aspect-square rounded-3xl overflow-hidden flex items-center justify-center"
+                      >
+                        <img
+                          src={`http://localhost:5001/images/${item.closetItemId}`}
+                          alt={item.category}
+                          className="object-contain max-w-full max-h-full"
+                        />
+                      </div>
+                    ))}
+                  </div>
 
-              <StarRating />
+                  <StarRating
+                    disabled={saving}
+                    onSelect={handleSaveRating}
+                  />
+                </>
+              )}
             </div>
           </div>
+
 
           {/* Weather Section */}
           <div className="flex-1 flex flex-col items-center">
@@ -356,7 +376,7 @@ export default function HomePage() {
                       <span className="text-sm font-bold text-black dark:text-white text-center px-2 truncate">
                         {event.name}
                       </span>
-                      
+
                       <span className="text-xs text-gray-500 dark:text-gray-300">
                         {new Date(event.dateFrom).toLocaleDateString('en-GB', {
                           day: 'numeric',
