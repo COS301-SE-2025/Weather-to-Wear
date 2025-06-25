@@ -29,6 +29,8 @@ services:
     tty: true
     depends_on:
       - backend
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   db:
     image: postgres:15
