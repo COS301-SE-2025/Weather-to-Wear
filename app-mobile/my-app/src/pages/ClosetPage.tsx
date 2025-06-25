@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Heart, Search, X } from 'lucide-react';
+import { Heart, Search, X, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems } from '../services/closetApi';
 import { deleteItem} from '../services/closetApi';
@@ -256,7 +256,13 @@ useEffect(() => {
   onClick={() => setPreviewImage(item.image)}
   className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
 />
-
+          <button
+            onClick={() => {/* TODO: handleEditClick(item.id) */}}
+            className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
+          >
+            <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+          </button>
+          
           <button
             onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
             className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
