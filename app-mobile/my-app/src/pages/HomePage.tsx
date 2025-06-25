@@ -7,6 +7,7 @@ import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
 import { fetchAllItems } from '../services/closetApi';
+import { fetchRecommendedOutfits } from '../services/outfitApi';
 import { useNavigate } from 'react-router-dom';
 import { fetchAllEvents, createEvent } from '../services/eventsApi';
 
@@ -533,6 +534,23 @@ export default function HomePage() {
                         style: '',
                       });
                       setShowModal(false);
+
+                      if (created.weather) {
+                        let summaries: { date: string, summary: any }[] = [];
+                        try {
+                          summaries = JSON.parse(created.weather);
+                        } catch { summaries = []; }
+                        // For each day in the event, request recommendations
+                        for (const { date, summary } of summaries) {
+                          try {
+                            const outfits = await fetchRecommendedOutfits(summary, created.style, created.id);
+                            console.log(`Outfits for ${date}:`, outfits); // ! For now until images 
+                          } catch (err) {
+                            console.error(`Error fetching outfits for ${date}`, err);
+                          }
+                        }
+                      }
+
                     } catch (err: any) {
                       let msg = 'Failed to create event';
                       if (err.response && err.response.data && err.response.data.message) {

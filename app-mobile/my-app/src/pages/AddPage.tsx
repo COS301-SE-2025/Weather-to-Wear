@@ -96,7 +96,7 @@ const COLOR_PALETTE = [
   { hex: "#757575", label: "Grey" },
   { hex: "#FFFFFF", label: "White" },
   { hex: "#000000", label: "Black" },
-  { hex: "#DADADA", label: "Cream" },
+  { hex: "#FFFDD0", label: "Cream" },
   // more colours to be added
 ];
 
