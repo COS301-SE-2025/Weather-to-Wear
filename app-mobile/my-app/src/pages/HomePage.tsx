@@ -259,7 +259,7 @@ export default function HomePage() {
                       />
                     </div>
                   ))
-               }
+                }
 
                 {missingCategories.map((category) => (
                   <button
@@ -356,7 +356,7 @@ export default function HomePage() {
                       <span className="text-sm font-bold text-black dark:text-white text-center px-2 truncate">
                         {event.name}
                       </span>
-                      
+
                       <span className="text-xs text-gray-500 dark:text-gray-300">
                         {new Date(event.dateFrom).toLocaleDateString('en-GB', {
                           day: 'numeric',
@@ -502,9 +502,13 @@ export default function HomePage() {
                       style: '',
                     });
                     setShowModal(false);
-                  } catch (err) {
+                  } catch (err: any) {
+                    let msg = 'Failed to create event';
+                    if (err.response && err.response.data && err.response.data.message) {
+                      msg = err.response.data.message;
+                    }
                     console.error('Error creating event:', err);
-                    alert('Failed to create event');
+                    alert(msg);
                   }
                 }}
 
