@@ -109,23 +109,38 @@ class EventsController {
       }
 
       // use weather api to fetch weather summary
-      const weatherDate = fromDate.toISOString().split('T')[0];
+      // const weatherDate = fromDate.toISOString().split('T')[0];
 
-      let weatherData;
-      try {
-        weatherData = await getWeatherByDay(location, weatherDate);
-      } catch (err: any) {
-        res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
-        return;
+      // let weatherData;
+      // try {
+      //   weatherData = await getWeatherByDay(location, weatherDate);
+      // } catch (err: any) {
+      //   res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
+      //   return;
+      // }
+      // const weatherSummary = weatherData.summary;
+
+      // use weather api to fetch weather summaries
+      const dateFromObj = new Date(dateFrom);
+      const dateToObj = new Date(dateTo);
+      const allDates = getAllDatesInRange(dateFromObj, dateToObj);
+
+      const weatherSummaries: { date: string; summary: any }[] = [];
+      for (const date of allDates) {
+        try {
+          const weatherData = await getWeatherByDay(location, date);
+          weatherSummaries.push({ date, summary: weatherData.summary });
+        } catch (err) {
+          weatherSummaries.push({ date, summary: null }); // ! need an error message per chance
+        }
       }
-      const weatherSummary = weatherData.summary;
 
       const newEvent = await prisma.event.create({
         data: {
           userId: user.id,
           name,
           location,
-          weather: JSON.stringify(weatherSummary),
+          weather: JSON.stringify(weatherSummaries),
           dateFrom: new Date(dateFrom),
           dateTo: new Date(dateTo),
           style: style as Style,
@@ -275,6 +290,17 @@ class EventsController {
       next(err);
     }
   };
+}
+
+// for events which span multiple days
+function getAllDatesInRange(start: Date, end: Date): string[] {
+  const dates = [];
+  const curr = new Date(start);
+  while (curr <= end) {
+    dates.push(curr.toISOString().split('T')[0]);
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
 }
 
 export default new EventsController();

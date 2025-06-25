@@ -26,6 +26,7 @@ type Event = {
   dateFrom: string;
   dateTo: string;
   style?: string;
+  weather?: string;
 };
 
 
@@ -383,6 +384,35 @@ export default function HomePage() {
                       >
                         {event.style}
                       </span>
+
+                      {(() => {
+                        let summaries: { date: string; summary: any }[] = [];
+                        try {
+                          summaries = event.weather ? JSON.parse(event.weather) : [];
+                        } catch {
+                          summaries = [];
+                        }
+
+                        if (summaries.length > 0) {
+                          return (
+                            <div className="text-xs mt-2 text-center text-gray-700 dark:text-gray-300">
+                              {summaries.map(({ date, summary }) =>
+                                summary ? (
+                                  <div key={date}>
+                                    <span className="font-medium">{date}:</span>{' '}
+                                    {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                                  </div>
+                                ) : (
+                                  <div key={date}>
+                                    <span className="font-medium">{date}:</span> <span className="text-red-400">No data</span>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -423,106 +453,108 @@ export default function HomePage() {
       </div>
 
       {/* Modal: Create New Event */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-lg border border-black relative">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Create New Event</h2>
+      {
+        showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-lg border border-black relative">
+              <h2 className="text-xl font-semibold mb-4 dark:text-white">Create New Event</h2>
 
-            <div className="space-y-3">
-              <input
-                className="w-full p-2 border rounded"
-                placeholder="Event Name"
-                value={newEvent.name}
-                onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
-              />
-              <input
-                className="w-full p-2 border rounded"
-                placeholder="Location"
-                value={newEvent.location}
-                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-              />
-              <input
-                type="datetime-local"
-                className="w-full p-2 border rounded"
-                value={newEvent.dateFrom}
-                onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
-              />
-              <input
-                type="datetime-local"
-                className="w-full p-2 border rounded"
-                value={newEvent.dateTo}
-                onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
-              />
+              <div className="space-y-3">
+                <input
+                  className="w-full p-2 border rounded"
+                  placeholder="Event Name"
+                  value={newEvent.name}
+                  onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
+                />
+                <input
+                  className="w-full p-2 border rounded"
+                  placeholder="Location"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                />
+                <input
+                  type="datetime-local"
+                  className="w-full p-2 border rounded"
+                  value={newEvent.dateFrom}
+                  onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+                />
+                <input
+                  type="datetime-local"
+                  className="w-full p-2 border rounded"
+                  value={newEvent.dateTo}
+                  onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+                />
 
-              <select
-                className="w-full p-2 border rounded"
-                value={newEvent.style}
-                onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
-              >
-                <option value="">Select a style</option>
-                <option value="Formal">Formal</option>
-                <option value="Casual">Casual</option>
-                <option value="Athletic">Athletic</option>
-                <option value="Party">Party</option>
-                <option value="Business">Business</option>
-                <option value="Outdoor">Outdoor</option>
-              </select>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={newEvent.style}
+                  onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
+                >
+                  <option value="">Select a style</option>
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Athletic">Athletic</option>
+                  <option value="Party">Party</option>
+                  <option value="Business">Business</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
 
-            </div>
+              </div>
 
-            <div className="flex justify-end mt-4 gap-2">
-              <button
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                onClick={() => setShowModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="bg-[#3F978F] text-white px-4 py-2 rounded hover:bg-[#347e77]"
-                onClick={async () => {
-                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
-                    alert('Please fill in the event name, style, and both dates.');
-                    return;
-                  }
-                  try {
-                    const created = await createEvent({
-                      name: newEvent.name,
-                      location: newEvent.location,
-                      style: newEvent.style,
-                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
-                      dateTo: new Date(newEvent.dateTo).toISOString(),
-                    });
-
-                    setEvents([...events, created]);
-                    setNewEvent({
-                      name: '',
-                      location: '',
-                      dateFrom: '',
-                      dateTo: '',
-                      style: '',
-                    });
-                    setShowModal(false);
-                  } catch (err: any) {
-                    let msg = 'Failed to create event';
-                    if (err.response && err.response.data && err.response.data.message) {
-                      msg = err.response.data.message;
+              <div className="flex justify-end mt-4 gap-2">
+                <button
+                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="bg-[#3F978F] text-white px-4 py-2 rounded hover:bg-[#347e77]"
+                  onClick={async () => {
+                    if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+                      alert('Please fill in the event name, style, and both dates.');
+                      return;
                     }
-                    console.error('Error creating event:', err);
-                    alert(msg);
-                  }
-                }}
+                    try {
+                      const created = await createEvent({
+                        name: newEvent.name,
+                        location: newEvent.location,
+                        style: newEvent.style,
+                        dateFrom: new Date(newEvent.dateFrom).toISOString(),
+                        dateTo: new Date(newEvent.dateTo).toISOString(),
+                      });
 
-              >
-                Save
-              </button>
+                      setEvents([...events, created]);
+                      setNewEvent({
+                        name: '',
+                        location: '',
+                        dateFrom: '',
+                        dateTo: '',
+                        style: '',
+                      });
+                      setShowModal(false);
+                    } catch (err: any) {
+                      let msg = 'Failed to create event';
+                      if (err.response && err.response.data && err.response.data.message) {
+                        msg = err.response.data.message;
+                      }
+                      console.error('Error creating event:', err);
+                      alert(msg);
+                    }
+                  }}
+
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
 
 
       <Footer />
-    </div>
+    </div >
   );
 }
