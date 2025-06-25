@@ -281,6 +281,25 @@ export default function HomePage() {
 
               {!loadingOutfits && outfits.length > 0 && (
                 <>
+                  
+                  <div className="flex justify-between items-center mb-2 w-full">
+                    <button
+                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
+                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      ‹ Prev
+                    </button>
+                    <span className="text-sm">
+                      {currentIndex + 1} / {outfits.length}
+                    </span>
+                    <button
+                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
+                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     {outfits[currentIndex].outfitItems.map(item => (
                       <div
@@ -288,13 +307,14 @@ export default function HomePage() {
                         className="aspect-square rounded-3xl overflow-hidden flex items-center justify-center"
                       >
                         <img
-                          src={item.imageUrl.startsWith('http')
-                            ? item.imageUrl
-                            : `http://localhost:5001${item.imageUrl}`}
+                          src={
+                            item.imageUrl.startsWith('http')
+                              ? item.imageUrl
+                              : `http://localhost:5001${item.imageUrl}`
+                          }
                           alt={item.category}
                           className="object-contain max-w-full max-h-full"
                         />
-
                       </div>
                     ))}
                   </div>
@@ -307,7 +327,6 @@ export default function HomePage() {
               )}
             </div>
           </div>
-
 
           {/* Weather Section */}
           <div className="flex-1 flex flex-col items-center">
