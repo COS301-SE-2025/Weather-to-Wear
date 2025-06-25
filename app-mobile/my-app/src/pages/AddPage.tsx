@@ -369,6 +369,13 @@ const AddPage: React.FC = () => {
 
               <div className="flex justify-center gap-4 w-full">
                 <button
+                  onClick={() => setCameraPreview(null)}
+                  className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                >
+                  Redo
+                </button>
+
+                <button
                   onClick={() => handleDone("camera")}
                   disabled={!cameraPreview}
                   className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
@@ -376,12 +383,6 @@ const AddPage: React.FC = () => {
                   Done
                 </button>
 
-                <button
-                  onClick={() => setCameraPreview(null)}
-                  className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
-                >
-                  Redo
-                </button>
                 <button
                   onClick={capturePhoto}
                   className="flex items-center justify-center px-4 py-3 rounded-full bg-black hover:bg-teal-600 transition-colors text-white font-semibold shadow-md"
@@ -532,19 +533,18 @@ const AddPage: React.FC = () => {
                 </div>
               </div>
 
+              <button
+                onClick={() => setUploadPreview(null)}
+                className="px-8 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+              >
+                Redo
+              </button>
 
               <button
                 onClick={() => handleDone("upload")}
                 className="px-8 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
               >
                 Done
-              </button>
-
-              <button
-                onClick={() => setUploadPreview(null)}
-                className="px-8 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
-              >
-                Redo
               </button>
             </div>
           )}
