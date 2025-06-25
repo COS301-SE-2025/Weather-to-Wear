@@ -133,7 +133,11 @@ describe('EventsController Unit Tests', () => {
       await EventsController.createEvent(req, res, next);
 
       expect(mockGetWeatherByDay).toHaveBeenCalledWith('Park', expect.any(String));
-      expect(prisma.event.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ weather: 'Sunny' }) }));
+      expect(prisma.event.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          weather: expect.stringContaining('"mainCondition":"Sunny"')
+        })
+      }));
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(createdEvent);
     });
@@ -165,7 +169,11 @@ describe('EventsController Unit Tests', () => {
       await EventsController.updateEvent(req, res, next);
 
       expect(mockGetWeatherByDay).toHaveBeenCalledWith('Beach', expect.any(String));
-      expect(prisma.event.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ weather: 'Rainy' }) }));
+      expect(prisma.event.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          weather: JSON.stringify({ mainCondition: 'Rainy' })
+        })
+      }));
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(updated);
     });
