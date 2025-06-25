@@ -166,7 +166,7 @@ const LandingPage: React.FC = () => {
       >
         <div className="pl-10 pr-8 py-4 z-10 ml-0 w-full">
           <TypingSlogan />
-          <p className="text-lg text-white mb-6 max-w-2xl">
+          <p className="text-lg text-white  mb-6 max-w-2xl">
             Your personal weather-based clothing assistant.
           </p>
         </div>
@@ -218,7 +218,14 @@ const LandingPage: React.FC = () => {
       What is Weather To Wear?
     </h2>
     <p className="text-gray-600 text-center ">
-      Weather to Wear is your ultimate companion for dressing smartly based on real-time weather, your personal wardrobe, and upcoming events. Join our style community and never worry about what to wear again!
+      Weather to Wear is your ultimate companion for dressing smartly based on real-time weather, 
+      your personal wardrobe, and upcoming events. 
+      We aim to simplify weather forecasts into a personalized wardrobe consultant. By analysing real-time weather 
+      forecasts with the combination of a user's personalised styling preferences and the use of AI-driven 
+      outfit suggestions, we provide appropriate fashion recommendations from a your personal clothing collection to 
+      ensure you can step out confidently prepared for any weather condition while expressing your unique fashion sense.
+      Join our style community and never worry about what to wear again!
+
     </p>
   </div>
 </section>
@@ -234,7 +241,7 @@ const LandingPage: React.FC = () => {
         <CloudSun className="h-12 w-12 mx-auto mb-4 text-teal-500" />
         <h3 className="text-lg font-semibold mb-2">Weather Integration</h3>
       </div>
-      <p className="text-gray-600">
+      <p className="text-gray-600 ">
         Get real-time weather updates and personalized outfit recommendations based on current conditions.
       </p>
     </div>
@@ -243,7 +250,7 @@ const LandingPage: React.FC = () => {
         <Shirt className="h-12 w-12 mx-auto mb-4 text-teal-500" />
         <h3 className="text-lg font-semibold mb-2">Smart Closet</h3>
       </div>
-      <p className="text-gray-600">
+      <p className="text-gray-600 ">
         Organize your wardrobe digitally and let AI suggest the perfect outfit combinations for any weather.
       </p>
     </div>
@@ -252,7 +259,7 @@ const LandingPage: React.FC = () => {
         <Calendar className="h-12 w-12 mx-auto mb-4 text-teal-500" />
         <h3 className="text-lg font-semibold mb-2">Outfit Planning</h3>
       </div>
-      <p className="text-gray-600">
+      <p className="text-gray-600 ">
         Plan your outfits in advance with weather forecasts and never worry about what to wear again.
       </p>
     </div>
@@ -261,7 +268,7 @@ const LandingPage: React.FC = () => {
         <Users className="h-12 w-12 mx-auto mb-4 text-teal-500" />
         <h3 className="text-lg font-semibold mb-2">Style Community</h3>
       </div>
-      <p className="text-gray-600">
+      <p className="text-gray-600 ">
         Share your outfits, get inspiration from others, and build a community around weather-smart fashion.
       </p>
     </div>
@@ -328,48 +335,52 @@ const LandingPage: React.FC = () => {
         </section>
       </div>
 
-      {/* How it works */}
-    <section className=" dark:bg-gray-800 py-16">
-  <div className="max-w-3xl mx-auto px-4 sm:px-6">
-    <h2 className="text-4xl font-sephir font-bold text-gray-800 dark:text-white text-center mb-12">
+
+    {/* How it works */}
+     <section className="dark:bg-gray-800 py-24 min-h-[600px]">
+  <div className="max-w-6xl mx-auto px-4 sm:px-6">
+    <h2 className="text-4xl font-sephir font-bold text-gray-800 dark:text-white text-center mb-20">
       How It Works
     </h2>
-    <div className="flex flex-col gap-6">
-      <div className="relative group">
-        <div className="bg-white rounded-lg shadow-md p-6 text-center hover:shadow-lg transition-shadow w-[300px] min-h-[100px] flex flex-col justify-between">
-          <div className="text-4xl font-bold text-teal-600">1</div>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">
-            Set Your Location
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            Allow location access or enter your city manually in the dashboard.
-          </p>
+    <div className="relative">
+      {/* Steps Row */}
+      <div className="flex flex-wrap lg:flex-nowrap justify-center gap-6">
+        <div className="relative group flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow w-[200px] min-h-[100px] flex flex-col justify-between z-10">
+            <div className="text-4xl font-bold text-teal-600">1</div>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+              Set Your Location
+            </p>
+            <p className="text-gray-600 dark:text-gray-400 ">
+              Allow location access or enter your city manually.
+            </p>
+          </div>
+          <div className="absolute w-[300px] h-[300px] bg-teal-600 rounded-full shadow-md transition-all duration-300 ease-in-out group-hover:w-[350px] group-hover:h-[350px] group-hover:bg-teal-600 z-0"></div>
         </div>
-        <div className="absolute right-[-50px] top-1/2 transform -translate-y-1/2 w-[200px] h-[200px] bg-teal-100 rounded-full transition-all duration-300 ease-in-out group-hover:w-[250px] group-hover:h-[250px] group-hover:bg-teal-600"></div>
-      </div>
-      <div className="relative group">
-        <div className="bg-white rounded-lg shadow-md p-6 text-center hover:shadow-lg transition-shadow w-[300px] min-h-[100px] flex flex-col justify-between">
-          <div className="text-4xl font-bold text-teal-600 mb-2">2</div>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Add Your Wardrobe
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            Save your clothing preferences to get personalized outfit suggestions.
-          </p>
+        <div className="relative group flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow w-[200px] min-h-[100px] flex flex-col justify-between z-10">
+            <div className="text-4xl font-bold text-teal-600 mb-2">2</div>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Add Your Wardrobe
+            </p>
+            <p className="text-gray-600 dark:text-gray-400 ">
+              Save your clothing preferences for outfit suggestions.
+            </p>
+          </div>
+          <div className="absolute w-[300px] h-[300px] bg-teal-600 rounded-full shadow-md transition-all duration-300 ease-in-out group-hover:w-[350px] group-hover:h-[350px] group-hover:bg-teal-600 z-0"></div>
         </div>
-        <div className="absolute right-[-50px] top-1/2 transform -translate-y-1/2 w-[200px] h-[200px] bg-teal-100 rounded-full transition-all duration-300 ease-in-out group-hover:w-[250px] group-hover:h-[250px] group-hover:bg-teal-600"></div>
-      </div>
-      <div className="relative group">
-        <div className="bg-white rounded-lg shadow-md p-6 text-center hover:shadow-lg transition-shadow w-[300px] min-h-[100px] flex flex-col justify-between">
-          <div className="text-4xl font-bold text-teal-600 mb-2">3</div>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Get Outfit Ideas
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            Receive weather-based outfit recommendations tailored to your style.
-          </p>
+        <div className="relative group flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow w-[200px] min-h-[100px] flex flex-col justify-between z-10">
+            <div className="text-4xl font-bold text-teal-600 mb-2">3</div>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Get Outfit Ideas
+            </p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Receive weather-based outfit recommendations.
+            </p>
+          </div>
+          <div className="absolute w-[300px] h-[300px] bg-teal-600 rounded-full shadow-md transition-all duration-300 ease-in-out group-hover:w-[350px] group-hover:h-[350px] group-hover:bg-teal-600 z-0"></div>
         </div>
-        <div className="absolute right-[-50px] top-1/2 transform -translate-y-1/2 w-[200px] h-[200px] bg-teal-100 rounded-full transition-all duration-300 ease-in-out group-hover:w-[250px] group-hover:h-[250px] group-hover:bg-teal-600"></div>
       </div>
     </div>
   </div>
