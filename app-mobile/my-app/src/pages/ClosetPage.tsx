@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Heart, Search, X, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems } from '../services/closetApi';
-import { deleteItem} from '../services/closetApi';
+import { deleteItem } from '../services/closetApi';
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -42,26 +42,26 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
+
 const STYLE_OPTIONS = [
   { value: "", label: "Select Style" },
-  { value: "FORMAL", label: "Formal" },
-  { value: "CASUAL", label: "Casual" },
-  { value: "ATHLETIC", label: "Athletic" },
-  { value: "PARTY", label: "Party" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "OUTDOOR", label: "Outdoor" },
+  { value: "Formal", label: "Formal" },
+  { value: "Casual", label: "Casual" },
+  { value: "Athletic", label: "Athletic" },
+  { value: "Party", label: "Party" },
+  { value: "Business", label: "Business" },
+  { value: "Outdoor", label: "Outdoor" },
 ];
 
 const MATERIAL_OPTIONS = [
   { value: "", label: "Select Material" },
-  { value: "COTTON", label: "Cotton" },
-  { value: "WOOL", label: "Wool" },
-  { value: "POLYESTER", label: "Polyester" },
-  { value: "LEATHER", label: "Leather" },
-  { value: "NYLON", label: "Nylon" },
-  { value: "FLEECE", label: "Fleece" },
+  { value: "Cotton", label: "Cotton" },
+  { value: "Wool", label: "Wool" },
+  { value: "Polyester", label: "Polyester" },
+  { value: "Leather", label: "Leather" },
+  { value: "Nylon", label: "Nylon" },
+  { value: "Fleece", label: "Fleece" },
 ];
-
 const COLOR_PALETTE = [
   { hex: "#E53935", label: "Red" },
   { hex: "#8E24AA", label: "Purple" },
@@ -112,7 +112,7 @@ const mockFavourites: Item[] = [];
 
 const ClosetPage = () => {
 
-  
+
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<Item[]>(mockOutfits);
@@ -128,34 +128,34 @@ const ClosetPage = () => {
   const [itemToEdit, setItemToEdit] = useState<Item & { tab: TabType } | null>(null);
   // one piece of state per editable field:
   const [editedCategory, setEditedCategory] = useState('');
-  const [editedColorHex, setEditedColorHex]       = useState('');
+  const [editedColorHex, setEditedColorHex] = useState('');
   const [editedWarmthFactor, setEditedWarmthFactor] = useState(0);
-  const [editedWaterproof, setEditedWaterproof]     = useState(false);
-  const [editedStyle, setEditedStyle]               = useState('');
-  const [editedMaterial, setEditedMaterial]         = useState('');
+  const [editedWaterproof, setEditedWaterproof] = useState(false);
+  const [editedStyle, setEditedStyle] = useState('');
+  const [editedMaterial, setEditedMaterial] = useState('');
 
 
   // Fetch items from backend
-useEffect(() => {
-  const fetchItems = async () => {
-    try {
-      const res = await fetchAllItems();
-      const formattedItems: Item[] = res.data.map((item: any) => ({
-        id: item.id,
-        name: item.category, // or item.name if available
-        image: `http://localhost:5001${item.imageUrl}`, 
-        favorite: false,
-        category: item.category,
-      }));
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const res = await fetchAllItems();
+        const formattedItems: Item[] = res.data.map((item: any) => ({
+          id: item.id,
+          name: item.category, // or item.name if available
+          image: `http://localhost:5001${item.imageUrl}`,
+          favorite: false,
+          category: item.category,
+        }));
 
-      setItems(formattedItems);
-    } catch (error) {
-      console.error('Error fetching items:', error);
-    }
-  };
+        setItems(formattedItems);
+      } catch (error) {
+        console.error('Error fetching items:', error);
+      }
+    };
 
-  fetchItems();
-}, []);
+    fetchItems();
+  }, []);
 
 
   // Load favourites from localStorage
@@ -200,6 +200,66 @@ useEffect(() => {
     tab === 'items' ? toggleList(items, setItems) : toggleList(outfits, setOutfits);
   };
 
+    const handleSaveEdit = async () => {
+    if (!itemToEdit) return;
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(
+        `http://localhost:5001/api/closet/${itemToEdit.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            layerCategory: itemToEdit.layerCategory,
+            category:     editedCategory,
+            colorHex:     editedColorHex,
+            warmthFactor: editedWarmthFactor,
+            waterproof:   editedWaterproof,
+            style:        editedStyle,
+            material:     editedMaterial,
+          }),
+        }
+      );
+      // if (!res.ok) throw new Error(`Status ${res.status}`);
+
+      if (!res.ok) {
+      // try to parse any JSON error message
+      let errMsg = `Status ${res.status}`;
+      try {
+        const body = await res.json();
+        errMsg += ` — ${JSON.stringify(body)}`;
+      } catch {}
+      throw new Error(errMsg);
+    }
+
+      // update local state…
+      const updated = {
+        ...itemToEdit,
+        layerCategory: itemToEdit.layerCategory,
+        category:     editedCategory,
+        colorHex:     editedColorHex,
+        warmthFactor: editedWarmthFactor,
+        waterproof:   editedWaterproof,
+        style:        editedStyle,
+        material:     editedMaterial,
+      };
+      const updater = (arr: Item[]) =>
+        arr.map(i => (i.id === updated.id ? updated : i));
+      if (itemToEdit.tab === 'items') setItems(updater(items));
+      else if (itemToEdit.tab === 'outfits') setOutfits(updater(outfits));
+      else setFavourites(updater(favourites));
+    } catch (err) {
+      console.error('Save failed', err);
+      alert('Could not save changes.');
+    } finally {
+      setShowEditModal(false);
+      setItemToEdit(null);
+    }
+  };
+
   const handleRemoveClick = (id: number, tab: TabType, name: string) => {
     setItemToRemove({ id, tab, name });
     setShowModal(true);
@@ -219,23 +279,23 @@ useEffect(() => {
   // };
 
   const confirmRemove = async () => {
-  if (itemToRemove) {
-    const { id, tab } = itemToRemove;
+    if (itemToRemove) {
+      const { id, tab } = itemToRemove;
 
-    try {
-      await deleteItem(id.toString());
-      // only remove from UI if the API call succeeded
-      const filterFn = (arr: Item[]) => arr.filter(it => it.id !== id);
-      if (tab === 'items') setItems(filterFn(items));
-      else if (tab === 'outfits') setOutfits(filterFn(outfits));
-      else setFavourites(filterFn(favourites));
-    } catch (err) {
-      console.error('Failed to delete item:', err);
-      // optionally show an error toast/modal
+      try {
+        await deleteItem(id.toString());
+        // only remove from UI if the API call succeeded
+        const filterFn = (arr: Item[]) => arr.filter(it => it.id !== id);
+        if (tab === 'items') setItems(filterFn(items));
+        else if (tab === 'outfits') setOutfits(filterFn(outfits));
+        else setFavourites(filterFn(favourites));
+      } catch (err) {
+        console.error('Failed to delete item:', err);
+        // optionally show an error toast/modal
+      }
     }
-  }
-  setShowModal(false);
-};
+    setShowModal(false);
+  };
 
   const cancelRemove = () => {
     setShowModal(false);
@@ -260,65 +320,65 @@ useEffect(() => {
 
   return (
 
-        <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
-    {/* Header Image Section */}
-    <div 
-   className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
-      style={{
-        backgroundImage: `url(/header.jpg)`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        opacity: 1,
+    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
+      {/* Header Image Section */}
+      <div
+        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
+        style={{
+          backgroundImage: `url(/header.jpg)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 1,
           marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
-        width: '100vw',
-         marginTop: '-1rem'
-      }}
-    >
-<div className="px-6 py-2 border-2 border-white z-10">
-  <h1 
-    className="text-2xl font-bodoni font-light text-center text-white"
-    style={{
-     // fontFamily: "'Bodoni Moda', serif",
-      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-    }}
-  >
-    MY CLOSET
-  </h1>
-</div>
-
-
-      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-    </div>
-
-
-{/* Category Filters */}
-<div className="flex flex-wrap justify-center gap-3 mb-6">
-  {['All', ...getTabCategories()].map((category, index) => {
-    const isActive = activeCategory === category || (category === 'All' && activeCategory === null);
-    return (
-      <button
-        key={index}
-        onClick={() => setActiveCategory(category === 'All' ? null : category)}
-        className={`px-4 py-1 border border-black rounded-full text-sm font-medium transition-colors duration-200
-          ${isActive ? 'bg-black text-white' : 'bg-white text-black hover:bg-black hover:text-white'}`}
+          width: '100vw',
+          marginTop: '-1rem'
+        }}
       >
-        {category} {/* This was missing - add the category text here */}
-      </button>
-    );
-  })}
-</div>
+        <div className="px-6 py-2 border-2 border-white z-10">
+          <h1
+            className="text-2xl font-bodoni font-light text-center text-white"
+            style={{
+              // fontFamily: "'Bodoni Moda', serif",
+              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+            }}
+          >
+            MY CLOSET
+          </h1>
+        </div>
+
+
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      </div>
+
+
+      {/* Category Filters */}
+      <div className="flex flex-wrap justify-center gap-3 mb-6">
+        {['All', ...getTabCategories()].map((category, index) => {
+          const isActive = activeCategory === category || (category === 'All' && activeCategory === null);
+          return (
+            <button
+              key={index}
+              onClick={() => setActiveCategory(category === 'All' ? null : category)}
+              className={`px-4 py-1 border border-black rounded-full text-sm font-medium transition-colors duration-200
+          ${isActive ? 'bg-black text-white' : 'bg-white text-black hover:bg-black hover:text-white'}`}
+            >
+              {category} {/* This was missing - add the category text here */}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Search Bar */}
-<div className="relative mb-6">
-  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black h-4 w-4" />
-  <input
-    type="search"
-    value={searchQuery}
-    onChange={e => setSearchQuery(e.target.value)}
-    className="pl-10 pr-4 py-2 bg-white text-black border border-black rounded-full w-full focus:outline-none focus:ring-2 focus:ring-black"
-    placeholder="Search items..."
-  />
-</div>
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black h-4 w-4" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-10 pr-4 py-2 bg-white text-black border border-black rounded-full w-full focus:outline-none focus:ring-2 focus:ring-black"
+          placeholder="Search items..."
+        />
+      </div>
 
       {/* Tabs */}
       <div className="flex justify-center mb-6 gap-8">
@@ -326,9 +386,8 @@ useEffect(() => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-full font-medium transition ${
-              activeTab === tab ? 'bg-black text-white' : 'bg-white text-black border border-black'
-            }`}
+            className={`px-4 py-2 rounded-full font-medium transition ${activeTab === tab ? 'bg-black text-white' : 'bg-white text-black border border-black'
+              }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -336,68 +395,67 @@ useEffect(() => {
       </div>
 
       {/* Grid */}
-{/* Grid */}
-<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-  {getCurrentData().map(item => (
-    <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
+      {/* Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+        {getCurrentData().map(item => (
+          <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
 
-      <div className="bg-gray-200 w-full h-full rounded-lg overflow-hidden flex flex-col text-xs sm:text-sm">
-        <div className="flex-grow relative">
-<img
-  src={item.image}
-  alt={item.name}
-  onClick={() => setPreviewImage(item.image)}
-  className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
-/>
-    
-          <button
-            onClick={() => {
-              setItemToEdit({ ...item, tab: activeTab });
-              // prefill form fields:
-              setEditedCategory(item.category);
-              setEditedColorHex(item.colorHex || '');
-              setEditedWarmthFactor(item.warmthFactor || 0);
-              setEditedWaterproof(item.waterproof || false);
-              setEditedStyle(item.style || '');
-              setEditedMaterial(item.material || '');
-              setShowEditModal(true);
-            }}
-            className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
-          >
-            <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-          </button>
-          
-          <button
-            onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-            className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-          >
-            <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-          </button>
-        </div>
-        <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
-          <span className="text-gray-700 truncate">{item.name}</span>
-          <button
-            onClick={() =>
-              toggleFavorite(
-                item,
-                activeTab === 'favourites'
-                  ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
-                  : (activeTab as 'items' | 'outfits')
-              )
-            }
-            className="focus:outline-none"
-          >
-            <Heart
-              className={`h-4 w-4 sm:h-5 sm:w-5 ${
-                favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
-              }`}
-            />
-          </button>
-        </div>
+            <div className="bg-gray-200 w-full h-full rounded-lg overflow-hidden flex flex-col text-xs sm:text-sm">
+              <div className="flex-grow relative">
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  onClick={() => setPreviewImage(item.image)}
+                  className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+                />
+
+                <button
+                  onClick={() => {
+                    setItemToEdit({ ...item, tab: activeTab });
+                    // prefill form fields:
+                    setEditedCategory(item.category);
+                    setEditedColorHex(item.colorHex || '');
+                    setEditedWarmthFactor(item.warmthFactor || 0);
+                    setEditedWaterproof(item.waterproof || false);
+                    setEditedStyle(item.style || '');
+                    setEditedMaterial(item.material || '');
+                    setShowEditModal(true);
+                  }}
+                  className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
+                >
+                  <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                </button>
+
+                <button
+                  onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
+                  className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                >
+                  <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+                <span className="text-gray-700 truncate">{item.name}</span>
+                <button
+                  onClick={() =>
+                    toggleFavorite(
+                      item,
+                      activeTab === 'favourites'
+                        ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
+                        : (activeTab as 'items' | 'outfits')
+                    )
+                  }
+                  className="focus:outline-none"
+                >
+                  <Heart
+                    className={`h-4 w-4 sm:h-5 sm:w-5 ${favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
+                      }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
-  ))}
-</div>
 
 
       {/* Modals */}
@@ -465,156 +523,157 @@ useEffect(() => {
         )}
       </AnimatePresence>
 
-<AnimatePresence>
-  {showEditModal && itemToEdit && (
-    <motion.div
-      key="edit-modal"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <motion.div
-        initial={{ scale: 0.8 }}
-        animate={{ scale: 1 }}
-        exit={{ scale: 0.8 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white rounded-2xl p-6 shadow-xl w-80 space-y-4"
-      >
-        <h2 className="text-xl font-semibold">Edit {itemToEdit.name}</h2>
-
-        {/* Layer */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Layer</label>
-          <select
-            value={itemToEdit.layerCategory || ""}
-            onChange={e =>
-              setItemToEdit(prev => prev && { ...prev, layerCategory: e.target.value })
-            }
-            className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+      <AnimatePresence>
+        {showEditModal && itemToEdit && (
+          <motion.div
+            key="edit-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
           >
-            {LAYER_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Category */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Category</label>
-          <select
-            value={editedCategory}
-            onChange={e => setEditedCategory(e.target.value)}
-            className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
-          >
-            <option value="">Select Category</option>
-            {itemToEdit.layerCategory &&
-              CATEGORY_BY_LAYER[itemToEdit.layerCategory].map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))
-            }
-          </select>
-        </div>
-
-        {/* Style & Material */}
-        <div className="flex gap-2">
-          <div className="flex-1 space-y-1">
-            <label className="text-sm font-medium">Style</label>
-            <select
-              value={editedStyle}
-              onChange={e => setEditedStyle(e.target.value)}
-              className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl p-6 shadow-xl w-80 space-y-4"
             >
-              {STYLE_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1 space-y-1">
-            <label className="text-sm font-medium">Material</label>
-            <select
-              value={editedMaterial}
-              onChange={e => setEditedMaterial(e.target.value)}
-              className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
-            >
-              {MATERIAL_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <h2 className="text-xl font-semibold">Edit {itemToEdit.name}</h2>
 
-        {/* Warmth & Waterproof */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">
-            Warmth Factor: <span className="font-semibold">{editedWarmthFactor}</span>
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            step={1}
-            value={editedWarmthFactor}
-            onChange={e => setEditedWarmthFactor(+e.target.value)}
-            className="w-full h-2 bg-gray-200 rounded-lg"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            id="waterproof"
-            type="checkbox"
-            checked={editedWaterproof}
-            onChange={e => setEditedWaterproof(e.target.checked)}
-            className="form-checkbox h-5 w-5 text-teal-600"
-          />
-          <label htmlFor="waterproof" className="text-sm font-medium">Waterproof</label>
-        </div>
+              {/* Layer */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Layer</label>
+                <select
+                  value={itemToEdit.layerCategory || ""}
+                  onChange={e =>
+                    setItemToEdit(prev => prev && { ...prev, layerCategory: e.target.value })
+                  }
+                  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  {LAYER_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
 
-        {/* Color Palette */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Color</label>
-          <div className="flex flex-wrap gap-2">
-            {COLOR_PALETTE.map(c => (
-              <button
-                key={c.hex}
-                title={c.label}
-                type="button"
-                onClick={() => setEditedColorHex(c.hex)}
-                className={`w-7 h-7 rounded-full border-2 transition 
-                  ${editedColorHex === c.hex 
-                    ? "border-teal-500 scale-110 shadow-lg" 
-                    : "border-gray-300"}`}
-                style={{ backgroundColor: c.hex }}
-              />
-            ))}
-          </div>
-        </div>
+              {/* Category */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Category</label>
+                <select
+                  value={editedCategory}
+                  onChange={e => setEditedCategory(e.target.value)}
+                  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <option value="">Select Category</option>
+                  {itemToEdit.layerCategory &&
+                    CATEGORY_BY_LAYER[itemToEdit.layerCategory].map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))
+                  }
+                </select>
+              </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4">
-          <button
-            onClick={() => {
-              setShowEditModal(false);
-              setItemToEdit(null);
-            }}
-            className="px-4 py-2 bg-gray-200 rounded-full hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              if (!itemToEdit) return;
-              // … your PATCH logic here …
-            }}
-            className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
-          >
-            Save
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
+              {/* Style & Material */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <label className="text-sm font-medium">Style</label>
+                  <select
+                    value={editedStyle}
+                    onChange={e => setEditedStyle(e.target.value)}
+                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    {STYLE_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-sm font-medium">Material</label>
+                  <select
+                    value={editedMaterial}
+                    onChange={e => setEditedMaterial(e.target.value)}
+                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    {MATERIAL_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Warmth & Waterproof */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">
+                  Warmth Factor: <span className="font-semibold">{editedWarmthFactor}</span>
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={editedWarmthFactor}
+                  onChange={e => setEditedWarmthFactor(+e.target.value)}
+                  className="w-full h-2 bg-gray-200 rounded-lg"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="waterproof"
+                  type="checkbox"
+                  checked={editedWaterproof}
+                  onChange={e => setEditedWaterproof(e.target.checked)}
+                  className="form-checkbox h-5 w-5 text-teal-600"
+                />
+                <label htmlFor="waterproof" className="text-sm font-medium">Waterproof</label>
+              </div>
+
+              {/* Color Palette */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLOR_PALETTE.map(c => (
+                    <button
+                      key={c.hex}
+                      title={c.label}
+                      type="button"
+                      onClick={() => setEditedColorHex(c.hex)}
+                      className={`w-7 h-7 rounded-full border-2 transition 
+                  ${editedColorHex === c.hex
+                          ? "border-teal-500 scale-110 shadow-lg"
+                          : "border-gray-300"}`}
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setItemToEdit(null);
+                  }}
+                  className="px-4 py-2 bg-gray-200 rounded-full hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  // onClick={async () => {
+                  //   if (!itemToEdit) return;
+                  //   // … your PATCH logic here …
+                  // }}
+                  onClick={handleSaveEdit}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                >
+                  Save
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
 
     </div>
