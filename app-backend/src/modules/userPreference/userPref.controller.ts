@@ -38,6 +38,7 @@ export const getMyPreferences = async (req: AuthenticatedRequest, res: Response)
 export const updatePreferences = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
+
     if (!userId) {
       res.status(401).json({ message: "Unauthorized" });
       return;
