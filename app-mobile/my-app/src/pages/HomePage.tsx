@@ -186,9 +186,18 @@ export default function HomePage() {
 
     setLoadingOutfits(true);
     fetchRecommendedOutfits({ avgTemp, minTemp, maxTemp, willRain, mainCondition })
-    // …
+      .then((recs) => {
+        setOutfits(recs);
+        setOutfitError(null);
+      })
+      .catch((err) => {
+        console.error('Outfit fetch failed', err);
+        setOutfitError('Could not load outfit recommendations.');
+      })
+      .finally(() => {
+        setLoadingOutfits(false);
+      });
   }, [weather]);
-
 
 
   //handle rating logic (save outfit to closet when a user rates it)
