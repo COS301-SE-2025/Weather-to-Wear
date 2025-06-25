@@ -89,6 +89,8 @@ const COLOR_OPTIONS = [
 const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
+  // for a popup
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [layerCategory, setLayerCategory] = useState<string>("");
   const [category, setCategory] = useState<string>("");
@@ -153,52 +155,53 @@ const AddPage: React.FC = () => {
 
 
 
-  const handleDone = async (type: "camera" | "upload") => {
-    const finalImg = type === "camera" ? cameraPreview : uploadPreview;
-    if (!finalImg || !category || !layerCategory) {
-      alert("Please select a layer, category, and take/upload an image.");
-      return;
-    }
+const handleDone = async (type: "camera" | "upload") => {
+  const finalImg = type === "camera" ? cameraPreview : uploadPreview;
+  if (!finalImg || !category || !layerCategory) {
+    alert("Please select a layer, category, and take/upload an image.");
+    return;
+  }
 
-    const blob = await (await fetch(finalImg)).blob();
-    const formData = new FormData();
-    formData.append("image", blob, "upload.png");
-    formData.append("layerCategory", layerCategory);
-    formData.append("category", category);
+  const blob = await (await fetch(finalImg)).blob();
+  const formData = new FormData();
+  formData.append("image", blob, "upload.png");
+  formData.append("layerCategory", layerCategory);
+  formData.append("category", category);
 
-    if (style) formData.append("style", style);
-    if (material) formData.append("material", material);
-    if (warmthFactor !== "") formData.append("warmthFactor", warmthFactor.toString());
-    formData.append("waterproof", waterproof.toString());
-    if (color) formData.append("colorHex", color); // backend accepts colorHex
+  if (style)       formData.append("style", style);
+  if (material)    formData.append("material", material);
+  if (warmthFactor !== "") 
+                    formData.append("warmthFactor", warmthFactor.toString());
+                   formData.append("waterproof", waterproof.toString());
+  if (color)       formData.append("colorHex", color);
 
+  const token = localStorage.getItem("token");
 
-    const token = localStorage.getItem("token");
-
-    try {
-      const response = await fetch(
-        "http://localhost:5001/api/closet/upload",
-        {
-          method: "POST",
-          body: formData,
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
+  try {
+    const response = await fetch(
+      "http://localhost:5001/api/closet/upload",
+      {
+        method: "POST",
+        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
       }
+    );
 
-      const data = await response.json();
-      stream?.getTracks().forEach((t) => t.stop());
-      setImage(finalImg);
-      navigate("/closet");
-    } catch (error) {
-      console.error("Error uploading image:", error);
+    if (!response.ok) {
+      throw new Error("Upload failed");
     }
-  };
+
+    stream?.getTracks().forEach((t) => t.stop());
+    // setImage(finalImg);
+    setShowSuccess(true);
+    // navigate("/closet");
+
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    alert("There was an error uploading your item. Please try again.");
+  }
+};
+
 
   return (
   <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12">
@@ -547,6 +550,25 @@ const AddPage: React.FC = () => {
         )}
       </div>
     </div>
+      {showSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+               Success!
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              Item added successfully.
+            </p>
+            <button
+              onClick={() => navigate("/closet")}
+              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
   </div>
 );
 };
