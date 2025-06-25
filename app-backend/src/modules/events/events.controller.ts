@@ -89,7 +89,6 @@ class EventsController {
 
       // Error handling for not looking too far into future or looking into past
       const fromDate = new Date(dateFrom);
-      const toDate = new Date(dateTo);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -110,9 +109,15 @@ class EventsController {
       }
 
       // use weather api to fetch weather summary
-      const weatherDate = new Date(dateFrom).toISOString().split('T')[0];
-      const weatherData = await getWeatherByDay(location, weatherDate);
-      // const weatherSummary = weatherData.summary.mainCondition; // ! Change
+      const weatherDate = fromDate.toISOString().split('T')[0];
+
+      let weatherData;
+      try {
+        weatherData = await getWeatherByDay(location, weatherDate);
+      } catch (err: any) {
+        res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
+        return;
+      }
       const weatherSummary = weatherData.summary;
 
       const newEvent = await prisma.event.create({
@@ -120,7 +125,7 @@ class EventsController {
           userId: user.id,
           name,
           location,
-          weather: JSON.stringify(weatherSummary), // ! JSON Stringify
+          weather: JSON.stringify(weatherSummary),
           dateFrom: new Date(dateFrom),
           dateTo: new Date(dateTo),
           style: style as Style,
@@ -142,7 +147,6 @@ class EventsController {
     }
   };
 
-
   // PUT update existing event
   updateEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -159,28 +163,6 @@ class EventsController {
       }
 
       const { name, location, dateFrom, dateTo, style } = req.body;
-
-      // Error handling for not looking too far into future or looking into past
-      const fromDate = new Date(dateFrom);
-      const toDate = new Date(dateTo);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // past date
-      if (fromDate < today) {
-        res.status(400).json({ message: 'Event start date cannot be in the past.' });
-        return;
-      }
-
-      // FreeWeatherAPI allows 3 days, OWM 5 days
-      const MAX_FORECAST_DAYS = 3;
-      const maxAllowedDate = new Date(today);
-      maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
-
-      if (fromDate > maxAllowedDate) {
-        res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
-        return;
-      }
 
       const existing = await prisma.event.findUnique({
         where: { id: eventId },
@@ -199,16 +181,39 @@ class EventsController {
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
 
-      // If either location or dateFrom changed, refresh weather
+      // Only check date boundaries if dateFrom is provided (or location is updated, since weather will refresh)
       if (location !== undefined || dateFrom !== undefined) {
         const newLocation = location ?? existing.location;
-        const newDate = dateFrom !== undefined
-          ? new Date(dateFrom).toISOString().split('T')[0]
-          : existing.dateFrom.toISOString().split('T')[0];
+        const newFromDate = dateFrom !== undefined
+          ? new Date(dateFrom)
+          : existing.dateFrom;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const weatherData = await getWeatherByDay(newLocation, newDate);
-        // const weatherSummary = weatherData.summary;
+        // past date
+        if (newFromDate < today) {
+          res.status(400).json({ message: 'Event start date cannot be in the past.' });
+          return;
+        }
 
+        const MAX_FORECAST_DAYS = 3;
+        const maxAllowedDate = new Date(today);
+        maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
+
+        if (newFromDate > maxAllowedDate) {
+          res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
+          return;
+        }
+
+        const weatherDate = newFromDate.toISOString().split('T')[0];
+
+        let weatherData;
+        try {
+          weatherData = await getWeatherByDay(newLocation, weatherDate);
+        } catch (err: any) {
+          res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
+          return;
+        }
         updateData.weather = JSON.stringify(weatherData.summary);
       }
 
