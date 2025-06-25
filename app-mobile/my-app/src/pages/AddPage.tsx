@@ -1,9 +1,6 @@
-// src/pages/AddPage.tsx
-
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useImage } from "../components/ImageContext";
-// import { Camera, Upload } from "lucide-react";
 import { Camera, Upload, Loader } from "lucide-react";
 
 
@@ -12,11 +9,9 @@ const LAYER_OPTIONS = [
   { value: "base_top", label: "Base Top" },
   { value: "base_bottom", label: "Base Bottom" },
   { value: "mid_top", label: "Mid Top" },
-  // { value: "mid_bottom", label: "Mid Bottom" },
   { value: "outerwear", label: "Outerwear" },
   { value: "footwear", label: "Footwear" },
   { value: "headwear", label: "Headwear" },
-  // { value: "accessory", label: "Accessory" },
 ];
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
@@ -34,8 +29,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: "HOODIE", label: "Hoodie" },
   ],
   outerwear: [
-    // { value: "COAT", label: "Coat" },
-    // { value: "BLAZER", label: "Blazer" },
     { value: "JACKET", label: "Jacket" },
     { value: "RAINCOAT", label: "Raincoat" },
   ],
@@ -47,12 +40,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: "BEANIE", label: "Beanie" },
     { value: "HAT", label: "Hat" },
   ],
-  // accessory: [
-  //   { value: "SCARF", label: "Scarf" },
-  //   { value: "GLOVES", label: "Gloves" },
-  //   { value: "UMBRELLA", label: "Umbrella" },
-  // ],
-  // mid_bottom: [],
 };
 
 const STYLE_OPTIONS = [
@@ -75,16 +62,6 @@ const MATERIAL_OPTIONS = [
   { value: "Fleece", label: "Fleece" },
 ];
 
-// const COLOR_OPTIONS = [
-//   { value: "", label: "Select Color" },
-//   { value: "Red", label: "Red" },
-//   { value: "Blue", label: "Blue" },
-//   { value: "Green", label: "Green" },
-//   { value: "Black", label: "Black" },
-//   { value: "White", label: "White" },
-//   { value: "Yellow", label: "Yellow" },
-//   { value: "Grey", label: "Grey" },
-// ];
 const COLOR_PALETTE = [
   { hex: "#E53935", label: "Red" },
   { hex: "#8E24AA", label: "Purple" },
@@ -101,11 +78,9 @@ const COLOR_PALETTE = [
 ];
 
 
-// State hooks
 const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
-  // for a popup
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -160,10 +135,9 @@ const AddPage: React.FC = () => {
     setCameraPreview(canvas.toDataURL());
   };
 
-  // Layer stuff added here 
   const handleLayerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLayerCategory(e.target.value);
-    setCategory(""); // reset category when layer changes
+    setCategory(""); 
   };
 
   const categoryOptions =
@@ -211,9 +185,7 @@ const AddPage: React.FC = () => {
       }
 
       stream?.getTracks().forEach((t) => t.stop());
-      // setImage(finalImg);
       setShowSuccess(true);
-      // navigate("/closet");
 
     } catch (error) {
       console.error("Error uploading image:", error);
