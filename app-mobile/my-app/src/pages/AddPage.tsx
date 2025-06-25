@@ -3,7 +3,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useImage } from "../components/ImageContext";
-import { Camera, Upload } from "lucide-react";
+// import { Camera, Upload } from "lucide-react";
+import { Camera, Upload, Loader } from "lucide-react";
+
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -91,6 +93,7 @@ const AddPage: React.FC = () => {
   const navigate = useNavigate();
   // for a popup
   const [showSuccess, setShowSuccess] = useState(false);
+   const [isLoading, setIsLoading] = useState(false);
 
   const [layerCategory, setLayerCategory] = useState<string>("");
   const [category, setCategory] = useState<string>("");
@@ -108,6 +111,7 @@ const AddPage: React.FC = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  
 
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
@@ -167,6 +171,7 @@ const handleDone = async (type: "camera" | "upload") => {
   formData.append("image", blob, "upload.png");
   formData.append("layerCategory", layerCategory);
   formData.append("category", category);
+  setIsLoading(true); 
 
   if (style)       formData.append("style", style);
   if (material)    formData.append("material", material);
@@ -199,6 +204,8 @@ const handleDone = async (type: "camera" | "upload") => {
   } catch (error) {
     console.error("Error uploading image:", error);
     alert("There was an error uploading your item. Please try again.");
+  }finally{
+    setIsLoading(false);
   }
 };
 
@@ -550,11 +557,18 @@ const handleDone = async (type: "camera" | "upload") => {
         )}
       </div>
     </div>
+
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-40">
+          <Loader className="w-16 h-16 animate-spin text-teal-600" />
+        </div>
+      )}
+
       {showSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
             <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-               Success!
+              🎉 Success! 🎉
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
               Item added successfully.
