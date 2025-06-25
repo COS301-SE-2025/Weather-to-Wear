@@ -72,7 +72,7 @@ export async function recommendOutfits(
         // })),
         outfitItems: outfit.map(item => ({
             closetItemId: item.id,
-            imageUrl: `/images/${item.filename}`,
+            imageUrl: `/uploads/${item.filename}`,
             layerCategory: item.layerCategory,
             category: item.category,
             style: item.style ?? "Casual", // fallback, or assert not null
