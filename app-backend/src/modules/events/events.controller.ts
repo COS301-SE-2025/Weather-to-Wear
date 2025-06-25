@@ -162,7 +162,9 @@ class EventsController {
           : existing.dateFrom.toISOString().split('T')[0];
 
         const weatherData = await getWeatherByDay(newLocation, newDate);
-        updateData.weather = weatherData.summary.mainCondition;
+        //const weatherSummary = weatherData.summary.mainCondition;
+
+        updateData.weather = JSON.stringify(weatherData.summary);
       }
 
       if (Object.keys(updateData).length === 0) {
