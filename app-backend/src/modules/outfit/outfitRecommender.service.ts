@@ -30,7 +30,7 @@ export async function recommendOutfits(
 ): Promise<OutfitRecommendation[]> {
     // fetch closet items for this user
     const closetItems = await prisma.closetItem.findMany({
-        where: { ownerId: userId }
+        where: { ownerId: userId },
     });
 
     // fetch user preferences
@@ -72,6 +72,7 @@ export async function recommendOutfits(
         // })),
         outfitItems: outfit.map(item => ({
             closetItemId: item.id,
+            imageUrl: `/images/${item.filename}`,
             layerCategory: item.layerCategory,
             category: item.category,
             style: item.style ?? "Casual", // fallback, or assert not null

@@ -5,6 +5,7 @@ const API_URL = 'http://localhost:5001/api/outfits';
 
 export interface OutfitItem {
   closetItemId: string;
+  imageUrl: string; 
   layerCategory: string;
   category: string;
   colorHex: string;
@@ -33,6 +34,7 @@ export interface OutfitItemPayload {
   layerCategory: string;
   sortOrder: number;
 }
+
 
 export interface SaveOutfitPayload {
   outfitItems: OutfitItemPayload[];
