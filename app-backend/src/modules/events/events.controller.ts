@@ -87,17 +87,23 @@ class EventsController {
         return;
       }
 
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Midnight for accurate comparison
+
       // use weather api to fetch weather summary
       const weatherDate = new Date(dateFrom).toISOString().split('T')[0];
       const weatherData = await getWeatherByDay(location, weatherDate);
-      const weatherSummary = weatherData.summary.mainCondition;
+      // const weatherSummary = weatherData.summary.mainCondition; // ! Change
+      const weatherSummary = weatherData.summary;
 
       const newEvent = await prisma.event.create({
         data: {
           userId: user.id,
           name,
           location,
-          weather: weatherSummary,
+          weather: JSON.stringify(weatherSummary), // ! JSON Stringify
           dateFrom: new Date(dateFrom),
           dateTo: new Date(dateTo),
           style: style as Style,
@@ -162,7 +168,7 @@ class EventsController {
           : existing.dateFrom.toISOString().split('T')[0];
 
         const weatherData = await getWeatherByDay(newLocation, newDate);
-        //const weatherSummary = weatherData.summary.mainCondition;
+        // const weatherSummary = weatherData.summary;
 
         updateData.weather = JSON.stringify(weatherData.summary);
       }
