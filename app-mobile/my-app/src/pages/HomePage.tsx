@@ -245,7 +245,7 @@ export default function HomePage() {
 
       {/* Hero Background */}
       <div
-        className="w-screen relative flex items-center justify-center h-64 mb-6 z-0"
+        className="w-screen relative flex items-center justify-center h-48 mb-6 -mt-8 z-0 bg-fixed"
         style={{
           backgroundImage: `url(/background.jpg)`,
           backgroundSize: 'cover',
@@ -263,7 +263,7 @@ export default function HomePage() {
 
       {/* Main Sections */}
       {/* Top Content: Typing Slogan + Outfit + Weather */}
-      <div className="flex flex-col gap-12 px-4 md:px-8">
+      <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 justify-between">
 
           {/* Typing Slogan */}
@@ -285,7 +285,7 @@ export default function HomePage() {
 
               {!loadingOutfits && outfits.length === 0 && (
                 <p className="text-center text-gray-500 dark:text-gray-400">
-                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe
+                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe.
                 </p>
               )}
 
@@ -478,17 +478,15 @@ export default function HomePage() {
         </div>
 
         {/* — Events Section — */}
-        <div className="w-full mt-12">
+        <div className="w-full mt-6">
           <div className="max-w-4xl mx-auto px-4">
-            <div className="relative mb-4">
-              {/* Centered title */}
-              <h2 className="text-3xl font-bold text-center">
+            <div className="flex items-center justify-center mb-4 space-x-4">
+              <h2 className="text-4xl font-livvic font-medium">
                 Upcoming Events
               </h2>
-              {/* Add button in the top-right */}
               <button
                 onClick={() => setShowModal(true)}
-                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 rounded-full border hover:bg-gray-100"
+                className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
                 aria-label="Add Event"
               >
                 <Plus className="w-5 h-5" />
@@ -501,17 +499,18 @@ export default function HomePage() {
                   <div
                     key={ev.id}
                     className="
-                      flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36
+                      flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
                       bg-white dark:bg-gray-700 rounded-full shadow-md border 
                       flex flex-col items-center justify-center text-center p-2
                       transition-transform hover:scale-105"
                     onClick={() => {
                       setSelectedEvent(ev);
                       setShowDetailModal(true);
-                      //setDetailLoading(true);
                     }}
                   >
-                    <div className="font-semibold truncate">{ev.name}</div>
+                    <div className="font-semibold truncate">
+                      {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                    </div>
                     <div className="text-xs text-gray-500">
                       {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                       &nbsp;–&nbsp;
@@ -559,187 +558,173 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      {/* Modal: Create New Event */}
-      {
-        showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-md w-full max-w-md border border-black relative">
-              <h2 className="text-xl font-semibold mb-4 dark:text-white">Create New Event</h2>
 
-              <div className="space-y-3">
-                <input
-                  className="w-full p-2 border rounded"
-                  placeholder="Event Name"
-                  value={newEvent.name}
-                  onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
-                />
-                <input
-                  className="w-full p-2 border rounded"
-                  placeholder="Location"
-                  value={newEvent.location}
-                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                />
-                <input
-                  type="datetime-local"
-                  className="w-full p-2 border rounded"
-                  value={newEvent.dateFrom}
-                  onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
-                />
-                <input
-                  type="datetime-local"
-                  className="w-full p-2 border rounded"
-                  value={newEvent.dateTo}
-                  onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
-                />
+      {/* Create New Event Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative flex flex-col max-h-[90vh] overflow-y-auto">
+            {/* Close “×” */}
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowModal(false)}
+            >
+              ×
+            </button>
 
-                <select
-                  className="w-full p-2 border rounded"
-                  value={newEvent.style}
-                  onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
-                >
-                  <option value="">Select a style</option>
-                  <option value="Formal">Formal</option>
-                  <option value="Casual">Casual</option>
-                  <option value="Athletic">Athletic</option>
-                  <option value="Party">Party</option>
-                  <option value="Business">Business</option>
-                  <option value="Outdoor">Outdoor</option>
-                </select>
+            <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
 
-              </div>
+            <div className="space-y-3 flex-grow">
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Event name"
+                value={newEvent.name}
+                onChange={e => setNewEvent({ ...newEvent, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Location"
+                value={newEvent.location}
+                onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateFrom}
+                onChange={e => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateTo}
+                onChange={e => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newEvent.style}
+                onChange={e => setNewEvent({ ...newEvent, style: e.target.value })}
+              >
+                <option value="">Select style</option>
+                <option value="Formal">Formal</option>
+                <option value="Casual">Casual</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
+              </select>
+            </div>
 
-              <div className="flex justify-end mt-4 gap-2">
-                <button
-                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="bg-[#3F978F] text-white px-4 py-2 rounded hover:bg-[#347e77]"
-                  onClick={async () => {
-                    if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
-                      alert('Please fill in the event name, style, and both dates.');
-                      return;
-                    }
-                    try {
-                      const created = await createEvent({
-                        name: newEvent.name,
-                        location: newEvent.location,
-                        style: newEvent.style,
-                        dateFrom: new Date(newEvent.dateFrom).toISOString(),
-                        dateTo: new Date(newEvent.dateTo).toISOString(),
-                      });
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 rounded-full border border-black"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                onClick={async () => {
+                  // Validate
+                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+                    alert('Please fill in name, style, and both dates.');
+                    return;
+                  }
+                  try {
+                    const created = await createEvent({
+                      name: newEvent.name,
+                      location: newEvent.location,
+                      style: newEvent.style,
+                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
+                      dateTo: new Date(newEvent.dateTo).toISOString(),
+                    });
 
-                      setEvents([...events, created]);
-                      setNewEvent({
-                        name: '',
-                        location: '',
-                        dateFrom: '',
-                        dateTo: '',
-                        style: '',
-                      });
-                      setShowModal(false);
 
-                      if (created.weather) {
-                        let summaries: { date: string, summary: any }[] = [];
+                    if (created.weather) {
+                      let days: { date: string; summary: any }[] = [];
+                      try { days = JSON.parse(created.weather); } catch { days = []; }
+                      for (const { date, summary } of days) {
                         try {
-                          summaries = JSON.parse(created.weather);
-                        } catch { summaries = []; }
-                        // For each day in the event, request recommendations
-                        for (const { date, summary } of summaries) {
-                          try {
-                            const outfits = await fetchRecommendedOutfits(summary, created.style, created.id);
-                            console.log(`Outfits for ${date}:`, outfits); // ! For now until images 
-                          } catch (err) {
-                            console.error(`Error fetching outfits for ${date}`, err);
-                          }
+                          await fetchRecommendedOutfits(summary, created.style, created.id);
+                        } catch (err) {
+                          console.error(`Failed to fetch outfits for ${date}`, err);
                         }
                       }
-
-                    } catch (err: any) {
-                      let msg = 'Failed to create event';
-                      if (err.response && err.response.data && err.response.data.message) {
-                        msg = err.response.data.message;
-                      }
-                      console.error('Error creating event:', err);
-                      alert(msg);
                     }
-                  }}
-
-                >
-                  Save
-                </button>
-              </div>
+                    // update state
+                    setEvents(evt => [...evt, created]);
+                    // reset form
+                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+                    setShowModal(false);
+                  } catch (err: any) {
+                    const msg = err.response?.data?.message || 'Failed to create event';
+                    alert(msg);
+                  }
+                }}
+              >
+                Save
+              </button>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {/* Detail Modal */}
+      {/* Detail / Edit Event Modal */}
       {showDetailModal && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg shadow-lg relative">
-            {/* Header + actions */}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold">
-                {isEditing ? 'Edit Event' : selectedEvent.name}
-              </h2>
-              <div className="space-x-2">
-                {!isEditing && (
-                  <>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="px-2 py-1 bg-blue-500 text-white rounded"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!window.confirm('Delete this event?')) return;
-                        await deleteEvent(selectedEvent.id);
-                        setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
-                        setShowDetailModal(false);
-                      }}
-                      className="px-2 py-1 bg-red-500 text-white rounded"
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
-                <button onClick={() => setShowDetailModal(false)}>✕</button>
-              </div>
-            </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
+            {/* Close “×” */}
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowDetailModal(false)}
+            >
+              ×
+            </button>
 
-            {/* EDIT MODE */}
+            {/* Title in sentence case, Livvic font */}
+            <h2 className="text-2xl mb-4 font-livvic">
+              {selectedEvent.name.charAt(0).toUpperCase() +
+                selectedEvent.name.slice(1).toLowerCase()}
+            </h2>
+
+            {/* Body */}
             {isEditing ? (
-              <div className="space-y-3">
+              // EDIT MODE
+              <div className="space-y-3 flex-grow">
                 <input
                   className="w-full p-2 border rounded"
                   value={editEventData.name}
-                  onChange={e => setEditEventData(d => ({ ...d, name: e.target.value }))}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, name: e.target.value }))
+                  }
                 />
                 <input
                   className="w-full p-2 border rounded"
                   value={editEventData.location}
-                  onChange={e => setEditEventData(d => ({ ...d, location: e.target.value }))}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, location: e.target.value }))
+                  }
                 />
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
                   value={editEventData.dateFrom}
-                  onChange={e => setEditEventData(d => ({ ...d, dateFrom: e.target.value }))}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, dateFrom: e.target.value }))
+                  }
                 />
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
                   value={editEventData.dateTo}
-                  onChange={e => setEditEventData(d => ({ ...d, dateTo: e.target.value }))}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, dateTo: e.target.value }))
+                  }
                 />
                 <select
                   className="w-full p-2 border rounded"
                   value={editEventData.style}
-                  onChange={e => setEditEventData(d => ({ ...d, style: e.target.value }))}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, style: e.target.value }))
+                  }
                 >
                   <option value="">Select style</option>
                   <option value="Formal">Formal</option>
@@ -749,11 +734,103 @@ export default function HomePage() {
                   <option value="Business">Business</option>
                   <option value="Outdoor">Outdoor</option>
                 </select>
+              </div>
+            ) : (
+              // READ-ONLY VIEW
+              <div className="flex-grow">
+                {(() => {
+                  const from = new Date(selectedEvent.dateFrom)
+                  const to = new Date(selectedEvent.dateTo)
+                  const sameDay = from.toDateString() === to.toDateString()
 
-                <div className="flex justify-end gap-2">
+                  return (
+                    <p className="text-sm mb-1">
+                      <strong>When:</strong>{' '}
+                      {sameDay ? (
+                        <>
+                          {from.toLocaleDateString()} {' '}
+                          {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </>
+                      ) : (
+                        <>
+                          {from.toLocaleString()} – {to.toLocaleString()}
+                        </>
+                      )}
+                    </p>
+                  )
+                })()}
+
+                <p className="text-sm mb-4">
+                  <strong>Where:</strong> {selectedEvent.location}
+                </p>
+
+                {/* Weather summary */}
+                {selectedEvent.weather && (() => {
+                  let sums: { date: string; summary: any }[] = [];
+                  try {
+                    sums = JSON.parse(selectedEvent.weather);
+                  } catch {
+                    sums = [];
+                  }
+                  if (!sums.length) return null;
+                  return (
+                    <div className="text-sm mb-4 space-y-1">
+                      {sums.map(({ date, summary }) =>
+                        summary ? (
+                          <div key={date}>
+                            <span className="font-medium">{date}:</span>{' '}
+                            {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                          </div>
+                        ) : (
+                          <div key={date}>
+                            <span className="font-medium">{date}:</span>{' '}
+                            <span className="text-red-400">No data</span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Recommended Outfit */}
+                <div className="mt-4">
+                  <h3 className="font-medium mb-2">Recommended Outfit</h3>
+                  {detailLoading && <p>Loading outfit…</p>}
+                  {detailError && <p className="text-red-500">{detailError}</p>}
+                  {detailOutfit && (
+                    <>
+                      <div className="flex flex-wrap justify-center space-x-2 mb-4">
+                        {detailOutfit.outfitItems.map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.layerCategory}
+                            className="w-20 h-20 object-contain rounded"
+                          />
+                        ))}
+                      </div>
+                      {/* Smaller stars */}
+                      <div className="scale-75 origin-top-left">
+                        <StarRating disabled={false} onSelect={() => { }} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="mt-4 flex flex-wrap justify-end space-x-2">
+              {isEditing ? (
+                <>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 bg-gray-300 rounded"
+                    className="px-4 py-2 rounded-full border border-black"
                   >
                     Cancel
                   </button>
@@ -765,33 +842,44 @@ export default function HomePage() {
                         location: editEventData.location,
                         dateFrom: new Date(editEventData.dateFrom).toISOString(),
                         dateTo: new Date(editEventData.dateTo).toISOString(),
-                        style: editEventData.style
+                        style: editEventData.style,
                       });
-                      // patch local state
-                      setEvents(evts => evts.map(e => e.id === updated.id ? updated : e));
+                      setEvents(evts =>
+                        evts.map(e => (e.id === updated.id ? updated : e))
+                      );
                       setSelectedEvent(updated);
+
                       setIsEditing(false);
                     }}
-                    className="px-4 py-2 bg-green-500 text-white rounded"
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
                     Save
                   </button>
-                </div>
-              </div>
-            ) : (
-              /* READ-ONLY VIEW (your existing detail layout) */
-              <>
-                <p className="text-sm mb-1">
-                  <strong>When:</strong>{' '}
-                  {new Date(selectedEvent.dateFrom).toLocaleString()} –{' '}
-                  {new Date(selectedEvent.dateTo).toLocaleString()}
-                </p>
-                <p className="text-sm mb-4">
-                  <strong>Where:</strong> {selectedEvent.location}
-                </p>
-                {/* … your weather summary, recommended outfit, rating, etc. … */}
-              </>
-            )}
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Delete this event?')) return;
+                      await deleteEvent(selectedEvent.id);
+                      setEvents(evts =>
+                        evts.filter(e => e.id !== selectedEvent.id)
+                      );
+                      setShowDetailModal(false);
+                    }}
+                    className="px-4 py-2 rounded-full bg-red-500 text-white"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
