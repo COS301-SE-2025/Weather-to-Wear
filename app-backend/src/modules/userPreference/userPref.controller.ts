@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client"; 
 import { AuthenticatedRequest } from "../auth/auth.middleware";
+import prisma from "../../prisma";
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 export default prisma;
 
 // GET /api/preferences
