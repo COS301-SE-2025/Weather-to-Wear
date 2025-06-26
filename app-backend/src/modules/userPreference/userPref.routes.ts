@@ -1,20 +1,11 @@
 import { Router } from 'express';
-import UserPrefController from '../userPreference/userPref.controller';
+import { getMyPreferences, updatePreferences } from '../userPreference/userPref.controller';
 import { authenticateToken } from '../auth/auth.middleware';
 
 const router = Router();
 
-router.get(
-    '/',
-    authenticateToken,
-    UserPrefController.getUserPref
+router.get('/', authenticateToken, getMyPreferences);
 
-);
-
-router.put(
-    '/',
-    authenticateToken,
-    UserPrefController.updateUserPref
-);
+router.put('/', authenticateToken, updatePreferences);
 
 export default router;
