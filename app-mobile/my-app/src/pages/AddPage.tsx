@@ -125,15 +125,40 @@ const AddPage: React.FC = () => {
     }
   };
 
+  // const capturePhoto = () => {
+  //   if (!stream || !videoRef.current || !canvasRef.current) return;
+  //   const video = videoRef.current;
+  //   const canvas = canvasRef.current;
+  //   canvas.width = video.videoWidth;
+  //   canvas.height = video.videoHeight;
+  //   canvas.getContext("2d")?.drawImage(video, 0, 0);
+  //   setCameraPreview(canvas.toDataURL());
+  // };
+
   const capturePhoto = () => {
-    if (!stream || !videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
-    setCameraPreview(canvas.toDataURL());
-  };
+  if (!stream || !videoRef.current || !canvasRef.current) return;
+  const video = videoRef.current;
+  const canvas = canvasRef.current;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // match canvas size to video
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  // flip horizontally:
+  ctx.save();
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+
+  // draw the (now un-mirrored) frame:
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // restore normal state
+  ctx.restore();
+
+  setCameraPreview(canvas.toDataURL());
+};
 
   const handleLayerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLayerCategory(e.target.value);
@@ -246,6 +271,7 @@ const AddPage: React.FC = () => {
                 muted
                 playsInline
                 className="w-full h-full object-cover"
+                style={{ transform: "scaleX(-1)" }}
               />
             )}
 
