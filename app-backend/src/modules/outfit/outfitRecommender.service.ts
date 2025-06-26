@@ -193,3 +193,6 @@ function scoreOutfit(
 
     return score;
 }
+
+// only exported for tests
+export { partitionClosetByLayer, getRequiredLayers, getCandidateOutfits, scoreOutfit };
