@@ -15,6 +15,19 @@ export const fetchAllItems = () =>
     },
   });
 
+export function toggleFavourite(id: number) {
+  return axios.patch(
+    `${BASE_URL}/${id}/favourite`,
+    {}, // no body
+    {
+      headers: {
+        ...getAuthHeader(),
+      },
+    }
+  );
+}
+
+
 export const fetchByCategory = (category: string) =>
   axios.get(`${BASE_URL}/category/${category}`, {
     headers: {

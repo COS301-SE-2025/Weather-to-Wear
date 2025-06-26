@@ -3,6 +3,7 @@ import { Heart, Search, X, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems } from '../services/closetApi';
 import { deleteItem } from '../services/closetApi';
+import { toggleFavourite as apiToggleFavourite } from '../services/closetApi';
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -127,7 +128,6 @@ const ClosetPage = () => {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<Item & { tab: TabType } | null>(null);
-  // one piece of state per editable field:
   const [editedCategory, setEditedCategory] = useState('');
   const [editedColorHex, setEditedColorHex] = useState('');
   const [editedWarmthFactor, setEditedWarmthFactor] = useState(0);
@@ -136,14 +136,14 @@ const ClosetPage = () => {
   const [editedMaterial, setEditedMaterial] = useState('');
 
 
-  // Fetch items from backend
+
   useEffect(() => {
     const fetchItems = async () => {
       try {
         const res = await fetchAllItems();
         const formattedItems: Item[] = res.data.map((item: any) => ({
           id: item.id,
-          name: item.category, // or item.name if available
+          name: item.category, 
           image: `http://localhost:5001${item.imageUrl}`,
           favorite: false,
           category: item.category,
@@ -159,7 +159,7 @@ const ClosetPage = () => {
   }, []);
 
 
-  // Load favourites from localStorage
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -183,23 +183,45 @@ const ClosetPage = () => {
     }
   }, []);
 
-  const toggleFavorite = (item: Item, tab: 'items' | 'outfits') => {
+
+  const toggleFavorite = async (item: Item, originTab: 'items' | 'outfits') => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const isFav = favourites.some(fav => fav.id === item.id && fav.tab === tab);
-    const updatedFavs = isFav
-      ? favourites.filter(fav => !(fav.id === item.id && fav.tab === tab))
-      : [...favourites, { ...item, favorite: true, tab }];
 
-    setFavourites(updatedFavs);
-    localStorage.setItem(`closet-favs-${token}`, JSON.stringify(updatedFavs));
+    const isFav = favourites.some(f => f.id === item.id && f.tab === originTab);
 
-    const toggleList = (list: Item[], setter: (v: Item[]) => void) =>
-      setter(list.map(el => (el.id === item.id ? { ...el, favorite: !el.favorite } : el)));
+    
+    const nextFavs = isFav
+      ? favourites.filter(f => !(f.id === item.id && f.tab === originTab))
+      : [...favourites, { ...item, favorite: true, tab: originTab }];
 
-    tab === 'items' ? toggleList(items, setItems) : toggleList(outfits, setOutfits);
+    
+    setFavourites(nextFavs);
+    localStorage.setItem(`closet-favs-${token}`, JSON.stringify(nextFavs));
+
+    setItems(prev =>
+      prev.map(i =>
+        i.id === item.id ? { ...i, favorite: !i.favorite } : i
+      )
+    );
+    setOutfits(prev =>
+      prev.map(i =>
+        i.id === item.id ? { ...i, favorite: !i.favorite } : i
+      )
+    );
+
+    try {
+      await apiToggleFavourite(item.id);
+    } catch (err) {
+      console.error('Server toggle failed', err);
+
+      setFavourites(favourites);
+      setItems(items);
+      setOutfits(outfits);
+    }
   };
+
 
   const handleSaveEdit = async () => {
     if (!itemToEdit) return;
@@ -268,33 +290,18 @@ const ClosetPage = () => {
     setShowModal(true);
   };
 
-  // const confirmRemove = () => {
-  //   if (itemToRemove) {
-  //     const { id, tab } = itemToRemove;
-  //     const filterFn = (arr: Item[]) => arr.filter(it => it.id !== id);
-  //     tab === 'items'
-  //       ? setItems(filterFn(items))
-  //       : tab === 'outfits'
-  //       ? setOutfits(filterFn(outfits))
-  //       : setFavourites(filterFn(favourites));
-  //   }
-  //   setShowModal(false);
-  // };
-
   const confirmRemove = async () => {
     if (itemToRemove) {
       const { id, tab } = itemToRemove;
 
       try {
         await deleteItem(id.toString());
-        // only remove from UI if the API call succeeded
         const filterFn = (arr: Item[]) => arr.filter(it => it.id !== id);
         if (tab === 'items') setItems(filterFn(items));
         else if (tab === 'outfits') setOutfits(filterFn(outfits));
         else setFavourites(filterFn(favourites));
       } catch (err) {
         console.error('Failed to delete item:', err);
-        // optionally show an error toast/modal
       }
     }
     setShowModal(false);
@@ -332,7 +339,7 @@ const ClosetPage = () => {
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)', // This centers the full-width element
+          marginLeft: 'calc(-50vw + 50%)', 
           width: '100vw',
           marginTop: '-1rem'
         }}
@@ -341,7 +348,6 @@ const ClosetPage = () => {
           <h1
             className="text-2xl font-bodoni font-light text-center text-white"
             style={{
-              // fontFamily: "'Bodoni Moda', serif",
               textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
             }}
           >
@@ -443,14 +449,23 @@ const ClosetPage = () => {
                     toggleFavorite(
                       item,
                       activeTab === 'favourites'
-                        ? (favourites.find(f => f.id === item.id)?.tab as 'items' | 'outfits')
-                        : (activeTab as 'items' | 'outfits')
+                        ? (favourites.find(f => f.id === item.id)!.tab as 'items' | 'outfits')
+                        : activeTab
                     )
                   }
-                  className="focus:outline-none"
                 >
                   <Heart
-                    className={`h-4 w-4 sm:h-5 sm:w-5 ${favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
+                    onClick={() =>
+                      toggleFavorite(
+                        item,
+                        activeTab === 'favourites'
+                          ? (favourites.find(f => f.id === item.id)!.tab as 'items' | 'outfits')
+                          : activeTab as 'items' | 'outfits'
+                      )
+                    }
+                    className={`h-4 w-4 sm:h-5 sm:w-5 ${favourites.some(f => f.id === item.id)
+                      ? 'fill-red-500 text-red-500'
+                      : 'text-gray-400'
                       }`}
                   />
                 </button>
