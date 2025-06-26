@@ -102,6 +102,9 @@ export default function HomePage() {
   const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  // Style dropdown state
+  const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
 
 
   useEffect(() => {
@@ -117,21 +120,23 @@ export default function HomePage() {
     if (!weather) return;
 
     const { avgTemp, minTemp, maxTemp, willRain, mainCondition } = weather.summary;
-
     setLoadingOutfits(true);
-    fetchRecommendedOutfits({ avgTemp, minTemp, maxTemp, willRain, mainCondition })
-      .then((recs) => {
+
+    fetchRecommendedOutfits(
+      { avgTemp, minTemp, maxTemp, willRain, mainCondition },
+      selectedStyle
+    )
+      .then(recs => {
         setOutfits(recs);
         setOutfitError(null);
       })
-      .catch((err) => {
+      .catch(err => {
         console.error('Outfit fetch failed', err);
         setOutfitError('Could not load outfit recommendations.');
       })
-      .finally(() => {
-        setLoadingOutfits(false);
-      });
-  }, [weather]);
+      .finally(() => setLoadingOutfits(false));
+  }, [weather, selectedStyle]);
+
 
 
   useEffect(() => {
@@ -256,30 +261,57 @@ export default function HomePage() {
               {loadingOutfits && <p>Loading outfits…</p>}
               {outfitError && <p className="text-red-500">{outfitError}</p>}
 
+              {!loadingOutfits && outfits.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400">
+                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe
+                </p>
+              )}
+
+              {/* Style Dropdown */}
+              <div className="mb-4 w-full text-center">
+                <label
+                  htmlFor="style-select"
+                  className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
+                >
+                  Choose Style:
+                </label>
+                <select
+                  id="style-select"
+                  value={selectedStyle}
+                  onChange={e => setSelectedStyle(e.target.value)}
+                  className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                >
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Athletic">Athletic</option>
+                  <option value="Party">Party</option>
+                  <option value="Business">Business</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
+              </div>
+
+
+
+
               {!loadingOutfits && outfits.length > 0 && (
                 <>
                   {/* ← Prev / Next + counter → */}
                   <div className="flex justify-between items-center mb-2 w-full">
                     <button
-                      onClick={() =>
-                        setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)
-                      }
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
+                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
                     >
-                      ‹ Prev
+                      <ChevronLeft className="w-5 h-5 text-white" />
                     </button>
-                    <span className="text-sm">
-                      {currentIndex + 1} / {outfits.length}
-                    </span>
+                    <span className="text-sm">{currentIndex + 1} / {outfits.length}</span>
                     <button
-                      onClick={() =>
-                        setCurrentIndex(i => (i + 1) % outfits.length)
-                      }
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
+                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
                     >
-                      Next ›
+                      <ChevronRight className="w-5 h-5 text-white" />
                     </button>
                   </div>
+
 
                   <div className="mb-4 space-y-2">
                     {/* Row 1: headwear + accessory (collapsed if none) */}
@@ -371,6 +403,8 @@ export default function HomePage() {
                         ))}
                     </div>
                   </div>
+
+
 
                   <StarRating disabled={saving} onSelect={handleSaveRating} />
                 </>
@@ -507,7 +541,7 @@ export default function HomePage() {
       {
         showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-lg border border-black relative">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-md w-full max-w-md border border-black relative">
               <h2 className="text-xl font-semibold mb-4 dark:text-white">Create New Event</h2>
 
               <div className="space-y-3">
