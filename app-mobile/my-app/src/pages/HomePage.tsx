@@ -254,7 +254,7 @@ export default function HomePage() {
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
-          <h1 className="text-2xl font-light text-white text-center">
+          <h1 className="text-2xl font-bodoni font-light text-center text-white">
             {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
           </h1>
         </div>
