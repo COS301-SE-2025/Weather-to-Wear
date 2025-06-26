@@ -77,6 +77,23 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
+const COLOR_PALETTE = [
+  { hex: "#E53935", label: "Red" },
+  { hex: "#8E24AA", label: "Purple" },
+  { hex: "#3949AB", label: "Blue" },
+  { hex: "#00897B", label: "Teal" },
+  { hex: "#43A047", label: "Green" },
+  { hex: "#FDD835", label: "Yellow" },
+  { hex: "#F4511E", label: "Orange" },
+  { hex: "#6D4C41", label: "Brown" },
+  { hex: "#757575", label: "Grey" },
+  { hex: "#FFFFFF", label: "White" },
+  { hex: "#000000", label: "Black" },
+  { hex: "#FFFDD0", label: "Cream" },
+  // more colours to be added
+];
+
+
 
 const AddPage: React.FC = () => {
   const { setImage } = useImage();
@@ -360,6 +377,34 @@ const AddPage: React.FC = () => {
               </div>
 
 
+              {/* Color */}
+              {/* <select
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+              >
+                {COLOR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select> */}
+              <div className="flex flex-wrap gap-1 w-1/2">
+                {COLOR_PALETTE.map(({ hex, label }) => (
+                  <button
+                    key={hex}
+                    title={label}
+                    type="button"
+                    className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition
+                      ${color === hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}
+                    `}
+                    style={{ backgroundColor: hex }}
+                    onClick={() => setColor(hex)}
+                  />
+                ))}
+              </div>
+            </div>
+
               <div className="flex gap-4 w-full max-w-xs items-center">
                 {/* Waterproof */}
                 <div className="flex items-center gap-2 w-1/2">
@@ -456,13 +501,21 @@ const AddPage: React.FC = () => {
             )}
           </div>
 
+
           {uploadPreview && (
             <div className="mt-6 flex flex-wrap justify-center gap-4 w-full">
               {/* Layer Category Dropdown */}
-              <select
+<!--               <select
                 value={layerCategory}
                 onChange={handleLayerChange}
                 className="border border-black dark:border-gray-600 rounded-full px-5 py-3 text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-400 dark:focus:ring-teal-500 transition w-full max-w-xs"
+ -->
+              {/* Color */}
+              {/* <select
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-1/2 border border-black dark:border-gray-600 rounded-full px-4 py-3 text-sm text-black dark:text-gray-200 bg-white dark:bg-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 dark:focus:ring-teal-500 transition"
+
               >
                 {LAYER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -483,7 +536,25 @@ const AddPage: React.FC = () => {
                     {opt.label}
                   </option>
                 ))}
+
               </select>
+
+              </select> */}
+              <div className="flex flex-wrap gap-1 w-1/2">
+                {COLOR_PALETTE.map(({ hex, label }) => (
+                  <button
+                    key={hex}
+                    title={label}
+                    type="button"
+                    className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition
+                      ${color === hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}
+                    `}
+                    style={{ backgroundColor: hex }}
+                    onClick={() => setColor(hex)}
+                  />
+                ))}
+              </div>
+            </div>
 
               <div className="flex gap-4 w-full max-w-xs">
                 {/* Style */}

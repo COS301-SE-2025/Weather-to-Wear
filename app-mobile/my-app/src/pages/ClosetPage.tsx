@@ -1,9 +1,13 @@
+// src/pages/ClosetPage.tsx
 import { useState, useEffect } from 'react';
 import { Heart, Search, X, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchAllItems } from '../services/closetApi';
+
+<!-- import { fetchAllItems } from '../services/closetApi'; -->
 import { deleteItem } from '../services/closetApi';
 import { toggleFavourite as apiToggleFavourite } from '../services/closetApi';
+import { fetchAllItems, deleteItem } from '../services/closetApi';
+import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -78,10 +82,15 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
-
+interface ClosetApiItem {
+  id: string;
+  category: string;
+  layerCategory: string;
+  imageUrl: string;
+}
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   image: string;
   favorite: boolean;
@@ -97,31 +106,67 @@ type Item = {
   tab?: 'items' | 'outfits' | 'favourites';
 };
 
-
 type TabType = 'items' | 'outfits' | 'favourites';
 
-// Mock data for outfits
-const mockOutfits: Item[] = [
-  { id: 3, name: 'Party Look', image: '/images/image3.jpg', favorite: false, category: 'Party' },
-  { id: 4, name: 'Casual Look', image: '/images/image4.jpg', favorite: false, category: 'Casual' },
-  { id: 5, name: 'Sporty Look', image: '/images/image5.jpg', favorite: false, category: 'Sporty' },
-  { id: 6, name: 'Party Look', image: '/images/image6.jpg', favorite: false, category: 'Party' },
+const LAYER_OPTIONS = [
+  { value: '', label: 'All Layers' },
+  { value: 'base_top',   label: 'Base Top' },
+  { value: 'base_bottom',label: 'Base Bottom' },
+  { value: 'mid_top',    label: 'Mid Top' },
+  { value: 'mid_bottom', label: 'Mid Bottom' },  // ← added!
+  { value: 'outerwear',  label: 'Outerwear' },
+  { value: 'footwear',   label: 'Footwear' },
+  { value: 'headwear',   label: 'Headwear' },
+  { value: 'accessory',  label: 'Accessory' },
 ];
 
-// Start with an empty favourites array; items will be added dynamically
-const mockFavourites: Item[] = [];
-
-const ClosetPage = () => {
 
 
+
+const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
+  base_top: [
+    { value: 'TSHIRT', label: 'T-shirt' },
+    { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+  ],
+  base_bottom: [
+    { value: 'PANTS', label: 'Pants' },
+    { value: 'JEANS', label: 'Jeans' },
+    { value: 'SHORTS', label: 'Shorts' },
+  ],
+  mid_top: [
+    { value: 'SWEATER', label: 'Sweater' },
+    { value: 'HOODIE', label: 'Hoodie' },
+  ],
+  outerwear: [
+    { value: 'JACKET', label: 'Jacket' },
+    { value: 'RAINCOAT', label: 'Raincoat' },
+    // etc.
+  ],
+  footwear: [
+    { value: 'SHOES', label: 'Shoes' },
+    { value: 'BOOTS', label: 'Boots' },
+  ],
+  headwear: [
+    { value: 'BEANIE', label: 'Beanie' },
+    { value: 'HAT', label: 'Hat' },
+  ],
+  accessory: [
+    { value: 'SCARF', label: 'Scarf' },
+    { value: 'GLOVES', label: 'Gloves' },
+  ],
+};
+
+
+export default function ClosetPage() {
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
-  const [outfits, setOutfits] = useState<Item[]>(mockOutfits);
+  const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [favourites, setFavourites] = useState<Item[]>([]);
+  const [layerFilter, setLayerFilter] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [itemToRemove, setItemToRemove] = useState<{ id: number; tab: TabType; name: string } | null>(null);
+  const [itemToRemove, setItemToRemove] = useState<{ id: string; tab: TabType; name: string } | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [showEditSuccess, setShowEditSuccess] = useState(false);
@@ -159,10 +204,50 @@ const ClosetPage = () => {
   }, []);
 
 
+  // helper to prefix local uploads
+  const prefixed = (url: string) =>
+    url.startsWith('http') ? url : `http://localhost:5001${url}`;
+
+  // Fetch closet items
+  useEffect(() => {
+    fetchAllItems()
+      .then(res => {
+        setItems(
+          res.data.map((i: ClosetApiItem) => ({
+            id: i.id,
+            name: i.category,
+            image: prefixed(i.imageUrl),
+            favorite: false,
+            category: i.category,
+            layerCategory: i.layerCategory,
+            tab: 'items',
+          }))
+        );
+      })
+      .catch(console.error);
+  }, []);
+    
+  // Fetch saved outfits
+  useEffect(() => {
+    fetchAllOutfits()
+      .then(setOutfits)
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
+    const stored = localStorage.getItem(`closet-favs-${token}`);
+    if (!stored) return;
+    const favs: Item[] = JSON.parse(stored);
+    setFavourites(favs);
+    const markFavs = (list: Item[]) =>
+      list.map(x => ({
+        ...x,
+        favorite: favs.some(f => f.id === x.id && f.tab === x.tab),
+      }));
+    setItems(markFavs(items));
+  }, [items]);
 
     const storedFavs = localStorage.getItem(`closet-favs-${token}`);
     if (storedFavs) {
@@ -307,26 +392,73 @@ const ClosetPage = () => {
     setShowModal(false);
   };
 
-  const cancelRemove = () => {
+<!--   // Toggle favourite
+  function toggleFavorite(item: Item, tab: 'items' | 'outfits') {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const isFav = favourites.some(f => f.id === item.id && f.tab === tab);
+    const updated = isFav
+      ? favourites.filter(f => !(f.id === item.id && f.tab === tab))
+      : [...favourites, { ...item, favorite: true, tab }];
+    setFavourites(updated);
+    localStorage.setItem(`closet-favs-${token}`, JSON.stringify(updated));
+    if (tab === 'items') {
+      setItems(items.map(i => (i.id === item.id ? { ...i, favorite: !i.favorite } : i)));
+    }
+  }
+
+  // Delete confirm
+  function handleRemoveClick(id: string, tab: TabType, name: string) {
+    setItemToRemove({ id, tab, name });
+    setShowModal(true);
+  }
+  async function confirmRemove() {
+    if (!itemToRemove) return;
+    try {
+      await deleteItem(itemToRemove.id);
+      if (itemToRemove.tab === 'items') {
+        setItems(items.filter(i => i.id !== itemToRemove.id));
+      } else {
+        setOutfits(outfits.filter(o => o.id !== itemToRemove.id));
+      }
+    } catch (err) {
+      console.error(err);
+    }
     setShowModal(false);
-    setItemToRemove(null);
-  };
+  } -->
+<!--   const cancelRemove = () => setShowModal(false); -->
 
-  const getCurrentData = () => {
-    const data = activeTab === 'items' ? items : activeTab === 'outfits' ? outfits : favourites;
-    return data.filter(
-      item =>
-        (!activeCategory || item.category === activeCategory) &&
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
+  // Filter & search
+  function getCurrentData() {
+    let data: any[] =
+      activeTab === 'items'
+        ? items
+        : activeTab === 'favourites'
+          ? favourites
+          : outfits;
 
-  const getTabCategories = () =>
-    Array.from(
-      new Set(
-        (activeTab === 'items' ? items : activeTab === 'outfits' ? outfits : favourites).map(i => i.category)
-      )
-    );
+    
+    if (activeCategory) {
+      data = data.filter(i => i.category === activeCategory);
+    }
+    // Search by name
+    if (searchQuery && activeTab !== 'outfits') {
+      data = data.filter(i =>
+        i.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    return data;
+  }
+
+  // Build list of categories for the active layer
+  const categoryOptions = layerFilter
+    ? CATEGORY_BY_LAYER[layerFilter] || []
+    : [];
+
+  // Tab bar categories lowercased except first letter
+  const titleCase = (s: string) =>
+    s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
 
   return (
 
@@ -360,7 +492,7 @@ const ClosetPage = () => {
       </div>
 
 
-      {/* Category Filters */}
+<!--       {/* Category Filters */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
         {['All', ...getTabCategories()].map((category, index) => {
           const isActive = activeCategory === category || (category === 'All' && activeCategory === null);
@@ -375,35 +507,82 @@ const ClosetPage = () => {
             </button>
           );
         })}
-      </div>
+      </div> -->
 
       {/* Search Bar */}
-      <div className="relative mb-6">
+<!--       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black h-4 w-4" />
         <input
           type="search"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="pl-10 pr-4 py-2 bg-white text-black border border-black rounded-full w-full focus:outline-none focus:ring-2 focus:ring-black"
-          placeholder="Search items..."
+          placeholder="Search items..." -->
+
+    <div className="max-w-screen-sm mx-auto px-4 pb-12">
+      {/* Filters & Search */}
+      {/* Layer → Category Filters */}
+      <div className="flex flex-wrap justify-center gap-4 my-4">
+        {/* Layer Selector */}
+        <select
+          value={layerFilter}
+          onChange={e => {
+            setLayerFilter(e.target.value);
+            setActiveCategory(null);
+          }}
+          className="px-4 py-2 border rounded-full"
+        >
+          {LAYER_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Category Selector (only if a layer is chosen) */}
+        <select
+          value={activeCategory || ''}
+          onChange={e => setActiveCategory(e.target.value || null)}
+          disabled={!layerFilter}
+          className="px-4 py-2 border rounded-full disabled:opacity-50"
+        >
+          <option value="">All Categories</option>
+          {categoryOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+
+
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" />
+        <input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search..."
+          className="pl-10 pr-4 py-2 w-full border rounded-full"
+
         />
       </div>
 
       {/* Tabs */}
-      <div className="flex justify-center mb-6 gap-8">
-        {(['items', 'outfits', 'favourites'] as TabType[]).map(tab => (
+      <div className="flex justify-center gap-6 mb-6">
+        {(['items', 'outfits', 'favourites'] as TabType[]).map(t => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-full font-medium transition ${activeTab === tab ? 'bg-black text-white' : 'bg-white text-black border border-black'
+
               }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
-
-      {/* Grid */}
+      
       {/* Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
         {getCurrentData().map(item => (
@@ -472,38 +651,103 @@ const ClosetPage = () => {
             </div>
           </div>
         ))}
+      
+
+        {activeTab !== 'outfits'
+          ? getCurrentData().map(item => (
+            <div key={item.id} className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
+              <img
+                src={item.image}
+                alt={item.name}
+                onClick={() => setPreviewImage(item.image)}
+                className="w-full h-full object-contain p-2"
+              />
+              <button
+                onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
+                className="absolute top-2 right-2 bg-white p-1 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <button onClick={() => toggleFavorite(item, activeTab as any)} className="absolute bottom-2 right-2">
+                <Heart
+                  className={`w-5 h-5 ${item.favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'
+                    }`}
+                />
+              </button>
+            </div>
+          ))
+          : (getCurrentData() as RecommendedOutfit[]).map(o => (
+            <div key={o.id} className="border rounded-lg p-2 bg-white">
+              <div className="space-y-1">
+                {/* headwear + accessory */}
+                <div
+                  className={`flex justify-center space-x-1 ${o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                    ? ''
+                    : 'hidden'
+                    }`}
+                >
+                  {o.outfitItems
+                    .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                </div>
+                {/* tops */}
+                <div className="flex justify-center space-x-1">
+                  {o.outfitItems
+                    .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                </div>
+                {/* bottoms */}
+                <div className="flex justify-center space-x-1">
+                  {o.outfitItems
+                    .filter(it => it.layerCategory === 'base_bottom')
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                </div>
+                {/* footwear */}
+                <div className="flex justify-center space-x-1">
+                  {o.outfitItems
+                    .filter(it => it.layerCategory === 'footwear')
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-14 h-14 object-contain rounded"
+                      />
+                    ))}
+                </div>
+              </div>
+            </div>
+          ))}
       </div>
 
-
-      {/* Modals */}
+      {/* Remove Confirmation */}
       <AnimatePresence>
         {showModal && itemToRemove && (
-          <motion.div
-            key="modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white rounded-lg p-6 shadow-lg w-80"
-            >
-              <h2 className="text-lg font-semibold mb-4">Remove {itemToRemove.name}?</h2>
+          <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <motion.div className="bg-white p-6 rounded-lg">
+              <p className="mb-4">Remove “{itemToRemove.name}”?</p>
               <div className="flex justify-end gap-2">
-                <button
-                  onClick={cancelRemove}
-                  className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
-                >
+                <button onClick={cancelRemove} className="px-4 py-2 bg-gray-200 rounded">
                   Cancel
                 </button>
-                <button
-                  onClick={confirmRemove}
-                  className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
-                >
+                <button onClick={confirmRemove} className="px-4 py-2 bg-red-500 text-white rounded">
                   Remove
                 </button>
               </div>
@@ -512,30 +756,17 @@ const ClosetPage = () => {
         )}
       </AnimatePresence>
 
+      {/* Preview Overlay */}
       <AnimatePresence>
         {previewImage && (
-          <motion.div
-            key="overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              transition={{ duration: 0.3 }}
-              className="relative"
+          <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
+            <motion.img src={previewImage} className="max-w-3/4 max-h-3/4 object-contain" />
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 text-white bg-gray-800 p-2 rounded-full"
             >
-              <motion.img src={previewImage} alt="Preview" className="w-4/5 h-4/5 object-contain" />
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="absolute top-2 right-2 text-white bg-gray-800 bg-opacity-50 rounded-full p-1"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </motion.div>
+              <X className="w-6 h-6" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -713,6 +944,4 @@ const ClosetPage = () => {
     </div>
 
   );
-};
-
-export default ClosetPage;
+}

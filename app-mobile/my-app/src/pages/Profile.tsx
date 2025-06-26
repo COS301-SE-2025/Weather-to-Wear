@@ -86,7 +86,7 @@ const Profile = () => {
       </div>
 
       {/* Profile Card */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-2xl">
         <div className="text-center p-6">
           <div className="relative mx-auto w-32 h-32 mb-4">
             <div className="w-32 h-32 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 flex items-center justify-center text-2xl font-medium">
@@ -129,7 +129,7 @@ const Profile = () => {
                       id="name"
                       value={userInfo.name}
                       onChange={(e) => handleInputChange("name", e.target.value)}
-                      className="mt-1 w-full p-2 rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="mt-1 w-full p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                   ) : (
                     <p className="mt-1 text-gray-900 dark:text-gray-100">

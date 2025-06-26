@@ -16,6 +16,7 @@ export interface RecommendOutfitsRequest {
 
 export interface OutfitItemRecommendation {
   closetItemId: string;
+  imageUrl: string; // URL to the item's image
   layerCategory: string;
   category: string;
   style?: string;

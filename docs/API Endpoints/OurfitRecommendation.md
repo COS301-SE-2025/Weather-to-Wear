@@ -60,9 +60,9 @@ Returns an array of up to 5 recommended outfits, each with scoring and weather i
 [
   {
     "outfitItems": [
-      { "closetItemId": "item1", "layerCategory": "base_top", "category": "TSHIRT", "colorHex": "#222222", "style": "Casual" },
-      { "closetItemId": "item2", "layerCategory": "base_bottom", "category": "JEANS", "colorHex": "#224488", "style": "Casual" },
-      { "closetItemId": "item3", "layerCategory": "footwear", "category": "SHOES", "colorHex": "#333333", "style": "Casual" }
+      { "closetItemId": "item1", "imageUrl" : "/uploads/1750787131874-411620469.png", "layerCategory": "base_top", "category": "TSHIRT", "style": "Casual", "colorHex": "#222222", "warmthFactor": 5, "waterproof": false},
+      { "closetItemId": "item2", "imageUrl" : "/uploads/1750787131874-411620468.png", "layerCategory": "base_bottom", "category": "JEANS", "style": "Casual", "colorHex": "#224488",  "warmthFactor": 5, "waterproof": false},
+      { "closetItemId": "item3", "imageUrl" : "/uploads/1750787131874-411620467.png", "layerCategory": "footwear", "category": "SHOES", "style": "Casual", "colorHex": "#333333", "warmthFactor": 5, "waterproof": false}
     ],
     "overallStyle": "Casual",
     "score": 9.3,

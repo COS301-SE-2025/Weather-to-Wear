@@ -1,63 +1,74 @@
-import { Request, Response, NextFunction } from 'express';
-import { PrismaClient, UserPreference } from '@prisma/client';
-import { AuthenticatedRequest } from '../auth/auth.middleware';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client"; 
+import { AuthenticatedRequest } from "../auth/auth.middleware";
 
-export const prisma = new PrismaClient();
+const prisma = new PrismaClient();
+export default prisma;
 
-class UserPref {
-  // GET /api/preferences
-  getUserPref = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { user } = req as AuthenticatedRequest;
-    if (!user) {
-      res.status(401).json({ message: 'Unauthorized: User not authenticated' });
+// GET /api/preferences
+export const getMyPreferences = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
       return;
     }
-    try {
-      const preferences = await prisma.userPreference.findUnique({
-        where: { userId: user.id },
-      });
 
-      if (!preferences) {
-        res.status(404).json({ message: 'User preferences not found.' });
-        return;
-      }
+    const preference = await prisma.userPreference.findUnique({
+      where: { userId },
+    });
 
-      res.status(200).json(preferences);
-    } catch (err) {
-      next(err);
-    }
-  };
-
-  // PUT /api/preferences
-  updateUserPref = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { user } = req as AuthenticatedRequest;
-    if (!user) {
-      res.status(401).json({ message: 'Unauthorized: User not authenticated' });
+    if (!preference) {
+      res.status(404).json({ message: "Preferences not found" });
       return;
     }
+
+    res.status(200).json({
+      style: preference.style,
+      preferredColours: preference.preferredColours,
+      learningWeight: preference.learningWeight,
+    });
+  } catch (error) {
+    console.error("Error fetching preferences:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// PUT /api/preferences
+export const updatePreferences = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     const { style, preferredColours, learningWeight } = req.body;
 
-    try {
-      const updatedPreferences: UserPreference = await prisma.userPreference.upsert({
-        where: { userId: user.id },
-        update: {
-          style,
-          preferredColours,
-          learningWeight,
-        },
-        create: {
-          userId: user.id,
-          style,
-          preferredColours,
-          learningWeight,
-        },
-      });
-
-      res.status(200).json(updatedPreferences);
-    } catch (err) {
-      next(err);
+    if (!style || !preferredColours || !Array.isArray(preferredColours)) {
+      res.status(400).json({ message: "Invalid request body" });
+      return;
     }
-  };
-}
 
-export default new UserPref();
+    if (preferredColours.length === 0 || preferredColours.length > 5) {
+      res.status(400).json({ message: "Preferred colours must be between 1 and 5" });
+      return;
+    }
+
+    const updatedPreference = await prisma.userPreference.upsert({
+      where: { userId },
+      update: { style, preferredColours, learningWeight },
+      create: { userId, style, preferredColours, learningWeight },
+    });
+
+    res.status(200).json({
+      style: updatedPreference.style,
+      preferredColours: updatedPreference.preferredColours,
+      learningWeight: updatedPreference.learningWeight,
+    });
+  } catch (error) {
+    console.error("Error updating preferences:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

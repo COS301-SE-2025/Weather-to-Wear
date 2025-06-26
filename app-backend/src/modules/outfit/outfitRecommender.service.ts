@@ -30,7 +30,7 @@ export async function recommendOutfits(
 ): Promise<OutfitRecommendation[]> {
     // fetch closet items for this user
     const closetItems = await prisma.closetItem.findMany({
-        where: { ownerId: userId }
+        where: { ownerId: userId },
     });
 
     // fetch user preferences
@@ -61,14 +61,24 @@ export async function recommendOutfits(
         : [];
 
     const scored = rawCandidates.map(outfit => ({
+        // outfitItems: outfit.map(item => ({
+        //     closetItemId: item.id,
+        //     layerCategory: item.layerCategory,
+        //     category: item.category,
+        //     style: item.style,
+        //     colorHex: item.colorHex,
+        //     warmthFactor: item.warmthFactor,
+        //     waterproof: item.waterproof,
+        // })),
         outfitItems: outfit.map(item => ({
             closetItemId: item.id,
+            imageUrl: `/uploads/${item.filename}`,
             layerCategory: item.layerCategory,
             category: item.category,
-            style: item.style,
-            colorHex: item.colorHex,
-            warmthFactor: item.warmthFactor,
-            waterproof: item.waterproof,
+            style: item.style ?? "Casual", // fallback, or assert not null
+            colorHex: item.colorHex ?? "#000000", // fallback, or a generic color
+            warmthFactor: item.warmthFactor ?? 5, // fallback to mid value
+            waterproof: item.waterproof ?? false, // fallback to false
         })),
         overallStyle: style,
         score: scoreOutfit(outfit, preferredColors),
@@ -82,7 +92,7 @@ export async function recommendOutfits(
     scored.sort((a, b) => b.score - a.score);
 
     // 5. For now, return an empty array as a placeholder
-    return [];
+    return scored.slice(0, 5);
 }
 
 // Partition closet items 

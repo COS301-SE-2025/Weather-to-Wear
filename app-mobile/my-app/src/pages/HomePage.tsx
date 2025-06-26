@@ -1,16 +1,16 @@
 // src/pages/HomePage.tsx
 
 import { useState, useEffect } from 'react';
-import { Sun, CloudSun, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
-import { fetchAllItems } from '../services/closetApi';
 import { useNavigate } from 'react-router-dom';
-import { fetchAllEvents } from '../services/eventsApi';
-
-
+import { fetchAllEvents, createEvent, updateEvent, deleteEvent } from '../services/eventsApi';
+import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
+import StarRating from '../components/StarRating';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type Item = {
   id: number;
@@ -23,50 +23,12 @@ type Item = {
 
 type Event = {
   id: string;
-  title: string;
-  date: string;
-  location: string;
-  style?: string;
   name: string;
-};
-
-const StarRating = () => {
-  const [rating, setRating] = useState(0);
-  const [hover, setHover] = useState(0);
-
-  return (
-    <div className="w-full grid grid-cols-5 gap-1 mt-4 mb-8 px-2">
-      {[...Array(5)].map((_, index) => {
-        const starValue = index + 1;
-        return (
-          <button
-            key={index}
-            type="button"
-            className="flex justify-center items-center"
-            onClick={() => setRating(starValue)}
-            onMouseEnter={() => setHover(starValue)}
-            onMouseLeave={() => setHover(0)}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="0.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`w-10 h-10 transition-transform duration-200 ease-in-out ${starValue <= (hover || rating)
-                ? 'text-[#3F978F] fill-[#3F978F]'
-                : 'text-none fill-black'
-                } ${starValue <= hover ? 'transform scale-110' : ''}`}
-            >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          </button>
-        );
-      })}
-    </div>
-  );
+  location: string;
+  dateFrom: string;
+  dateTo: string;
+  style?: string;
+  weather?: string;
 };
 
 const TypingSlogan = () => {
@@ -117,102 +79,173 @@ const TypingSlogan = () => {
 };
 
 export default function HomePage() {
-  const [items, setItems] = useState<Item[]>([]);
+
   const { weather, setCity } = useWeather();
+  // user
   const [username, setUsername] = useState<string | null>(null);
-  const [missingCategories, setMissingCategories] = useState<string[]>([]);
 
+  // events
   const [events, setEvents] = useState<Event[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+
+  // outfits
+  const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadingOutfits, setLoadingOutfits] = useState(false);
+  const [outfitError, setOutfitError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  // Style dropdown state
+  const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editEventData, setEditEventData] = useState({
+    id: '',
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: ''
+  });
+
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const stored = localStorage.getItem('user');
+    if (stored) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        setUsername(parsedUser.name);
-      } catch (error) {
-        console.error('Failed to parse user from localStorage', error);
-      }
+        setUsername(JSON.parse(stored).name);
+      } catch { }
     }
-
-    const fetchOutfitItems = async () => {
-      try {
-        const res = await fetchAllItems();
-
-        const shirt = res.data.find((item: Item) => item.category === 'SHIRT');
-        const pants = res.data.find((item: Item) => item.category === 'PANTS');
-        const shoes = res.data.find((item: Item) => item.category === 'SHOES');
-
-        const selectedItems = [shirt, pants, shoes].filter(Boolean);
-        const missing = [];
-        if (!shirt) missing.push('SHIRT');
-        if (!pants) missing.push('PANTS');
-        if (!shoes) missing.push('SHOES');
-
-        setMissingCategories(missing);
-
-        setItems(
-          selectedItems.map((item) => ({
-            id: item.id,
-            name: item.name || item.category,
-            image: `http://localhost:5001${item.imageUrl}`,
-            favorite: false,
-            category: item.category,
-          }))
-        );
-      } catch (error) {
-        console.error('Error fetching outfit items:', error);
-      }
-    };
-
-    fetchOutfitItems();
   }, []);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const eventsData = await fetchAllEvents();
-        setEvents(eventsData);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-        // Fallback to mock data if API fails
-        setEvents([
-          {
-            id: '1',
-            title: '21st Birthday',
-            date: '21 May',
-            location: 'New York',
-            style: 'CASUAL',
-            name: 'John bday'
-          },
-          {
-            id: '2',
-            title: 'Work Meeting',
-            date: '3 June',
-            location: 'Office',
-            style: 'FORMAL',
-            name: 'Jane bday'
-          },
-          {
-            id: '3',
-            title: "Diya's Birthday",
-            date: '4 November',
-            location: 'Restaurant',
-            style: 'SEMI_FORMAL',
-            name: 'Diya bday'
-          }
-        ]);
-      }
+    if (!weather) return;
+
+    const { avgTemp, minTemp, maxTemp, willRain, mainCondition } = weather.summary;
+    setLoadingOutfits(true);
+
+    fetchRecommendedOutfits(
+      { avgTemp, minTemp, maxTemp, willRain, mainCondition },
+      selectedStyle
+    )
+      .then(recs => {
+        setOutfits(recs);
+        setOutfitError(null);
+      })
+      .catch(err => {
+        console.error('Outfit fetch failed', err);
+        setOutfitError('Could not load outfit recommendations.');
+      })
+      .finally(() => setLoadingOutfits(false));
+  }, [weather, selectedStyle]);
+
+
+
+  useEffect(() => {
+    fetchAllEvents()
+      .then(fetched => {
+        setEvents(fetched);
+      })
+      .catch(err => {
+        console.error('Error loading events on mount:', err);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    // parse the stored weather array, take the first day
+    let days: { date: string; summary: any }[] = [];
+    try {
+      days = selectedEvent.weather ? JSON.parse(selectedEvent.weather) : [];
+    } catch { days = []; }
+    const today = days[0]?.summary;
+    if (!today) return;
+
+    setDetailLoading(true);
+    fetchRecommendedOutfits(
+      {
+        avgTemp: today.avgTemp,
+        minTemp: today.minTemp,
+        maxTemp: today.maxTemp,
+        willRain: today.willRain,
+        mainCondition: today.mainCondition,
+      },
+      selectedEvent.style!,
+      selectedEvent.id
+    )
+      .then(recs => {
+        setDetailOutfit(recs[0] ?? null);
+        setDetailError(null);
+      })
+      .catch(() => {
+        setDetailError('Could not load outfit recommendation.');
+      })
+      .finally(() => {
+        setDetailLoading(false);
+      });
+  }, [selectedEvent]);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    setIsEditing(false);
+    setEditEventData({
+      id: selectedEvent.id,
+      name: selectedEvent.name,
+      location: selectedEvent.location,
+      dateFrom: selectedEvent.dateFrom.slice(0, 16),
+      dateTo: selectedEvent.dateTo.slice(0, 16),
+      style: selectedEvent.style || ''
+    });
+  }, [selectedEvent]);
+
+
+
+  //handle rating logic (save outfit to closet when a user rates it)
+  const handleSaveRating = async (rating: number) => {
+    const outfit = outfits[currentIndex];
+    if (!outfit) return;
+
+    const payload = {
+      outfitItems: outfit.outfitItems.map((i) => ({
+        closetItemId: i.closetItemId,
+        layerCategory: i.layerCategory,
+        sortOrder: 0,
+      })),
+      warmthRating: outfit.warmthRating,
+      waterproof: outfit.waterproof,
+      overallStyle: outfit.overallStyle,
+      weatherSummary: JSON.stringify({
+        temperature: outfit.weatherSummary.avgTemp,
+        condition: outfit.weatherSummary.mainCondition,
+      }),
+      userRating: rating,
     };
 
-    fetchEvents();
-  }, []);
+    setSaving(true);
+    try {
+      await createOutfit(payload);
+      // advance to the next outfit
+      setCurrentIndex((i) => Math.min(i + 1, outfits.length - 1));
+    } catch (err) {
+      console.error('Save failed', err);
+      alert('Failed to save your rating.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
+
       {/* Hero Background */}
       <div
-        className="w-screen relative flex items-center justify-center h-64 mb-6 z-0"
+        className="w-screen relative flex items-center justify-center h-48 mb-6 -mt-8 z-0 bg-fixed"
         style={{
           backgroundImage: `url(/background.jpg)`,
           backgroundSize: 'cover',
@@ -221,10 +254,7 @@ export default function HomePage() {
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-light text-white text-center"
-            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
-          >
+          <h1 className="text-2xl font-light text-white text-center">
             {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
           </h1>
         </div>
@@ -232,196 +262,287 @@ export default function HomePage() {
       </div>
 
       {/* Main Sections */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-8 mt-24 md:mt-28 z-10">
-        {/* Weather Section */}
-        <div className="w-full lg:w-1/3 flex flex-col items-center mb-8">
-          <div className="w-full max-w-[280px]">
-            <div className="h-[5rem] w-full flex items-end">
-              <TypingSlogan />
-            </div>
-            <div className="flex flex-col gap-4">
-              {weather && (
+      {/* Top Content: Typing Slogan + Outfit + Weather */}
+      <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
+        <div className="flex flex-col lg:flex-row gap-8 justify-between">
+
+          {/* Typing Slogan */}
+          <div className="flex-1 flex flex-col items-start justify-center">
+            <TypingSlogan />
+          </div>
+
+          {/* Outfit Section */}
+          <div className="flex-1 flex flex-col items-center">
+            <div className="w-full max-w-[350px]">
+              <div className="flex justify-center mb-4">
+                <h1 className="text-xl border-2 border-black px-3 py-1">
+                  OUTFIT OF THE DAY
+                </h1>
+              </div>
+
+              {loadingOutfits && <p>Loading outfits…</p>}
+              {outfitError && <p className="text-red-500">{outfitError}</p>}
+
+              {!loadingOutfits && outfits.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400">
+                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe.
+                </p>
+              )}
+
+              {/* Style Dropdown */}
+              <div className="mb-4 w-full text-center">
+                <label
+                  htmlFor="style-select"
+                  className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
+                >
+                  Choose Style:
+                </label>
+                <select
+                  id="style-select"
+                  value={selectedStyle}
+                  onChange={e => setSelectedStyle(e.target.value)}
+                  className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                >
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Athletic">Athletic</option>
+                  <option value="Party">Party</option>
+                  <option value="Business">Business</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
+              </div>
+
+
+
+
+              {!loadingOutfits && outfits.length > 0 && (
                 <>
-                  <WeatherDisplay weather={weather} setCity={setCity} />
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Select City"
-                      className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setCity((e.target as HTMLInputElement).value.trim());
-                        }
-                      }}
-                    />
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  {/* ← Prev / Next + counter → */}
+                  <div className="flex justify-between items-center mb-2 w-full">
+                    <button
+                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
+                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                      <ChevronLeft className="w-5 h-5 text-white" />
+                    </button>
+                    <span className="text-sm">{currentIndex + 1} / {outfits.length}</span>
+                    <button
+                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
+                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
+                    >
+                      <ChevronRight className="w-5 h-5 text-white" />
+                    </button>
                   </div>
 
-                  <HourlyForecast forecast={weather.forecast} />
+
+                  <div className="mb-4 space-y-2">
+                    {/* Row 1: headwear + accessory (collapsed if none) */}
+                    <div
+                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                        i =>
+                          i.layerCategory === 'headwear' ||
+                          i.layerCategory === 'accessory'
+                      )
+                        ? 'h-auto'
+                        : 'h-0 overflow-hidden'
+                        }`}
+                    >
+                      {outfits[currentIndex].outfitItems
+                        .filter(
+                          i =>
+                            i.layerCategory === 'headwear' ||
+                            i.layerCategory === 'accessory'
+                        )
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-32 h-32 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+                    {/* Row 2: base_top, mid_top, outerwear */}
+                    <div className="flex justify-center space-x-2">
+                      {outfits[currentIndex].outfitItems
+                        .filter(
+                          i =>
+                            i.layerCategory === 'base_top' ||
+                            i.layerCategory === 'mid_top' ||
+                            i.layerCategory === 'outerwear'
+                        )
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-32 h-32 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+
+                    {/* Row 3: base_bottom */}
+                    <div className="flex justify-center space-x-2">
+                      {outfits[currentIndex].outfitItems
+                        .filter(i => i.layerCategory === 'base_bottom')
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-32 h-32 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+
+                    {/* Row 4: footwear */}
+                    <div className="flex justify-center space-x-2">
+                      {outfits[currentIndex].outfitItems
+                        .filter(i => i.layerCategory === 'footwear')
+                        .map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.category}
+                            className="w-28 h-28 object-contain rounded-2xl"
+                          />
+                        ))}
+                    </div>
+                  </div>
+
+
+
+                  <StarRating disabled={saving} onSelect={handleSaveRating} />
                 </>
               )}
             </div>
           </div>
-        </div>
-
-        {/* Outfit Section */}
-        <div className="w-full lg:w-1/3 flex flex-col items-center lg:-mt-28">
-          <div className="w-full max-w-[350px]">
-            <div className="flex justify-center">
-              <div className="inline-block py-1 px-3 border-2 border-black dark:border-gray-600">
-                <h1 className="text-xl text-black dark:text-gray-100 text-center">
-                  OUTFIT OF THE DAY
-                </h1>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-4">
-              {items.length > 0 ? (
-                items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`bg-white-200 dark:bg-gray-800 rounded-3xl overflow-hidden flex items-center justify-center ${item.category === 'SHOES'
-                      ? 'aspect-[3/3] max-h-[60px]'
-                      : item.category === 'SHIRT'
-                        ? 'aspect-[3/4] max-h-[160px]'
-                        : 'aspect-[3/4] max-h-[200px]'
-                      }`}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="max-w-full max-h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src = '/placeholder-outfit.jpg';
-                        e.currentTarget.alt = 'Outfit placeholder';
-                      }}
-                    />
-                  </div>
-                ))
-              ) : (
-                <img
-                  src="/placeholder-outfit.jpg"
-                  alt="Outfit placeholder"
-                  className="w-full h-full object-cover"
-                />
-              )}
-
-              {missingCategories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => (window.location.href = '/add')}
-                  className="bg-[#3F978F] text-white py-2 px-4 rounded-xl border border-black hover:bg-[#347e77] transition"
-                >
-                  No {category.toLowerCase()} found — add more to wardrobe
-                </button>
-              ))}
-            </div>
-
-            <StarRating />
-          </div>
-        </div>
-
-        {/* Events Section */}
-        {/* Events Section */}
-        <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-20">
-          <div className="relative w-full max-w-[280px]">
-            {/* Teal shadow arch */}
-            <div
-              className="absolute rounded-tl-full rounded-tr-full h-full pointer-events-none bg-[#3F978F]"
-              style={{
-                left: '5%',
-                right: '-5%',
-                bottom: '0',
-                zIndex: 0,
-                position: 'absolute',
-              }}
-            ></div>
-
-            {/* Main arch */}
-            <div
-              className="absolute inset-0 rounded-tl-full rounded-tr-full h-full pointer-events-none bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600"
-              style={{
-                top: '-4%',
-                left: '0',
-                zIndex: 10,
-                position: 'absolute',
-              }}
-            ></div>
-
-            {/* Content */}
-            <div className="relative z-10 pt-10 pb-6 px-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl md:text-3xl lg:text-4xl font-regular dark:text-gray-100">
-                  Upcoming Events
-                </h2>
-
-              </div>
-
-              <div className="space-y-2 md:space-y-3">
-                {events.length > 0 ?
-                  (
-                    events.slice(0, 5).map((event, idx) => (
-                      <div key={event.id}>
-                        {idx !== 0 && <hr className="border-black dark:border-gray-600" />}
-                        <div className="flex justify-between text-sm md:text-base py-1 md:py-2">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-black dark:text-gray-100">
-                              {event.date}
-
-                            </span>
-                            <span className="text-xs text-gray-500">{event.location}</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-[#3F978F] dark:text-[#5ed0c3]">
-                              {event.name}
-                            </p>
-                            <span
-                              className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${event.style === 'FORMAL'
-                                ? 'bg-blue-100 text-blue-800'
-                                : event.style === 'SEMI_FORMAL'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-green-100 text-green-800'
-                                }`}
-                            >
-                              {event.style?.replace('_', ' ') || 'CASUAL'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-
-                  )
 
 
-                  : (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500">No upcoming events</p>
-                      <button
-                        onClick={() => {/* Add navigation to create event */ }}
-                        className="mt-2 bg-[#3F978F] text-white py-1 px-3 rounded-lg text-sm hover:bg-[#347e77] transition"
+          {/* Weather Section */}
+          <div className="flex-1 flex flex-col items-center">
+            <div className="w-full max-w-[280px]">
+              <div className="flex flex-col gap-4">
+                {weather && (
+                  <>
+                    <WeatherDisplay weather={weather} setCity={setCity} />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Select City"
+                        className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setCity((e.target as HTMLInputElement).value.trim());
+                          }
+                        }}
+                      />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
-                        Add Your First Event
-                      </button>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
                     </div>
-                  )}
+
+                    <HourlyForecast forecast={weather.forecast} />
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
+
+        {/* — Events Section — */}
+        <div className="w-full mt-6">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex items-center justify-center mb-4 space-x-4">
+              <h2 className="text-4xl font-livvic font-medium">
+                Upcoming Events
+              </h2>
+              <button
+                onClick={() => setShowModal(true)}
+                className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+                aria-label="Add Event"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            {events.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-6 overflow-x-auto py-2">
+                {events.map(ev => (
+                  <div
+                    key={ev.id}
+                    className="
+                      flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
+                      bg-white dark:bg-gray-700 rounded-full shadow-md border 
+                      flex flex-col items-center justify-center text-center p-2
+                      transition-transform hover:scale-105"
+                    onClick={() => {
+                      setSelectedEvent(ev);
+                      setShowDetailModal(true);
+                    }}
+                  >
+                    <div className="font-semibold truncate">
+                      {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      &nbsp;–&nbsp;
+                      {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <div className="
+              mt-1 text-[10px] px-2 py-1 rounded-full
+              bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200
+            ">
+                      {ev.style}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No upcoming events</p>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="bg-[#3F978F] text-white px-4 py-2 rounded-lg hover:bg-[#347e77] transition"
+                >
+                  Add Your First Event
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+
+
       </div>
+
 
       {/* Bottom Banner */}
       <div
@@ -437,7 +558,334 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
+
+      {/* Create New Event Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative flex flex-col max-h-[90vh] overflow-y-auto">
+            {/* Close “×” */}
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowModal(false)}
+            >
+              ×
+            </button>
+
+            <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
+
+            <div className="space-y-3 flex-grow">
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Event name"
+                value={newEvent.name}
+                onChange={e => setNewEvent({ ...newEvent, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Location"
+                value={newEvent.location}
+                onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateFrom}
+                onChange={e => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateTo}
+                onChange={e => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newEvent.style}
+                onChange={e => setNewEvent({ ...newEvent, style: e.target.value })}
+              >
+                <option value="">Select style</option>
+                <option value="Formal">Formal</option>
+                <option value="Casual">Casual</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
+              </select>
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 rounded-full border border-black"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                onClick={async () => {
+                  // Validate
+                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+                    alert('Please fill in name, style, and both dates.');
+                    return;
+                  }
+                  try {
+                    const created = await createEvent({
+                      name: newEvent.name,
+                      location: newEvent.location,
+                      style: newEvent.style,
+                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
+                      dateTo: new Date(newEvent.dateTo).toISOString(),
+                    });
+
+
+                    if (created.weather) {
+                      let days: { date: string; summary: any }[] = [];
+                      try { days = JSON.parse(created.weather); } catch { days = []; }
+                      for (const { date, summary } of days) {
+                        try {
+                          await fetchRecommendedOutfits(summary, created.style, created.id);
+                        } catch (err) {
+                          console.error(`Failed to fetch outfits for ${date}`, err);
+                        }
+                      }
+                    }
+                    // update state
+                    setEvents(evt => [...evt, created]);
+                    // reset form
+                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+                    setShowModal(false);
+                  } catch (err: any) {
+                    const msg = err.response?.data?.message || 'Failed to create event';
+                    alert(msg);
+                  }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail / Edit Event Modal */}
+      {showDetailModal && selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
+            {/* Close “×” */}
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowDetailModal(false)}
+            >
+              ×
+            </button>
+
+            {/* Title in sentence case, Livvic font */}
+            <h2 className="text-2xl mb-4 font-livvic">
+              {selectedEvent.name.charAt(0).toUpperCase() +
+                selectedEvent.name.slice(1).toLowerCase()}
+            </h2>
+
+            {/* Body */}
+            {isEditing ? (
+              // EDIT MODE
+              <div className="space-y-3 flex-grow">
+                <input
+                  className="w-full p-2 border rounded"
+                  value={editEventData.name}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, name: e.target.value }))
+                  }
+                />
+                <input
+                  className="w-full p-2 border rounded"
+                  value={editEventData.location}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, location: e.target.value }))
+                  }
+                />
+                <input
+                  type="datetime-local"
+                  className="w-full p-2 border rounded"
+                  value={editEventData.dateFrom}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, dateFrom: e.target.value }))
+                  }
+                />
+                <input
+                  type="datetime-local"
+                  className="w-full p-2 border rounded"
+                  value={editEventData.dateTo}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, dateTo: e.target.value }))
+                  }
+                />
+                <select
+                  className="w-full p-2 border rounded"
+                  value={editEventData.style}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, style: e.target.value }))
+                  }
+                >
+                  <option value="">Select style</option>
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Athletic">Athletic</option>
+                  <option value="Party">Party</option>
+                  <option value="Business">Business</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
+              </div>
+            ) : (
+              // READ-ONLY VIEW
+              <div className="flex-grow">
+                {(() => {
+                  const from = new Date(selectedEvent.dateFrom)
+                  const to = new Date(selectedEvent.dateTo)
+                  const sameDay = from.toDateString() === to.toDateString()
+
+                  return (
+                    <p className="text-sm mb-1">
+                      <strong>When:</strong>{' '}
+                      {sameDay ? (
+                        <>
+                          {from.toLocaleDateString()} {' '}
+                          {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </>
+                      ) : (
+                        <>
+                          {from.toLocaleString()} – {to.toLocaleString()}
+                        </>
+                      )}
+                    </p>
+                  )
+                })()}
+
+                <p className="text-sm mb-4">
+                  <strong>Where:</strong> {selectedEvent.location}
+                </p>
+
+                {/* Weather summary */}
+                {selectedEvent.weather && (() => {
+                  let sums: { date: string; summary: any }[] = [];
+                  try {
+                    sums = JSON.parse(selectedEvent.weather);
+                  } catch {
+                    sums = [];
+                  }
+                  if (!sums.length) return null;
+                  return (
+                    <div className="text-sm mb-4 space-y-1">
+                      {sums.map(({ date, summary }) =>
+                        summary ? (
+                          <div key={date}>
+                            <span className="font-medium">{date}:</span>{' '}
+                            {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                          </div>
+                        ) : (
+                          <div key={date}>
+                            <span className="font-medium">{date}:</span>{' '}
+                            <span className="text-red-400">No data</span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Recommended Outfit */}
+                <div className="mt-4">
+                  <h3 className="font-medium mb-2">Recommended Outfit</h3>
+                  {detailLoading && <p>Loading outfit…</p>}
+                  {detailError && <p className="text-red-500">{detailError}</p>}
+                  {detailOutfit && (
+                    <>
+                      <div className="flex flex-wrap justify-center space-x-2 mb-4">
+                        {detailOutfit.outfitItems.map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.layerCategory}
+                            className="w-20 h-20 object-contain rounded"
+                          />
+                        ))}
+                      </div>
+                      {/* Smaller stars */}
+                      <div className="scale-75 origin-top-left">
+                        <StarRating disabled={false} onSelect={() => { }} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="mt-4 flex flex-wrap justify-end space-x-2">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 rounded-full border border-black"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const updated = await updateEvent({
+                        id: editEventData.id,
+                        name: editEventData.name,
+                        location: editEventData.location,
+                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
+                        dateTo: new Date(editEventData.dateTo).toISOString(),
+                        style: editEventData.style,
+                      });
+                      setEvents(evts =>
+                        evts.map(e => (e.id === updated.id ? updated : e))
+                      );
+                      setSelectedEvent(updated);
+
+                      setIsEditing(false);
+                    }}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Delete this event?')) return;
+                      await deleteEvent(selectedEvent.id);
+                      setEvents(evts =>
+                        evts.filter(e => e.id !== selectedEvent.id)
+                      );
+                      setShowDetailModal(false);
+                    }}
+                    className="px-4 py-2 rounded-full bg-red-500 text-white"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
       <Footer />
-    </div>
+    </div >
   );
 }
