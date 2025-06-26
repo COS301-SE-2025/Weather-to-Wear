@@ -225,7 +225,7 @@ const AddPage: React.FC = () => {
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12">
       {/* Header */}
       <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
+        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 mb-6"
         style={{
           backgroundImage: `url(/background.jpg)`,
           backgroundSize: 'cover',
