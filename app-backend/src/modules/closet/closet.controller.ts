@@ -71,6 +71,7 @@ class ClosetController {
           waterproof: i.waterproof,
           style: i.style,
           material: i.material,
+          favourite: i.favourite,
         }))
       );
 
@@ -152,6 +153,7 @@ class ClosetController {
           waterproof:i.waterproof,
           style: i.style,
           material: i.material,
+          favourite: i.favourite,
         }))
       );
     } catch (err) {
