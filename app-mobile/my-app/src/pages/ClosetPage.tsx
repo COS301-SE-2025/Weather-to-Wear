@@ -443,7 +443,6 @@ const ClosetPage = () => {
                 </button>
               </div>
               <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
-                <span className="text-gray-700 truncate">{item.name}</span>
                 <button
                   onClick={() =>
                     toggleFavorite(
@@ -711,9 +710,7 @@ const ClosetPage = () => {
         </div>
       )}
 
-
     </div>
-
 
   );
 };
