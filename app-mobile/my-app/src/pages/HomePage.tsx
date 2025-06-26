@@ -97,6 +97,13 @@ export default function HomePage() {
   const [outfitError, setOutfitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
@@ -136,6 +143,41 @@ export default function HomePage() {
         console.error('Error loading events on mount:', err);
       });
   }, []);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    // parse the stored weather array, take the first day
+    let days: { date: string; summary: any }[] = [];
+    try {
+      days = selectedEvent.weather ? JSON.parse(selectedEvent.weather) : [];
+    } catch { days = []; }
+    const today = days[0]?.summary;
+    if (!today) return;
+
+    setDetailLoading(true);
+    fetchRecommendedOutfits(
+      {
+        avgTemp: today.avgTemp,
+        minTemp: today.minTemp,
+        maxTemp: today.maxTemp,
+        willRain: today.willRain,
+        mainCondition: today.mainCondition,
+      },
+      selectedEvent.style!,
+      selectedEvent.id
+    )
+      .then(recs => {
+        setDetailOutfit(recs[0] ?? null);
+        setDetailError(null);
+      })
+      .catch(() => {
+        setDetailError('Could not load outfit recommendation.');
+      })
+      .finally(() => {
+        setDetailLoading(false);
+      });
+  }, [selectedEvent]);
+
 
   //handle rating logic (save outfit to closet when a user rates it)
   const handleSaveRating = async (rating: number) => {
@@ -403,11 +445,15 @@ export default function HomePage() {
                   <div
                     key={ev.id}
                     className="
-              flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36
-              bg-white dark:bg-gray-700 rounded-full shadow-md border 
-              flex flex-col items-center justify-center text-center p-2
-              transition-transform hover:scale-105
-            "
+                      flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36
+                      bg-white dark:bg-gray-700 rounded-full shadow-md border 
+                      flex flex-col items-center justify-center text-center p-2
+                      transition-transform hover:scale-105"
+                    onClick={() => {
+                      setSelectedEvent(ev);
+                      setShowDetailModal(true);
+                      //setDetailLoading(true);
+                    }}
                   >
                     <div className="font-semibold truncate">{ev.name}</div>
                     <div className="text-xs text-gray-500">
@@ -573,6 +619,88 @@ export default function HomePage() {
           </div>
         )
       }
+
+      {showDetailModal && selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg shadow-lg relative">
+            <button
+              className="absolute top-3 right-3 text-gray-600 hover:text-gray-900"
+              onClick={() => setShowDetailModal(false)}
+            >
+              ✕
+            </button>
+
+            <h2 className="text-2xl font-semibold mb-2">{selectedEvent.name}</h2>
+            <p className="text-sm mb-1">
+              <strong>When:</strong>{' '}
+              {new Date(selectedEvent.dateFrom).toLocaleString()} –{' '}
+              {new Date(selectedEvent.dateTo).toLocaleString()}
+            </p>
+            <p className="text-sm mb-4">
+              <strong>Where:</strong> {selectedEvent.location}
+            </p>
+
+            {/* weather days */}
+            {/* weather days */}
+            {selectedEvent.weather && (() => {
+              let summaries: { date: string; summary: any }[] = [];
+              try {
+                summaries = JSON.parse(selectedEvent.weather);
+              } catch {
+                summaries = [];
+              }
+
+              if (summaries.length > 0) {
+                return (
+                  <div className="text-sm mb-4 space-y-1">
+                    {summaries.map(({ date, summary }) =>
+                      summary ? (
+                        <div key={date}>
+                          <span className="font-medium">{date}:</span>{' '}
+                          {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                        </div>
+                      ) : (
+                        <div key={date}>
+                          <span className="font-medium">{date}:</span>{' '}
+                          <span className="text-red-400">No data</span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+
+            {/* outfit for day 1 */}
+            <div className="mt-4">
+              <h3 className="font-medium mb-2">Recommended Outfit</h3>
+              {detailLoading && <p>Loading outfit…</p>}
+              {detailError && <p className="text-red-500">{detailError}</p>}
+              {detailOutfit && (
+                <>
+                  <div className="flex space-x-2 mb-2">
+                    {detailOutfit.outfitItems.map(item => (
+                      <img
+                        key={item.closetItemId}
+                        src={
+                          item.imageUrl.startsWith('http')
+                            ? item.imageUrl
+                            : `http://localhost:5001${item.imageUrl}`
+                        }
+                        alt={item.layerCategory}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                  </div>
+                  <StarRating disabled={false} onSelect={() => { /* optionally save */ }} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
 
 
