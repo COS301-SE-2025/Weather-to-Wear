@@ -46,4 +46,11 @@ router.patch(
   closetController.updateItem
 );
 
+router.patch(
+  '/:id/favourite',
+  authenticateToken,
+  closetController.toggleFavourite
+);
+
+
 export default router;

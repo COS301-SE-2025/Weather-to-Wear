@@ -154,6 +154,22 @@ async deleteImage(id: string, ownerId: string): Promise<void> {
       data
     });
   }
+
+    async toggleFavourite(id: string, ownerId: string): Promise<ClosetItem> {
+    const existing = await this.prisma.closetItem.findFirst({
+      where: { id, ownerId },
+    });
+    if (!existing) {
+      throw new Error('Item not found');
+    }
+    return this.prisma.closetItem.update({
+      where: { id },
+      data: { favourite: !existing.favourite },
+    });
+  }
+
 }
+
+
 
 export default new ClosetService();

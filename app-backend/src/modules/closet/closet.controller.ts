@@ -227,6 +227,30 @@ class ClosetController {
       next(err);
     }
   };
+
+  toggleFavourite = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const id = req.params.id;
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const updated = await ClosetService.toggleFavourite(id, user.id);
+      res.status(200).json({
+        id: updated.id,
+        favourite: updated.favourite,
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
 }
 
 export default new ClosetController();
