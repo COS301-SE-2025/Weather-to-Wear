@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import OutfitController from '../src/modules/outfit/outfit.controller'; // adjust path if needed
+import OutfitController from '../../src/modules/outfit/outfit.controller'; 
 import { LayerCategory } from '@prisma/client';
-import { getItemsForOutfit, addItemToOutfit, removeItemFromOutfit } from '../src/modules/outfit/outfit.service'; // adjust if needed
+import { getItemsForOutfit, addItemToOutfit, removeItemFromOutfit } from '../../src/modules/outfit/outfit.service'; 
 
-jest.mock('../src/modules/outfit/outfit.service', () => ({
+jest.mock('../../src/modules/outfit/outfit.service', () => ({
   getItemsForOutfit: jest.fn(),
   addItemToOutfit: jest.fn(),
   removeItemFromOutfit: jest.fn(),

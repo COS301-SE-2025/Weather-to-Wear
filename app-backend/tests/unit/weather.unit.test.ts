@@ -1,5 +1,5 @@
 import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { getWeatherByLocation, __weatherCache, getWeatherByDay  } from '../src/modules/weather/weather.service';
+import { getWeatherByLocation, __weatherCache, getWeatherByDay  } from '../../src/modules/weather/weather.service';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;

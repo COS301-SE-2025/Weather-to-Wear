@@ -3,10 +3,10 @@
 import { PrismaClient } from '@prisma/client';
 // import { execSync } from 'child_process';
 
-import { registerUser, loginUser, removeUser } from '../src/modules/auth/auth.service';
-import { hashPassword } from '../src/modules/auth/auth.utils';
-import * as utils from '../src/modules/auth/auth.utils';
-import { authenticateToken, signupPasswordValidation } from '../src/modules/auth/auth.middleware';
+import { registerUser, loginUser, removeUser } from '../../src/modules/auth/auth.service';
+import { hashPassword } from '../../src/modules/auth/auth.utils';
+import * as utils from '../../src/modules/auth/auth.utils';
+import { authenticateToken, signupPasswordValidation } from '../../src/modules/auth/auth.middleware';
 
 import jwt from 'jsonwebtoken';
 import { Request } from 'express';

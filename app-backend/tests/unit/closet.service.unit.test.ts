@@ -1,4 +1,4 @@
-import closetService from '../src/modules/closet/closet.service';
+import closetService from '../../src/modules/closet/closet.service';
 import path from 'path';
 import fs from 'fs';
 

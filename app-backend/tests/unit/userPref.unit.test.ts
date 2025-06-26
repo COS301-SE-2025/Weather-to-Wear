@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { getMyPreferences, updatePreferences } from '../src/modules/userPreference/userPref.controller';
-import { AuthenticatedRequest } from '../src/modules/auth/auth.middleware';
+import { getMyPreferences, updatePreferences } from '../../src/modules/userPreference/userPref.controller';
+import { AuthenticatedRequest } from '../../src/modules/auth/auth.middleware';
 
 // Mock Prisma
 type MockedPrismaUserPreference = {

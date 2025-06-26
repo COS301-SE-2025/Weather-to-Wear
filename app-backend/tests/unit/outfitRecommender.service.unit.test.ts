@@ -1,4 +1,4 @@
-import * as recommender from '../src/modules/outfit/outfitRecommender.service';
+import * as recommender from '../../src/modules/outfit/outfitRecommender.service';
 import { Style, LayerCategory, Category } from '@prisma/client';
 
 const dummyItem = (id: string, layer: LayerCategory) => ({

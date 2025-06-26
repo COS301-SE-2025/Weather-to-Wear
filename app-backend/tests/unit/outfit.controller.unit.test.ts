@@ -29,17 +29,17 @@ jest.mock('@prisma/client', () => {
 });
 
 // Service
-import * as service from '../src/modules/outfit/outfit.service';
+import * as service from '../../src/modules/outfit/outfit.service';
 import { PrismaClient } from '@prisma/client';
 
 // Controller 
-import OutfitController from '../src/modules/outfit/outfit.controller';
+import OutfitController from '../../src/modules/outfit/outfit.controller';
 import { Request, Response, NextFunction } from 'express';
 import { OverallStyle, LayerCategory } from '@prisma/client';
 
 // Recommender 
-import * as recommender from '../src/modules/outfit/outfitRecommender.service';
-jest.mock('../src/modules/outfit/outfitRecommender.service');
+import * as recommender from '../../src/modules/outfit/outfitRecommender.service';
+jest.mock('../../src/modules/outfit/outfitRecommender.service');
 
 
 const prisma = new PrismaClient() as any;
@@ -65,7 +65,7 @@ beforeEach(() => {
 
 
 // ---------- Controller ------------
-jest.mock('../src/modules/outfit/outfit.service');
+jest.mock('../../src/modules/outfit/outfit.service');
 
 describe('Outfit Controller Edge/Branch Tests', () => {
   //       ----   Create   ----

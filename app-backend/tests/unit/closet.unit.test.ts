@@ -4,12 +4,12 @@ import request from 'supertest';
 import path from 'path';
 import jwt from 'jsonwebtoken';
 
-import { upload } from '../src/middleware/upload.middleware';
-import service from '../src/modules/closet/closet.service';
-import controller from '../src/modules/closet/closet.controller';
-import closetRoutes from '../src/modules/closet/closet.route';
+import { upload } from '../../src/middleware/upload.middleware';
+import service from '../../src/modules/closet/closet.service';
+import controller from '../../src/modules/closet/closet.controller';
+import closetRoutes from '../../src/modules/closet/closet.route';
 
-import type { AuthenticatedRequest } from '../src/modules/auth/auth.middleware';
+import type { AuthenticatedRequest } from '../../src/modules/auth/auth.middleware';
 
 const TEST_USER = { id: 'test-user-id', email: 'test@test.com' };
 const TEST_TOKEN = jwt.sign(TEST_USER, process.env.JWT_SECRET || 'defaultsecret');

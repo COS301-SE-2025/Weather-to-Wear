@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import EventsController from '../src/modules/events/events.controller';
+import EventsController from '../../src/modules/events/events.controller';
 import { Request, Response, NextFunction } from 'express';
-import * as weatherService from '../src/modules/weather/weather.service';
+import * as weatherService from '../../src/modules/weather/weather.service';
 
 // Mock Prisma
 jest.mock('@prisma/client', () => {
@@ -19,7 +19,7 @@ jest.mock('@prisma/client', () => {
 });
 
 // Mock weather service
-jest.mock('../src/modules/weather/weather.service');
+jest.mock('../../src/modules/weather/weather.service');
 const mockGetWeatherByDay = weatherService.getWeatherByDay as jest.Mock;
 
 const prisma = new PrismaClient() as unknown as { event: Record<string, jest.Mock> };

@@ -4,8 +4,10 @@
   "description": "Everything related to backend will be done here",
   "main": "index.js",
   "scripts": {
-    "test": "jest --coverage"
-  },
+  "test": "jest --coverage",
+  "test:unit": "jest --coverage --config jest.config.js",
+  "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
