@@ -8,6 +8,7 @@ import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
 interface ClosetApiItem {
   id: string;
   category: string;
+  layerCategory: string;
   imageUrl: string;
 }
 
@@ -17,15 +18,65 @@ type Item = {
   image: string;
   favorite: boolean;
   category: string;
+  layerCategory: string;
   tab?: 'items' | 'outfits';
 };
 type TabType = 'items' | 'outfits' | 'favourites';
+
+const LAYER_OPTIONS = [
+  { value: '', label: 'All Layers' },
+  { value: 'base_top',   label: 'Base Top' },
+  { value: 'base_bottom',label: 'Base Bottom' },
+  { value: 'mid_top',    label: 'Mid Top' },
+  { value: 'mid_bottom', label: 'Mid Bottom' },  // ← added!
+  { value: 'outerwear',  label: 'Outerwear' },
+  { value: 'footwear',   label: 'Footwear' },
+  { value: 'headwear',   label: 'Headwear' },
+  { value: 'accessory',  label: 'Accessory' },
+];
+
+
+
+const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
+  base_top: [
+    { value: 'TSHIRT', label: 'T-shirt' },
+    { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+  ],
+  base_bottom: [
+    { value: 'PANTS', label: 'Pants' },
+    { value: 'JEANS', label: 'Jeans' },
+    { value: 'SHORTS', label: 'Shorts' },
+  ],
+  mid_top: [
+    { value: 'SWEATER', label: 'Sweater' },
+    { value: 'HOODIE', label: 'Hoodie' },
+  ],
+  outerwear: [
+    { value: 'JACKET', label: 'Jacket' },
+    { value: 'RAINCOAT', label: 'Raincoat' },
+    // etc.
+  ],
+  footwear: [
+    { value: 'SHOES', label: 'Shoes' },
+    { value: 'BOOTS', label: 'Boots' },
+  ],
+  headwear: [
+    { value: 'BEANIE', label: 'Beanie' },
+    { value: 'HAT', label: 'Hat' },
+  ],
+  accessory: [
+    { value: 'SCARF', label: 'Scarf' },
+    { value: 'GLOVES', label: 'Gloves' },
+  ],
+};
+
 
 export default function ClosetPage() {
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [favourites, setFavourites] = useState<Item[]>([]);
+  const [layerFilter, setLayerFilter] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -36,7 +87,7 @@ export default function ClosetPage() {
   const prefixed = (url: string) =>
     url.startsWith('http') ? url : `http://localhost:5001${url}`;
 
-  // 1️⃣ Fetch closet items
+  // Fetch closet items
   useEffect(() => {
     fetchAllItems()
       .then(res => {
@@ -47,6 +98,7 @@ export default function ClosetPage() {
             image: prefixed(i.imageUrl),
             favorite: false,
             category: i.category,
+            layerCategory: i.layerCategory,
             tab: 'items',
           }))
         );
@@ -54,14 +106,14 @@ export default function ClosetPage() {
       .catch(console.error);
   }, []);
 
-  // 2️⃣ Fetch saved outfits
+  // Fetch saved outfits
   useEffect(() => {
     fetchAllOutfits()
       .then(setOutfits)
       .catch(console.error);
   }, []);
 
-  // 3️⃣ Load favourites
+  // Load favourites
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -69,12 +121,12 @@ export default function ClosetPage() {
     if (!stored) return;
     const favs: Item[] = JSON.parse(stored);
     setFavourites(favs);
-    const mark = (list: Item[]) =>
+    const markFavs = (list: Item[]) =>
       list.map(x => ({
         ...x,
         favorite: favs.some(f => f.id === x.id && f.tab === x.tab),
       }));
-    setItems(mark(items));
+    setItems(markFavs(items));
   }, [items]);
 
   // Toggle favourite
@@ -119,37 +171,71 @@ export default function ClosetPage() {
       activeTab === 'items'
         ? items
         : activeTab === 'favourites'
-        ? favourites
-        : outfits;
-    if (activeCategory && activeTab !== 'outfits') {
+          ? favourites
+          : outfits;
+
+    
+    if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
     }
+    // Search by name
     if (searchQuery && activeTab !== 'outfits') {
-      data = data.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      data = data.filter(i =>
+        i.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
     return data;
   }
-  function getTabCategories() {
-    const list = activeTab === 'items' ? items : favourites;
-    return Array.from(new Set(list.map(i => i.category)));
-  }
+
+  // Build list of categories for the active layer
+  const categoryOptions = layerFilter
+    ? CATEGORY_BY_LAYER[layerFilter] || []
+    : [];
+
+  // Tab bar categories lowercased except first letter
+  const titleCase = (s: string) =>
+    s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
 
   return (
     <div className="max-w-screen-sm mx-auto px-4 pb-12">
       {/* Filters & Search */}
-      <div className="flex flex-wrap justify-center gap-3 my-4">
-        {['All', ...getTabCategories()].map((cat, idx) => (
-          <button
-            key={idx}
-            onClick={() => setActiveCategory(cat === 'All' ? null : cat)}
-            className={`px-4 py-1 rounded-full border ${
-              activeCategory === cat ? 'bg-black text-white' : ''
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+      {/* Layer → Category Filters */}
+      <div className="flex flex-wrap justify-center gap-4 my-4">
+        {/* Layer Selector */}
+        <select
+          value={layerFilter}
+          onChange={e => {
+            setLayerFilter(e.target.value);
+            setActiveCategory(null);
+          }}
+          className="px-4 py-2 border rounded-full"
+        >
+          {LAYER_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Category Selector (only if a layer is chosen) */}
+        <select
+          value={activeCategory || ''}
+          onChange={e => setActiveCategory(e.target.value || null)}
+          disabled={!layerFilter}
+          className="px-4 py-2 border rounded-full disabled:opacity-50"
+        >
+          <option value="">All Categories</option>
+          {categoryOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
+
+
+
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" />
         <input
@@ -166,9 +252,8 @@ export default function ClosetPage() {
           <button
             key={t}
             onClick={() => setActiveTab(t)}
-            className={`px-4 py-2 rounded-full ${
-              activeTab === t ? 'bg-black text-white' : 'border'
-            }`}
+            className={`px-4 py-2 rounded-full ${activeTab === t ? 'bg-black text-white' : 'border'
+              }`}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -179,88 +264,86 @@ export default function ClosetPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {activeTab !== 'outfits'
           ? getCurrentData().map(item => (
-              <div key={item.id} className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  onClick={() => setPreviewImage(item.image)}
-                  className="w-full h-full object-contain p-2"
+            <div key={item.id} className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
+              <img
+                src={item.image}
+                alt={item.name}
+                onClick={() => setPreviewImage(item.image)}
+                className="w-full h-full object-contain p-2"
+              />
+              <button
+                onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
+                className="absolute top-2 right-2 bg-white p-1 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <button onClick={() => toggleFavorite(item, activeTab as any)} className="absolute bottom-2 right-2">
+                <Heart
+                  className={`w-5 h-5 ${item.favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'
+                    }`}
                 />
-                <button
-                  onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-                  className="absolute top-2 right-2 bg-white p-1 rounded-full"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <button onClick={() => toggleFavorite(item, activeTab as any)} className="absolute bottom-2 right-2">
-                  <Heart
-                    className={`w-5 h-5 ${
-                      item.favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'
-                    }`}
-                  />
-                </button>
-              </div>
-            ))
+              </button>
+            </div>
+          ))
           : (getCurrentData() as RecommendedOutfit[]).map(o => (
-              <div key={o.id} className="border rounded-lg p-2 bg-white">
-                <div className="space-y-1">
-                  {/* headwear + accessory */}
-                  <div
-                    className={`flex justify-center space-x-1 ${
-                      o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                        ? ''
-                        : 'hidden'
+            <div key={o.id} className="border rounded-lg p-2 bg-white">
+              <div className="space-y-1">
+                {/* headwear + accessory */}
+                <div
+                  className={`flex justify-center space-x-1 ${o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                    ? ''
+                    : 'hidden'
                     }`}
-                  >
-                    {o.outfitItems
-                      .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                  {/* tops */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                  {/* bottoms */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'base_bottom')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                  {/* footwear */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'footwear')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-14 h-14 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                >
+                  {o.outfitItems
+                    .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                </div>
+                {/* tops */}
+                <div className="flex justify-center space-x-1">
+                  {o.outfitItems
+                    .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                </div>
+                {/* bottoms */}
+                <div className="flex justify-center space-x-1">
+                  {o.outfitItems
+                    .filter(it => it.layerCategory === 'base_bottom')
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-16 h-16 object-contain rounded"
+                      />
+                    ))}
+                </div>
+                {/* footwear */}
+                <div className="flex justify-center space-x-1">
+                  {o.outfitItems
+                    .filter(it => it.layerCategory === 'footwear')
+                    .map(it => (
+                      <img
+                        key={it.closetItemId}
+                        src={prefixed(it.imageUrl)}
+                        className="w-14 h-14 object-contain rounded"
+                      />
+                    ))}
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
       </div>
 
       {/* Remove Confirmation */}
