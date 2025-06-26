@@ -151,6 +151,57 @@ describe('EventsController Unit Tests', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ message: 'Missing required fields' });
     });
+
+    it('should return 400 if event start date is in the past', async () => {
+      const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const req = {
+        user: mockUser,
+        body: { name: 'Old Event', location: 'Park', dateFrom: yesterday, dateTo: yesterday, style: 'CASUAL' }
+      } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.createEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Event start date cannot be in the past.' });
+    });
+
+    it('should return 400 if event start date is too far in future', async () => {
+      const tooFar = new Date();
+      tooFar.setDate(tooFar.getDate() + 10);
+      const req = {
+        user: mockUser,
+        body: {
+          name: 'Far Event',
+          location: 'Park',
+          dateFrom: tooFar.toISOString(),
+          dateTo: tooFar.toISOString(),
+          style: 'CASUAL'
+        }
+      } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.createEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('too far in the future') }));
+    });
+
+    it('should handle weather service error gracefully', async () => {
+      const today = new Date().toISOString();
+      mockGetWeatherByDay.mockRejectedValueOnce(new Error('Weather error'));
+      prisma.event.create.mockResolvedValueOnce({ id: 'e3', name: 'Event', weather: null });
+      const req = {
+        user: mockUser,
+        body: { name: 'Rainy Event', location: 'Park', dateFrom: today, dateTo: today, style: 'CASUAL' }
+      } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.createEvent(req, res, next);
+
+      // Should still create event but weather.summary is null for that date
+      expect(res.status).toHaveBeenCalledWith(201);
+    });
   });
 
   describe('updateEvent', () => {
@@ -189,6 +240,55 @@ describe('EventsController Unit Tests', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ message: 'No fields to update' });
     });
+
+    it('should return 404 if event not found', async () => {
+      const req = { user: mockUser, body: { id: 'e404', name: 'Ghost' } } as unknown as Request;
+      const res = createMockRes();
+      prisma.event.findUnique.mockResolvedValueOnce(null);
+
+      await EventsController.updateEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Event not found' });
+    });
+
+    it('should return 400 if event start date is in the past when updating', async () => {
+      const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      prisma.event.findUnique.mockResolvedValueOnce({ id: 'e1', userId: mockUser.id, location: 'Somewhere', dateFrom: new Date() });
+      const req = { user: mockUser, body: { id: 'e1', dateFrom: yesterday } } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.updateEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Event start date cannot be in the past.' });
+    });
+
+    it('should return 400 if event start date is too far in the future when updating', async () => {
+      const tooFar = new Date();
+      tooFar.setDate(tooFar.getDate() + 10);
+      prisma.event.findUnique.mockResolvedValueOnce({ id: 'e1', userId: mockUser.id, location: 'Here', dateFrom: new Date() });
+      const req = { user: mockUser, body: { id: 'e1', dateFrom: tooFar.toISOString() } } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.updateEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('too far in the future') }));
+    });
+
+    it('should return 400 if weather fetch fails on update', async () => {
+      const today = new Date();
+      prisma.event.findUnique.mockResolvedValueOnce({ id: 'e1', userId: mockUser.id, location: 'Here', dateFrom: today });
+      mockGetWeatherByDay.mockRejectedValueOnce(new Error('fail'));
+      const req = { user: mockUser, body: { id: 'e1', dateFrom: today.toISOString() } } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.updateEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Weather forecast unavailable for the selected date/location.' });
+    });
   });
 
   describe('deleteEvent', () => {
@@ -217,5 +317,38 @@ describe('EventsController Unit Tests', () => {
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ message: 'Event not found' });
     });
+
+    it('should return 400 if no event id provided', async () => {
+      const req = { user: mockUser, body: {} } as unknown as Request;
+      const res = createMockRes();
+
+      await EventsController.deleteEvent(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Event ID is required' });
+    });
   });
+
+  describe('Auth failures', () => {
+    const endpoints = [
+      { fn: EventsController.getEvents, args: [{}] },
+      { fn: EventsController.getEventById, args: [{}] },
+      { fn: EventsController.createEvent, args: [{}] },
+      { fn: EventsController.updateEvent, args: [{}] },
+      { fn: EventsController.deleteEvent, args: [{}] },
+    ];
+
+    endpoints.forEach(({ fn, args }, idx) => {
+      it(`should return 401 for unauthenticated user (${fn.name})`, async () => {
+        const req = {} as unknown as Request;
+        const res = createMockRes();
+        await fn(req, res, next);
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: 'Unauthorized' });
+      });
+    });
+  });
+
+
+
 });

@@ -260,6 +260,50 @@ describe('ClosetController', () => {
       expect(res.json).not.toHaveBeenCalled();
     });
   });
+
+  describe('uploadImagesBatch', () => {
+    it('returns 401 if user missing', async () => {
+      let req: Partial<AuthenticatedRequest> = {};
+      req.files = [{ filename: 'a.png' }] as any;
+      req.body = { category: 'SHOES', layerCategory: 'footwear' };
+      req.user = undefined; // or missing id
+      await controller.uploadImagesBatch(req as Request, res as Response, next);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 400 if no files', async () => {
+      let req: Partial<AuthenticatedRequest> = { user: { ...TEST_USER }, files: undefined, body: { category: 'SHOES' } };
+      await controller.uploadImagesBatch(req as Request, res as Response, next);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: 'No files provided' });
+    });
+
+    it('returns 400 if category is invalid', async () => {
+      let req: Partial<AuthenticatedRequest> = {
+        user: { ...TEST_USER },
+        files: [{ filename: 'a.png' }] as any,
+        body: { category: 'INVALID' }
+      };
+      await controller.uploadImagesBatch(req as Request, res as Response, next);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: expect.stringContaining('Invalid category') });
+    });
+
+    it('calls service.saveImagesBatch and returns 201 + payload', async () => {
+      jest.spyOn(service, 'saveImagesBatch').mockResolvedValue([
+        { id: '1', filename: 'a.png', category: 'SHOES', layerCategory: 'footwear', createdAt: new Date(), ownerId: 'test-user-id', colorHex: null, warmthFactor: null, waterproof: null, style: null, material: null, favourite: false }
+      ]);
+      let req: Partial<AuthenticatedRequest> = {
+        user: { ...TEST_USER },
+        files: [{ filename: 'a.png' }] as any,
+        body: { category: 'SHOES', layerCategory: 'footwear' }
+      };
+      await controller.uploadImagesBatch(req as Request, res as Response, next);
+      expect(service.saveImagesBatch).toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalled();
+    });
+  });
 });
 
 describe('Closet Routes Extended', () => {

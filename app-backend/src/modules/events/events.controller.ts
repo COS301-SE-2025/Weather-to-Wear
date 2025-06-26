@@ -108,17 +108,7 @@ class EventsController {
         return;
       }
 
-      // use weather api to fetch weather summary
-      // const weatherDate = fromDate.toISOString().split('T')[0];
 
-      // let weatherData;
-      // try {
-      //   weatherData = await getWeatherByDay(location, weatherDate);
-      // } catch (err: any) {
-      //   res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
-      //   return;
-      // }
-      // const weatherSummary = weatherData.summary;
 
       // use weather api to fetch weather summaries
       const dateFromObj = new Date(dateFrom);
