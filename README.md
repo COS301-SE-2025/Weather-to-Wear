@@ -51,7 +51,7 @@ while expressing their unique fashion sense.
 | [Software Requirements Specification Document](https://drive.google.com/file/d/1U083rgOyIj0SYvtvvNEAVmJ_hiqZszTE/view?usp=sharing)     | Details on project requirements            |
 | [Architectural Requirements Document](https://drive.google.com/file/d/1NRUk_FsZobefiOehOOLIMRQJpB7K2T5F/view?usp=sharing)             | System design overview                     |
 | [Coding Standards Document](https://drive.google.com/file/d/1-GVhvXCzHwzrMyoxF0nbIiW-RsiMfJ3S/view?usp=sharing)           |  Guidelines for writing code      |
-| [User Manual](https://drive.google.com/file/d/1VcYgjySl7maCwzJXc20XVbOpQpQ7bmmB/view?usp=sharing)           |  Guidelines for writing code      |
+| [User Manual](https://drive.google.com/file/d/1VcYgjySl7maCwzJXc20XVbOpQpQ7bmmB/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
 | [Use-Case Diagrams](https://drive.google.com/file/d/1J8guwOLnyf0yeS8Seb1SW4_17_MRY2PO/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
