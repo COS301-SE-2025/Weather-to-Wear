@@ -48,7 +48,7 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification Document]()     | Details on project requirements            |
+| [Software Requirements Specification Document](https://drive.google.com/file/d/1U083rgOyIj0SYvtvvNEAVmJ_hiqZszTE/view?usp=sharing)     | Details on project requirements            |
 | [Architectural Requirements Document]()             | System design overview                     |
 | [Coding Standards Document](https://drive.google.com/file/d/1-GVhvXCzHwzrMyoxF0nbIiW-RsiMfJ3S/view?usp=sharing)           |  Guidelines for writing code      |
 | [User Manual](https://drive.google.com/file/d/1VcYgjySl7maCwzJXc20XVbOpQpQ7bmmB/view?usp=sharing)           |  Guidelines for writing code      |
