@@ -2,15 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  Plus,
-  Home,
-  Calendar,
-  Shirt,
-  Users,
-  User,
-  HelpCircle,
-} from "lucide-react";
+import { Plus, Home, Calendar, Shirt, Users, User, HelpCircle } from "lucide-react";
 
 const NavBar: React.FC = () => {
   const location = useLocation();
@@ -32,11 +24,11 @@ const NavBar: React.FC = () => {
 
   const isActive = (path: string) => currentPath === path;
   const toggleMenu = () => {
-    setMenuOpen((o) => !o);
+    setMenuOpen(o => !o);
     setProfileOpen(false);
   };
   const toggleProfile = () => {
-    setProfileOpen((o) => !o);
+    setProfileOpen(o => !o);
     setMenuOpen(false);
   };
   const handleLogout = () => {
@@ -85,9 +77,9 @@ const NavBar: React.FC = () => {
               </h1>
             </div>
 
-            {/* Help, Profile & Logout */}
+            {/* Help & Mobile Profile/Logout */}
             <div className="flex items-center gap-2 relative" ref={profileRef}>
-              {/* Help */}
+              {/* Help always visible */}
               <button
                 onClick={() => navigate("/help")}
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
@@ -96,41 +88,40 @@ const NavBar: React.FC = () => {
                 <HelpCircle className="text-white w-5 h-5" />
               </button>
 
-              {/* Profile */}
-              <button
-                onClick={toggleProfile}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
-                aria-label="Profile"
-              >
-                <User className="text-white w-5 h-5" />
-              </button>
-
-              {/* Logout */}
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm"
-              >
-                log out
-              </button>
-
-              {/* Profile dropdown */}
-              {profileOpen && (
-                <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => setProfileOpen(false)}
+              {/* Only on mobile: profile & logout */}
+              {isMobile && (
+                <>
+                  <button
+                    onClick={toggleProfile}
+                    className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
                   >
-                    My Profile
-                  </Link>
-                  <Link
-                    to="/my-posts"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => setProfileOpen(false)}
+                    <User className="text-white w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm"
                   >
-                    My Posts
-                  </Link>
-                </div>
+                    log out
+                  </button>
+                  {profileOpen && (
+                    <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
+                      <Link
+                        to="/profile"
+                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        My Profile
+                      </Link>
+                      <Link
+                        to="/my-posts"
+                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        My Posts
+                      </Link>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -144,9 +135,7 @@ const NavBar: React.FC = () => {
               <Link
                 to="/dashboard"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/dashboard")
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 } text-white`}
               >
                 home
@@ -173,9 +162,7 @@ const NavBar: React.FC = () => {
               <Link
                 to="/calendar"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/calendar")
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 } text-white`}
               >
                 calendar
