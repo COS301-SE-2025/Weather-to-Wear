@@ -2,7 +2,15 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Plus, Home, Calendar, Shirt, Users, User, HelpCircle } from "lucide-react";
+import {
+  Plus,
+  Home,
+  Calendar,
+  Shirt,
+  Users,
+  User,
+  HelpCircle,
+} from "lucide-react";
 
 const NavBar: React.FC = () => {
   const location = useLocation();
@@ -24,11 +32,11 @@ const NavBar: React.FC = () => {
 
   const isActive = (path: string) => currentPath === path;
   const toggleMenu = () => {
-    setMenuOpen(o => !o);
+    setMenuOpen((o) => !o);
     setProfileOpen(false);
   };
   const toggleProfile = () => {
-    setProfileOpen(o => !o);
+    setProfileOpen((o) => !o);
     setMenuOpen(false);
   };
   const handleLogout = () => {
@@ -77,53 +85,48 @@ const NavBar: React.FC = () => {
               </h1>
             </div>
 
-            {/* Help & Mobile Profile/Logout */}
-            <div className="flex items-center gap-2 relative" ref={profileRef}>
-              {/* Help always visible */}
-              <button
-                onClick={() => navigate("/help")}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
-                aria-label="Help"
-              >
-                <HelpCircle className="text-white w-5 h-5" />
-              </button>
-
-              {/* Only on mobile: profile & logout */}
-              {isMobile && (
-                <>
-                  <button
-                    onClick={toggleProfile}
-                    className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
-                  >
-                    <User className="text-white w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm"
-                  >
-                    log out
-                  </button>
-                  {profileOpen && (
-                    <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
-                      <Link
-                        to="/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        My Profile
-                      </Link>
-                      <Link
-                        to="/my-posts"
-                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        My Posts
-                      </Link>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            {/* on mobile only: Help, Profile & Logout */}
+            {isMobile && (
+              <div className="flex items-center gap-2 relative" ref={profileRef}>
+                <button
+                  onClick={() => navigate("/help")}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
+                  aria-label="Help"
+                >
+                  <HelpCircle className="text-white w-5 h-5" />
+                </button>
+                <button
+                  onClick={toggleProfile}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
+                >
+                  <User className="text-white w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm"
+                >
+                  log out
+                </button>
+                {profileOpen && (
+                  <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      to="/my-posts"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      My Posts
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -135,7 +138,9 @@ const NavBar: React.FC = () => {
               <Link
                 to="/dashboard"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  isActive("/dashboard")
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 } text-white`}
               >
                 home
@@ -162,7 +167,9 @@ const NavBar: React.FC = () => {
               <Link
                 to="/calendar"
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  isActive("/calendar")
+                    ? "bg-[#3F978F]"
+                    : "hover:bg-[#304946]"
                 } text-white`}
               >
                 calendar
@@ -177,8 +184,15 @@ const NavBar: React.FC = () => {
               </Link>
             </div>
 
-            {/* Desktop Profile & Logout */}
+            {/* Desktop Help, Profile & Logout */}
             <div className="flex items-center gap-3 ml-4 relative" ref={profileRef}>
+              <button
+                onClick={() => navigate("/help")}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
+                aria-label="Help"
+              >
+                <HelpCircle className="text-black dark:text-gray-100 w-5 h-5" />
+              </button>
               <button
                 onClick={toggleProfile}
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
