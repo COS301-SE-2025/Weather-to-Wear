@@ -7,11 +7,10 @@ import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
 import { useNavigate } from 'react-router-dom';
-import { fetchAllEvents, createEvent, } from '../services/eventsApi';
+import { fetchAllEvents, createEvent, updateEvent, deleteEvent } from '../services/eventsApi';
 import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
 import StarRating from '../components/StarRating';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-
 
 type Item = {
   id: number;
@@ -102,6 +101,18 @@ export default function HomePage() {
   const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  // Style dropdown state
+  const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editEventData, setEditEventData] = useState({
+    id: '',
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: ''
+  });
 
 
   useEffect(() => {
@@ -117,21 +128,23 @@ export default function HomePage() {
     if (!weather) return;
 
     const { avgTemp, minTemp, maxTemp, willRain, mainCondition } = weather.summary;
-
     setLoadingOutfits(true);
-    fetchRecommendedOutfits({ avgTemp, minTemp, maxTemp, willRain, mainCondition })
-      .then((recs) => {
+
+    fetchRecommendedOutfits(
+      { avgTemp, minTemp, maxTemp, willRain, mainCondition },
+      selectedStyle
+    )
+      .then(recs => {
         setOutfits(recs);
         setOutfitError(null);
       })
-      .catch((err) => {
+      .catch(err => {
         console.error('Outfit fetch failed', err);
         setOutfitError('Could not load outfit recommendations.');
       })
-      .finally(() => {
-        setLoadingOutfits(false);
-      });
-  }, [weather]);
+      .finally(() => setLoadingOutfits(false));
+  }, [weather, selectedStyle]);
+
 
 
   useEffect(() => {
@@ -178,6 +191,20 @@ export default function HomePage() {
       });
   }, [selectedEvent]);
 
+  useEffect(() => {
+    if (!selectedEvent) return;
+    setIsEditing(false);
+    setEditEventData({
+      id: selectedEvent.id,
+      name: selectedEvent.name,
+      location: selectedEvent.location,
+      dateFrom: selectedEvent.dateFrom.slice(0, 16),
+      dateTo: selectedEvent.dateTo.slice(0, 16),
+      style: selectedEvent.style || ''
+    });
+  }, [selectedEvent]);
+
+
 
   //handle rating logic (save outfit to closet when a user rates it)
   const handleSaveRating = async (rating: number) => {
@@ -218,16 +245,19 @@ export default function HomePage() {
 
       {/* Hero Background */}
       <div
-        className="w-screen relative flex items-center justify-center h-64 mb-6 z-0"
+        className="w-screen relative flex items-center justify-center h-48 mb-6 -mt-8 z-0 bg-fixed"
         style={{
           backgroundImage: `url(/background.jpg)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
+          opacity: 1,
           marginLeft: 'calc(-50vw + 50%)',
+          width: '100vw',
+          marginTop: '-4rem'
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
-          <h1 className="text-2xl font-light text-white text-center">
+          <h1 className="text-2xl font-bodoni font-light text-center text-white">
             {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
           </h1>
         </div>
@@ -236,7 +266,7 @@ export default function HomePage() {
 
       {/* Main Sections */}
       {/* Top Content: Typing Slogan + Outfit + Weather */}
-      <div className="flex flex-col gap-12 px-4 md:px-8">
+      <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 justify-between">
 
           {/* Typing Slogan */}
@@ -256,30 +286,57 @@ export default function HomePage() {
               {loadingOutfits && <p>Loading outfits…</p>}
               {outfitError && <p className="text-red-500">{outfitError}</p>}
 
+              {!loadingOutfits && outfits.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400">
+                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe.
+                </p>
+              )}
+
+              {/* Style Dropdown */}
+              <div className="mb-4 w-full text-center">
+                <label
+                  htmlFor="style-select"
+                  className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
+                >
+                  Choose Style:
+                </label>
+                <select
+                  id="style-select"
+                  value={selectedStyle}
+                  onChange={e => setSelectedStyle(e.target.value)}
+                  className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                >
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Athletic">Athletic</option>
+                  <option value="Party">Party</option>
+                  <option value="Business">Business</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
+              </div>
+
+
+
+
               {!loadingOutfits && outfits.length > 0 && (
                 <>
                   {/* ← Prev / Next + counter → */}
                   <div className="flex justify-between items-center mb-2 w-full">
                     <button
-                      onClick={() =>
-                        setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)
-                      }
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
+                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
                     >
-                      ‹ Prev
+                      <ChevronLeft className="w-5 h-5 text-white" />
                     </button>
-                    <span className="text-sm">
-                      {currentIndex + 1} / {outfits.length}
-                    </span>
+                    <span className="text-sm">{currentIndex + 1} / {outfits.length}</span>
                     <button
-                      onClick={() =>
-                        setCurrentIndex(i => (i + 1) % outfits.length)
-                      }
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
+                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
                     >
-                      Next ›
+                      <ChevronRight className="w-5 h-5 text-white" />
                     </button>
                   </div>
+
 
                   <div className="mb-4 space-y-2">
                     {/* Row 1: headwear + accessory (collapsed if none) */}
@@ -372,6 +429,8 @@ export default function HomePage() {
                     </div>
                   </div>
 
+
+
                   <StarRating disabled={saving} onSelect={handleSaveRating} />
                 </>
               )}
@@ -422,17 +481,15 @@ export default function HomePage() {
         </div>
 
         {/* — Events Section — */}
-        <div className="w-full mt-12">
+        <div className="w-full mt-6">
           <div className="max-w-4xl mx-auto px-4">
-            <div className="relative mb-4">
-              {/* Centered title */}
-              <h2 className="text-3xl font-bold text-center">
+            <div className="flex items-center justify-center mb-4 space-x-4">
+              <h2 className="text-4xl font-livvic font-medium">
                 Upcoming Events
               </h2>
-              {/* Add button in the top-right */}
               <button
                 onClick={() => setShowModal(true)}
-                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 rounded-full border hover:bg-gray-100"
+                className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
                 aria-label="Add Event"
               >
                 <Plus className="w-5 h-5" />
@@ -445,17 +502,18 @@ export default function HomePage() {
                   <div
                     key={ev.id}
                     className="
-                      flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36
+                      flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
                       bg-white dark:bg-gray-700 rounded-full shadow-md border 
                       flex flex-col items-center justify-center text-center p-2
                       transition-transform hover:scale-105"
                     onClick={() => {
                       setSelectedEvent(ev);
                       setShowDetailModal(true);
-                      //setDetailLoading(true);
                     }}
                   >
-                    <div className="font-semibold truncate">{ev.name}</div>
+                    <div className="font-semibold truncate">
+                      {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                    </div>
                     <div className="text-xs text-gray-500">
                       {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                       &nbsp;–&nbsp;
@@ -503,45 +561,175 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      {/* Modal: Create New Event */}
-      {
-        showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-lg border border-black relative">
-              <h2 className="text-xl font-semibold mb-4 dark:text-white">Create New Event</h2>
 
-              <div className="space-y-3">
+      {/* Create New Event Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative flex flex-col max-h-[90vh] overflow-y-auto">
+            {/* Close “×” */}
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowModal(false)}
+            >
+              ×
+            </button>
+
+            <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
+
+            <div className="space-y-3 flex-grow">
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Event name"
+                value={newEvent.name}
+                onChange={e => setNewEvent({ ...newEvent, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Location"
+                value={newEvent.location}
+                onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateFrom}
+                onChange={e => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateTo}
+                onChange={e => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newEvent.style}
+                onChange={e => setNewEvent({ ...newEvent, style: e.target.value })}
+              >
+                <option value="">Select style</option>
+                <option value="Formal">Formal</option>
+                <option value="Casual">Casual</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
+              </select>
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 rounded-full border border-black"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                onClick={async () => {
+                  // Validate
+                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+                    alert('Please fill in name, style, and both dates.');
+                    return;
+                  }
+                  try {
+                    const created = await createEvent({
+                      name: newEvent.name,
+                      location: newEvent.location,
+                      style: newEvent.style,
+                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
+                      dateTo: new Date(newEvent.dateTo).toISOString(),
+                    });
+
+
+                    if (created.weather) {
+                      let days: { date: string; summary: any }[] = [];
+                      try { days = JSON.parse(created.weather); } catch { days = []; }
+                      for (const { date, summary } of days) {
+                        try {
+                          await fetchRecommendedOutfits(summary, created.style, created.id);
+                        } catch (err) {
+                          console.error(`Failed to fetch outfits for ${date}`, err);
+                        }
+                      }
+                    }
+                    // update state
+                    setEvents(evt => [...evt, created]);
+                    // reset form
+                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+                    setShowModal(false);
+                  } catch (err: any) {
+                    const msg = err.response?.data?.message || 'Failed to create event';
+                    alert(msg);
+                  }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail / Edit Event Modal */}
+      {showDetailModal && selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
+            {/* Close “×” */}
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowDetailModal(false)}
+            >
+              ×
+            </button>
+
+            {/* Title in sentence case, Livvic font */}
+            <h2 className="text-2xl mb-4 font-livvic">
+              {selectedEvent.name.charAt(0).toUpperCase() +
+                selectedEvent.name.slice(1).toLowerCase()}
+            </h2>
+
+            {/* Body */}
+            {isEditing ? (
+              // EDIT MODE
+              <div className="space-y-3 flex-grow">
                 <input
                   className="w-full p-2 border rounded"
-                  placeholder="Event Name"
-                  value={newEvent.name}
-                  onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
+                  value={editEventData.name}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, name: e.target.value }))
+                  }
                 />
                 <input
                   className="w-full p-2 border rounded"
-                  placeholder="Location"
-                  value={newEvent.location}
-                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                  value={editEventData.location}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, location: e.target.value }))
+                  }
                 />
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
-                  value={newEvent.dateFrom}
-                  onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+                  value={editEventData.dateFrom}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, dateFrom: e.target.value }))
+                  }
                 />
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
-                  value={newEvent.dateTo}
-                  onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+                  value={editEventData.dateTo}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, dateTo: e.target.value }))
+                  }
                 />
-
                 <select
                   className="w-full p-2 border rounded"
-                  value={newEvent.style}
-                  onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
+                  value={editEventData.style}
+                  onChange={e =>
+                    setEditEventData(d => ({ ...d, style: e.target.value }))
+                  }
                 >
-                  <option value="">Select a style</option>
+                  <option value="">Select style</option>
                   <option value="Formal">Formal</option>
                   <option value="Casual">Casual</option>
                   <option value="Athletic">Athletic</option>
@@ -549,159 +737,155 @@ export default function HomePage() {
                   <option value="Business">Business</option>
                   <option value="Outdoor">Outdoor</option>
                 </select>
-
               </div>
+            ) : (
+              // READ-ONLY VIEW
+              <div className="flex-grow">
+                {(() => {
+                  const from = new Date(selectedEvent.dateFrom)
+                  const to = new Date(selectedEvent.dateTo)
+                  const sameDay = from.toDateString() === to.toDateString()
 
-              <div className="flex justify-end mt-4 gap-2">
-                <button
-                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="bg-[#3F978F] text-white px-4 py-2 rounded hover:bg-[#347e77]"
-                  onClick={async () => {
-                    if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
-                      alert('Please fill in the event name, style, and both dates.');
-                      return;
-                    }
-                    try {
-                      const created = await createEvent({
-                        name: newEvent.name,
-                        location: newEvent.location,
-                        style: newEvent.style,
-                        dateFrom: new Date(newEvent.dateFrom).toISOString(),
-                        dateTo: new Date(newEvent.dateTo).toISOString(),
-                      });
-
-                      setEvents([...events, created]);
-                      setNewEvent({
-                        name: '',
-                        location: '',
-                        dateFrom: '',
-                        dateTo: '',
-                        style: '',
-                      });
-                      setShowModal(false);
-
-                      if (created.weather) {
-                        let summaries: { date: string, summary: any }[] = [];
-                        try {
-                          summaries = JSON.parse(created.weather);
-                        } catch { summaries = []; }
-                        // For each day in the event, request recommendations
-                        for (const { date, summary } of summaries) {
-                          try {
-                            const outfits = await fetchRecommendedOutfits(summary, created.style, created.id);
-                            console.log(`Outfits for ${date}:`, outfits); // ! For now until images 
-                          } catch (err) {
-                            console.error(`Error fetching outfits for ${date}`, err);
-                          }
-                        }
-                      }
-
-                    } catch (err: any) {
-                      let msg = 'Failed to create event';
-                      if (err.response && err.response.data && err.response.data.message) {
-                        msg = err.response.data.message;
-                      }
-                      console.error('Error creating event:', err);
-                      alert(msg);
-                    }
-                  }}
-
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {showDetailModal && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg shadow-lg relative">
-            <button
-              className="absolute top-3 right-3 text-gray-600 hover:text-gray-900"
-              onClick={() => setShowDetailModal(false)}
-            >
-              ✕
-            </button>
-
-            <h2 className="text-2xl font-semibold mb-2">{selectedEvent.name}</h2>
-            <p className="text-sm mb-1">
-              <strong>When:</strong>{' '}
-              {new Date(selectedEvent.dateFrom).toLocaleString()} –{' '}
-              {new Date(selectedEvent.dateTo).toLocaleString()}
-            </p>
-            <p className="text-sm mb-4">
-              <strong>Where:</strong> {selectedEvent.location}
-            </p>
-
-            {/* weather days */}
-            {/* weather days */}
-            {selectedEvent.weather && (() => {
-              let summaries: { date: string; summary: any }[] = [];
-              try {
-                summaries = JSON.parse(selectedEvent.weather);
-              } catch {
-                summaries = [];
-              }
-
-              if (summaries.length > 0) {
-                return (
-                  <div className="text-sm mb-4 space-y-1">
-                    {summaries.map(({ date, summary }) =>
-                      summary ? (
-                        <div key={date}>
-                          <span className="font-medium">{date}:</span>{' '}
-                          {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
-                        </div>
+                  return (
+                    <p className="text-sm mb-1">
+                      <strong>When:</strong>{' '}
+                      {sameDay ? (
+                        <>
+                          {from.toLocaleDateString()} {' '}
+                          {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </>
                       ) : (
-                        <div key={date}>
-                          <span className="font-medium">{date}:</span>{' '}
-                          <span className="text-red-400">No data</span>
-                        </div>
-                      )
-                    )}
-                  </div>
-                );
-              }
-              return null;
-            })()}
+                        <>
+                          {from.toLocaleString()} – {to.toLocaleString()}
+                        </>
+                      )}
+                    </p>
+                  )
+                })()}
 
+                <p className="text-sm mb-4">
+                  <strong>Where:</strong> {selectedEvent.location}
+                </p>
 
-            {/* outfit for day 1 */}
-            <div className="mt-4">
-              <h3 className="font-medium mb-2">Recommended Outfit</h3>
-              {detailLoading && <p>Loading outfit…</p>}
-              {detailError && <p className="text-red-500">{detailError}</p>}
-              {detailOutfit && (
+                {/* Weather summary */}
+                {selectedEvent.weather && (() => {
+                  let sums: { date: string; summary: any }[] = [];
+                  try {
+                    sums = JSON.parse(selectedEvent.weather);
+                  } catch {
+                    sums = [];
+                  }
+                  if (!sums.length) return null;
+                  return (
+                    <div className="text-sm mb-4 space-y-1">
+                      {sums.map(({ date, summary }) =>
+                        summary ? (
+                          <div key={date}>
+                            <span className="font-medium">{date}:</span>{' '}
+                            {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                          </div>
+                        ) : (
+                          <div key={date}>
+                            <span className="font-medium">{date}:</span>{' '}
+                            <span className="text-red-400">No data</span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Recommended Outfit */}
+                <div className="mt-4">
+                  <h3 className="font-medium mb-2">Recommended Outfit</h3>
+                  {detailLoading && <p>Loading outfit…</p>}
+                  {detailError && <p className="text-red-500">{detailError}</p>}
+                  {detailOutfit && (
+                    <>
+                      <div className="flex flex-wrap justify-center space-x-2 mb-4">
+                        {detailOutfit.outfitItems.map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
+                            alt={item.layerCategory}
+                            className="w-20 h-20 object-contain rounded"
+                          />
+                        ))}
+                      </div>
+                      {/* Smaller stars */}
+                      <div className="scale-75 origin-top-left">
+                        <StarRating disabled={false} onSelect={() => { }} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="mt-4 flex flex-wrap justify-end space-x-2">
+              {isEditing ? (
                 <>
-                  <div className="flex space-x-2 mb-2">
-                    {detailOutfit.outfitItems.map(item => (
-                      <img
-                        key={item.closetItemId}
-                        src={
-                          item.imageUrl.startsWith('http')
-                            ? item.imageUrl
-                            : `http://localhost:5001${item.imageUrl}`
-                        }
-                        alt={item.layerCategory}
-                        className="w-16 h-16 object-contain rounded"
-                      />
-                    ))}
-                  </div>
-                  <StarRating disabled={false} onSelect={() => { /* optionally save */ }} />
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 rounded-full border border-black"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const updated = await updateEvent({
+                        id: editEventData.id,
+                        name: editEventData.name,
+                        location: editEventData.location,
+                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
+                        dateTo: new Date(editEventData.dateTo).toISOString(),
+                        style: editEventData.style,
+                      });
+                      setEvents(evts =>
+                        evts.map(e => (e.id === updated.id ? updated : e))
+                      );
+                      setSelectedEvent(updated);
+
+                      setIsEditing(false);
+                    }}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Delete this event?')) return;
+                      await deleteEvent(selectedEvent.id);
+                      setEvents(evts =>
+                        evts.filter(e => e.id !== selectedEvent.id)
+                      );
+                      setShowDetailModal(false);
+                    }}
+                    className="px-4 py-2 rounded-full bg-red-500 text-white"
+                  >
+                    Delete
+                  </button>
                 </>
               )}
             </div>
           </div>
         </div>
       )}
-
 
 
       <Footer />
