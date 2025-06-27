@@ -1,3 +1,4 @@
+#docker-compose.yml
 services:
   backend:
     build:
@@ -25,10 +26,13 @@ services:
       - "3000:3000"
     volumes:
       - ./app-mobile/my-app:/app
+      - /app/node_modules
     stdin_open: true
     tty: true
     depends_on:
       - backend
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   db:
     image: postgres:15
