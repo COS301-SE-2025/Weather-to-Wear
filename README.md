@@ -55,7 +55,7 @@ while expressing their unique fashion sense.
 | [Use-Case Diagrams]()                   | Use Case Diagrams               |
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
-| [Git and GitHub Standards]()                        | Guidelines for using Git and GitHub               |
+| [Git and GitHub Standards](https://drive.google.com/file/d/1sAcW-bNa4szmS_0Ff-vWiEi-2TF57S6p/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
 | [Deployment Diagram]()                   | Plan for project deployment                |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
