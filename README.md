@@ -56,7 +56,7 @@ while expressing their unique fashion sense.
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
 | [Git and GitHub Standards](https://drive.google.com/file/d/1sAcW-bNa4szmS_0Ff-vWiEi-2TF57S6p/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
-| [Deployment Diagram]()                   | Plan for project deployment                |
+| [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
 
@@ -67,7 +67,7 @@ while expressing their unique fashion sense.
 
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
-| Demo 1 | [Demo 1 Video]() | [Demo 1 Slides]() |
+| Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 1 | [Demo 2 Video]() | [Demo 2 Slides]() |
 
 
