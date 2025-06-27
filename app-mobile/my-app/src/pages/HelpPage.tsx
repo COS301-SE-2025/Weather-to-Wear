@@ -100,7 +100,7 @@ const HelpPage = () => {
       >
         <div className="px-6 py-2 border-2 border-white z-10">
           <h1
-            className="text-2xl font-light text-center text-white"
+            className="text-2xl font-bodoni font-light text-center text-white"
             style={{
               textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
             }}

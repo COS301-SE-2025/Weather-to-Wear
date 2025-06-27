@@ -245,7 +245,7 @@ export default function HomePage() {
 
       {/* Hero Background */}
       <div
-        className="w-screen relative flex items-center justify-center h-48 mb-6 -mt-8 z-0 bg-fixed"
+        className="w-screen relative flex items-center justify-center h-64 mb-6 -mt-8 z-0 bg-fixed"
         style={{
           backgroundImage: `url(/background.jpg)`,
           backgroundSize: 'cover',
