@@ -40,21 +40,12 @@ async saveImage(
   const originalImagePath = file.path;
   const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
 
-  // const result = spawnSync('python3', [
-  //   // path.join(__dirname, '../../../scripts/background-removal/U-2-Net/remove_bg.py'),
-  //   path.join(__dirname, '/app/scripts/background-removal/U-2-Net/remove_bg.py'),
-
-  //   originalImagePath,
-  //   outputImagePath
-  // ]);
-
   const result = spawnSync('python3', [
     '/app/scripts/background-removal/U-2-Net/remove_bg.py',
     originalImagePath,
     outputImagePath
   ]);
 
-  // debug code
   if (result.error || result.status !== 0) {
     console.error('Background removal failed');
     console.error('Exit code:', result.status);
@@ -64,7 +55,7 @@ async saveImage(
     throw new Error('Image background removal failed');
   }
 
-  // clears up disk space
+
   fs.unlinkSync(originalImagePath);
 
   const cleanedFilename = path.basename(outputImagePath);
