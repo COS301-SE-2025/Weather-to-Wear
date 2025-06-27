@@ -60,15 +60,15 @@ while expressing their unique fashion sense.
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
 
-<img src="docs/assets/demo_resources-removebg-preview.png" height="auto">
 
+<h1 align="center"> Demo Resources </h1>
 <div align="center" >
 
 
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
 | Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
-| Demo 1 | [Demo 2 Video]() | [Demo 2 Slides]() |
+| Demo 2 | [Demo 2 Video]() | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 
 
 </div>
