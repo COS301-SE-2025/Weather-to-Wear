@@ -17,7 +17,7 @@ type ViewMode = "daily" | "weekly" | "monthly";
 interface EventItem {
   id: number;
   title: string;
-  date: string; // "YYYY-MM-DD"
+  date: string; 
   weather: "sunny" | "cloudy" | "rainy";
   itinerary: string[];
   moodTags: string[];

@@ -48,26 +48,27 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification](https://drive.google.com/file/d/1guJnG_6ncGMJJpxW-jUqiyrd7DdU9_IK/view?usp=sharing)     | Details on project requirements            |
-| [Architectural Specification](https://drive.google.com/file/d/11mFORT89BX4LUtz4Tfs2UuB9johuZuNU/view?usp=sharing)             | System design overview                     |
-| [Use-Case Diagrams](https://drive.google.com/file/d/1oUrZc5sYPM2Uv8Z9fsRvQ_77zI-ILtT3/view?usp=sharing)                   | Use Case Diagrams               |
-| [Class Diagram](https://drive.google.com/file/d/1QIwp0tuGINeBTIbXlFbQ6wUREyfQCKJR/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
-| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Boards)                                                           | Team organisation and progress tracking    |
-| [Architecture Diagram](https://drive.google.com/file/d/1grpiACs0eybq8eGT0e3xa_YqgJ07UaiZ/view?usp=sharing)                 | Diagram of system overview                 |
-| [Coding Standards](https://drive.google.com/file/d/1jDCNPA01MVGYEUl6qKIn-3oT2Eb7WuG2/view?usp=sharing)           |  Guidelines for writing code      |
-| [Git and GitHub Standards](https://drive.google.com/file/d/11A0Hghik9lQZAMy_GqH7wGo2ieDZL616/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
+| [Software Requirements Specification Document](https://drive.google.com/file/d/1U083rgOyIj0SYvtvvNEAVmJ_hiqZszTE/view?usp=sharing)     | Details on project requirements            |
+| [Architectural Requirements Document](https://drive.google.com/file/d/1NRUk_FsZobefiOehOOLIMRQJpB7K2T5F/view?usp=sharing)             | System design overview                     |
+| [Coding Standards Document](https://drive.google.com/file/d/1-GVhvXCzHwzrMyoxF0nbIiW-RsiMfJ3S/view?usp=sharing)           |  Guidelines for writing code      |
+| [User Manual](https://drive.google.com/file/d/1VcYgjySl7maCwzJXc20XVbOpQpQ7bmmB/view?usp=sharing)           |  Guidelines for writing code      |
+| [Use-Case Diagrams](https://drive.google.com/file/d/1J8guwOLnyf0yeS8Seb1SW4_17_MRY2PO/view?usp=sharing)                   | Use Case Diagrams               |
+| [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
+| [Git and GitHub Standards](https://drive.google.com/file/d/1sAcW-bNa4szmS_0Ff-vWiEi-2TF57S6p/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
 | [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
+| [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
 
- <h1 align="center"> Demo Resources </h1>
 
+<h1 align="center"> Demo Resources </h1>
 <div align="center" >
 
 
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
-| Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1gTC9mgx2KzzU62mEJRF217-XlyrK0ZIi/view?usp=sharing) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
-
+| Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
+| Demo 2 | [Demo 2 Video]() | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 
 
 </div>

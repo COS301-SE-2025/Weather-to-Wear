@@ -1,14 +1,18 @@
 // src/components/NavBar.tsx
 
-
 import React, { useState, useEffect, useRef } from "react";
-
-
-
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Plus, Home, Calendar, Shirt, Users, User } from "lucide-react";
+import {
+  Plus,
+  Home,
+  Calendar,
+  Shirt,
+  Users,
+  User,
+  HelpCircle,
+} from "lucide-react";
 
-const NavBar = () => {
+const NavBar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
@@ -20,7 +24,6 @@ const NavBar = () => {
     currentPath === "/create-outfit" ||
     currentPath === "/post-to-feed";
 
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -29,24 +32,19 @@ const NavBar = () => {
 
   const isActive = (path: string) => currentPath === path;
   const toggleMenu = () => {
-    setMenuOpen(o => !o);
+    setMenuOpen((o) => !o);
     setProfileOpen(false);
   };
   const toggleProfile = () => {
-    setProfileOpen(o => !o);
+    setProfileOpen((o) => !o);
     setMenuOpen(false);
   };
-
-
   const handleLogout = () => {
     const token = localStorage.getItem("token");
-    if (token) {
-      localStorage.removeItem(`closet-favs-${token}`);
-    }
+    if (token) localStorage.removeItem(`closet-favs-${token}`);
     localStorage.removeItem("token");
     navigate("/login");
   };
-
 
   useEffect(() => {
     setMenuOpen(false);
@@ -81,19 +79,22 @@ const NavBar = () => {
           <div className="max-w-screen-xl mx-auto flex items-center justify-between">
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
-              <img
-                src="/logo.png"
-                alt="Weather2Wear logo"
-                className="h-10 w-auto"
-              />
+              <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
               <h1 className="text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
                 WeatherToWear
               </h1>
             </div>
 
-            {/* Mobile Profile & Logout */}
+            {/* on mobile only: Help, Profile & Logout */}
             {isMobile && (
               <div className="flex items-center gap-2 relative" ref={profileRef}>
+                <button
+                  onClick={() => navigate("/help")}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
+                  aria-label="Help"
+                >
+                  <HelpCircle className="text-white w-5 h-5" />
+                </button>
                 <button
                   onClick={toggleProfile}
                   className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
@@ -132,16 +133,10 @@ const NavBar = () => {
         {/* Desktop Nav Bar */}
         <nav className="hidden lg:block py-3 px-4 bg-white dark:bg-gray-900 relative">
           <div className="max-w-screen-xl mx-auto flex items-center justify-end relative">
-            <div className="bg-black dark:bg-gray-800 rounded-full flex items-center justify-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
+            {/* Centered pill-group */}
+            <div className="bg-black dark:bg-gray-800 rounded-full flex items-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
               <Link
                 to="/dashboard"
-
-                // className={`px-3 py-1 rounded-full text-white transition-colors ${
-                //   isActive("/dashboard")
-                //     ? "bg-[#3F978F]"
-                //     : "hover:bg-[#304946]"
-                // }`}
-
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
                   isActive("/dashboard")
                     ? "bg-[#3F978F]"
@@ -153,9 +148,7 @@ const NavBar = () => {
               <Link
                 to="/closet"
                 className={`px-3 py-1 rounded-full text-white transition-colors ${
-                  isActive("/closet")
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 }`}
               >
                 closet
@@ -173,36 +166,33 @@ const NavBar = () => {
               </button>
               <Link
                 to="/calendar"
- 
-                // className={`px-3 py-1 rounded-full text-white transition-colors ${
-                //   isActive("/calendar")
-                //     ? "bg-[#3F978F]"
-                //     : "hover:bg-[#304946]"
-                // }`}
-
                 className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
                   isActive("/calendar")
                     ? "bg-[#3F978F]"
                     : "hover:bg-[#304946]"
                 } text-white`}
-
               >
                 calendar
               </Link>
               <Link
                 to="/feed"
                 className={`px-3 py-1 rounded-full text-white transition-colors ${
-                  isActive("/feed")
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 }`}
               >
                 feed
               </Link>
             </div>
 
-            {/* Right - Profile & Logout */}
+            {/* Desktop Help, Profile & Logout */}
             <div className="flex items-center gap-3 ml-4 relative" ref={profileRef}>
+              <button
+                onClick={() => navigate("/help")}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
+                aria-label="Help"
+              >
+                <HelpCircle className="text-black dark:text-gray-100 w-5 h-5" />
+              </button>
               <button
                 onClick={toggleProfile}
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
@@ -237,9 +227,9 @@ const NavBar = () => {
           </div>
 
           {/* Desktop Add Dropdown */}
-          <div className="w-full">
-            <div className="max-w-screen-xl mx-auto flex justify-center items-center min-h-[0.5rem]">
-              <div className={`${menuOpen ? "flex" : "hidden"} gap-6`}>
+          {menuOpen && (
+            <div className="w-full">
+              <div className="max-w-screen-xl mx-auto flex justify-center mt-2 gap-6">
                 <Link
                   to="/add"
                   onClick={() => setMenuOpen(false)}
@@ -263,19 +253,17 @@ const NavBar = () => {
                 </Link>
               </div>
             </div>
-          </div>
+          )}
         </nav>
 
         {/* Mobile Nav Menu */}
         {isMobile && (
           <div className="lg:hidden bg-white dark:bg-gray-900 py-2 px-4">
-            <div className="w-full max-w-xs mx-auto bg-black dark:bg-gray-800 rounded-full flex items-center justify-center gap-x-4 p-1">
+            <div className="w-full max-w-xs mx-auto bg-black dark:bg-gray-800 rounded-full flex justify-center gap-x-4 p-1">
               <Link
                 to="/dashboard"
                 className={`p-2 rounded-full transition-colors ${
-                  currentPath === "/dashboard"
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 }`}
               >
                 <Home className="w-5 h-5 text-white" />
@@ -283,9 +271,7 @@ const NavBar = () => {
               <Link
                 to="/closet"
                 className={`p-2 rounded-full transition-colors ${
-                  currentPath === "/closet"
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 }`}
               >
                 <Shirt className="w-5 h-5 text-white" />
@@ -303,9 +289,7 @@ const NavBar = () => {
               <Link
                 to="/calendar"
                 className={`p-2 rounded-full transition-colors ${
-                  currentPath === "/calendar"
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 }`}
               >
                 <Calendar className="w-5 h-5 text-white" />
@@ -313,9 +297,7 @@ const NavBar = () => {
               <Link
                 to="/feed"
                 className={`p-2 rounded-full transition-colors ${
-                  currentPath === "/feed"
-                    ? "bg-[#3F978F]"
-                    : "hover:bg-[#304946]"
+                  isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                 }`}
               >
                 <Users className="w-5 h-5 text-white" />
@@ -323,8 +305,8 @@ const NavBar = () => {
             </div>
 
             {/* Mobile Add Dropdown */}
-            <div className={`${menuOpen ? "block" : "hidden"} mt-2`}>
-              <div className="flex flex-col space-y-2">
+            {menuOpen && (
+              <div className="mt-2 flex flex-col space-y-2">
                 <Link
                   to="/add"
                   onClick={() => setMenuOpen(false)}
@@ -347,20 +329,15 @@ const NavBar = () => {
                   post to feed
                 </Link>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
 
-
-      {/* Spacer so content isn’t hidden under fixed navbar */}
+      {/* Spacer so content sits below fixed header */}
       <div className="h-[140px] lg:h-[140px]" />
-
-      
-
     </>
   );
 };
 
 export default NavBar;
-

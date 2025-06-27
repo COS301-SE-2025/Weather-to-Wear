@@ -56,11 +56,14 @@ jobs:
         env:
           DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
 
-      - name: Run tests
-        run: npm test
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
         env:
           DATABASE_URL: "postgresql://weatheruser:weatherpass@localhost:5432/weatherdb"
 
       - name: Test Docker build
-      
+
         run: docker build -t weather-backend .

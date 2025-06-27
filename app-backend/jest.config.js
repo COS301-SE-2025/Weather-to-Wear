@@ -5,11 +5,9 @@ const tsJestTransformCfg = createDefaultPreset().transform;
 module.exports = {
   testEnvironment: "node",
   transform: tsJestTransformCfg,
-
-  roots: ["<rootDir>/tests", "<rootDir>/src"],
+  roots: ["<rootDir>/src", "<rootDir>/tests"],
   testMatch: [
-    "**/*.tests.ts",
-    "**/*.test.ts"
+    "**/*.unit.test.ts"
   ],
   moduleFileExtensions: ["ts", "js", "json"],
   moduleDirectories: ["node_modules", "src"],
