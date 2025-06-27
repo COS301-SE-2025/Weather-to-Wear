@@ -138,11 +138,10 @@ const Appearance = () => {
       <div className="grid grid-cols-2 gap-6">
         <button
           onClick={() => setTheme("light")}
-          className={`p-6 border rounded-lg text-center transition ${
-            theme === "light"
+          className={`p-6 border rounded-lg text-center transition ${theme === "light"
               ? "border-teal-500 bg-teal-50"
               : "hover:border-gray-400 dark:hover:border-gray-600"
-          }`}
+            }`}
           aria-label="Switch to light mode"
         >
           <div className="h-24 mb-3 bg-gray-200 rounded" />
@@ -150,11 +149,10 @@ const Appearance = () => {
         </button>
         <button
           onClick={() => setTheme("dark")}
-          className={`p-6 border rounded-lg text-center transition ${
-            theme === "dark"
+          className={`p-6 border rounded-lg text-center transition ${theme === "dark"
               ? "border-teal-500 bg-gray-800"
               : "hover:border-gray-400 dark:hover:border-gray-600"
-          }`}
+            }`}
           aria-label="Switch to dark mode"
         >
           <div className="h-24 mb-3 bg-gray-900 rounded" />
@@ -184,12 +182,12 @@ const Appearance = () => {
               onChange={(e) =>
                 setStyle(
                   e.target.value as
-                    | "Formal"
-                    | "Casual"
-                    | "Athletic"
-                    | "Party"
-                    | "Business"
-                    | "Outdoor"
+                  | "Formal"
+                  | "Casual"
+                  | "Athletic"
+                  | "Party"
+                  | "Business"
+                  | "Outdoor"
                 )
               }
               disabled={isLoading}
@@ -217,11 +215,10 @@ const Appearance = () => {
                   key={hex}
                   type="button"
                   title={label}
-                  className={`w-8 h-8 rounded-full border-2 flex-shrink-0 transition ${
-                    preferredColours.includes(hex)
+                  className={`w-8 h-8 rounded-full border-2 flex-shrink-0 transition ${preferredColours.includes(hex)
                       ? "border-teal-500 scale-110 shadow-lg"
                       : "border-gray-300 hover:border-teal-400"
-                  }`}
+                    }`}
                   style={{ backgroundColor: hex }}
                   onClick={() => addColor(hex)}
                   disabled={isLoading}
@@ -257,9 +254,8 @@ const Appearance = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className={`px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition ${
-              isLoading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+            className={`px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition ${isLoading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
           >
             {isLoading ? "Saving..." : "Save Preferences"}
           </button>

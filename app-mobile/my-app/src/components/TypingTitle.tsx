@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface TypingTitleProps {
   text: string;
-  highlight?: string; 
+  highlight?: string;
 }
 
 export default function TypingTitle({ text, highlight = '' }: TypingTitleProps) {

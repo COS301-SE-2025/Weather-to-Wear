@@ -17,7 +17,7 @@ type ViewMode = "daily" | "weekly" | "monthly";
 interface EventItem {
   id: number;
   title: string;
-  date: string; 
+  date: string;
   weather: "sunny" | "cloudy" | "rainy";
   itinerary: string[];
   moodTags: string[];
@@ -92,11 +92,10 @@ export default function CalendarPage() {
                   setViewMode(m);
                   if (m === "daily") setSelectedDate(todayKey);
                 }}
-                className={`px-4 py-2 rounded-full transition ${
-                  viewMode === m
+                className={`px-4 py-2 rounded-full transition ${viewMode === m
                     ? "bg-[#3F978F] text-white"
                     : "bg-white dark:bg-gray-700 text-black dark:text-gray-100 hover:bg-[#3F978F] hover:text-white"
-                }`}
+                  }`}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
               </button>
@@ -167,11 +166,10 @@ export default function CalendarPage() {
                   {selectedEvent.outfitImages.map((_, i) => (
                     <span
                       key={i}
-                      className={`w-2 h-2 rounded-full ${
-                        i === ootdIndex
+                      className={`w-2 h-2 rounded-full ${i === ootdIndex
                           ? "bg-gray-800 dark:bg-gray-200"
                           : "bg-gray-300 dark:bg-gray-600"
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
@@ -210,11 +208,10 @@ export default function CalendarPage() {
                     <button
                       key={key}
                       onClick={() => setSelectedDate(key)}
-                      className={`min-w-[3rem] px-3 py-2 rounded-lg transition ${
-                        sel
+                      className={`min-w-[3rem] px-3 py-2 rounded-lg transition ${sel
                           ? "bg-[#3F978F] text-white"
                           : "bg-white dark:bg-gray-700 text-black dark:text-gray-100 hover:bg-[#3F978F] hover:text-white"
-                      }`}
+                        }`}
                     >
                       <div className="text-xs">
                         {d.toLocaleDateString("en-US", { weekday: "short" })}
