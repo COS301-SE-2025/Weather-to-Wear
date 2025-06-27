@@ -51,7 +51,7 @@ while expressing their unique fashion sense.
 | [Software Requirements Specification Document]()     | Details on project requirements            |
 | [Architectural Requirements Document]()             | System design overview                     |
 | [Coding Standards Document](https://drive.google.com/file/d/1-GVhvXCzHwzrMyoxF0nbIiW-RsiMfJ3S/view?usp=sharing)           |  Guidelines for writing code      |
-| [User Manual]()           |  Guidelines for writing code      |
+| [User Manual](https://drive.google.com/file/d/1VcYgjySl7maCwzJXc20XVbOpQpQ7bmmB/view?usp=sharing)           |  Guidelines for writing code      |
 | [Use-Case Diagrams](https://drive.google.com/file/d/1J8guwOLnyf0yeS8Seb1SW4_17_MRY2PO/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
