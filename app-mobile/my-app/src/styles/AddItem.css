@@ -67,7 +67,7 @@ textarea {
   border-radius: 2rem;
   border: 1px solid var(--fg);
   background-color: var(--bg);
-  color:            var(--fg);
+  color: var(--fg);
   font-size: 1rem;
 }
 
@@ -97,7 +97,7 @@ textarea {
 
 .chip {
   background-color: var(--border);
-  color:            var(--fg);
+  color: var(--fg);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   display: inline-flex;
@@ -117,7 +117,7 @@ textarea {
 .submit-btn {
   margin-top: 1rem;
   background-color: var(--fg);
-  color:            var(--bg);
+  color: var(--bg);
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 2rem;

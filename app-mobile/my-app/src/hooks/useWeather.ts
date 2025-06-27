@@ -25,10 +25,10 @@ export interface WeatherData {
 }
 
 export const useWeather = () => {
-  const [city, setCity] = useState<string>('');        
+  const [city, setCity] = useState<string>('');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchWeather = async () => {

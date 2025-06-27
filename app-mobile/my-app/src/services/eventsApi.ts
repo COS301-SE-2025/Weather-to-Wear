@@ -25,7 +25,7 @@ export const createEvent = async (eventData: {
   dateTo: string;
   style: string;
 }) => {
-  const token = localStorage.getItem('token'); 
+  const token = localStorage.getItem('token');
   const res = await axios.post(`${API_URL}/createEvent`, eventData, {
     headers: {
       Authorization: `Bearer ${token}`,
