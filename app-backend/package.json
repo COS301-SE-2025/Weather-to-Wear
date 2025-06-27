@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest --coverage",
     "test:unit": "jest --coverage --config jest.config.js",
-    "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js"
+    "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js --runInBand"
   },
   "keywords": [],
   "author": "",

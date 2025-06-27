@@ -12,21 +12,6 @@ export async function getWeather(req: Request, res: Response) {
   }
 }
 
-// export async function getWeatherForDay(req: Request, res: Response) {
-//   try {
-//     const location = (req.query.location as string) || '';
-//     const date = (req.query.date as string) || '';
-//     if (!location || !date) {
-//       return res.status(400).json({ error: 'Location and date are required' });
-//     }
-//     const weather = await getWeatherByDay(location, date);
-//     res.json(weather);
-//   } catch (error: any) {
-//     console.error('Weather (by day) fetch error:', error.message);
-//     res.status(500).json({ error: 'Unable to fetch weather data for day' });
-//   }
-// }
-
 export async function getWeatherForDay(req: Request, res: Response): Promise<void> {
   try {
     const location = (req.query.location as string) || '';

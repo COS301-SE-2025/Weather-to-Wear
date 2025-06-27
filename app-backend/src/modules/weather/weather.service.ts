@@ -3,11 +3,9 @@ import { WeatherData, HourlyForecast, WeatherDataWithSummary } from './weather.i
 import dotenv from 'dotenv';
 import logger from '../../utils/logger';
 
-// Simple in-memory cache
 const weatherCache = new Map<string, { data: WeatherDataWithSummary, time: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 min
 
-// exporting cache for clearing in unit test
 export const __weatherCache = weatherCache;
 
 dotenv.config();
@@ -41,7 +39,6 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
   const cacheKey = location.trim().toLowerCase();
   const now = Date.now();
 
-  // Check cache
   const cached = weatherCache.get(cacheKey);
   if (cached && now - cached.time < CACHE_TTL) {
     return cached.data;
@@ -84,7 +81,6 @@ async function fetchFromFreeWeatherAPI(location: string, hours: number): Promise
 
     const forecastHours = response.data.forecast.forecastday[0].hour;
     const now = new Date();
-    // get all hours >= now, up to "hours" ahead
     const limit = new Date(now.getTime() + hours * 60 * 60 * 1000);
 
     const selected: HourlyForecast[] = forecastHours
@@ -121,7 +117,6 @@ async function fetchFromFreeWeatherAPIForDay(location: string, date: string): Pr
     const apiKey = process.env.FREE_WEATHER_API_KEY;
     const baseUrl = process.env.FREE_WEATHER_API_URL;
 
-    // Request at least that day (the API usually supports up to 3 days free)
     const response = await axios.get<any>(baseUrl!, {
       params: {
         key: apiKey,
@@ -132,12 +127,10 @@ async function fetchFromFreeWeatherAPIForDay(location: string, date: string): Pr
       }
     });
 
-    // Find the forecast day matching the input date
     const forecastDay = response.data.forecast.forecastday.find((fd: any) => fd.date === date);
 
     if (!forecastDay) return null; // No data for that date
 
-    // 24 hours for that day
     const selected: HourlyForecast[] = forecastDay.hour.map((h: any) => ({
       time: h.time,
       temperature: h.temp_c,
@@ -163,7 +156,6 @@ async function fetchFromFreeWeatherAPIForDay(location: string, date: string): Pr
 // --- OpenWeatherMap (location) ---
 async function fetchFromOpenWeatherMap(location: string, hours: number): Promise<WeatherData | null> {
   try {
-    // Get lat/lon 
     const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
       params: {
         q: location,
@@ -174,7 +166,6 @@ async function fetchFromOpenWeatherMap(location: string, hours: number): Promise
     if (!geoRes.data.length) throw new Error('Geo lookup failed');
     const { lat, lon, name } = geoRes.data[0];
 
-    // OWM 5-day/3-hour forecast (max 40 time steps, 3-hour intervals, i.e., up to ~5 days)
     const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
       params: {
         lat,
@@ -215,56 +206,6 @@ async function fetchFromOpenWeatherMap(location: string, hours: number): Promise
   }
 }
 
-// --- OpenWeatherMap (location and date) ---
-// async function fetchFromOpenWeatherMapForDay(location: string, date: string): Promise<WeatherData | null> {
-//   try {
-//     const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
-//       params: {
-//         q: location,
-//         appid: process.env.OPENWEATHER_API_KEY
-//       }
-//     });
-
-//     if (!geoRes.data.length) throw new Error('Geo lookup failed');
-//     const { lat, lon, name } = geoRes.data[0];
-
-//     const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
-//       params: {
-//         lat,
-//         lon,
-//         appid: process.env.OPENWEATHER_API_KEY,
-//         units: 'metric'
-//       }
-//     });
-
-//     // Get all entries for the requested date
-//     const requested = date; // in 'YYYY-MM-DD'
-//     const hourlyEntries = forecastRes.data.list.filter((entry: any) =>
-//       entry.dt_txt.startsWith(requested)
-//     ).map((entry: any) => ({
-//       time: entry.dt_txt,
-//       temperature: entry.main.temp,
-//       description: entry.weather[0].description,
-//       icon: `http://openweathermap.org/img/w/${entry.weather[0].icon}.png`
-//     }));
-
-//     if (!hourlyEntries.length) return null;
-
-//     return {
-//       location: name,
-//       forecast: hourlyEntries,
-//       source: 'OpenWeatherMap'
-//     };
-//   } catch (err) {
-//     if (err instanceof Error) {
-//       logger.warn(`OpenWeatherMap (by day) failed: ${err.message}`);
-//     } else {
-//       logger.warn('OpenWeatherMap (by day) failed:', err);
-//     }
-//     return null;
-//   }
-// }
-
 // --- OWM: Get 24 hours for specific date, with hourly interpolation ---
 async function fetchFromOpenWeatherMapForDay(location: string, date: string): Promise<WeatherData | null> {
   try {
@@ -294,14 +235,12 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
       return null;
     }
 
-    // Filter for all entries for the requested date (probably 3-hourly)
     const dailyEntries = forecastRes.data.list.filter((entry: any) =>
       entry.dt_txt.startsWith(date)
     );
 
     if (!dailyEntries.length) return null;
 
-    // Map each to {hour, temp, description, icon}
     const threeHourly = dailyEntries.map((entry: any) => ({
       hour: parseInt(entry.dt_txt.substring(11, 13), 10),
       time: entry.dt_txt,
@@ -310,21 +249,16 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
       icon: `http://openweathermap.org/img/w/${entry.weather[0].icon}.png`
     }));
 
-    // Interpolate to get 24 hourly values
     const hourlyForecast: HourlyForecast[] = [];
     for (let hour = 0; hour < 24; hour++) {
-      // Find the two 3-hour points surrounding this hour
-      // const before = threeHourly.slice().reverse().find(e => e.hour <= hour);
-      // const after = threeHourly.find(e => e.hour >= hour);
+
       const before = threeHourly.slice().reverse().find((e: typeof threeHourly[0]) => e.hour <= hour);
       const after = threeHourly.find((e: typeof threeHourly[0]) => e.hour >= hour);
 
       if (before && after && before.hour !== after.hour) {
-        // Linear interpolation
         const frac = (hour - before.hour) / (after.hour - before.hour);
         const temperature = before.temperature + (after.temperature - before.temperature) * frac;
 
-        // For description and icon, just use the closer one
         const desc = (hour - before.hour) < (after.hour - hour) ? before.description : after.description;
         const icon = (hour - before.hour) < (after.hour - hour) ? before.icon : after.icon;
 
@@ -335,7 +269,6 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
           icon
         });
       } else if (before) {
-        // If only before is available (start of day)
         hourlyForecast.push({
           time: `${date} ${hour.toString().padStart(2, '0')}:00`,
           temperature: before.temperature,
@@ -343,7 +276,6 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
           icon: before.icon
         });
       } else if (after) {
-        // If only after is available (end of day)
         hourlyForecast.push({
           time: `${date} ${hour.toString().padStart(2, '0')}:00`,
           temperature: after.temperature,
@@ -351,7 +283,6 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
           icon: after.icon
         });
       } else {
-        // No data at all for this hour (should not happen)
         hourlyForecast.push({
           time: `${date} ${hour.toString().padStart(2, '0')}:00`,
           temperature: NaN,
@@ -404,9 +335,7 @@ export function summarizeWeather(forecast: HourlyForecast[]): WeatherSummary {
   return { avgTemp, minTemp, maxTemp, willRain, mainCondition };
 }
 
-// -- New function for new endpoint, this one includes a date -- 
 export async function getWeatherByDay(location: string, date: string): Promise<WeatherDataWithSummary> {
-  // Use ISO format: YYYY-MM-DD
   if (!location || !date) throw new Error('Location and date are required');
   const cacheKey = `${location.trim().toLowerCase()}|${date}`;
   const now = Date.now();

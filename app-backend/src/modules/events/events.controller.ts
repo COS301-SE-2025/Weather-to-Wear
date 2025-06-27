@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, Style } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
+import prisma from "../../../src/prisma";
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 class EventsController {
   // GET all events for authenticated user
