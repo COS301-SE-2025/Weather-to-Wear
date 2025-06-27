@@ -52,7 +52,7 @@ while expressing their unique fashion sense.
 | [Architectural Requirements Document]()             | System design overview                     |
 | [Coding Standards Document](https://drive.google.com/file/d/1-GVhvXCzHwzrMyoxF0nbIiW-RsiMfJ3S/view?usp=sharing)           |  Guidelines for writing code      |
 | [User Manual]()           |  Guidelines for writing code      |
-| [Use-Case Diagrams]()                   | Use Case Diagrams               |
+| [Use-Case Diagrams](https://drive.google.com/file/d/1J8guwOLnyf0yeS8Seb1SW4_17_MRY2PO/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram]()                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
 | [Git and GitHub Standards](https://drive.google.com/file/d/1sAcW-bNa4szmS_0Ff-vWiEi-2TF57S6p/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
