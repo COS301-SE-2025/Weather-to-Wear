@@ -116,7 +116,6 @@ describe('recommendOutfits', () => {
     };
     const outfits = await recommender.recommendOutfits('user-123', req as any);
     expect(Array.isArray(outfits)).toBe(true);
-    // everything is mocked, therefor possible to receive 0 outfits if candidate returns empty, just check it's an array.
     expect(outfits).toBeDefined();
     if (outfits.length > 0) {
       expect(outfits[0]).toHaveProperty('score');

@@ -6,7 +6,6 @@ Still very MVP, improvements TODO:
 - Optional layers: e.g. add headwear if sunny/cold and user owns it.
 - Variety: Avoid recommending duplicate outfits or same items in every combo.
 - Performance: For very large closets, you might want to limit the number of combinations (random sample, etc.).
-
 */
 
 
@@ -17,12 +16,7 @@ import tinycolor from 'tinycolor2';
 
 const prisma = new PrismaClient();
 
-/**
- * Main entry point for the recommendation engine.
- * @param userId Authenticated user's ID
- * @param req   The request body for recommendations
- * @returns     Array of recommended outfits (not saved to DB)
- */
+
 export async function recommendOutfits(
     userId: string,
     req: RecommendOutfitsRequest
@@ -150,7 +144,7 @@ function scoreOutfit(
             for (let j = i + 1; j < colors.length; ++j) {
                 const c1 = tinycolor(colors[i]).toHsl();
                 const c2 = tinycolor(colors[j]).toHsl();
-                totalDistance += Math.abs(c1.h - c2.h); // crude, just as a start
+                totalDistance += Math.abs(c1.h - c2.h); 
             }
         }
         score += 10 - totalDistance / (colors.length - 1);

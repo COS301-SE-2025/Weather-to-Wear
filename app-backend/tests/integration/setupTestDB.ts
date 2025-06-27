@@ -2,7 +2,6 @@
 import { execSync } from "child_process";
 
 module.exports = async () => {
-  // Reset the test DB schema before the test suite
   execSync("npx prisma migrate reset --force --skip-generate --skip-seed", {
     stdio: "inherit",
     env: {

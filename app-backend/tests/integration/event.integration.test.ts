@@ -27,7 +27,7 @@ describe("Integration: Events Module", () => {
             data: {
                 name: "Event User",
                 email: "eventuser@example.com",
-                password: "Password!1", // Doesn't matter if not hashed for direct DB insert in tests
+                password: "Password!1", 
             },
         });
         userId = user.id;

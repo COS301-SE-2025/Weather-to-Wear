@@ -24,7 +24,6 @@ jest.mock('@prisma/client', () => {
     PrismaClient: jest.fn(() => mPrisma),
     LayerCategory: { base_top: 'base_top' },
     OverallStyle: { Casual: 'Casual' },
-    // other enums here if more to be tested
   };
 });
 
