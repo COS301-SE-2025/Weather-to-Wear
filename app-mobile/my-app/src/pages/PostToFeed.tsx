@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, ArrowLeft, Upload, Check } from "lucide-react";
+import { Camera, ArrowLeft, Upload, Check, Sun, Cloud, CloudRain, CloudSnow, Wind, ChevronDown } from "lucide-react";
 import { useImage } from "../components/ImageContext";
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
   const [content, setContent] = useState("");
   const [image, setLocalImage] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [weather, setWeather] = useState<string | null>(null);
+  const [showWeatherDropdown, setShowWeatherDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
@@ -102,6 +105,20 @@ const PostToFeed = () => {
     setShowCameraPopup(false);
   };
 
+  const handleReset = () => {
+    console.log("Resetting form...");
+    setContent("");
+    setLocalImage(null);
+    setCameraPreview(null);
+    setImage(null);
+    setLocation(null);
+    setWeather(null);
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const file = e.target.files?.[0];
@@ -128,11 +145,19 @@ const PostToFeed = () => {
     if (uploadedImage || image) {
       console.log("Selected image:", uploadedImage || image);
     }
+    if (location) {
+      console.log("Location:", location);
+    }
+    if (weather) {
+      console.log("Weather:", weather);
+    }
     // Reset form state
     setContent("");
     setLocalImage(null);
     setCameraPreview(null);
     setImage(null);
+    setLocation(null);
+    setWeather(null);
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -140,27 +165,18 @@ const PostToFeed = () => {
     navigate("/feed");
   };
 
-  const handleReset = () => {
-    console.log("Resetting form...");
-    setContent("");
-    setLocalImage(null);
-    setCameraPreview(null);
-    setImage(null);
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      setStream(null);
-    }
-  }
+  const weatherOptions = [
+    { value: "Sunny", icon: <Sun className="w-5 h-5" /> },
+    { value: "Cloudy", icon: <Cloud className="w-5 h-5" /> },
+    { value: "Rainy", icon: <CloudRain className="w-5 h-5" /> },
+    { value: "Snowy", icon: <CloudSnow className="w-5 h-5" /> },
+    { value: "Windy", icon: <Wind className="w-5 h-5" /> },
+  ];
 
-  // Cleanup object URL and stream
-  useEffect(() => {
-    return () => {
-      if (image && !cameraPreview) {
-        console.log("Revoking object URL...");
-        URL.revokeObjectURL(image);
-      }
-    };
-  }, [image]);
+  const handleWeatherSelect = (value: string) => {
+    setWeather(value);
+    setShowWeatherDropdown(false);
+  };
 
   return (
     <div className="max-w-2xl mx-auto p-4">
@@ -196,10 +212,10 @@ const PostToFeed = () => {
           </h1>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 border border-gray-200 rounded-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <span className="block font-bold text-gray-700" style={{ fontSize: '18px' }}>
+              <span className="block font-bold text-center text-gray-700" style={{ fontSize: '18px' }}>
                 Add Photo
               </span>
               <div className="flex flex-col items-center space-y-4">
@@ -226,7 +242,6 @@ const PostToFeed = () => {
                     Take Photo
                   </button>
                 </div>
-
                 {error && (
                   <p className="text-red-500 text-sm">{error}</p>
                 )}
@@ -242,8 +257,67 @@ const PostToFeed = () => {
               </div>
             </div>
 
+            <div className="flex gap-2 space-y-0">
+              <div className="w-3/4 space-y-2">
+                <label htmlFor="location" className="block text-sm font-bold text-gray-700" style={{ fontSize: '18px' }}>
+                  Location
+                </label>
+                <input
+                  id="location"
+                  type="text"
+                  placeholder="Enter your location "
+                  value={location || ""}
+                  onChange={(e) => setLocation(e.target.value || null)}
+                  className="w-full p-2 border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div className="w-1/4 space-y-2 relative">
+                <label htmlFor="weather" className="block text-sm font-bold text-gray-700" style={{ fontSize: '18px' }}>
+                  Weather 
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowWeatherDropdown(!showWeatherDropdown)}
+                    className="w-full p-2 border border-teal-300 rounded-md bg-white flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <span className="flex items-center">
+                      {weather ? (
+                        weatherOptions.find(opt => opt.value === weather)?.icon
+                      ) : (
+                        <span className="text-gray-400">Select weather</span>
+                      )}
+                    </span>
+                    <ChevronDown className="w-5 h-5" />
+                  </button>
+                  {showWeatherDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => handleWeatherSelect("")}
+                        className="w-full p-2 text-left hover:bg-gray-100"
+                      >
+                        Select weather
+                      </button>
+                      {weatherOptions.map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => handleWeatherSelect(option.value)}
+                          className="w-full p-2 text-left hover:bg-teal-100 flex items-center"
+                        >
+                          {option.icon}
+                          <span className="ml-2">{option.value}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <label htmlFor="content" className="block text-sm font-bold text-gray-700" style={{ fontSize: '18px' }}>
+              <label htmlFor="content" className="block text-sm text-center font-bold text-gray-700" style={{ fontSize: '18px' }}>
                 Caption your Outfit
               </label>
               <textarea
@@ -251,7 +325,7 @@ const PostToFeed = () => {
                 placeholder="Tell everyone about your outfit, the weather, or your style inspiration..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full min-h-[100px] p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full min-h-[100px] p-2 border border-teal-500 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-700"
                 required
               />
             </div>
@@ -259,7 +333,7 @@ const PostToFeed = () => {
             <div className="flex gap-4 pt-4">
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={handleReset}
                 className="flex-1 py-2 px-4 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
               >
                 Cancel
