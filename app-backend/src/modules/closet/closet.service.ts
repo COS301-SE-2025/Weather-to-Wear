@@ -100,6 +100,24 @@ async saveImage(
     return Promise.all(creations);
   }
 
+  async saveImageDirect(
+  file: Express.Multer.File,
+  category: Category,
+  layerCategory: LayerCategory,
+  userId: string,
+  extras?: Extras
+): Promise<ClosetItem> {
+  return this.prisma.closetItem.create({
+    data: {
+      filename: file.filename,
+      category,
+      layerCategory,
+      ownerId: userId,
+      ...extras,
+    }
+  });
+}
+
   async getAllImages(userId: string): Promise<ClosetItem[]> {
     return this.prisma.closetItem.findMany({
       where: { ownerId: userId }

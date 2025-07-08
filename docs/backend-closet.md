@@ -42,8 +42,7 @@
             "colorHex": "#ff0000",
             "warmthFactor": 2,
             "waterproof": true,
-            "style": "Casual",
-            "material": "Cotton"
+            "style": "Casual"        
         },
         {
             "filename": "jeans1",
@@ -52,8 +51,7 @@
             "colorHex": "#0000ff",
             "warmthFactor": 3,
             "waterproof": false,
-            "style": "Casual",
-            "material": "Denim"
+            "style": "Casual"
         }
         ]
 
