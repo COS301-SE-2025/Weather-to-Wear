@@ -4,6 +4,22 @@ import { useImage } from "../components/ImageContext";
 import { Camera, Upload, Loader } from "lucide-react";
 
 
+
+interface BatchUploadItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+
+  layerCategory: string;
+  category: string;
+  style: string;
+  material: string;
+  warmthFactor: number;
+  waterproof: boolean;
+  colorHex: string;
+}
+
+
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
   { value: "base_top", label: "Base Top" },
@@ -102,6 +118,9 @@ const AddPage: React.FC = () => {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
 
 
+  const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
+
+
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
       const video = videoRef.current;
@@ -125,15 +144,7 @@ const AddPage: React.FC = () => {
     }
   };
 
-  // const capturePhoto = () => {
-  //   if (!stream || !videoRef.current || !canvasRef.current) return;
-  //   const video = videoRef.current;
-  //   const canvas = canvasRef.current;
-  //   canvas.width = video.videoWidth;
-  //   canvas.height = video.videoHeight;
-  //   canvas.getContext("2d")?.drawImage(video, 0, 0);
-  //   setCameraPreview(canvas.toDataURL());
-  // };
+
 
   const capturePhoto = () => {
     if (!stream || !videoRef.current || !canvasRef.current) return;
@@ -575,6 +586,210 @@ const AddPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        <div className="hidden lg:block mx-6 h-96 border-l border-gray-300 dark:border-gray-700" />
+        <div className="block lg:hidden w-3/4 border-t border-gray-300 dark:border-gray-700 my-8" />
+
+        {/* BATCH UPLOAD PANEL */}
+        <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-300 dark:border-gray-700 shadow-md">
+          <div className="relative w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black">
+            <label className="flex items-center justify-center gap-3 w-full h-full text-white bg-black hover:bg-teal-600 transition-colors rounded-xl cursor-pointer font-semibold text-lg select-none">
+              <Upload className="w-6 h-6" />
+              Upload batch
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  const newItems = files.map((file) => {
+                    const id = crypto.randomUUID();
+                    return {
+                      id,
+                      file,
+                      previewUrl: URL.createObjectURL(file),
+                      layerCategory: "",
+                      category: "",
+                      style: "",
+                      material: "",
+                      warmthFactor: 1,
+                      waterproof: false,
+                      colorHex: "",
+                    };
+                  });
+                  setBatchItems((prev) => [...prev, ...newItems]);
+                }}
+              />
+            </label>
+          </div>
+
+          <div className="overflow-y-auto max-h-[500px] w-full">
+            {batchItems.map((item, index) => (
+              <div key={item.id} className="border rounded-xl p-4 mb-4 bg-white dark:bg-gray-800 shadow-md">
+                <img src={item.previewUrl} alt="Preview" className="w-full h-36 object-cover rounded mb-2 border" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <select value={item.layerCategory} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[index].layerCategory = val;
+                      updated[index].category = "";
+                      return updated;
+                    });
+                  }} className="input">
+                    {LAYER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <select value={item.category} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[index].category = val;
+                      return updated;
+                    });
+                  }} disabled={!item.layerCategory} className="input">
+                    <option value="">Select Category</option>
+                    {(CATEGORY_BY_LAYER[item.layerCategory] || []).map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <select value={item.style} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[index].style = val;
+                      return updated;
+                    });
+                  }} className="input">
+                    {STYLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <select value={item.material} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[index].material = val;
+                      return updated;
+                    });
+                  }} className="input">
+                    {MATERIAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium text-black dark:text-gray-100">Warmth: {item.warmthFactor}</label>
+                    <input type="range" min={1} max={10} value={item.warmthFactor}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setBatchItems(items => {
+                          const updated = [...items];
+                          updated[index].warmthFactor = val;
+                          return updated;
+                        });
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={item.waterproof}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setBatchItems(items => {
+                          const updated = [...items];
+                          updated[index].waterproof = val;
+                          return updated;
+                        });
+                      }}
+                    />
+                    <label className="text-sm font-semibold">Waterproof</label>
+                  </div>
+
+                  <div className="flex gap-1 flex-wrap">
+                    {COLOR_PALETTE.map(({ hex, label }) => (
+                      <button
+                        key={hex}
+                        title={label}
+                        type="button"
+                        className={`w-6 h-6 rounded-full border-2 ${item.colorHex === hex ? "border-teal-500 scale-110 shadow" : "border-gray-300"}`}
+                        style={{ backgroundColor: hex }}
+                        onClick={() => {
+                          setBatchItems(items => {
+                            const updated = [...items];
+                            updated[index].colorHex = hex;
+                            return updated;
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {batchItems.length > 0 && (
+            <button
+              className="mt-4 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+              onClick={async () => {
+                const formData = new FormData();
+                const itemsMeta = batchItems.map(item => ({
+                  filename: item.id,
+                  category: item.category,
+                  layerCategory: item.layerCategory,
+                  style: item.style,
+                  material: item.material,
+                  warmthFactor: item.warmthFactor,
+                  waterproof: item.waterproof,
+                  colorHex: item.colorHex,
+                }));
+                formData.append("items", JSON.stringify(itemsMeta));
+                batchItems.forEach(item => {
+                  formData.append(item.id, item.file);
+                });
+
+                const token = localStorage.getItem("token");
+                try {
+                  // debug code: 
+                  console.log("Uploading batch items:", batchItems);
+                  console.log("Sending metadata:", JSON.stringify(itemsMeta));
+
+                  const res = await fetch("http://localhost:5001/api/closet/upload/batch", {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  });
+                  // more debug code:
+                  if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error("Upload failed. Server responded with:", res.status, errorText);
+                    throw new Error(`Upload failed: ${res.status} ${errorText}`);
+                  }
+                  alert("Batch uploaded!");
+                  setBatchItems([]);
+                } catch (err) {
+                  console.error(err);
+                  alert("Upload failed");
+                }
+              }}
+            >
+              Submit All
+            </button>
+          )}
+        </div>
+
       </div>
 
       {isLoading && (
