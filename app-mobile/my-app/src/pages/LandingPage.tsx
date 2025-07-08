@@ -65,7 +65,7 @@ const LandingPage: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 overflow-x-visible overflow-y-visible">
       {/* Top Banner (logo only) */}
-      <div className="sticky top-0 z-50 bg-black dark:bg-gray-800 text-white py-2 px-4">
+      <div className="sticky top-0 z-60 bg-black dark:bg-gray-800 text-white py-2 px-4">
         <div className="max-w-screen-xl mx-auto flex items-center justify-center">
           <img
             src="/logo.png"
