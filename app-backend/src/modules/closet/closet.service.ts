@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { Express } from 'express';
 import { Multer } from 'multer';
-import { spawnSync } from 'child_process';
+// import { spawnSync } from 'child_process';
 
 
 
@@ -30,6 +30,56 @@ type Extras = {
 class ClosetService {
   private prisma = new PrismaClient();
 
+// async saveImage(
+//   file: Express.Multer.File,
+//   category: Category,
+//   layerCategory: any,
+//   userId: string,
+//   extras?: Extras
+// ): Promise<ClosetItem> {
+//   const originalImagePath = file.path;
+//   const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
+
+//   // const result = spawnSync('python3', [
+//   //   // path.join(__dirname, '../../../scripts/background-removal/U-2-Net/remove_bg.py'),
+//   //   path.join(__dirname, '/app/scripts/background-removal/U-2-Net/remove_bg.py'),
+
+//   //   originalImagePath,
+//   //   outputImagePath
+//   // ]);
+
+//   const result = spawnSync('python3', [
+//     '/app/scripts/background-removal/U-2-Net/remove_bg.py',
+//     originalImagePath,
+//     outputImagePath
+//   ]);
+
+//   // debug code
+//   if (result.error || result.status !== 0) {
+//     console.error('Background removal failed');
+//     console.error('Exit code:', result.status);
+//     console.error('STDOUT:', result.stdout?.toString());
+//     console.error('STDERR:', result.stderr?.toString());
+//     console.error('Error:', result.error);
+//     throw new Error('Image background removal failed');
+//   }
+
+//   // clears up disk space
+//   fs.unlinkSync(originalImagePath);
+
+//   const cleanedFilename = path.basename(outputImagePath);
+
+//   return this.prisma.closetItem.create({
+//     data: {
+//       filename: cleanedFilename,
+//       category,
+//       layerCategory,
+//       ownerId: userId,
+//       ...extras,
+//     }
+//   });
+// }
+
 async saveImage(
   file: Express.Multer.File,
   category: Category,
@@ -38,27 +88,9 @@ async saveImage(
   extras?: Extras
 ): Promise<ClosetItem> {
   const originalImagePath = file.path;
-  const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
 
-  const result = spawnSync('python3', [
-    '/app/scripts/background-removal/U-2-Net/remove_bg.py',
-    originalImagePath,
-    outputImagePath
-  ]);
-
-  if (result.error || result.status !== 0) {
-    console.error('Background removal failed');
-    console.error('Exit code:', result.status);
-    console.error('STDOUT:', result.stdout?.toString());
-    console.error('STDERR:', result.stderr?.toString());
-    console.error('Error:', result.error);
-    throw new Error('Image background removal failed');
-  }
-
-
-  fs.unlinkSync(originalImagePath);
-
-  const cleanedFilename = path.basename(outputImagePath);
+  // No background removal – we use the original file directly
+  const cleanedFilename = path.basename(originalImagePath);
 
   return this.prisma.closetItem.create({
     data: {
