@@ -12,6 +12,10 @@ Still very MVP, improvements TODO:
 
 import { PrismaClient, ClosetItem, LayerCategory, Style } from '@prisma/client';
 import { RecommendOutfitsRequest, OutfitRecommendation } from './outfit.types';
+import {
+    getFeatureVector,
+    predictRatingKnn,
+} from './itemItemKnn';
 
 import tinycolor from 'tinycolor2';
 
@@ -73,7 +77,59 @@ export async function recommendOutfits(
 
     scored.sort((a, b) => b.score - a.score);
 
-    return scored.slice(0, 5);
+    // ——— 1. Fetch user’s past rated outfits ———
+    const past = await prisma.outfit.findMany({
+        where: { userId, userRating: { not: null } },
+        include: {
+            outfitItems: { include: { closetItem: true } }
+        }
+    });
+
+    // ——— 2. Build history vectors & ratings ———
+    const historyVecs: number[][] = [];
+    const historyRatings: number[] = [];
+    for (const p of past) {
+        // recreate an OutfitRecommendation-shaped object
+        const fakeRec: OutfitRecommendation = {
+            outfitItems: p.outfitItems.map(oi => ({
+                closetItemId: oi.closetItemId,
+                imageUrl: `/uploads/${oi.closetItem.filename}`,
+                layerCategory: oi.layerCategory,
+                category: oi.closetItem.category,
+                style: oi.closetItem.style ?? Style.Casual,
+                colorHex: oi.closetItem.colorHex ?? '#000000',
+                warmthFactor: oi.closetItem.warmthFactor ?? 5,
+                waterproof: oi.closetItem.waterproof ?? false,
+            })),
+            overallStyle: p.overallStyle,
+            // add a score so TS is happy:
+            score: p.userRating!,   // or just `0`
+            warmthRating: p.warmthRating,
+            waterproof: p.waterproof,
+            weatherSummary: JSON.parse(p.weatherSummary || '{}'),
+        };
+        historyVecs.push(getFeatureVector(fakeRec));
+        historyRatings.push(p.userRating!);
+    }
+
+    // ——— 3. Re-score via KNN & merge ———
+    const augmented = scored.map(rec => {
+        const baseScore = rec.score;
+        if (historyRatings.length === 0) {
+            // no history → keep rule score
+            return { ...rec, finalScore: baseScore };
+        }
+        const fv = getFeatureVector(rec);
+        const knnPred = predictRatingKnn(fv, historyVecs, historyRatings, 5);
+        // blend: adjust alpha to taste (e.g. more KNN as you get more ratings)
+        const alpha = 0.5;
+        return { ...rec, finalScore: alpha * baseScore + (1 - alpha) * knnPred };
+    });
+
+    augmented.sort((a, b) => b.finalScore - a.finalScore);
+    return augmented.slice(0, 5).map(({ finalScore, ...rest }) => rest);
+
+    // return scored.slice(0, 5);
 }
 
 type PartitionedCloset = {
