@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useImage } from "../components/ImageContext";
 import { Camera, Upload, Loader } from "lucide-react";
+import { fetchWithAuth } from "../services/fetchWithAuth";
+
 
 
 
@@ -192,7 +194,7 @@ const AddPage: React.FC = () => {
       return;
     }
 
-    const blob = await (await fetch(finalImg)).blob();
+    const blob = await (await fetchWithAuth(finalImg)).blob();
     const formData = new FormData();
     formData.append("image", blob, "upload.png");
     formData.append("layerCategory", layerCategory);
@@ -209,7 +211,7 @@ const AddPage: React.FC = () => {
     const token = localStorage.getItem("token");
 
     try {
-      const response = await fetch(
+      const response = await fetchWithAuth(
         "http://localhost:5001/api/closet/upload",
         {
           method: "POST",
@@ -764,12 +766,12 @@ const AddPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="w-1/2 h-1 bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden mt-1">
+                <div className="w-1/2 h-1 bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden mt-1.5">
                   <div
                     className="h-full transition-all duration-300"
                     style={{
                       width: `${((currentIndex + 1) / batchItems.length) * 100}%`,
-                      backgroundColor: "#3949AB"
+                      backgroundColor: "teal"
                     }}
                   ></div>
                 </div>
@@ -800,7 +802,7 @@ const AddPage: React.FC = () => {
                     console.log("Uploading batch items:", batchItems);
                     console.log("Sending metadata:", JSON.stringify(itemsMeta));
 
-                    const res = await fetch("http://localhost:5001/api/closet/upload/batch", {
+                    const res = await fetchWithAuth("http://localhost:5001/api/closet/upload/batch", {
                       method: "POST",
                       body: formData,
                       headers: {

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
 import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
+import { fetchWithAuth } from "../services/fetchWithAuth";
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -272,7 +273,7 @@ export default function ClosetPage() {
     if (!itemToEdit) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(
+      const res = await fetchWithAuth(
         `http://localhost:5001/api/closet/${itemToEdit.id}`,
         {
           method: 'PATCH',
