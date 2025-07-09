@@ -740,25 +740,41 @@ const AddPage: React.FC = () => {
               </div>
 
               {/* Navigation */}
-              <div className="flex items-center justify-between w-full max-w-md mb-4">
-                <button
-                  className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 border rounded disabled:opacity-50"
-                  onClick={() => setCurrentIndex(i => i - 1)}
-                  disabled={currentIndex === 0}
-                >
-                  ◀ Prev
-                </button>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  Image {currentIndex + 1} of {batchItems.length}
-                </span>
-                <button
-                  className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 border rounded disabled:opacity-50"
-                  onClick={() => setCurrentIndex(i => i + 1)}
-                  disabled={currentIndex === batchItems.length - 1}
-                >
-                  Next ▶
-                </button>
+              <div className="flex flex-col items-center justify-center w-full max-w-md mb-4 gap-2">
+                {/* Buttons */}
+                <div className="flex items-center justify-between w-full">
+                  <button
+                    className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full border border-gray-400 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                    onClick={() => setCurrentIndex(i => i - 1)}
+                    disabled={currentIndex === 0}
+                  >
+                    ◀ Prev
+                  </button>
+
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Image {currentIndex + 1} of {batchItems.length}
+                  </span>
+
+                  <button
+                    className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full border border-gray-400 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                    onClick={() => setCurrentIndex(i => i + 1)}
+                    disabled={currentIndex === batchItems.length - 1}
+                  >
+                    Next ▶
+                  </button>
+                </div>
+
+                <div className="w-1/2 h-1 bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden mt-1">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${((currentIndex + 1) / batchItems.length) * 100}%`,
+                      backgroundColor: "#3949AB"
+                    }}
+                  ></div>
+                </div>
               </div>
+
 
               <button
                 className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
