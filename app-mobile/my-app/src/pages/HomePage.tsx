@@ -12,6 +12,10 @@ import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../ser
 import StarRating from '../components/StarRating';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+function getOutfitKey(outfit: RecommendedOutfit): string {
+  return outfit.outfitItems.map(i => i.closetItemId).sort().join("-");
+}
+
 type Item = {
   id: number;
   name: string;
@@ -103,6 +107,9 @@ export default function HomePage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   // Style dropdown state
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
+  //store ratings as dictionary
+  const [ratings, setRatings] = useState<Record<string, number>>({});
 
   const [isEditing, setIsEditing] = useState(false);
   const [editEventData, setEditEventData] = useState({
@@ -206,7 +213,6 @@ export default function HomePage() {
 
 
 
-  //handle rating logic (save outfit to closet when a user rates it)
   const handleSaveRating = async (rating: number) => {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
@@ -230,8 +236,13 @@ export default function HomePage() {
     setSaving(true);
     try {
       await createOutfit(payload);
-      // advance to the next outfit
-      setCurrentIndex((i) => Math.min(i + 1, outfits.length - 1));
+
+      const key = getOutfitKey(outfit);
+      setRatings((prev) => ({
+        ...prev,
+        [key]: rating,
+      }));
+
     } catch (err) {
       console.error('Save failed', err);
       alert('Failed to save your rating.');
@@ -240,12 +251,13 @@ export default function HomePage() {
     }
   };
 
+
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
 
       {/* Hero Background */}
       <div
-        className="w-screen relative flex items-center justify-center h-64 mb-6 -mt-8 z-0 bg-fixed"
+        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
         style={{
           backgroundImage: `url(/background.jpg)`,
           backgroundSize: 'cover',
@@ -431,7 +443,12 @@ export default function HomePage() {
 
 
 
-                  <StarRating disabled={saving} onSelect={handleSaveRating} />
+                  <StarRating
+                    disabled={saving}
+                    onSelect={handleSaveRating}
+                    value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                  />
+
                 </>
               )}
             </div>

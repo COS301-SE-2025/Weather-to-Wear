@@ -64,68 +64,88 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 overflow-x-visible overflow-y-visible">
-      {/* Top Banner (logo only) */}
-      <div className="sticky top-0 z-60 bg-black dark:bg-gray-800 text-white py-2 px-4">
-        <div className="max-w-screen-xl mx-auto flex items-center justify-center">
-          <img
-            src="/logo.png"
-            alt="WeatherToWear logo"
-            className="h-10 w-auto"
-            loading="lazy"
-          />
-          <h1 className="ml-4 text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
-            WeatherToWear
-          </h1>
-        </div>
-      </div>
-
-      {/* Hero Section */}
-      <section className="relative flex flex-col lg:flex-row items-center lg:justify-between bg-black overflow-visible overflow-x-visible py-6 lg:py-8 sticky top-0 z-10 ">
-        {/* Text & CTAs */}
-        <div
-          className="
-      relative z-20 px-6 sm:px-12 lg:px-16 max-w-lg mx-auto lg:mx-0
-      text-center lg:text-left
-      min-h-[8rem] flex flex-col justify-center
-    "
-        >
-          <TypingSlogan />
-
-          <p className="mt-4 text-base sm:text-lg lg:text-xl text-white max-w-sm mx-auto lg:mx-0">
-            Your personal weather-based clothing assistant.
-          </p>
-
-          <div className="mt-6 flex justify-center lg:justify-start gap-4">
+      {/* Top Banner with Logo and Buttons */}
+      <div className="bg-black dark:bg-gray-800 text-white py-2 px-4">
+        <div className="max-w-screen-xl mx-auto flex items-center justify-between">
+          {/* Logo & Title */}
+          <div className="flex items-center gap-4">
+            <img
+              src="/logo.png"
+              alt="Weather2Wear logo"
+              className="h-10 w-auto"
+              loading="lazy"
+            />
+            <h1 className="text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
+              WeatherToWear
+            </h1>
+          </div>
+          {/* Sign Up and Log In Buttons */}
+          <div className="flex items-center gap-4">
             <Link
               to="/signup"
-              className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition"
+              role="button"
+              className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black focus:ring-2 focus:ring-teal-500 transition-all font-livvic text-sm"
             >
               Sign Up
             </Link>
             <Link
               to="/login"
-              className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition"
+              role="button"
+              className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black focus:ring-2 focus:ring-teal-500 transition-all font-livvic text-sm"
             >
               Log In
             </Link>
           </div>
         </div>
+      </div>
 
-        {/* Decorative circle */}
+      {/* Hero Section */}
+      <div
+        className="relative flex items-center min-h-[30rem] bg-black" style={{ position: 'relative', overflow: 'hidden' }}
+      >
+        <div className="pl-10 pr-8 py-4 z-10 ml-0 w-full">
+          <TypingSlogan />
+          <p className="text-lg text-white  mb-6 max-w-2xl">
+            Your personal weather-based clothing assistant.
+          </p>
+        </div>
+        <div
+          className="absolute top-0 right-0 h-full w-1/2 bg-teal-800"
+          style={{
+            clipPath: 'circle(50% at 100% 0)',
+            overflow: 'hidden',
+            zIndex: 0,
+          }}
+        >
+        </div>
 
-        <div className="absolute top-0 z-10 right-20 h-40 w-40 lg:h-56 lg:w-56 bg-teal-800 rounded-full transform translate-x-1/4 -translate-y-1/4" />
-        {/* Arch image */}
-        <div className="w-full lg:w-1/3 flex justify-center lg:justify-end mt-6 lg:mt-0 pr-6 lg:pr-16 relative z-20 right-20">
-          <div className="aspect-w-3 aspect-h-4 w-2/3 sm:w-1/2 lg:w-3/4 max-w-[160px]">
-            <img
-              src="/LPcloset.jpg"
-              alt="Closet preview"
-              className="object-cover rounded-tl-full rounded-tr-full shadow-md"
-            />
+        {/* Arch Section */}
+        <div className="w-full lg:w-1/3 flex justify-center mt-0 lg:-mt-20">
+          <div className="relative w-full max-w-[280px] h-[350px]">
+            <div
+              className="absolute rounded-tl-full rounded-tr-full h-full pointer-events-none bg-white dark:bg-gray-800"
+              style={{
+                top: '-1%',
+                left: '-130px',
+                width: '280px',
+                height: '380px',
+                zIndex: 10,
+                position: 'absolute',
+              }}
+            >
+              <div className="z-10 p-0 relative h-full w-full">
+                <img
+                  src="/LPcloset.jpg"
+                  alt="Event image"
+                  className="absolute inset-0 w-full h-full object-cover rounded-tl-full rounded-tr-full"
+                  style={{ zIndex: -1 }}
+                />
+              </div>
+            </div>
+
           </div>
         </div>
-      </section>
-
+      </div>
       {/* What is Weather to Wear Section */}
       <section
         className="relative bg-cover bg-center bg-no-repeat py-16 sticky top-0 z-20"

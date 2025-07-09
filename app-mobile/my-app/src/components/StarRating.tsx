@@ -1,20 +1,19 @@
-// src/components/StarRating.tsx
 import React, { useState } from 'react';
 
 interface StarRatingProps {
   disabled?: boolean;
   onSelect: (rating: number) => void;
+  value?: number;
 }
 
-const StarRating: React.FC<StarRatingProps> = ({ disabled = false, onSelect }) => {
+const StarRating: React.FC<StarRatingProps> = ({ disabled = false, onSelect, value = 0 }) => {
   const [hover, setHover] = useState(0);
-  const [selected, setSelected] = useState(0);
 
   return (
     <div className="w-full grid grid-cols-5 gap-1 mt-4 mb-8 px-2">
       {[...Array(5)].map((_, index) => {
         const starValue = index + 1;
-        const isFilled = starValue <= (hover || selected);
+        const isFilled = starValue <= (hover || value);
         return (
           <button
             key={starValue}
@@ -22,7 +21,6 @@ const StarRating: React.FC<StarRatingProps> = ({ disabled = false, onSelect }) =
             disabled={disabled}
             className="flex justify-center items-center"
             onClick={() => {
-              setSelected(starValue);
               onSelect(starValue);
             }}
             onMouseEnter={() => setHover(starValue)}
