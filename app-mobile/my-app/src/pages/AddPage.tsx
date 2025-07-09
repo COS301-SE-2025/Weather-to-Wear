@@ -119,6 +119,8 @@ const AddPage: React.FC = () => {
 
 
   const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
 
 
   useEffect(() => {
@@ -592,7 +594,7 @@ const AddPage: React.FC = () => {
 
         {/* BATCH UPLOAD PANEL */}
         <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-300 dark:border-gray-700 shadow-md">
-          <div className="relative w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black">
+          <div className="relative w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black mb-4">
             <label className="flex items-center justify-center gap-3 w-full h-full text-white bg-black hover:bg-teal-600 transition-colors rounded-xl cursor-pointer font-semibold text-lg select-none">
               <Upload className="w-6 h-6" />
               Upload batch
@@ -618,24 +620,25 @@ const AddPage: React.FC = () => {
                       colorHex: "",
                     };
                   });
-                  setBatchItems((prev) => [...prev, ...newItems]);
+                  setBatchItems(newItems);
+                  setCurrentIndex(0);
                 }}
               />
             </label>
           </div>
 
-          <div className="overflow-y-auto max-h-[500px] w-full">
-            {batchItems.map((item, index) => (
-              <div key={item.id} className="border rounded-xl p-4 mb-4 bg-white dark:bg-gray-800 shadow-md">
-                <img src={item.previewUrl} alt="Preview" className="w-full h-36 object-cover rounded mb-2 border" />
+          {batchItems.length > 0 && (
+            <>
+              <div className="w-full max-w-md mb-4">
+                <img src={batchItems[currentIndex].previewUrl} alt="Preview" className="w-full h-64 object-cover rounded-xl border mb-4" />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <select value={item.layerCategory} onChange={(e) => {
+                  <select value={batchItems[currentIndex].layerCategory} onChange={(e) => {
                     const val = e.target.value;
                     setBatchItems(items => {
                       const updated = [...items];
-                      updated[index].layerCategory = val;
-                      updated[index].category = "";
+                      updated[currentIndex].layerCategory = val;
+                      updated[currentIndex].category = "";
                       return updated;
                     });
                   }} className="input">
@@ -644,25 +647,25 @@ const AddPage: React.FC = () => {
                     ))}
                   </select>
 
-                  <select value={item.category} onChange={(e) => {
+                  <select value={batchItems[currentIndex].category} onChange={(e) => {
                     const val = e.target.value;
                     setBatchItems(items => {
                       const updated = [...items];
-                      updated[index].category = val;
+                      updated[currentIndex].category = val;
                       return updated;
                     });
-                  }} disabled={!item.layerCategory} className="input">
+                  }} disabled={!batchItems[currentIndex].layerCategory} className="input">
                     <option value="">Select Category</option>
-                    {(CATEGORY_BY_LAYER[item.layerCategory] || []).map((opt) => (
+                    {(CATEGORY_BY_LAYER[batchItems[currentIndex].layerCategory] || []).map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
 
-                  <select value={item.style} onChange={(e) => {
+                  <select value={batchItems[currentIndex].style} onChange={(e) => {
                     const val = e.target.value;
                     setBatchItems(items => {
                       const updated = [...items];
-                      updated[index].style = val;
+                      updated[currentIndex].style = val;
                       return updated;
                     });
                   }} className="input">
@@ -671,11 +674,11 @@ const AddPage: React.FC = () => {
                     ))}
                   </select>
 
-                  <select value={item.material} onChange={(e) => {
+                  <select value={batchItems[currentIndex].material} onChange={(e) => {
                     const val = e.target.value;
                     setBatchItems(items => {
                       const updated = [...items];
-                      updated[index].material = val;
+                      updated[currentIndex].material = val;
                       return updated;
                     });
                   }} className="input">
@@ -685,13 +688,13 @@ const AddPage: React.FC = () => {
                   </select>
 
                   <div className="col-span-2">
-                    <label className="text-sm font-medium text-black dark:text-gray-100">Warmth: {item.warmthFactor}</label>
-                    <input type="range" min={1} max={10} value={item.warmthFactor}
+                    <label className="text-sm font-medium text-black dark:text-gray-100">Warmth: {batchItems[currentIndex].warmthFactor}</label>
+                    <input type="range" min={1} max={10} value={batchItems[currentIndex].warmthFactor}
                       onChange={(e) => {
                         const val = Number(e.target.value);
                         setBatchItems(items => {
                           const updated = [...items];
-                          updated[index].warmthFactor = val;
+                          updated[currentIndex].warmthFactor = val;
                           return updated;
                         });
                       }}
@@ -702,12 +705,12 @@ const AddPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={item.waterproof}
+                      checked={batchItems[currentIndex].waterproof}
                       onChange={(e) => {
                         const val = e.target.checked;
                         setBatchItems(items => {
                           const updated = [...items];
-                          updated[index].waterproof = val;
+                          updated[currentIndex].waterproof = val;
                           return updated;
                         });
                       }}
@@ -721,12 +724,12 @@ const AddPage: React.FC = () => {
                         key={hex}
                         title={label}
                         type="button"
-                        className={`w-6 h-6 rounded-full border-2 ${item.colorHex === hex ? "border-teal-500 scale-110 shadow" : "border-gray-300"}`}
+                        className={`w-6 h-6 rounded-full border-2 ${batchItems[currentIndex].colorHex === hex ? "border-teal-500 scale-110 shadow" : "border-gray-300"}`}
                         style={{ backgroundColor: hex }}
                         onClick={() => {
                           setBatchItems(items => {
                             const updated = [...items];
-                            updated[index].colorHex = hex;
+                            updated[currentIndex].colorHex = hex;
                             return updated;
                           });
                         }}
@@ -735,58 +738,76 @@ const AddPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
 
-          {batchItems.length > 0 && (
-            <button
-              className="mt-4 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
-              onClick={async () => {
-                const formData = new FormData();
-                const itemsMeta = batchItems.map(item => ({
-                  filename: item.id,
-                  category: item.category,
-                  layerCategory: item.layerCategory,
-                  style: item.style,
-                  material: item.material,
-                  warmthFactor: item.warmthFactor,
-                  waterproof: item.waterproof,
-                  colorHex: item.colorHex,
-                }));
-                formData.append("items", JSON.stringify(itemsMeta));
-                batchItems.forEach(item => {
-                  formData.append(item.id, item.file);
-                });
+              {/* Navigation */}
+              <div className="flex items-center justify-between w-full max-w-md mb-4">
+                <button
+                  className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 border rounded disabled:opacity-50"
+                  onClick={() => setCurrentIndex(i => i - 1)}
+                  disabled={currentIndex === 0}
+                >
+                  ◀ Prev
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  Image {currentIndex + 1} of {batchItems.length}
+                </span>
+                <button
+                  className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 border rounded disabled:opacity-50"
+                  onClick={() => setCurrentIndex(i => i + 1)}
+                  disabled={currentIndex === batchItems.length - 1}
+                >
+                  Next ▶
+                </button>
+              </div>
 
-                const token = localStorage.getItem("token");
-                try {
-                  // debug code: 
-                  console.log("Uploading batch items:", batchItems);
-                  console.log("Sending metadata:", JSON.stringify(itemsMeta));
-
-                  const res = await fetch("http://localhost:5001/api/closet/upload/batch", {
-                    method: "POST",
-                    body: formData,
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
+              <button
+                className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                onClick={async () => {
+                  const formData = new FormData();
+                  const itemsMeta = batchItems.map(item => ({
+                    filename: item.id,
+                    category: item.category,
+                    layerCategory: item.layerCategory,
+                    style: item.style,
+                    material: item.material,
+                    warmthFactor: item.warmthFactor,
+                    waterproof: item.waterproof,
+                    colorHex: item.colorHex,
+                  }));
+                  formData.append("items", JSON.stringify(itemsMeta));
+                  batchItems.forEach(item => {
+                    formData.append(item.id, item.file);
                   });
-                  // more debug code:
-                  if (!res.ok) {
-                    const errorText = await res.text();
-                    console.error("Upload failed. Server responded with:", res.status, errorText);
-                    throw new Error(`Upload failed: ${res.status} ${errorText}`);
+
+                  const token = localStorage.getItem("token");
+                  try {
+                    console.log("Uploading batch items:", batchItems);
+                    console.log("Sending metadata:", JSON.stringify(itemsMeta));
+
+                    const res = await fetch("http://localhost:5001/api/closet/upload/batch", {
+                      method: "POST",
+                      body: formData,
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                    });
+
+                    if (!res.ok) {
+                      const errorText = await res.text();
+                      console.error("Upload failed. Server responded with:", res.status, errorText);
+                      throw new Error(`Upload failed: ${res.status} ${errorText}`);
+                    }
+                    alert("Batch uploaded!");
+                    setBatchItems([]);
+                  } catch (err) {
+                    console.error(err);
+                    alert("Upload failed");
                   }
-                  alert("Batch uploaded!");
-                  setBatchItems([]);
-                } catch (err) {
-                  console.error(err);
-                  alert("Upload failed");
-                }
-              }}
-            >
-              Submit All
-            </button>
+                }}
+              >
+                Submit All
+              </button>
+            </>
           )}
         </div>
 
@@ -822,3 +843,9 @@ const AddPage: React.FC = () => {
 };
 
 export default AddPage;
+
+
+// things that could be nice to add:
+// Show upload progress per image
+// Automatically log out users on token expiry
+// Store drafts if the page refreshes
