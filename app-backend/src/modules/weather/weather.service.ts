@@ -24,11 +24,6 @@ async function detectUserLocation(): Promise<string> {
       return response.data.city;
     }
   } catch (err) {
-    // if (err instanceof Error) {
-    //   logger.warn('IP location detection failed:', err.message);
-    // } else {
-    //   logger.warn('IP location detection failed:', err);
-    // }
     return "Pretoria";
   }
   return '';
@@ -231,7 +226,6 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
     // OWM only provides up to 5 days
     const availableDates = forecastRes.data.list.map((entry: any) => entry.dt_txt.substring(0, 10));
     if (!availableDates.includes(date)) {
-      // Too far in the future!
       return null;
     }
 

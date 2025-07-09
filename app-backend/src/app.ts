@@ -2,13 +2,9 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
-// for authentication
 import authRoutes from './modules/auth/auth.routes';
-// for weather API
 import weatherRoutes from './modules/weather/weather.routes';
-// for image upload
 import closetRoutes from './modules/closet/closet.route';
-//userPref updates
 import userPrefRoutes from './modules/userPreference/userPref.routes';
 import eventsRoutes from './modules/events/events.route';
 import outfitRoutes from './modules/outfit/outfit.routes';

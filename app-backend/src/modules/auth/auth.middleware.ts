@@ -41,7 +41,6 @@ export function signupPasswordValidation(
 ): void {
   const pw = req.body.password as string;
   if (!pw || !validatePassword(pw)) {
-    // send the 400 then exit with a bare `return`
     res.status(400).json({
       error:
         'Password must be ≥ 8 characters, include at least one lowercase letter, one uppercase letter, and one special character.',

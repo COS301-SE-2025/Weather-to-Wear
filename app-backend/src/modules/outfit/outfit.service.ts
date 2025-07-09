@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 // following needed for creating an outfit
 export type CreateOutfitItemInput = {
   closetItemId: string;
-  layerCategory: LayerCategory; // already enum
+  layerCategory: LayerCategory; 
   sortOrder: number;
 };
 
@@ -85,7 +85,7 @@ export async function getAllOutfitsForUser(userId: string) {
     include: {
       outfitItems: {
         include: {
-          closetItem: true // include details about each clothing item
+          closetItem: true 
         }
       }
     }

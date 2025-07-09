@@ -4,10 +4,8 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
 import prisma from "../../../src/prisma";
 
-// const prisma = new PrismaClient();
 
 class EventsController {
-  // GET all events for authenticated user
   getEvents = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -34,7 +32,6 @@ class EventsController {
     }
   };
 
-  // GET single event by ID
   getEventById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -73,7 +70,6 @@ class EventsController {
     }
   };
 
-  // POST create new event
   createEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -88,18 +84,15 @@ class EventsController {
         return;
       }
 
-      // Error handling for not looking too far into future or looking into past
       const fromDate = new Date(dateFrom);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // past date
       if (fromDate < today) {
         res.status(400).json({ message: 'Event start date cannot be in the past.' });
         return;
       }
 
-      // FreeWeatherAPI allows 3 days, OWM 5 days
       const MAX_FORECAST_DAYS = 3;
       const maxAllowedDate = new Date(today);
       maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
@@ -110,8 +103,6 @@ class EventsController {
       }
 
 
-
-      // use weather api to fetch weather summaries
       const dateFromObj = new Date(dateFrom);
       const dateToObj = new Date(dateTo);
       const allDates = getAllDatesInRange(dateFromObj, dateToObj);
@@ -122,7 +113,7 @@ class EventsController {
           const weatherData = await getWeatherByDay(location, date);
           weatherSummaries.push({ date, summary: weatherData.summary });
         } catch (err) {
-          weatherSummaries.push({ date, summary: null }); // ! need an error message per chance
+          weatherSummaries.push({ date, summary: null }); 
         }
       }
 
@@ -153,7 +144,6 @@ class EventsController {
     }
   };
 
-  // PUT update existing event
   updateEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -179,7 +169,6 @@ class EventsController {
         return;
       }
 
-      // Prepare update payload
       const updateData: Record<string, any> = {};
       if (name !== undefined) updateData.name = name;
       if (location !== undefined) updateData.location = location;
@@ -187,7 +176,6 @@ class EventsController {
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
 
-      // Only check date boundaries if dateFrom is provided (or location is updated, since weather will refresh)
       if (location !== undefined || dateFrom !== undefined) {
         const newLocation = location ?? existing.location;
         const newFromDate = dateFrom !== undefined
@@ -196,7 +184,6 @@ class EventsController {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // past date
         if (newFromDate < today) {
           res.status(400).json({ message: 'Event start date cannot be in the past.' });
           return;
@@ -248,7 +235,6 @@ class EventsController {
     }
   };
 
-  // DELETE event
   deleteEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -283,7 +269,6 @@ class EventsController {
   };
 }
 
-// for events which span multiple days
 function getAllDatesInRange(start: Date, end: Date): string[] {
   const dates = [];
   const curr = new Date(start);

@@ -44,13 +44,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: 'BEANIE', label: 'Beanie' },
     { value: 'HAT', label: 'Hat' },
   ],
-  // accessory: [
-  //   { value: 'SCARF', label: 'Scarf' },
-  //   { value: 'GLOVES', label: 'Gloves' },
-  //   { value: 'UMBRELLA', label: 'Umbrella' },
-  // ],
-  // mid_bottom: [],
-  // ! Subject to change if we want to add more options
 };
 
 const AddItem = () => {
@@ -88,18 +81,6 @@ const AddItem = () => {
     formData.append('category', category);
     formData.append('layerCategory', layerCategory);
 
-    // backend boy modifying frontend so keeping this here in case
-    // try {
-    //   const response = await axios.post('/api/closet/upload', formData, {
-    //     headers: { 'Content-Type': 'multipart/form-data' },
-    //   });
-    //   console.log('Upload success:', response.data);
-    //   alert('Upload successful!');
-    // } catch (err) {
-    //   console.error('Upload failed:', err);
-    //   alert('Upload failed');
-    // }
-
     try {
       const response = await axios.post('/api/closet/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -113,32 +94,6 @@ const AddItem = () => {
       alert('Upload failed');
     }
   };
-
-  // ditto as above
-  // return (
-  //   <div className="p-4">
-  //     <h2 className="text-lg font-semibold mb-2">Add Item to Closet</h2>
-  //     <input type="file" accept="image/*" onChange={handleFileChange} />
-  //     <select
-  //       value={category}
-  //       onChange={e => setCategory(e.target.value)}
-  //       className="block mt-2 border p-1"
-  //     >
-  //       <option value="">Select Category</option>
-  //       <option value="SHIRT">Shirt</option>
-  //       <option value="HOODIE">Hoodie</option>
-  //       <option value="PANTS">Pants</option>
-  //       <option value="SHORTS">Shorts</option>
-  //       <option value="SHOES">Shoes</option>
-  //     </select>
-  //     <button
-  //       onClick={handleUpload}
-  //       className="mt-3 bg-blue-500 text-white px-4 py-2 rounded"
-  //     >
-  //       Upload
-  //     </button>
-  //   </div>
-  // );
 
   return (
     <div className="p-4">

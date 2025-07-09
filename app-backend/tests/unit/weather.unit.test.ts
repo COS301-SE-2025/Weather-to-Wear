@@ -15,7 +15,6 @@ describe('Weather Service', () => {
   });
 
   it('returns weather from FreeWeatherAPI', async () => {
-    // generate future times for next 6 hours, was giving errors with 'temperature' not being defined earlier
     const now = new Date();
     const mockHours = Array.from({ length: 6 }).map((_, i) => {
       const hour = new Date(now.getTime() + i * 60 * 60 * 1000);

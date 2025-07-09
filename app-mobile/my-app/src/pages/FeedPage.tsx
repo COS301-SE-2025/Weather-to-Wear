@@ -119,11 +119,10 @@ const FeedPage = () => {
                 className="flex items-center space-x-1 focus:outline-none"
               >
                 <Heart
-                  className={`h-5 w-5 transition-colors ${
-                    post.liked
+                  className={`h-5 w-5 transition-colors ${post.liked
                       ? "fill-red-500 text-red-500"
                       : "text-gray-400 dark:text-gray-400"
-                  }`}
+                    }`}
                 />
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {post.likes} likes

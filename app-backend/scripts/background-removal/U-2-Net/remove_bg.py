@@ -21,7 +21,6 @@ transform = transforms.Compose([
 ])
 image_tensor = transform(image).unsqueeze(0)
 
-# model_path = 'saved_models/u2net/u2net.pth'
 model_path = os.path.join(os.path.dirname(__file__), 'saved_models/u2net/u2net.pth')
 
 net = U2NET(3, 1)
