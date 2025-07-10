@@ -100,6 +100,8 @@ const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showSuccessBatch, setShowSuccessBatch] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [layerCategory, setLayerCategory] = useState<string>("");
@@ -815,7 +817,8 @@ const AddPage: React.FC = () => {
                       console.error("Upload failed. Server responded with:", res.status, errorText);
                       throw new Error(`Upload failed: ${res.status} ${errorText}`);
                     }
-                    alert("Batch uploaded!");
+
+                    setShowSuccessBatch(true);
                     setBatchItems([]);
                   } catch (err) {
                     console.error(err);
@@ -855,6 +858,28 @@ const AddPage: React.FC = () => {
           </div>
         </div>
       )}
+
+
+      {
+        showSuccessBatch && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                🎉 Success! 🎉
+              </h2>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">
+                Batch Uploaded successfully.
+              </p>
+              <button
+                onClick={() => navigate("/closet")}
+                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )
+      }
 
     </div>
   );
