@@ -125,6 +125,11 @@ const AddPage: React.FC = () => {
   const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const [uploadQueue, setUploadQueue] = useState<FormData[]>([]);
+  const [isQueueProcessing, setIsQueueProcessing] = useState(false);
+  const [queueProgress, setQueueProgress] = useState(0);
+  const [showQueueToast, setShowQueueToast] = useState(false);
+
 
 
   useEffect(() => {
@@ -139,6 +144,38 @@ const AddPage: React.FC = () => {
         });
     }
   }, [stream, cameraPreview]);
+  useEffect(() => {
+    const processQueue = async () => {
+      if (isQueueProcessing || uploadQueue.length === 0) return;
+
+      setIsQueueProcessing(true);
+      const token = localStorage.getItem("token");
+
+      for (let i = 0; i < uploadQueue.length; i++) {
+        const formData = uploadQueue[i];
+
+        try {
+          await fetchWithAuth("http://localhost:5001/api/closet/upload", {
+            method: "POST",
+            body: formData,
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setQueueProgress((i + 1) / uploadQueue.length);
+        } catch (error) {
+          console.error("Queue upload failed:", error);
+        }
+      }
+      setTimeout(() => {
+        setUploadQueue([]);
+        setIsQueueProcessing(false);
+        setQueueProgress(0);
+        setShowSuccess(true);
+      }, 300 );
+    };
+
+    processQueue();
+  }, [uploadQueue, isQueueProcessing]);
+
 
   const startCamera = async () => {
     if (stream) return;
@@ -189,6 +226,54 @@ const AddPage: React.FC = () => {
 
 
 
+  // const handleDone = async (type: "camera" | "upload") => {
+  //   const finalImg = type === "camera" ? cameraPreview : uploadPreview;
+  //   if (!finalImg || !category || !layerCategory) {
+  //     alert("Please select a layer, category, and take/upload an image.");
+  //     return;
+  //   }
+
+  //   const blob = await (await fetchWithAuth(finalImg)).blob();
+  //   const formData = new FormData();
+  //   formData.append("image", blob, "upload.png");
+  //   formData.append("layerCategory", layerCategory);
+  //   formData.append("category", category);
+  //   setIsLoading(true);
+
+  //   if (style) formData.append("style", style);
+  //   if (material) formData.append("material", material);
+  //   if (warmthFactor !== "")
+  //     formData.append("warmthFactor", warmthFactor.toString());
+  //   formData.append("waterproof", waterproof.toString());
+  //   if (color) formData.append("colorHex", color);
+
+  //   const token = localStorage.getItem("token");
+
+  //   try {
+  //     const response = await fetchWithAuth(
+  //       "http://localhost:5001/api/closet/upload",
+  //       {
+  //         method: "POST",
+  //         body: formData,
+  //         headers: { Authorization: `Bearer ${token}` },
+  //       }
+  //     );
+
+  //     if (!response.ok) {
+  //       throw new Error("Upload failed");
+  //     }
+
+  //     stream?.getTracks().forEach((t) => t.stop());
+  //     setShowSuccess(true);
+
+  //   } catch (error) {
+  //     console.error("Error uploading image:", error);
+  //     alert("There was an error uploading your item. Please try again.");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
   const handleDone = async (type: "camera" | "upload") => {
     const finalImg = type === "camera" ? cameraPreview : uploadPreview;
     if (!finalImg || !category || !layerCategory) {
@@ -201,40 +286,22 @@ const AddPage: React.FC = () => {
     formData.append("image", blob, "upload.png");
     formData.append("layerCategory", layerCategory);
     formData.append("category", category);
-    setIsLoading(true);
-
     if (style) formData.append("style", style);
     if (material) formData.append("material", material);
-    if (warmthFactor !== "")
-      formData.append("warmthFactor", warmthFactor.toString());
+    if (warmthFactor !== "") formData.append("warmthFactor", warmthFactor.toString());
     formData.append("waterproof", waterproof.toString());
     if (color) formData.append("colorHex", color);
 
-    const token = localStorage.getItem("token");
+    setUploadQueue(prev => [...prev, formData]);
+    setShowQueueToast(true);
 
-    try {
-      const response = await fetchWithAuth(
-        "http://localhost:5001/api/closet/upload",
-        {
-          method: "POST",
-          body: formData,
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+    // Reset form visuals
+    setUploadPreview(null);
+    setCameraPreview(null);
+    stream?.getTracks().forEach(t => t.stop());
+    setStream(null);
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      stream?.getTracks().forEach((t) => t.stop());
-      setShowSuccess(true);
-
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("There was an error uploading your item. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    setTimeout(() => setShowQueueToast(false), 3000);
   };
 
 
@@ -834,6 +901,43 @@ const AddPage: React.FC = () => {
 
       </div>
 
+      {uploadQueue.length > 0 && (
+        <div className="fixed bottom-6 left-6 z-50 flex flex-col items-center">
+          <svg className="w-16 h-16" viewBox="0 0 36 36">
+            <path
+              className="text-gray-200"
+              d="M18 2.0845
+           a 15.9155 15.9155 0 0 1 0 31.831
+           a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path
+              className="text-teal-500"
+              d="M18 2.0845
+           a 15.9155 15.9155 0 0 1 0 31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              // strokeDasharray={`${Math.round(queueProgress * 100)}, 100`}
+              strokeDasharray={`${(queueProgress * 100).toFixed(2)}, 100`}
+
+            />
+          </svg>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">
+            Uploading...
+          </span>
+        </div>
+      )}
+
+      {showQueueToast && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+          Items added to queue
+        </div>
+      )}
+
+
       {isLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-40">
           <Loader className="w-16 h-16 animate-spin text-teal-600" />
@@ -850,7 +954,8 @@ const AddPage: React.FC = () => {
               Item added successfully.
             </p>
             <button
-              onClick={() => navigate("/closet")}
+              // onClick={() => navigate("/closet")}
+              onClick={() => {setShowSuccess(false)}}
               className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
             >
               OK
@@ -871,7 +976,8 @@ const AddPage: React.FC = () => {
                 Batch Uploaded successfully.
               </p>
               <button
-                onClick={() => navigate("/closet")}
+                // onClick={() => navigate("/closet")}
+                onClick={() => {setShowSuccessBatch(false)}}
                 className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
               >
                 OK
