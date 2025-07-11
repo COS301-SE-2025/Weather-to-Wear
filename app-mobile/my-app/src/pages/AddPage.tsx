@@ -129,7 +129,10 @@ const AddPage: React.FC = () => {
   const [isQueueProcessing, setIsQueueProcessing] = useState(false);
   const [queueProgress, setQueueProgress] = useState(0);
   const [showQueueToast, setShowQueueToast] = useState(false);
+  const [totalItemsToProcess, setTotalItemsToProcess] = useState(0);
+  const [processedItems, setProcessedItems] = useState(0);
 
+  const [ellipsis, setEllipsis] = useState("");
 
 
   useEffect(() => {
@@ -144,37 +147,78 @@ const AddPage: React.FC = () => {
         });
     }
   }, [stream, cameraPreview]);
-  useEffect(() => {
-    const processQueue = async () => {
-      if (isQueueProcessing || uploadQueue.length === 0) return;
 
+  useEffect(() => {
+    if (uploadQueue.length === 0 || isQueueProcessing) return;
+
+    const processUpload = async () => {
       setIsQueueProcessing(true);
       const token = localStorage.getItem("token");
+      const nextFormData = uploadQueue[0];
 
-      for (let i = 0; i < uploadQueue.length; i++) {
-        const formData = uploadQueue[i];
+      try {
+        await fetchWithAuth("http://localhost:5001/api/closet/upload", {
+          method: "POST",
+          body: nextFormData,
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        try {
-          await fetchWithAuth("http://localhost:5001/api/closet/upload", {
-            method: "POST",
-            body: formData,
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          setQueueProgress((i + 1) / uploadQueue.length);
-        } catch (error) {
-          console.error("Queue upload failed:", error);
-        }
-      }
-      setTimeout(() => {
-        setUploadQueue([]);
+        // update progress bar visually
+        setQueueProgress((prev) => {
+          const total = uploadQueue.length;
+          return Math.min(1, (1 / total) + prev);
+        });
+      } catch (error) {
+        console.error("Error processing item from queue:", error);
+      } finally {
+        // dequeue item and set next
+        setUploadQueue((prevQueue) => prevQueue.slice(1));
+        setProcessedItems(prev => prev + 1);
         setIsQueueProcessing(false);
-        setQueueProgress(0);
-        setShowSuccess(true);
-      }, 300 );
+      }
     };
 
-    processQueue();
+    processUpload();
   }, [uploadQueue, isQueueProcessing]);
+
+  // useEffect(() => {
+  //   if (
+  //     uploadQueue.length === 0 &&
+  //     !isQueueProcessing &&
+  //     queueProgress > 0
+  //   ) {
+  //     // Slight delay helps prevent premature hiding
+  //     setTimeout(() => {
+  //       setShowSuccess(true);
+  //       setQueueProgress(0); // reset after success shown
+  //     }, 300);
+  //   }
+  // }, [uploadQueue.length, isQueueProcessing]);
+  useEffect(() => {
+    if (
+      uploadQueue.length === 0 &&
+      !isQueueProcessing &&
+      totalItemsToProcess > 0
+    ) {
+      // slight delay to let UI settle
+      setTimeout(() => {
+        setShowSuccess(true);
+        setQueueProgress(0);
+        setTotalItemsToProcess(0);
+        setProcessedItems(0);
+      }, 300);
+    }
+  }, [uploadQueue.length, isQueueProcessing, totalItemsToProcess]);
+
+  useEffect(() => {
+    let dotCount = 0;
+    const interval = setInterval(() => {
+      dotCount = (dotCount + 1) % 4; // 0, 1, 2, 3
+      setEllipsis(".".repeat(dotCount));
+    }, 500); // every 0.5s
+
+    return () => clearInterval(interval);
+  }, []);
 
 
   const startCamera = async () => {
@@ -293,6 +337,7 @@ const AddPage: React.FC = () => {
     if (color) formData.append("colorHex", color);
 
     setUploadQueue(prev => [...prev, formData]);
+    setTotalItemsToProcess(prev => prev + 1);
     setShowQueueToast(true);
 
     // Reset form visuals
@@ -907,33 +952,31 @@ const AddPage: React.FC = () => {
             <path
               className="text-gray-200"
               d="M18 2.0845
-           a 15.9155 15.9155 0 0 1 0 31.831
-           a 15.9155 15.9155 0 0 1 0 -31.831"
+                a 15.9155 15.9155 0 0 1 0 31.831
+                a 15.9155 15.9155 0 0 1 0 -31.831"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
             />
             <path
-              className="text-teal-500"
+              className="text-teal-500 transition-all duration-700 ease-out"
               d="M18 2.0845
-           a 15.9155 15.9155 0 0 1 0 31.831"
+                a 15.9155 15.9155 0 0 1 0 31.831"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              // strokeDasharray={`${Math.round(queueProgress * 100)}, 100`}
-              strokeDasharray={`${(queueProgress * 100).toFixed(2)}, 100`}
-
+              strokeDasharray={`${((processedItems / totalItemsToProcess) * 100).toFixed(2)}, 100`}
             />
           </svg>
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">
-            Uploading...
+            Uploading<span className="inline-block w-4">{ellipsis}</span>
           </span>
         </div>
       )}
 
       {showQueueToast && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
-          Items added to queue
+          Item added to queue
         </div>
       )}
 
@@ -951,11 +994,11 @@ const AddPage: React.FC = () => {
               🎉 Success! 🎉
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
-              Item added successfully.
+              Items added successfully.
             </p>
             <button
               // onClick={() => navigate("/closet")}
-              onClick={() => {setShowSuccess(false)}}
+              onClick={() => { setShowSuccess(false) }}
               className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
             >
               OK
@@ -977,7 +1020,7 @@ const AddPage: React.FC = () => {
               </p>
               <button
                 // onClick={() => navigate("/closet")}
-                onClick={() => {setShowSuccessBatch(false)}}
+                onClick={() => { setShowSuccessBatch(false) }}
                 className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
               >
                 OK
