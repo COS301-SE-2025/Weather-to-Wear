@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useImage } from "../components/ImageContext";
 import { Camera, Upload, Loader } from "lucide-react";
 import { fetchWithAuth } from "../services/fetchWithAuth";
-
+import { useUploadQueue } from "../context/UploadQueueContext";
 
 
 
@@ -125,14 +125,30 @@ const AddPage: React.FC = () => {
   const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const [uploadQueue, setUploadQueue] = useState<FormData[]>([]);
-  const [isQueueProcessing, setIsQueueProcessing] = useState(false);
-  const [queueProgress, setQueueProgress] = useState(0);
+
+  const { addToQueue, queueLength, isProcessing, progressPercent } = useUploadQueue();
+
+  // const [uploadQueue, setUploadQueue] = useState<FormData[]>([]);
+  // const [isQueueProcessing, setIsQueueProcessing] = useState(false);
+  // const [queueProgress, setQueueProgress] = useState(0);
   const [showQueueToast, setShowQueueToast] = useState(false);
-  const [totalItemsToProcess, setTotalItemsToProcess] = useState(0);
-  const [processedItems, setProcessedItems] = useState(0);
+  // const [totalItemsToProcess, setTotalItemsToProcess] = useState(0);
+  // const [processedItems, setProcessedItems] = useState(0);
+  // percentage calculation
+  // const progressPercent = totalItemsToProcess > 0
+  //   ? Math.round((processedItems / totalItemsToProcess) * 100)
+  //   : 0;
 
   const [ellipsis, setEllipsis] = useState("");
+
+const { justFinished, resetJustFinished } = useUploadQueue();
+
+useEffect(() => {
+  if (justFinished) {
+    setShowSuccess(true);
+    resetJustFinished();
+  }
+}, [justFinished]);
 
 
   useEffect(() => {
@@ -148,38 +164,38 @@ const AddPage: React.FC = () => {
     }
   }, [stream, cameraPreview]);
 
-  useEffect(() => {
-    if (uploadQueue.length === 0 || isQueueProcessing) return;
+  // useEffect(() => {
+  //   if (uploadQueue.length === 0 || isQueueProcessing) return;
 
-    const processUpload = async () => {
-      setIsQueueProcessing(true);
-      const token = localStorage.getItem("token");
-      const nextFormData = uploadQueue[0];
+  //   const processUpload = async () => {
+  //     setIsQueueProcessing(true);
+  //     const token = localStorage.getItem("token");
+  //     const nextFormData = uploadQueue[0];
 
-      try {
-        await fetchWithAuth("http://localhost:5001/api/closet/upload", {
-          method: "POST",
-          body: nextFormData,
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  //     try {
+  //       await fetchWithAuth("http://localhost:5001/api/closet/upload", {
+  //         method: "POST",
+  //         body: nextFormData,
+  //         headers: { Authorization: `Bearer ${token}` },
+  //       });
 
-        // update progress bar visually
-        setQueueProgress((prev) => {
-          const total = uploadQueue.length;
-          return Math.min(1, (1 / total) + prev);
-        });
-      } catch (error) {
-        console.error("Error processing item from queue:", error);
-      } finally {
-        // dequeue item and set next
-        setUploadQueue((prevQueue) => prevQueue.slice(1));
-        setProcessedItems(prev => prev + 1);
-        setIsQueueProcessing(false);
-      }
-    };
+  //       // update progress bar visually
+  //       setQueueProgress((prev) => {
+  //         const total = uploadQueue.length;
+  //         return Math.min(1, (1 / total) + prev);
+  //       });
+  //     } catch (error) {
+  //       console.error("Error processing item from queue:", error);
+  //     } finally {
+  //       // dequeue item and set next
+  //       setUploadQueue((prevQueue) => prevQueue.slice(1));
+  //       setProcessedItems(prev => prev + 1);
+  //       setIsQueueProcessing(false);
+  //     }
+  //   };
 
-    processUpload();
-  }, [uploadQueue, isQueueProcessing]);
+  //   processUpload();
+  // }, [uploadQueue, isQueueProcessing]);
 
   // useEffect(() => {
   //   if (
@@ -194,21 +210,21 @@ const AddPage: React.FC = () => {
   //     }, 300);
   //   }
   // }, [uploadQueue.length, isQueueProcessing]);
-  useEffect(() => {
-    if (
-      uploadQueue.length === 0 &&
-      !isQueueProcessing &&
-      totalItemsToProcess > 0
-    ) {
-      // slight delay to let UI settle
-      setTimeout(() => {
-        setShowSuccess(true);
-        setQueueProgress(0);
-        setTotalItemsToProcess(0);
-        setProcessedItems(0);
-      }, 300);
-    }
-  }, [uploadQueue.length, isQueueProcessing, totalItemsToProcess]);
+  // useEffect(() => {
+  //   if (
+  //     uploadQueue.length === 0 &&
+  //     !isQueueProcessing &&
+  //     totalItemsToProcess > 0
+  //   ) {
+  //     // slight delay to let UI settle
+  //     setTimeout(() => {
+  //       setShowSuccess(true);
+  //       setQueueProgress(0);
+  //       setTotalItemsToProcess(0);
+  //       setProcessedItems(0);
+  //     }, 300);
+  //   }
+  // }, [uploadQueue.length, isQueueProcessing, totalItemsToProcess]);
 
   useEffect(() => {
     let dotCount = 0;
@@ -336,8 +352,9 @@ const AddPage: React.FC = () => {
     formData.append("waterproof", waterproof.toString());
     if (color) formData.append("colorHex", color);
 
-    setUploadQueue(prev => [...prev, formData]);
-    setTotalItemsToProcess(prev => prev + 1);
+    // setUploadQueue(prev => [...prev, formData]);
+    // setTotalItemsToProcess(prev => prev + 1);
+    addToQueue(formData);
     setShowQueueToast(true);
 
     // Reset form visuals
@@ -946,29 +963,39 @@ const AddPage: React.FC = () => {
 
       </div>
 
-      {uploadQueue.length > 0 && (
+      {queueLength > 0 && (
         <div className="fixed bottom-6 left-6 z-50 flex flex-col items-center">
-          <svg className="w-16 h-16" viewBox="0 0 36 36">
-            <path
-              className="text-gray-200"
-              d="M18 2.0845
-                a 15.9155 15.9155 0 0 1 0 31.831
-                a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <path
-              className="text-teal-500 transition-all duration-700 ease-out"
-              d="M18 2.0845
-                a 15.9155 15.9155 0 0 1 0 31.831"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeDasharray={`${((processedItems / totalItemsToProcess) * 100).toFixed(2)}, 100`}
-            />
-          </svg>
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">
+          <div className="relative w-16 h-16">
+            <svg className="w-16 h-16" viewBox="0 0 36 36">
+              <path
+                className="text-gray-200"
+                d="M18 2.0845
+             a 15.9155 15.9155 0 0 1 0 31.831
+             a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+              <path
+                className="text-teal-500 transition-all duration-700 ease-out"
+                d="M18 2.0845
+             a 15.9155 15.9155 0 0 1 0 31.831"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray={`${progressPercent}, 100`}
+              />
+            </svg>
+
+            {/* Centered percentage */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-semibold text-teal-700 dark:text-teal-400">
+                {progressPercent}%
+              </span>
+            </div>
+          </div>
+
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1 font-mono">
             Uploading<span className="inline-block w-4">{ellipsis}</span>
           </span>
         </div>
