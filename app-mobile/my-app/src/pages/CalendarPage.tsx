@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 
-// Update the Style type to match backend enum (PascalCase)
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
 type Event = {
@@ -15,7 +14,6 @@ type Event = {
   weather?: string;
 };
 
-// Date utilities
 const parseISO = (dateString: string) => new Date(dateString);
 const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
@@ -30,7 +28,6 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Event creation modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: '',
@@ -40,7 +37,6 @@ export default function CalendarPage() {
     style: 'Casual' as Style
   });
 
-  // Existing event modal states
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -53,7 +49,6 @@ export default function CalendarPage() {
     style: 'Casual' as Style
   });
 
-  // Fetch events with sync
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -71,7 +66,6 @@ export default function CalendarPage() {
     return () => window.removeEventListener('eventUpdated', handleStorageChange);
   }, []);
 
-  // Set edit data when selected event changes
   useEffect(() => {
     if (selectedEvent) {
       setIsEditing(false);
@@ -86,7 +80,32 @@ export default function CalendarPage() {
     }
   }, [selectedEvent]);
 
-  // Calendar navigation
+  useEffect(() => {
+    const cleanupExpiredEvents = async () => {
+      const now = new Date();
+      const expiredIds = events
+        .filter(event => new Date(event.dateTo) < now)
+        .map(event => event.id);
+
+      if (expiredIds.length > 0) {
+        try {
+          await Promise.all(expiredIds.map(id => deleteEvent(id)));
+          setEvents(prev => prev.filter(event => 
+            !expiredIds.includes(event.id)
+          ));
+        } catch (err) {
+          console.error('Error deleting expired events:', err);
+        }
+      }
+    };
+
+    // Run every 5 minutes (adjust as needed)
+    const interval = setInterval(cleanupExpiredEvents, 5 * 60 * 1000);
+    cleanupExpiredEvents(); 
+    
+    return () => clearInterval(interval);
+  }, [events]);
+
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   };
@@ -99,7 +118,6 @@ export default function CalendarPage() {
     setSelectedDate(day);
   };
 
-  // Updated to match backend schema
   const handleCreateEvent = async () => {
     if (!newEvent.name || !newEvent.dateFrom || !newEvent.dateTo) {
       alert('Please fill in all required fields.');
@@ -110,7 +128,7 @@ export default function CalendarPage() {
       const created = await createEvent({
         name: newEvent.name,
         location: newEvent.location,
-        style: newEvent.style, // Now using PascalCase
+        style: newEvent.style, 
         dateFrom: new Date(newEvent.dateFrom).toISOString(),
         dateTo: new Date(newEvent.dateTo).toISOString(),
       });
@@ -138,7 +156,6 @@ export default function CalendarPage() {
     }
   };
 
-  // Updated to match backend schema
   const handleUpdateEvent = async () => {
     try {
       const updated = await updateEvent({
@@ -147,7 +164,7 @@ export default function CalendarPage() {
         location: editEventData.location,
         dateFrom: new Date(editEventData.dateFrom).toISOString(),
         dateTo: new Date(editEventData.dateTo).toISOString(),
-        style: editEventData.style, // Now using PascalCase
+        style: editEventData.style, 
       });
       
       setEvents(events.map(e => e.id === updated.id ? updated : e));
@@ -174,7 +191,6 @@ export default function CalendarPage() {
     }
   };
 
-  // Calendar rendering (unchanged)
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
       <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
