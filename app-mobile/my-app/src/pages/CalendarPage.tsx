@@ -2,32 +2,8 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 
-// Date Utilities
-const parseISO = (dateString: string) => new Date(dateString);
-
-const isSameDay = (a: Date, b: Date) => {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-};
-
-const isSameMonth = (a: Date, b: Date) => {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth()
-  );
-};
-
-const isToday = (date: Date) => isSameDay(date, new Date());
-
-const formatDate = (date: Date, options: Intl.DateTimeFormatOptions) => {
-  return new Intl.DateTimeFormat('en-US', options).format(date);
-};
-
-const getMonthStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
-const getMonthEnd = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
+// Update the Style type to match backend enum (PascalCase)
+type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
 type Event = {
   id: string;
@@ -35,14 +11,36 @@ type Event = {
   location: string;
   dateFrom: string;
   dateTo: string;
-  style?: string;
+  style?: Style;
   weather?: string;
 };
+
+// Date utilities
+const parseISO = (dateString: string) => new Date(dateString);
+const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+const isToday = (date: Date) => isSameDay(date, new Date());
+const formatDate = (date: Date, options: Intl.DateTimeFormatOptions) => 
+  new Intl.DateTimeFormat('en-US', options).format(date);
+const getMonthStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
+const getMonthEnd = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // Event creation modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'Casual' as Style
+  });
+
+  // Existing event modal states
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -52,18 +50,10 @@ export default function CalendarPage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: ''
-  });
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    name: '',
-    location: '',
-    dateFrom: '',
-    dateTo: '',
-    style: 'CASUAL'
+    style: 'Casual' as Style
   });
 
-  // Fetch events and setup sync
+  // Fetch events with sync
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -74,10 +64,8 @@ export default function CalendarPage() {
       }
     };
 
-    const handleStorageChange = () => {
-      loadEvents();
-    };
-
+    const handleStorageChange = () => loadEvents();
+    
     loadEvents();
     window.addEventListener('eventUpdated', handleStorageChange);
     return () => window.removeEventListener('eventUpdated', handleStorageChange);
@@ -93,7 +81,7 @@ export default function CalendarPage() {
         location: selectedEvent.location,
         dateFrom: selectedEvent.dateFrom.slice(0, 16),
         dateTo: selectedEvent.dateTo.slice(0, 16),
-        style: selectedEvent.style || ''
+        style: selectedEvent.style || 'Casual'
       });
     }
   }, [selectedEvent]);
@@ -111,7 +99,7 @@ export default function CalendarPage() {
     setSelectedDate(day);
   };
 
-  // Event handlers
+  // Updated to match backend schema
   const handleCreateEvent = async () => {
     if (!newEvent.name || !newEvent.dateFrom || !newEvent.dateTo) {
       alert('Please fill in all required fields.');
@@ -122,20 +110,35 @@ export default function CalendarPage() {
       const created = await createEvent({
         name: newEvent.name,
         location: newEvent.location,
-        style: newEvent.style,
+        style: newEvent.style, // Now using PascalCase
         dateFrom: new Date(newEvent.dateFrom).toISOString(),
         dateTo: new Date(newEvent.dateTo).toISOString(),
       });
 
       setEvents([...events, created]);
       setShowCreateModal(false);
-      setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+      setNewEvent({ 
+        name: '', 
+        location: '', 
+        dateFrom: '', 
+        dateTo: '', 
+        style: 'Casual' 
+      });
       window.dispatchEvent(new Event('eventUpdated'));
-    } catch (err) {
-      alert('Failed to create event');
+    } catch (err: unknown) {
+      console.error('Create event failed:', err);
+      if (err instanceof Error) {
+        alert(err.message);
+      } else if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosError = err as { response?: { data?: { message?: string } } };
+        alert(axiosError.response?.data?.message || 'Failed to create event');
+      } else {
+        alert('Failed to create event');
+      }
     }
   };
 
+  // Updated to match backend schema
   const handleUpdateEvent = async () => {
     try {
       const updated = await updateEvent({
@@ -144,7 +147,7 @@ export default function CalendarPage() {
         location: editEventData.location,
         dateFrom: new Date(editEventData.dateFrom).toISOString(),
         dateTo: new Date(editEventData.dateTo).toISOString(),
-        style: editEventData.style,
+        style: editEventData.style, // Now using PascalCase
       });
       
       setEvents(events.map(e => e.id === updated.id ? updated : e));
@@ -171,7 +174,7 @@ export default function CalendarPage() {
     }
   };
 
-  // Calendar rendering
+  // Calendar rendering (unchanged)
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
       <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
@@ -376,14 +379,14 @@ export default function CalendarPage() {
               <select
                 className="w-full p-2 border rounded"
                 value={newEvent.style}
-                onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
+                onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value as Style })}
               >
-                <option value="CASUAL">Casual</option>
-                <option value="FORMAL">Formal</option>
-                <option value="ATHLETIC">Athletic</option>
-                <option value="PARTY">Party</option>
-                <option value="BUSINESS">Business</option>
-                <option value="OUTDOOR">Outdoor</option>
+                <option value="Casual">Casual</option>
+                <option value="Formal">Formal</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
               </select>
             </div>
 
@@ -461,14 +464,14 @@ export default function CalendarPage() {
                   <select
                     className="w-full p-2 border rounded"
                     value={editEventData.style}
-                    onChange={e => setEditEventData({...editEventData, style: e.target.value})}
+                    onChange={e => setEditEventData({...editEventData, style: e.target.value as Style})}
                   >
-                    <option value="CASUAL">Casual</option>
-                    <option value="FORMAL">Formal</option>
-                    <option value="ATHLETIC">Athletic</option>
-                    <option value="PARTY">Party</option>
-                    <option value="BUSINESS">Business</option>
-                    <option value="OUTDOOR">Outdoor</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Formal">Formal</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
                   </select>
                 </div>
               </div>
