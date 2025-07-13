@@ -141,14 +141,14 @@ const AddPage: React.FC = () => {
 
   const [ellipsis, setEllipsis] = useState("");
 
-const { justFinished, resetJustFinished } = useUploadQueue();
+  const { justFinished, resetJustFinished } = useUploadQueue();
 
-useEffect(() => {
-  if (justFinished) {
-    setShowSuccess(true);
-    resetJustFinished();
-  }
-}, [justFinished]);
+  useEffect(() => {
+    if (justFinished) {
+      setShowSuccess(true);
+      resetJustFinished();
+    }
+  }, [justFinished]);
 
 
   useEffect(() => {
@@ -907,6 +907,42 @@ useEffect(() => {
                   ></div>
                 </div>
               </div>
+
+              {/*  The folllowing is background removal for batch uploads, keep it for later */}
+
+              {/* <button
+                className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                onClick={() => {
+                  const hasMissingFields = batchItems.some(
+                    (item) => !item.layerCategory || !item.category
+                  );
+                  if (hasMissingFields) {
+                    alert("Please select layer and category for all items.");
+                    return;
+                  }
+
+                  batchItems.forEach((item) => {
+                    const formData = new FormData();
+                    formData.append("image", item.file, "upload.png");
+                    formData.append("layerCategory", item.layerCategory);
+                    formData.append("category", item.category);
+                    if (item.style) formData.append("style", item.style);
+                    if (item.material) formData.append("material", item.material);
+                    formData.append("warmthFactor", item.warmthFactor.toString());
+                    formData.append("waterproof", item.waterproof.toString());
+                    if (item.colorHex) formData.append("colorHex", item.colorHex);
+
+                    addToQueue(formData);
+                  });
+
+                  setBatchItems([]);
+                  setCurrentIndex(0);
+                  setShowQueueToast(true);
+                  setTimeout(() => setShowQueueToast(false), 3000);
+                }}
+              >
+                Submit All
+              </button> */}
 
 
               <button
