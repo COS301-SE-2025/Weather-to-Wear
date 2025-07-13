@@ -5,6 +5,7 @@ import fs from 'fs';
 import { Express } from 'express';
 import { Multer } from 'multer';
 import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 
 
 
@@ -40,24 +41,27 @@ async saveImage(
   const originalImagePath = file.path;
   const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
 
-  const result = spawnSync('python3', [
-    '/app/scripts/background-removal/U-2-Net/remove_bg.py',
-    originalImagePath,
-    outputImagePath
-  ]);
+  await new Promise((resolve, reject) => {
+    const process = spawn('python3', [
+      '/app/scripts/background-removal/U-2-Net/remove_bg.py',
+      originalImagePath,
+      outputImagePath
+    ]);
 
-  if (result.error || result.status !== 0) {
-    console.error('Background removal failed');
-    console.error('Exit code:', result.status);
-    console.error('STDOUT:', result.stdout?.toString());
-    console.error('STDERR:', result.stderr?.toString());
-    console.error('Error:', result.error);
-    throw new Error('Image background removal failed');
-  }
+    process.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Background removal failed with code ${code}`));
+      } else {
+        resolve(null);
+      }
+    });
 
+    process.on('error', (err) => {
+      reject(err);
+    });
+  });
 
   fs.unlinkSync(originalImagePath);
-
   const cleanedFilename = path.basename(outputImagePath);
 
   return this.prisma.closetItem.create({

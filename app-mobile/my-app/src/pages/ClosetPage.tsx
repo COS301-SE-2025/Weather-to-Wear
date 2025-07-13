@@ -8,6 +8,8 @@ import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from
 import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
 
+import { useUploadQueue } from '../context/UploadQueueContext';
+
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
   { value: "base_top", label: "Base Top" },
@@ -144,29 +146,61 @@ export default function ClosetPage() {
   const [editedStyle, setEditedStyle] = useState('');
   const [editedMaterial, setEditedMaterial] = useState('');
 
+  const { queueLength, justFinished, resetJustFinished } = useUploadQueue();
 
 
 
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const res = await fetchAllItems();
-        const formattedItems: Item[] = res.data.map((item: any) => ({
-          id: item.id,
-          name: item.category,
-          image: `http://localhost:5001${item.imageUrl}`,
-          favorite: false,
-          category: item.category,
-        }));
 
+
+  // useEffect(() => {
+  //   const fetchItems = async () => {
+  //     try {
+  //       const res = await fetchAllItems();
+  //       const formattedItems: Item[] = res.data.map((item: any) => ({
+  //         id: item.id,
+  //         name: item.category,
+  //         image: `http://localhost:5001${item.imageUrl}`,
+  //         favorite: false,
+  //         category: item.category,
+  //       }));
+
+  //       setItems(formattedItems);
+  //     } catch (error) {
+  //       console.error('Error fetching items:', error);
+  //     }
+  //   };
+
+  //   fetchItems();
+  // }, []);
+
+  
+useEffect(() => {
+  const fetchItems = async () => {
+    try {
+      const res = await fetchAllItems();
+      const formattedItems: Item[] = res.data.map((item: any) => ({
+        id: item.id,
+        name: item.category,
+        image: `http://localhost:5001${item.imageUrl}`,
+        favorite: false,
+        category: item.category,
+        layerCategory: item.layerCategory,
+        tab: 'items',
+      }));
+
+      // Only overwrite if response has items, OR no uploads happening
+      if (formattedItems.length > 0 || queueLength === 0) {
         setItems(formattedItems);
-      } catch (error) {
-        console.error('Error fetching items:', error);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+  };
 
-    fetchItems();
-  }, []);
+  fetchItems();
+}, [justFinished]);  // Refresh after upload finishes
+
+
 
 
   // helper to prefix local uploads
@@ -174,23 +208,23 @@ export default function ClosetPage() {
     url.startsWith('http') ? url : `http://localhost:5001${url}`;
 
   // Fetch closet items
-  useEffect(() => {
-    fetchAllItems()
-      .then(res => {
-        setItems(
-          res.data.map((i: ClosetApiItem) => ({
-            id: i.id,
-            name: i.category,
-            image: prefixed(i.imageUrl),
-            favorite: false,
-            category: i.category,
-            layerCategory: i.layerCategory,
-            tab: 'items',
-          }))
-        );
-      })
-      .catch(console.error);
-  }, []);
+  // useEffect(() => {
+  //   fetchAllItems()
+  //     .then(res => {
+  //       setItems(
+  //         res.data.map((i: ClosetApiItem) => ({
+  //           id: i.id,
+  //           name: i.category,
+  //           image: prefixed(i.imageUrl),
+  //           favorite: false,
+  //           category: i.category,
+  //           layerCategory: i.layerCategory,
+  //           tab: 'items',
+  //         }))
+  //       );
+  //     })
+  //     .catch(console.error);
+  // }, []);
 
   // Fetch saved outfits
   useEffect(() => {
