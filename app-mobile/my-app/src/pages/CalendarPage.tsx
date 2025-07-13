@@ -1,8 +1,6 @@
-// src/pages/CalendarPage.tsx
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import { fetchAllEvents, deleteEvent, updateEvent } from '../services/eventsApi';
-import { useNavigate } from 'react-router-dom';
+import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 
 // Date Utilities
 const parseISO = (dateString: string) => new Date(dateString);
@@ -56,8 +54,16 @@ export default function CalendarPage() {
     dateTo: '',
     style: ''
   });
-  const navigate = useNavigate();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'CASUAL'
+  });
 
+  // Fetch events and setup sync
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -67,9 +73,17 @@ export default function CalendarPage() {
         console.error('Error loading events:', err);
       }
     };
-    loadEvents();
-  }, [currentMonth]);
 
+    const handleStorageChange = () => {
+      loadEvents();
+    };
+
+    loadEvents();
+    window.addEventListener('eventUpdated', handleStorageChange);
+    return () => window.removeEventListener('eventUpdated', handleStorageChange);
+  }, []);
+
+  // Set edit data when selected event changes
   useEffect(() => {
     if (selectedEvent) {
       setIsEditing(false);
@@ -84,6 +98,7 @@ export default function CalendarPage() {
     }
   }, [selectedEvent]);
 
+  // Calendar navigation
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   };
@@ -96,16 +111,28 @@ export default function CalendarPage() {
     setSelectedDate(day);
   };
 
-  const handleDeleteEvent = async () => {
-    if (!selectedEvent || !window.confirm('Delete this event?')) return;
-    
+  // Event handlers
+  const handleCreateEvent = async () => {
+    if (!newEvent.name || !newEvent.dateFrom || !newEvent.dateTo) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
     try {
-      await deleteEvent(selectedEvent.id);
-      setEvents(events.filter(e => e.id !== selectedEvent.id));
-      setShowEventModal(false);
+      const created = await createEvent({
+        name: newEvent.name,
+        location: newEvent.location,
+        style: newEvent.style,
+        dateFrom: new Date(newEvent.dateFrom).toISOString(),
+        dateTo: new Date(newEvent.dateTo).toISOString(),
+      });
+
+      setEvents([...events, created]);
+      setShowCreateModal(false);
+      setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+      window.dispatchEvent(new Event('eventUpdated'));
     } catch (err) {
-      console.error('Failed to delete event:', err);
-      alert('Failed to delete event');
+      alert('Failed to create event');
     }
   };
 
@@ -123,12 +150,28 @@ export default function CalendarPage() {
       setEvents(events.map(e => e.id === updated.id ? updated : e));
       setSelectedEvent(updated);
       setIsEditing(false);
+      window.dispatchEvent(new Event('eventUpdated'));
     } catch (err) {
       console.error('Failed to update event:', err);
       alert('Failed to update event');
     }
   };
 
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent || !window.confirm('Delete this event?')) return;
+    
+    try {
+      await deleteEvent(selectedEvent.id);
+      setEvents(events.filter(e => e.id !== selectedEvent.id));
+      setShowEventModal(false);
+      window.dispatchEvent(new Event('eventUpdated'));
+    } catch (err) {
+      console.error('Failed to delete event:', err);
+      alert('Failed to delete event');
+    }
+  };
+
+  // Calendar rendering
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
       <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
@@ -280,7 +323,7 @@ export default function CalendarPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Calendar</h1>
         <button 
-          onClick={() => navigate('/dashboard')}
+          onClick={() => setShowCreateModal(true)}
           className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
         >
           <Plus className="w-5 h-5" />
@@ -292,6 +335,77 @@ export default function CalendarPage() {
       {renderCells()}
       {renderSelectedDateEvents()}
 
+      {/* Create Event Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative">
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setShowCreateModal(false)}
+            >
+              ×
+            </button>
+
+            <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
+
+            <div className="space-y-3">
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Event name"
+                value={newEvent.name}
+                onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Location"
+                value={newEvent.location}
+                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateFrom}
+                onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateTo}
+                onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newEvent.style}
+                onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value })}
+              >
+                <option value="CASUAL">Casual</option>
+                <option value="FORMAL">Formal</option>
+                <option value="ATHLETIC">Athletic</option>
+                <option value="PARTY">Party</option>
+                <option value="BUSINESS">Business</option>
+                <option value="OUTDOOR">Outdoor</option>
+              </select>
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 rounded-full border border-black"
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                onClick={handleCreateEvent}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Event Modal */}
       {showEventModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative">
@@ -349,12 +463,12 @@ export default function CalendarPage() {
                     value={editEventData.style}
                     onChange={e => setEditEventData({...editEventData, style: e.target.value})}
                   >
-                    <option value="Formal">Formal</option>
-                    <option value="Casual">Casual</option>
-                    <option value="Athletic">Athletic</option>
-                    <option value="Party">Party</option>
-                    <option value="Business">Business</option>
-                    <option value="Outdoor">Outdoor</option>
+                    <option value="CASUAL">Casual</option>
+                    <option value="FORMAL">Formal</option>
+                    <option value="ATHLETIC">Athletic</option>
+                    <option value="PARTY">Party</option>
+                    <option value="BUSINESS">Business</option>
+                    <option value="OUTDOOR">Outdoor</option>
                   </select>
                 </div>
               </div>
