@@ -76,17 +76,6 @@ export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     }, [queue.length, isProcessing, total]);
 
-    useEffect(() => {
-        if (queue.length === 0 && !isProcessing && total > 0) {
-            setTimeout(() => {
-                setJustFinished(true);
-                setProcessed(0);
-                setTotal(0);
-            }, 500);
-        }
-    }, [queue.length, isProcessing, total]);
-
-
 
     return (
         <UploadQueueContext.Provider

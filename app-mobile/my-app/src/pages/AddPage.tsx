@@ -1003,26 +1003,33 @@ const AddPage: React.FC = () => {
         <div className="fixed bottom-6 left-6 z-50 flex flex-col items-center">
           <div className="relative w-16 h-16">
             <svg className="w-16 h-16" viewBox="0 0 36 36">
-              <path
+              {/* Background circle */}
+              <circle
+                cx="18"
+                cy="18"
+                r="15.9155"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
                 className="text-gray-200"
-                d="M18 2.0845
-             a 15.9155 15.9155 0 0 1 0 31.831
-             a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
               />
-              <path
-                className="text-teal-500 transition-all duration-700 ease-out"
-                d="M18 2.0845
-             a 15.9155 15.9155 0 0 1 0 31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeDasharray={`${progressPercent}, 100`}
-              />
-            </svg>
 
+              {/* Progress circle */}
+              <circle
+                cx="18"
+                cy="18"
+                r="15.9155"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="100"
+                strokeDashoffset={`${100 - progressPercent}`}
+                className="text-teal-500 transition-all duration-700 ease-out"
+                transform="rotate(-90 18 18)"  // <- rotate to start from top
+              />
+            </svg>            
+            
+            
             {/* Centered percentage */}
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-xs font-semibold text-teal-700 dark:text-teal-400">
