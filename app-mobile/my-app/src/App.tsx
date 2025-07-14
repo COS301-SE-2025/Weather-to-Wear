@@ -18,6 +18,10 @@ import HelpPage from "./pages/HelpPage";
 import LandingPage from "./pages/LandingPage";
 import { ImageProvider } from "./components/ImageContext";
 
+import Footer from "./components/Footer";
+import { UploadQueueProvider } from "./context/UploadQueueContext";
+
+
 function App() {
   return (
     <ImageProvider>
@@ -30,7 +34,7 @@ function App() {
           <Route
             path="/*"
             element={
-              <>
+              <UploadQueueProvider>
                 <NavBar />
                 <Routes>
                   <Route path="dashboard" element={<HomePage />} />
@@ -47,8 +51,10 @@ function App() {
                   <Route path="*" element={<UnderConstruction />} /> {/* Catch-all for unmatched routes */}
                 </Routes>
               </>
+              </UploadQueueProvider>
             }
           />
+
         </Routes>
   </Router>
     </ImageProvider>
