@@ -952,6 +952,17 @@ const AddPage: React.FC = () => {
               >
                 Submit All
               </button>
+
+              <button
+                onClick={() => {
+                  localStorage.removeItem("addPageDraft");
+                  localStorage.removeItem("batchDraft");
+                  window.location.reload();
+                }}
+                className="mt-2 text-sm text-gray-500 hover:text-teal-600 transition-colors underline font-medium"
+              >
+                Clear Draft
+              </button>
             </>
           )}
         </div>
