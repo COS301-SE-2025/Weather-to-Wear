@@ -50,7 +50,6 @@ function App() {
                   <Route path="help" element={<HelpPage />} />
                   <Route path="*" element={<UnderConstruction />} /> {/* Catch-all for unmatched routes */}
                 </Routes>
-              </>
               </UploadQueueProvider>
             }
           />
