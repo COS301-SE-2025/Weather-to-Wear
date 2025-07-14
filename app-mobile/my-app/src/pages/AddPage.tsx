@@ -164,67 +164,71 @@ const AddPage: React.FC = () => {
     }
   }, [stream, cameraPreview]);
 
-  // useEffect(() => {
-  //   if (uploadQueue.length === 0 || isQueueProcessing) return;
 
-  //   const processUpload = async () => {
-  //     setIsQueueProcessing(true);
-  //     const token = localStorage.getItem("token");
-  //     const nextFormData = uploadQueue[0];
+  // draft persistence
+  useEffect(() => {
+    const state = {
+      layerCategory,
+      category,
+      style,
+      material,
+      warmthFactor,
+      waterproof,
+      color,
+      cameraPreview,
+      uploadPreview,
+    };
+    localStorage.setItem("addPageDraft", JSON.stringify(state));
+  }, [layerCategory, category, style, material, warmthFactor, waterproof, color, cameraPreview, uploadPreview]);
 
-  //     try {
-  //       await fetchWithAuth("http://localhost:5001/api/closet/upload", {
-  //         method: "POST",
-  //         body: nextFormData,
-  //         headers: { Authorization: `Bearer ${token}` },
-  //       });
+  useEffect(() => {
+    const saved = localStorage.getItem("addPageDraft");
+    if (saved) {
+      const {
+        layerCategory,
+        category,
+        style,
+        material,
+        warmthFactor,
+        waterproof,
+        color,
+        cameraPreview,
+        uploadPreview,
+      } = JSON.parse(saved);
 
-  //       // update progress bar visually
-  //       setQueueProgress((prev) => {
-  //         const total = uploadQueue.length;
-  //         return Math.min(1, (1 / total) + prev);
-  //       });
-  //     } catch (error) {
-  //       console.error("Error processing item from queue:", error);
-  //     } finally {
-  //       // dequeue item and set next
-  //       setUploadQueue((prevQueue) => prevQueue.slice(1));
-  //       setProcessedItems(prev => prev + 1);
-  //       setIsQueueProcessing(false);
-  //     }
-  //   };
+      setLayerCategory(layerCategory);
+      setCategory(category);
+      setStyle(style);
+      setMaterial(material);
+      setWarmthFactor(warmthFactor);
+      setWaterproof(waterproof);
+      setColor(color);
+      setCameraPreview(cameraPreview);
+      setUploadPreview(uploadPreview);
+    }
+  }, []);
 
-  //   processUpload();
-  // }, [uploadQueue, isQueueProcessing]);
 
-  // useEffect(() => {
-  //   if (
-  //     uploadQueue.length === 0 &&
-  //     !isQueueProcessing &&
-  //     queueProgress > 0
-  //   ) {
-  //     // Slight delay helps prevent premature hiding
-  //     setTimeout(() => {
-  //       setShowSuccess(true);
-  //       setQueueProgress(0); // reset after success shown
-  //     }, 300);
-  //   }
-  // }, [uploadQueue.length, isQueueProcessing]);
-  // useEffect(() => {
-  //   if (
-  //     uploadQueue.length === 0 &&
-  //     !isQueueProcessing &&
-  //     totalItemsToProcess > 0
-  //   ) {
-  //     // slight delay to let UI settle
-  //     setTimeout(() => {
-  //       setShowSuccess(true);
-  //       setQueueProgress(0);
-  //       setTotalItemsToProcess(0);
-  //       setProcessedItems(0);
-  //     }, 300);
-  //   }
-  // }, [uploadQueue.length, isQueueProcessing, totalItemsToProcess]);
+  useEffect(() => {
+    if (batchItems.length > 0) {
+      const metaOnly = batchItems.map(({ id, previewUrl, ...meta }) => ({
+        id,
+        previewUrl,
+        ...meta,
+      }));
+      localStorage.setItem("batchDraft", JSON.stringify(metaOnly));
+    }
+  }, [batchItems]);
+
+  useEffect(() => {
+    const savedBatch = localStorage.getItem("batchDraft");
+    if (savedBatch) {
+      const metaOnly = JSON.parse(savedBatch);
+      setBatchItems(metaOnly); // will show previews and metadata, just no `file` field
+      setCurrentIndex(0);
+    }
+  }, []);
+
 
   useEffect(() => {
     let dotCount = 0;
@@ -286,54 +290,6 @@ const AddPage: React.FC = () => {
 
 
 
-  // const handleDone = async (type: "camera" | "upload") => {
-  //   const finalImg = type === "camera" ? cameraPreview : uploadPreview;
-  //   if (!finalImg || !category || !layerCategory) {
-  //     alert("Please select a layer, category, and take/upload an image.");
-  //     return;
-  //   }
-
-  //   const blob = await (await fetchWithAuth(finalImg)).blob();
-  //   const formData = new FormData();
-  //   formData.append("image", blob, "upload.png");
-  //   formData.append("layerCategory", layerCategory);
-  //   formData.append("category", category);
-  //   setIsLoading(true);
-
-  //   if (style) formData.append("style", style);
-  //   if (material) formData.append("material", material);
-  //   if (warmthFactor !== "")
-  //     formData.append("warmthFactor", warmthFactor.toString());
-  //   formData.append("waterproof", waterproof.toString());
-  //   if (color) formData.append("colorHex", color);
-
-  //   const token = localStorage.getItem("token");
-
-  //   try {
-  //     const response = await fetchWithAuth(
-  //       "http://localhost:5001/api/closet/upload",
-  //       {
-  //         method: "POST",
-  //         body: formData,
-  //         headers: { Authorization: `Bearer ${token}` },
-  //       }
-  //     );
-
-  //     if (!response.ok) {
-  //       throw new Error("Upload failed");
-  //     }
-
-  //     stream?.getTracks().forEach((t) => t.stop());
-  //     setShowSuccess(true);
-
-  //   } catch (error) {
-  //     console.error("Error uploading image:", error);
-  //     alert("There was an error uploading your item. Please try again.");
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
   const handleDone = async (type: "camera" | "upload") => {
     const finalImg = type === "camera" ? cameraPreview : uploadPreview;
     if (!finalImg || !category || !layerCategory) {
@@ -356,6 +312,9 @@ const AddPage: React.FC = () => {
     // setTotalItemsToProcess(prev => prev + 1);
     addToQueue(formData);
     setShowQueueToast(true);
+
+    localStorage.removeItem("addPageDraft");
+    localStorage.removeItem("batchDraft");
 
     // Reset form visuals
     setUploadPreview(null);
@@ -1027,9 +986,9 @@ const AddPage: React.FC = () => {
                 className="text-teal-500 transition-all duration-700 ease-out"
                 transform="rotate(-90 18 18)"  // <- rotate to start from top
               />
-            </svg>            
-            
-            
+            </svg>
+
+
             {/* Centered percentage */}
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-xs font-semibold text-teal-700 dark:text-teal-400">
@@ -1107,7 +1066,3 @@ const AddPage: React.FC = () => {
 export default AddPage;
 
 
-// things that could be nice to add:
-// Show upload progress per image
-// Automatically log out users on token expiry
-// Store drafts if the page refreshes
