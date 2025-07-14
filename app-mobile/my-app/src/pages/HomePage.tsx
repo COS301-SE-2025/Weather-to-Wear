@@ -11,6 +11,16 @@ import { fetchAllEvents, createEvent, updateEvent, deleteEvent } from '../servic
 import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
 import StarRating from '../components/StarRating';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ForecastItem } from '../hooks/useWeather';
+import {
+  LineChart, Line,
+  XAxis, YAxis,
+  CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer
+} from 'recharts';
+
+import axios from 'axios';
+
 
 function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join("-");
@@ -102,7 +112,11 @@ export default function HomePage() {
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
+
+  //const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
+  const [detailOutfits, setDetailOutfits] = useState<RecommendedOutfit[]>([]);
+  const [detailIndex, setDetailIndex] = useState(0);
+
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   // Style dropdown state
@@ -110,6 +124,8 @@ export default function HomePage() {
 
   //store ratings as dictionary
   const [ratings, setRatings] = useState<Record<string, number>>({});
+
+  const [hourlyData, setHourlyData] = useState<{ time: number; temp: number; rain: number }[]>([]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editEventData, setEditEventData] = useState({
@@ -166,37 +182,63 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!selectedEvent) return;
-    // parse the stored weather array, take the first day
-    let days: { date: string; summary: any }[] = [];
-    try {
-      days = selectedEvent.weather ? JSON.parse(selectedEvent.weather) : [];
-    } catch { days = []; }
-    const today = days[0]?.summary;
-    if (!today) return;
 
+    // 1. Derive the date string (YYYY-MM-DD) from the event’s start date
+    const eventDate = new Date(selectedEvent.dateFrom)
+      .toISOString()
+      .substring(0, 10);
+
+    // 2. Fetch that day’s full hourly forecast from your backend
     setDetailLoading(true);
-    fetchRecommendedOutfits(
-      {
-        avgTemp: today.avgTemp,
-        minTemp: today.minTemp,
-        maxTemp: today.maxTemp,
-        willRain: today.willRain,
-        mainCondition: today.mainCondition,
-      },
-      selectedEvent.style!,
-      selectedEvent.id
-    )
+    axios
+      .get<{
+        location: string;
+        forecast: ForecastItem[];
+        summary: { avgTemp: number; minTemp: number; maxTemp: number; willRain: boolean; mainCondition: string; };
+      }>(`http://localhost:5001/api/weather/day`, {
+        params: {
+          location: selectedEvent.location,
+          date: eventDate
+        }
+      })
+      .then(({ data }) => {
+        // 3. Map into chart-friendly data
+        const chartData = data.forecast.map(f => {
+          const hour = new Date(f.time).getHours();
+          return {
+            time: hour,
+            temp: Math.round(f.temperature),
+            rain: /rain/i.test(f.description) ? 1 : 0
+          };
+        });
+        setHourlyData(chartData);
+
+        // 4. Now fetch outfits for that day’s summary
+        return fetchRecommendedOutfits(
+          {
+            avgTemp: data.summary.avgTemp,
+            minTemp: data.summary.minTemp,
+            maxTemp: data.summary.maxTemp,
+            willRain: data.summary.willRain,
+            mainCondition: data.summary.mainCondition
+          },
+          selectedEvent.style!,
+          selectedEvent.id
+        );
+      })
       .then(recs => {
-        setDetailOutfit(recs[0] ?? null);
+        setDetailOutfits(recs);
+        setDetailIndex(0);
         setDetailError(null);
       })
-      .catch(() => {
-        setDetailError('Could not load outfit recommendation.');
+      .catch(err => {
+        console.error('Detail fetch error:', err);
+        setDetailError('Could not load weather or outfit data.');
       })
-      .finally(() => {
-        setDetailLoading(false);
-      });
+      .finally(() => setDetailLoading(false));
+
   }, [selectedEvent]);
+
 
   useEffect(() => {
     if (!selectedEvent) return;
@@ -815,31 +857,74 @@ export default function HomePage() {
 
                 {/* Recommended Outfit */}
                 <div className="mt-4">
+                  {/* Weather Chart */}
+                  {hourlyData.length > 0 && (
+                    <div className="w-full h-40 mb-4">
+                      <ResponsiveContainer>
+                        <LineChart data={hourlyData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="time" label={{ value: 'Hour', position: 'insideBottomRight', offset: -5 }} />
+                          <YAxis label={{ value: 'Temp (°C)', angle: -90, position: 'insideLeft' }} />
+                          <Tooltip />
+                          <Legend verticalAlign="top" height={24} />
+                          <Line type="monotone" dataKey="temp" name="Temperature" stroke="#3F978F" dot={{ r: 2 }} />
+                          <Line
+                            type="stepAfter"
+                            dataKey="rain"
+                            name="Rain?"
+                            stroke="#8884d8"
+                            dot={false}
+                            strokeDasharray="4 4"
+                            legendType="circle"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
                   <h3 className="font-medium mb-2">Recommended Outfit</h3>
                   {detailLoading && <p>Loading outfit…</p>}
                   {detailError && <p className="text-red-500">{detailError}</p>}
-                  {detailOutfit && (
+                  {!detailLoading && detailOutfits.length > 0 && (
                     <>
+                      <div className="flex justify-between items-center mb-2 w-full">
+                        <button
+                          onClick={() => setDetailIndex(i => (i - 1 + detailOutfits.length) % detailOutfits.length)}
+                          className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946]"
+                        >
+                          <ChevronLeft className="w-5 h-5 text-white" />
+                        </button>
+                        <span className="text-sm">{detailIndex + 1} / {detailOutfits.length}</span>
+                        <button
+                          onClick={() => setDetailIndex(i => (i + 1) % detailOutfits.length)}
+                          className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946]"
+                        >
+                          <ChevronRight className="w-5 h-5 text-white" />
+                        </button>
+                      </div>
                       <div className="flex flex-wrap justify-center space-x-2 mb-4">
-                        {detailOutfit.outfitItems.map(item => (
+                        {detailOutfits[detailIndex].outfitItems.map(item => (
                           <img
                             key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
-                            }
+                            src={item.imageUrl.startsWith('http')
+                              ? item.imageUrl
+                              : `http://localhost:5001${item.imageUrl}`}
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"
                           />
                         ))}
                       </div>
-                      {/* Smaller stars */}
-                      <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => { }} />
-                      </div>
+                      <StarRating
+                        disabled={false}
+                        onSelect={() => { }}
+                        value={0}
+                      />
                     </>
                   )}
+
+
+
+
                 </div>
               </div>
             )}

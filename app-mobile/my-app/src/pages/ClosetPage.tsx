@@ -230,6 +230,15 @@ export default function ClosetPage() {
     );
   }, []);
 
+  useEffect(() => {
+    if (showModal || showEditModal || previewImage) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [showModal, showEditModal, previewImage]);
+
+
 
 
 
@@ -362,28 +371,28 @@ export default function ClosetPage() {
     const { id, tab } = itemToRemove;
 
     try {
-      await deleteItem(id.toString());
+      await deleteItem(id);
 
-      // Filter helpers:
-      const filterItems = (arr: Item[]) => arr.filter(i => i.id !== id);
-      const filterOutfits = (arr: UIOutfit[]) => arr.filter(o => o.id !== id);
-
-      if (tab === 'items') {
-        setItems(filterItems(items));
-      } else if (tab === 'outfits') {
-        setOutfits(filterOutfits(outfits));
-      } else {
-        setFavourites(filterItems(favourites));
-      }
+      // Remove from correct tab
+      setItems(prev => prev.filter(i => i.id !== id));
+      setOutfits(prev => prev.filter(o => o.id !== id));
+      setFavourites(prev => prev.filter(f => f.id !== id));
     } catch (err) {
       console.error('Failed to delete item:', err);
+      alert('Delete failed. Try again.');
     } finally {
       setShowModal(false);
+      setItemToRemove(null);
     }
   };
 
 
-  const cancelRemove = () => setShowModal(false);
+
+  const cancelRemove = () => {
+    setShowModal(false);
+    setItemToRemove(null);
+  };
+
 
   // Filter & search
   function getCurrentData() {
@@ -645,8 +654,18 @@ export default function ClosetPage() {
         {/* Remove Confirmation */}
         <AnimatePresence>
           {showModal && itemToRemove && (
-            <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-              <motion.div className="bg-white p-6 rounded-lg">
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="bg-white p-6 rounded-lg z-60 relative"
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+              >
                 <p className="mb-4">Remove “{itemToRemove.name}”?</p>
                 <div className="flex justify-end gap-2">
                   <button onClick={cancelRemove} className="px-4 py-2 bg-gray-200 rounded-full">
@@ -660,6 +679,7 @@ export default function ClosetPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
 
         {/* Preview Overlay */}
         <AnimatePresence>
