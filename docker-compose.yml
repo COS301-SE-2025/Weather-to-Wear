@@ -11,10 +11,12 @@ services:
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
+      BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
     env_file:
       - ./app-backend/.env
     depends_on:
       - db
+      - bg-removal
     volumes:
       - ./app-backend:/app
       - /app/node_modules
@@ -48,6 +50,13 @@ services:
       - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  bg-removal:
+    build:
+      context: ./bg-removal-service
+    ports:
+      - "8000:8000"
+
 
 volumes:
   pgdata:

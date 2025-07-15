@@ -6,6 +6,9 @@ import { Express } from 'express';
 import { Multer } from 'multer';
 // import { spawnSync } from 'child_process';
 
+// For background removal microservice
+import axios from 'axios';
+import FormData from 'form-data';
 
 
 export type ClosetItem = PrismaClosetItem;
@@ -30,78 +33,127 @@ type Extras = {
 class ClosetService {
   private prisma = new PrismaClient();
 
-// async saveImage(
-//   file: Express.Multer.File,
-//   category: Category,
-//   layerCategory: any,
-//   userId: string,
-//   extras?: Extras
-// ): Promise<ClosetItem> {
-//   const originalImagePath = file.path;
-//   const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
 
-//   // const result = spawnSync('python3', [
-//   //   // path.join(__dirname, '../../../scripts/background-removal/U-2-Net/remove_bg.py'),
-//   //   path.join(__dirname, '/app/scripts/background-removal/U-2-Net/remove_bg.py'),
+  // ! Old background removal
+  // async saveImage(
+  //   file: Express.Multer.File,
+  //   category: Category,
+  //   layerCategory: any,
+  //   userId: string,
+  //   extras?: Extras
+  // ): Promise<ClosetItem> {
+  //   const originalImagePath = file.path;
+  //   const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
 
-//   //   originalImagePath,
-//   //   outputImagePath
-//   // ]);
+  //   // const result = spawnSync('python3', [
+  //   //   // path.join(__dirname, '../../../scripts/background-removal/U-2-Net/remove_bg.py'),
+  //   //   path.join(__dirname, '/app/scripts/background-removal/U-2-Net/remove_bg.py'),
 
-//   const result = spawnSync('python3', [
-//     '/app/scripts/background-removal/U-2-Net/remove_bg.py',
-//     originalImagePath,
-//     outputImagePath
-//   ]);
+  //   //   originalImagePath,
+  //   //   outputImagePath
+  //   // ]);
 
-//   // debug code
-//   if (result.error || result.status !== 0) {
-//     console.error('Background removal failed');
-//     console.error('Exit code:', result.status);
-//     console.error('STDOUT:', result.stdout?.toString());
-//     console.error('STDERR:', result.stderr?.toString());
-//     console.error('Error:', result.error);
-//     throw new Error('Image background removal failed');
-//   }
+  //   const result = spawnSync('python3', [
+  //     '/app/scripts/background-removal/U-2-Net/remove_bg.py',
+  //     originalImagePath,
+  //     outputImagePath
+  //   ]);
 
-//   // clears up disk space
-//   fs.unlinkSync(originalImagePath);
+  //   // debug code
+  //   if (result.error || result.status !== 0) {
+  //     console.error('Background removal failed');
+  //     console.error('Exit code:', result.status);
+  //     console.error('STDOUT:', result.stdout?.toString());
+  //     console.error('STDERR:', result.stderr?.toString());
+  //     console.error('Error:', result.error);
+  //     throw new Error('Image background removal failed');
+  //   }
 
-//   const cleanedFilename = path.basename(outputImagePath);
+  //   // clears up disk space
+  //   fs.unlinkSync(originalImagePath);
 
-//   return this.prisma.closetItem.create({
-//     data: {
-//       filename: cleanedFilename,
-//       category,
-//       layerCategory,
-//       ownerId: userId,
-//       ...extras,
-//     }
-//   });
-// }
+  //   const cleanedFilename = path.basename(outputImagePath);
 
-async saveImage(
-  file: Express.Multer.File,
-  category: Category,
-  layerCategory: any,
-  userId: string,
-  extras?: Extras
-): Promise<ClosetItem> {
-  const originalImagePath = file.path;
+  //   return this.prisma.closetItem.create({
+  //     data: {
+  //       filename: cleanedFilename,
+  //       category,
+  //       layerCategory,
+  //       ownerId: userId,
+  //       ...extras,
+  //     }
+  //   });
+  // }
 
-  // No background removal – we use the original file directly
-  const cleanedFilename = path.basename(originalImagePath);
+  // ! No background removal
+  // async saveImage(
+  //   file: Express.Multer.File,
+  //   category: Category,
+  //   layerCategory: any,
+  //   userId: string,
+  //   extras?: Extras
+  // ): Promise<ClosetItem> {
+  //   const originalImagePath = file.path;
 
-  return this.prisma.closetItem.create({
-    data: {
-      filename: cleanedFilename,
-      category,
-      layerCategory,
-      ownerId: userId,
-      ...extras,
+  //   // No background removal – we use the original file directly
+  //   const cleanedFilename = path.basename(originalImagePath);
+
+  //   return this.prisma.closetItem.create({
+  //     data: {
+  //       filename: cleanedFilename,
+  //       category,
+  //       layerCategory,
+  //       ownerId: userId,
+  //       ...extras,
+  //     }
+  //   });
+  // }
+
+  // ! Background removal microservice
+  async saveImage(
+    file: Express.Multer.File,
+    category: Category,
+    layerCategory: any,
+    userId: string,
+    extras?: Extras
+  ): Promise<ClosetItem> {
+    const originalImagePath = file.path;
+    const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
+
+    const form = new FormData();
+    form.append('file', fs.createReadStream(originalImagePath));
+
+    try {
+      const response = await axios.post(
+        process.env.BG_REMOVAL_URL!,
+        form,
+        {
+          headers: form.getHeaders(),
+          responseType: 'arraybuffer',
+        }
+      );
+
+      fs.writeFileSync(outputImagePath, Buffer.from(response.data));
+    } catch (err) {
+      console.error('Background removal error:', err);
+      throw new Error('Failed to remove background from image');
     }
-  });
-}
+
+    // Clean up original
+    fs.unlinkSync(originalImagePath);
+
+    const cleanedFilename = path.basename(outputImagePath);
+
+    return this.prisma.closetItem.create({
+      data: {
+        filename: cleanedFilename,
+        category,
+        layerCategory,
+        ownerId: userId,
+        ...extras,
+      }
+    });
+  }
 
 
   async getImagesByCategory(category: Category, userId: string): Promise<ClosetItem[]> {
@@ -111,7 +163,7 @@ async saveImage(
   }
 
 
-    async saveImagesBatch(
+  async saveImagesBatch(
     files: Express.Multer.File[],
     category: Category,
     layerCategory: any,
@@ -139,7 +191,7 @@ async saveImage(
   }
 
 
-async deleteImage(id: string, ownerId: string): Promise<void> {
+  async deleteImage(id: string, ownerId: string): Promise<void> {
     const item = await this.prisma.closetItem.findFirst({
       where: { id, ownerId }
     });
@@ -153,7 +205,7 @@ async deleteImage(id: string, ownerId: string): Promise<void> {
     });
 
     const uploadDir = path.join(__dirname, '../../uploads');
-    const filePath  = path.join(uploadDir, item.filename);
+    const filePath = path.join(uploadDir, item.filename);
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -178,7 +230,7 @@ async deleteImage(id: string, ownerId: string): Promise<void> {
     });
   }
 
-    async toggleFavourite(id: string, ownerId: string): Promise<ClosetItem> {
+  async toggleFavourite(id: string, ownerId: string): Promise<ClosetItem> {
     const existing = await this.prisma.closetItem.findFirst({
       where: { id, ownerId },
     });
