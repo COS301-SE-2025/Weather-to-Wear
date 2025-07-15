@@ -522,7 +522,8 @@ export default function ClosetPage() {
             ? /* ITEMS & FAVOURITES: one map with edit + heart + remove */
             getCurrentData().map(item => (
               <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                <div className="bg-gray-200 w-full h-full rounded-lg overflow-hidden flex flex-col text-xs sm:text-sm">
+                <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+
                   <div className="flex-grow relative">
                     <img
                       src={item.image}
