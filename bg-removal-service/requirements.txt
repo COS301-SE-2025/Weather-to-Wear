@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+rembg
+python-multipart
+onnxruntime
+filetype
+watchdog
+aiohttp
+gradio
+asyncer
