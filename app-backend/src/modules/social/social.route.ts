@@ -12,7 +12,7 @@ router.get('/posts/:id', socialController.getPostById);
 
 // Authenticated endpoints
 router.post('/posts', authenticateToken, socialController.createPost);
-router.put('/posts/:id', authenticateToken, socialController.updatePost);
+router.patch('/posts/:id', authenticateToken, socialController.updatePost);
 router.delete('/posts/:id', authenticateToken, socialController.deletePost);
 
 export default router;
