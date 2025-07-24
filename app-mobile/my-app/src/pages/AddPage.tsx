@@ -2,6 +2,24 @@ import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useImage } from "../components/ImageContext";
 import { Camera, Upload, Loader } from "lucide-react";
+import { fetchWithAuth } from "../services/fetchWithAuth";
+import { useUploadQueue } from "../context/UploadQueueContext";
+
+
+
+interface BatchUploadItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+
+  layerCategory: string;
+  category: string;
+  style: string;
+  material: string;
+  warmthFactor: number;
+  waterproof: boolean;
+  colorHex: string;
+}
 
 
 const LAYER_OPTIONS = [
@@ -82,6 +100,8 @@ const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showSuccessBatch, setShowSuccessBatch] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [layerCategory, setLayerCategory] = useState<string>("");
@@ -102,6 +122,35 @@ const AddPage: React.FC = () => {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
 
 
+  const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+
+  const { addToQueue, queueLength, isProcessing, progressPercent } = useUploadQueue();
+
+  // const [uploadQueue, setUploadQueue] = useState<FormData[]>([]);
+  // const [isQueueProcessing, setIsQueueProcessing] = useState(false);
+  // const [queueProgress, setQueueProgress] = useState(0);
+  const [showQueueToast, setShowQueueToast] = useState(false);
+  // const [totalItemsToProcess, setTotalItemsToProcess] = useState(0);
+  // const [processedItems, setProcessedItems] = useState(0);
+  // percentage calculation
+  // const progressPercent = totalItemsToProcess > 0
+  //   ? Math.round((processedItems / totalItemsToProcess) * 100)
+  //   : 0;
+
+  const [ellipsis, setEllipsis] = useState("");
+
+  const { justFinished, resetJustFinished } = useUploadQueue();
+
+  useEffect(() => {
+    if (justFinished) {
+      setShowSuccess(true);
+      resetJustFinished();
+    }
+  }, [justFinished]);
+
+
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
       const video = videoRef.current;
@@ -115,6 +164,83 @@ const AddPage: React.FC = () => {
     }
   }, [stream, cameraPreview]);
 
+
+  // draft persistence
+  useEffect(() => {
+    const state = {
+      layerCategory,
+      category,
+      style,
+      material,
+      warmthFactor,
+      waterproof,
+      color,
+      cameraPreview,
+      uploadPreview,
+    };
+    localStorage.setItem("addPageDraft", JSON.stringify(state));
+  }, [layerCategory, category, style, material, warmthFactor, waterproof, color, cameraPreview, uploadPreview]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("addPageDraft");
+    if (saved) {
+      const {
+        layerCategory,
+        category,
+        style,
+        material,
+        warmthFactor,
+        waterproof,
+        color,
+        cameraPreview,
+        uploadPreview,
+      } = JSON.parse(saved);
+
+      setLayerCategory(layerCategory);
+      setCategory(category);
+      setStyle(style);
+      setMaterial(material);
+      setWarmthFactor(warmthFactor);
+      setWaterproof(waterproof);
+      setColor(color);
+      setCameraPreview(cameraPreview);
+      setUploadPreview(uploadPreview);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    if (batchItems.length > 0) {
+      const metaOnly = batchItems.map(({ id, previewUrl, ...meta }) => ({
+        id,
+        previewUrl,
+        ...meta,
+      }));
+      localStorage.setItem("batchDraft", JSON.stringify(metaOnly));
+    }
+  }, [batchItems]);
+
+  useEffect(() => {
+    const savedBatch = localStorage.getItem("batchDraft");
+    if (savedBatch) {
+      const metaOnly = JSON.parse(savedBatch);
+      setBatchItems(metaOnly); // will show previews and metadata, just no `file` field
+      setCurrentIndex(0);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    let dotCount = 0;
+    const interval = setInterval(() => {
+      dotCount = (dotCount + 1) % 4; // 0, 1, 2, 3
+      setEllipsis(".".repeat(dotCount));
+    }, 500); // every 0.5s
+
+    return () => clearInterval(interval);
+  }, []);
+
+
   const startCamera = async () => {
     if (stream) return;
     try {
@@ -125,15 +251,7 @@ const AddPage: React.FC = () => {
     }
   };
 
-  // const capturePhoto = () => {
-  //   if (!stream || !videoRef.current || !canvasRef.current) return;
-  //   const video = videoRef.current;
-  //   const canvas = canvasRef.current;
-  //   canvas.width = video.videoWidth;
-  //   canvas.height = video.videoHeight;
-  //   canvas.getContext("2d")?.drawImage(video, 0, 0);
-  //   setCameraPreview(canvas.toDataURL());
-  // };
+
 
   const capturePhoto = () => {
     if (!stream || !videoRef.current || !canvasRef.current) return;
@@ -179,45 +297,32 @@ const AddPage: React.FC = () => {
       return;
     }
 
-    const blob = await (await fetch(finalImg)).blob();
+    const blob = await (await fetchWithAuth(finalImg)).blob();
     const formData = new FormData();
     formData.append("image", blob, "upload.png");
     formData.append("layerCategory", layerCategory);
     formData.append("category", category);
-    setIsLoading(true);
-
     if (style) formData.append("style", style);
     if (material) formData.append("material", material);
-    if (warmthFactor !== "")
-      formData.append("warmthFactor", warmthFactor.toString());
+    if (warmthFactor !== "") formData.append("warmthFactor", warmthFactor.toString());
     formData.append("waterproof", waterproof.toString());
     if (color) formData.append("colorHex", color);
 
-    const token = localStorage.getItem("token");
+    // setUploadQueue(prev => [...prev, formData]);
+    // setTotalItemsToProcess(prev => prev + 1);
+    addToQueue(formData);
+    setShowQueueToast(true);
 
-    try {
-      const response = await fetch(
-        "http://localhost:5001/api/closet/upload",
-        {
-          method: "POST",
-          body: formData,
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+    localStorage.removeItem("addPageDraft");
+    localStorage.removeItem("batchDraft");
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
+    // Reset form visuals
+    setUploadPreview(null);
+    setCameraPreview(null);
+    stream?.getTracks().forEach(t => t.stop());
+    setStream(null);
 
-      stream?.getTracks().forEach((t) => t.stop());
-      setShowSuccess(true);
-
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("There was an error uploading your item. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    setTimeout(() => setShowQueueToast(false), 3000);
   };
 
 
@@ -575,7 +680,346 @@ const AddPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        <div className="hidden lg:block mx-6 h-96 border-l border-gray-300 dark:border-gray-700" />
+        <div className="block lg:hidden w-3/4 border-t border-gray-300 dark:border-gray-700 my-8" />
+
+        {/* BATCH UPLOAD PANEL */}
+        <div className="flex flex-col items-center w-full lg:w-1/2 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-300 dark:border-gray-700 shadow-md">
+          <div className="relative w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black mb-4">
+            <label className="flex items-center justify-center gap-3 w-full h-full text-white bg-black hover:bg-teal-600 transition-colors rounded-xl cursor-pointer font-semibold text-lg select-none">
+              <Upload className="w-6 h-6" />
+              Upload batch
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  const newItems = files.map((file) => {
+                    const id = crypto.randomUUID();
+                    return {
+                      id,
+                      file,
+                      previewUrl: URL.createObjectURL(file),
+                      layerCategory: "",
+                      category: "",
+                      style: "",
+                      material: "",
+                      warmthFactor: 1,
+                      waterproof: false,
+                      colorHex: "",
+                    };
+                  });
+                  setBatchItems(newItems);
+                  setCurrentIndex(0);
+                }}
+              />
+            </label>
+          </div>
+
+          {batchItems.length > 0 && (
+            <>
+              <div className="w-full max-w-md mb-4">
+                <img src={batchItems[currentIndex].previewUrl} alt="Preview" className="w-full h-64 object-cover rounded-xl border mb-4" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <select value={batchItems[currentIndex].layerCategory} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[currentIndex].layerCategory = val;
+                      updated[currentIndex].category = "";
+                      return updated;
+                    });
+                  }} className="input">
+                    {LAYER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <select value={batchItems[currentIndex].category} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[currentIndex].category = val;
+                      return updated;
+                    });
+                  }} disabled={!batchItems[currentIndex].layerCategory} className="input">
+                    <option value="">Select Category</option>
+                    {(CATEGORY_BY_LAYER[batchItems[currentIndex].layerCategory] || []).map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <select value={batchItems[currentIndex].style} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[currentIndex].style = val;
+                      return updated;
+                    });
+                  }} className="input">
+                    {STYLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <select value={batchItems[currentIndex].material} onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchItems(items => {
+                      const updated = [...items];
+                      updated[currentIndex].material = val;
+                      return updated;
+                    });
+                  }} className="input">
+                    {MATERIAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium text-black dark:text-gray-100">Warmth: {batchItems[currentIndex].warmthFactor}</label>
+                    <input type="range" min={1} max={10} value={batchItems[currentIndex].warmthFactor}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setBatchItems(items => {
+                          const updated = [...items];
+                          updated[currentIndex].warmthFactor = val;
+                          return updated;
+                        });
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={batchItems[currentIndex].waterproof}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setBatchItems(items => {
+                          const updated = [...items];
+                          updated[currentIndex].waterproof = val;
+                          return updated;
+                        });
+                      }}
+                    />
+                    <label className="text-sm font-semibold">Waterproof</label>
+                  </div>
+
+                  <div className="flex gap-1 flex-wrap">
+                    {COLOR_PALETTE.map(({ hex, label }) => (
+                      <button
+                        key={hex}
+                        title={label}
+                        type="button"
+                        className={`w-6 h-6 rounded-full border-2 ${batchItems[currentIndex].colorHex === hex ? "border-teal-500 scale-110 shadow" : "border-gray-300"}`}
+                        style={{ backgroundColor: hex }}
+                        onClick={() => {
+                          setBatchItems(items => {
+                            const updated = [...items];
+                            updated[currentIndex].colorHex = hex;
+                            return updated;
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation */}
+              <div className="flex flex-col items-center justify-center w-full max-w-md mb-4 gap-2">
+                {/* Buttons */}
+                <div className="flex items-center justify-between w-full">
+                  <button
+                    className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full border border-gray-400 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                    onClick={() => setCurrentIndex(i => i - 1)}
+                    disabled={currentIndex === 0}
+                  >
+                    ◀ Prev
+                  </button>
+
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Image {currentIndex + 1} of {batchItems.length}
+                  </span>
+
+                  <button
+                    className="text-sm text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full border border-gray-400 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                    onClick={() => setCurrentIndex(i => i + 1)}
+                    disabled={currentIndex === batchItems.length - 1}
+                  >
+                    Next ▶
+                  </button>
+                </div>
+
+                <div className="w-1/2 h-1 bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden mt-1.5">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${((currentIndex + 1) / batchItems.length) * 100}%`,
+                      backgroundColor: "teal"
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/*  The folllowing is background removal for batch uploads, keep it for later */}
+
+              {/* <button
+                className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                onClick={() => {
+                  const hasMissingFields = batchItems.some(
+                    (item) => !item.layerCategory || !item.category
+                  );
+                  if (hasMissingFields) {
+                    alert("Please select layer and category for all items.");
+                    return;
+                  }
+
+                  batchItems.forEach((item) => {
+                    const formData = new FormData();
+                    formData.append("image", item.file, "upload.png");
+                    formData.append("layerCategory", item.layerCategory);
+                    formData.append("category", item.category);
+                    if (item.style) formData.append("style", item.style);
+                    if (item.material) formData.append("material", item.material);
+                    formData.append("warmthFactor", item.warmthFactor.toString());
+                    formData.append("waterproof", item.waterproof.toString());
+                    if (item.colorHex) formData.append("colorHex", item.colorHex);
+
+                    addToQueue(formData);
+                  });
+
+                  setBatchItems([]);
+                  setCurrentIndex(0);
+                  setShowQueueToast(true);
+                  setTimeout(() => setShowQueueToast(false), 3000);
+                }}
+              >
+                Submit All
+              </button> */}
+
+
+              <button
+                className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                onClick={async () => {
+                  const formData = new FormData();
+                  const itemsMeta = batchItems.map(item => ({
+                    filename: item.id,
+                    category: item.category,
+                    layerCategory: item.layerCategory,
+                    style: item.style,
+                    material: item.material,
+                    warmthFactor: item.warmthFactor,
+                    waterproof: item.waterproof,
+                    colorHex: item.colorHex,
+                  }));
+                  formData.append("items", JSON.stringify(itemsMeta));
+                  batchItems.forEach(item => {
+                    formData.append(item.id, item.file);
+                  });
+
+                  const token = localStorage.getItem("token");
+                  try {
+                    console.log("Uploading batch items:", batchItems);
+                    console.log("Sending metadata:", JSON.stringify(itemsMeta));
+
+                    const res = await fetchWithAuth("http://localhost:5001/api/closet/upload/batch", {
+                      method: "POST",
+                      body: formData,
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                    });
+
+                    if (!res.ok) {
+                      const errorText = await res.text();
+                      console.error("Upload failed. Server responded with:", res.status, errorText);
+                      throw new Error(`Upload failed: ${res.status} ${errorText}`);
+                    }
+
+                    setShowSuccessBatch(true);
+                    setBatchItems([]);
+                  } catch (err) {
+                    console.error(err);
+                    alert("Upload failed");
+                  }
+                }}
+              >
+                Submit All
+              </button>
+
+              <button
+                onClick={() => {
+                  localStorage.removeItem("addPageDraft");
+                  localStorage.removeItem("batchDraft");
+                  window.location.reload();
+                }}
+                className="mt-2 text-sm text-gray-500 hover:text-teal-600 transition-colors underline font-medium"
+              >
+                Clear Draft
+              </button>
+            </>
+          )}
+        </div>
+
       </div>
+
+      {queueLength > 0 && (
+        <div className="fixed bottom-6 left-6 z-50 flex flex-col items-center">
+          <div className="relative w-16 h-16">
+            <svg className="w-16 h-16" viewBox="0 0 36 36">
+              {/* Background circle */}
+              <circle
+                cx="18"
+                cy="18"
+                r="15.9155"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="text-gray-200"
+              />
+
+              {/* Progress circle */}
+              <circle
+                cx="18"
+                cy="18"
+                r="15.9155"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="100"
+                strokeDashoffset={`${100 - progressPercent}`}
+                className="text-teal-500 transition-all duration-700 ease-out"
+                transform="rotate(-90 18 18)"  // <- rotate to start from top
+              />
+            </svg>
+
+
+            {/* Centered percentage */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-semibold text-teal-700 dark:text-teal-400">
+                {progressPercent}%
+              </span>
+            </div>
+          </div>
+
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1 font-mono">
+            Uploading<span className="inline-block w-4">{ellipsis}</span>
+          </span>
+        </div>
+      )}
+
+      {showQueueToast && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+          Item added to queue
+        </div>
+      )}
+
 
       {isLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-40">
@@ -590,10 +1034,11 @@ const AddPage: React.FC = () => {
               🎉 Success! 🎉
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
-              Item added successfully.
+              Items added successfully.
             </p>
             <button
-              onClick={() => navigate("/closet")}
+              // onClick={() => navigate("/closet")}
+              onClick={() => { setShowSuccess(false) }}
               className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
             >
               OK
@@ -602,8 +1047,33 @@ const AddPage: React.FC = () => {
         </div>
       )}
 
+
+      {
+        showSuccessBatch && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                🎉 Success! 🎉
+              </h2>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">
+                Batch Uploaded successfully.
+              </p>
+              <button
+                // onClick={() => navigate("/closet")}
+                onClick={() => { setShowSuccessBatch(false) }}
+                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )
+      }
+
     </div>
   );
 };
 
 export default AddPage;
+
+

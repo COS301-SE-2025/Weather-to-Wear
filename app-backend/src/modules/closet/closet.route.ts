@@ -18,7 +18,7 @@ router.post(
 router.post(
   '/upload/batch',
   authenticateToken,
-  upload.array('images', 20),
+  upload.any(),
   closetController.uploadImagesBatch
 );
 
