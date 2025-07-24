@@ -1,6 +1,6 @@
 // closetService.controller.ts
 import { Request, Response, NextFunction } from 'express';
-import { Style, Material, Category, LayerCategory  } from '@prisma/client';
+import { Style, Material, Category, LayerCategory } from '@prisma/client';
 import ClosetService from './closet.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import closetService from './closet.service';
@@ -21,10 +21,10 @@ class ClosetController {
       }
 
       const extras = {
-        colorHex:     req.body.colorHex,
+        colorHex: req.body.colorHex,
         warmthFactor: req.body.warmthFactor ? Number(req.body.warmthFactor) : undefined,
-        waterproof:   req.body.waterproof !== undefined
-          ? req.body.waterproof === 'true' 
+        waterproof: req.body.waterproof !== undefined
+          ? req.body.waterproof === 'true'
           : undefined,
         style: req.body.style as Style,
         material: req.body.material as Material,
@@ -135,77 +135,94 @@ class ClosetController {
   // };
 
   uploadImagesBatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { user } = req as AuthenticatedRequest;
-  const files = req.files as Express.Multer.File[];
+    const { user } = req as AuthenticatedRequest;
+    const files = req.files as Express.Multer.File[];
 
-  if (!user || !user.id) {
-    res.status(401).json({ message: 'Unauthorized' });
-    return;
-  }
-
-  try {
-    const itemsJson = req.body.items;
-    if (!itemsJson) {
-      res.status(400).json({ message: 'Missing "items" field in body' });
+    if (!user || !user.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
     }
 
-    const parsed = JSON.parse(itemsJson);
-    if (!Array.isArray(parsed)) {
-      res.status(400).json({ message: '"items" must be a JSON array' });
-    }
-
-    const results = [];
-
-    for (const item of parsed) {
-      const {
-        category,
-        layerCategory,
-        colorHex,
-        warmthFactor,
-        waterproof,
-        style,
-        material,
-        filename // refers to the key of the file
-      } = item;
-
-      const file = files.find(f => f.fieldname === filename);
-      if (!file) {
-        res.status(400).json({ message: `Missing file for ${filename}` });
-        return;
+    try {
+      const itemsJson = req.body.items;
+      if (!itemsJson) {
+        res.status(400).json({ message: 'Missing "items" field in body' });
       }
 
-      const saved = await ClosetService.saveImageDirect(
-        file,
-        category,
-        layerCategory,
-        user.id,
-        {
+      const parsed = JSON.parse(itemsJson);
+      if (!Array.isArray(parsed)) {
+        res.status(400).json({ message: '"items" must be a JSON array' });
+      }
+
+      const results = [];
+
+      for (const item of parsed) {
+        const {
+          category,
+          layerCategory,
           colorHex,
-          warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-          waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
+          warmthFactor,
+          waterproof,
           style,
-          material
+          material,
+          filename // refers to the key of the file
+        } = item;
+
+        const file = files.find(f => f.fieldname === filename);
+        if (!file) {
+          res.status(400).json({ message: `Missing file for ${filename}` });
+          return;
         }
-      );
 
-      results.push({
-        id: saved.id,
-        category: saved.category,
-        imageUrl: `/uploads/${saved.filename}`,
-        createdAt: saved.createdAt,
-        colorHex: saved.colorHex,
-        warmthFactor: saved.warmthFactor,
-        waterproof: saved.waterproof,
-        style: saved.style,
-        material: saved.material,
-      });
+        // ! does not make use of background removal service
+        // const saved = await ClosetService.saveImageDirect(
+        //   file,
+        //   category,
+        //   layerCategory,
+        //   user.id,
+        //   {
+        //     colorHex,
+        //     warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
+        //     waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
+        //     style,
+        //     material
+        //   }
+        // );
+
+        const saved = await ClosetService.saveImage(
+          file,
+          category as Category,
+          layerCategory as LayerCategory,
+          user.id,
+          {
+            colorHex,
+            warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
+            waterproof: waterproof !== undefined
+              ? waterproof === true || waterproof === 'true'
+              : undefined,
+            style,
+            material
+          }
+        );
+
+        results.push({
+          id: saved.id,
+          category: saved.category,
+          imageUrl: `/uploads/${saved.filename}`,
+          createdAt: saved.createdAt,
+          colorHex: saved.colorHex,
+          warmthFactor: saved.warmthFactor,
+          waterproof: saved.waterproof,
+          style: saved.style,
+          material: saved.material,
+        });
+      }
+
+      res.status(201).json(results);
+    } catch (err) {
+      next(err);
     }
-
-    res.status(201).json(results);
-  } catch (err) {
-    next(err);
-  }
-};
+  };
 
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
@@ -224,7 +241,7 @@ class ClosetController {
           createdAt: i.createdAt,
           colorHex: i.colorHex,
           warmthFactor: i.warmthFactor,
-          waterproof:i.waterproof,
+          waterproof: i.waterproof,
           style: i.style,
           material: i.material,
           favourite: i.favourite,
@@ -235,13 +252,13 @@ class ClosetController {
     }
   };
 
-    deleteItem = async (
+  deleteItem = async (
     req: Request,
     res: Response,
     next: NextFunction
-  ):Promise<void> => {
+  ): Promise<void> => {
     try {
-      const id = req.params.id;                 
+      const id = req.params.id;
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
         res.status(401).json({ message: 'Unauthorized' });
@@ -271,17 +288,17 @@ class ClosetController {
 
       const { category, layerCategory, colorHex, warmthFactor, waterproof, style, material } = req.body;
       const updateData: any = {};
-      if (category)    
+      if (category)
         updateData.category = category as Category;
-      if (colorHex)    
+      if (colorHex)
         updateData.colorHex = colorHex;
       if (warmthFactor !== undefined)
         updateData.warmthFactor = Number(warmthFactor);
       if (waterproof !== undefined)
         updateData.waterproof = Boolean(waterproof);
-      if (style)       
+      if (style)
         updateData.style = style as Style;
-      if (material)    
+      if (material)
         updateData.material = material as Material;
       if (layerCategory)
         updateData.layerCategory = layerCategory as any;
@@ -294,10 +311,10 @@ class ClosetController {
         imageUrl: `/uploads/${updated.filename}`,
         createdAt: updated.createdAt,
         colorHex: updated.colorHex,
-        warmthFactor:updated.warmthFactor,
-        waterproof:updated.waterproof,
-        style:updated.style,
-        material:updated.material
+        warmthFactor: updated.warmthFactor,
+        waterproof: updated.waterproof,
+        style: updated.style,
+        material: updated.material
       });
     } catch (err) {
       next(err);
