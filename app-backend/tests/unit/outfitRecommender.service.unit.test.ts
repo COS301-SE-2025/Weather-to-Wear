@@ -98,13 +98,37 @@ jest.mock('@prisma/client', () => {
       },
       userPreference: {
         findUnique: jest.fn().mockResolvedValue({ preferredColours: ['#ff0000'], style: 'Casual' }),
+      },
+      outfit: {
+        findMany: jest.fn().mockResolvedValue([]),
       }
     })),
-    Style: { Formal: 'Formal', Casual: 'Casual', Athletic: 'Athletic', Party: 'Party', Business: 'Business', Outdoor: 'Outdoor' },
-    LayerCategory: { base_top: 'base_top', base_bottom: 'base_bottom', mid_top: 'mid_top', mid_bottom: 'mid_bottom', outerwear: 'outerwear', footwear: 'footwear', headwear: 'headwear', accessory: 'accessory' },
-    Category: { SHIRT: 'SHIRT', PANTS: 'PANTS', SHOES: 'SHOES' }
+    Style: {
+      Formal: 'Formal',
+      Casual: 'Casual',
+      Athletic: 'Athletic',
+      Party: 'Party',
+      Business: 'Business',
+      Outdoor: 'Outdoor'
+    },
+    LayerCategory: {
+      base_top: 'base_top',
+      base_bottom: 'base_bottom',
+      mid_top: 'mid_top',
+      mid_bottom: 'mid_bottom',
+      outerwear: 'outerwear',
+      footwear: 'footwear',
+      headwear: 'headwear',
+      accessory: 'accessory'
+    },
+    Category: {
+      SHIRT: 'SHIRT',
+      PANTS: 'PANTS',
+      SHOES: 'SHOES'
+    }
   };
 });
+
 jest.mock('tinycolor2', () => () => ({
   toHsl: () => ({ h: 0, s: 1, l: 0.5 })
 }));
