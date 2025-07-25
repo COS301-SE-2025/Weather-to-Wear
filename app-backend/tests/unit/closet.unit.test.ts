@@ -87,7 +87,7 @@ describe('ClosetController', () => {
 
       let req: Partial<AuthenticatedRequest> = {};
       req.file = fakeFile;
-      req.body = { category: 'SHOES', layerCategory: 'footwear' }; // ✅ Add this
+      req.body = { category: 'SHOES', layerCategory: 'footwear' }; 
       req.user = { ...TEST_USER };
 
       await controller.uploadImage(req as Request, res as Response, next);

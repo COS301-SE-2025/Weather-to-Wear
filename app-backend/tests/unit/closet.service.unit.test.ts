@@ -1,8 +1,16 @@
 import closetService from '../../src/modules/closet/closet.service';
 import path from 'path';
 import fs from 'fs';
+import axios from 'axios';
 
-jest.mock('fs'); 
+jest.mock('fs');
+jest.mock('axios');
+jest.mock('form-data', () => {
+  return jest.fn().mockImplementation(() => ({
+    append: jest.fn(),
+    getHeaders: jest.fn().mockReturnValue({}),
+  }));
+});
 
 const prismaMock = {
   closetItem: {
@@ -21,8 +29,20 @@ beforeEach(() => {
 
 describe('ClosetService', () => {
   it('saveImagesBatch saves all files', async () => {
-    prismaMock.closetItem.create.mockResolvedValueOnce({ id: '1' }).mockResolvedValueOnce({ id: '2' });
-    const files = [{ filename: 'a.png' }, { filename: 'b.png' }] as any[];
+    prismaMock.closetItem.create
+      .mockResolvedValueOnce({ id: '1' })
+      .mockResolvedValueOnce({ id: '2' });
+
+    const files = [
+      { path: 'uploads/a.png', filename: 'a.png' },
+      { path: 'uploads/b.png', filename: 'b.png' }
+    ] as any[];
+
+    (fs.createReadStream as jest.Mock).mockReturnValue({});
+    (fs.writeFileSync as jest.Mock).mockReturnValue(undefined);
+    (fs.unlinkSync as jest.Mock).mockReturnValue(undefined);
+    (axios.post as jest.Mock).mockResolvedValue({ data: Buffer.from('image') });
+
     const res = await closetService.saveImagesBatch(files, 'SHOES', 'footwear', 'uid', {});
     expect(res).toHaveLength(2);
     expect(prismaMock.closetItem.create).toHaveBeenCalledTimes(2);
