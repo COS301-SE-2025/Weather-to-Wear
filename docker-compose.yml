@@ -57,6 +57,12 @@ services:
     ports:
       - "8000:8000"
 
+  color-picker:
+    build:
+      context: ./color-extract-service
+    ports:
+      - "8002:8002"
+
 
 volumes:
   pgdata:
