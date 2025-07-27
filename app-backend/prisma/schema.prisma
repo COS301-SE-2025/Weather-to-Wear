@@ -93,17 +93,18 @@ model ClosetItem {
   layerCategory LayerCategory
   createdAt     DateTime      @default(now())
 
-  colorHex     String?
-  warmthFactor Int?
-  waterproof   Boolean?
-  style        Style?
-  material     Material?
-  favourite    Boolean   @default(false)
+  colorHex       String?     // Stores the first (main) color
+  dominantColors Json?       // Stores the top 3 colors as an array
+  warmthFactor   Int?
+  waterproof     Boolean?
+  style          Style?
+  material       Material?
+  favourite      Boolean      @default(false)
 
   ownerId     String
   owner       User         @relation(fields: [ownerId], references: [id])
   outfitItems OutfitItem[]
-  posts       Post[] // One-to-many relationship to Post (optional)
+  posts       Post[]       // One-to-many relationship to Post (optional)
 
   @@map("closet_items")
 }
