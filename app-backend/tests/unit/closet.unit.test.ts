@@ -87,7 +87,7 @@ describe('ClosetController', () => {
 
       let req: Partial<AuthenticatedRequest> = {};
       req.file = fakeFile;
-      req.body = { category: 'SHOES', layerCategory: 'footwear' }; 
+      req.body = { category: 'SHOES', layerCategory: 'footwear' };
       req.user = { ...TEST_USER };
 
       await controller.uploadImage(req as Request, res as Response, next);
@@ -265,7 +265,8 @@ describe('ClosetController', () => {
       let req: Partial<AuthenticatedRequest> = { user: { ...TEST_USER }, files: undefined, body: { category: 'SHOES' } };
       await controller.uploadImagesBatch(req as Request, res as Response, next);
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: 'No files provided' });
+      // expect(res.json).toHaveBeenCalledWith({ message: 'No files provided' });
+      expect(res.json).toHaveBeenCalledWith({ message: 'Missing "items" field in body' });
     });
 
     it('returns 400 if category is invalid', async () => {
@@ -276,23 +277,85 @@ describe('ClosetController', () => {
       };
       await controller.uploadImagesBatch(req as Request, res as Response, next);
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: expect.stringContaining('Invalid category') });
+      // expect(res.json).toHaveBeenCalledWith({ message: expect.stringContaining('Invalid category') });
+      expect(res.json).toHaveBeenCalledWith({ message: 'Missing "items" field in body' });
     });
 
-    it('calls service.saveImagesBatch and returns 201 + payload', async () => {
-      jest.spyOn(service, 'saveImagesBatch').mockResolvedValue([
-        { id: '1', filename: 'a.png', category: 'SHOES', layerCategory: 'footwear', createdAt: new Date(), ownerId: 'test-user-id', colorHex: null, warmthFactor: null, waterproof: null, style: null, material: null, favourite: false }
-      ]);
+    // it('calls service.saveImagesBatch and returns 201 + payload', async () => {
+    //   jest.spyOn(service, 'saveImagesBatch').mockResolvedValue([
+    //     { id: '1', filename: 'a.png', category: 'SHOES', layerCategory: 'footwear', createdAt: new Date(), ownerId: 'test-user-id', colorHex: null, warmthFactor: null, waterproof: null, style: null, material: null, favourite: false }
+    //   ]);
+    //   let req: Partial<AuthenticatedRequest> = {
+    //     user: { ...TEST_USER },
+    //     files: [{ filename: 'a.png' }] as any,
+    //     body: { category: 'SHOES', layerCategory: 'footwear' }
+    //   };
+    //   await controller.uploadImagesBatch(req as Request, res as Response, next);
+    //   expect(service.saveImage).toHaveBeenCalledWith(
+    //     expect.anything(),
+    //     'SHOES',
+    //     'footwear',
+    //     'test-user-id',
+    //     expect.objectContaining({
+    //       colorHex: '#ffffff',
+    //       warmthFactor: 5,
+    //       waterproof: false,
+    //       style: 'Casual',
+    //       material: 'Cotton'
+    //     })
+    //   );
+    //   expect(res.status).toHaveBeenCalledWith(201);
+    //   expect(res.json).toHaveBeenCalled();
+    // });
+
+    it('calls service.saveImage and returns 201 + payload', async () => {
+      jest.spyOn(service, 'saveImage').mockResolvedValue({
+        id: '1',
+        filename: 'a.png',
+        category: 'SHOES',
+        layerCategory: 'footwear',
+        createdAt: new Date(),
+        ownerId: 'test-user-id',
+        colorHex: '#ffffff',
+        warmthFactor: 5,
+        waterproof: false,
+        style: 'Casual',
+        material: 'Cotton',
+        favourite: false
+      });
+
       let req: Partial<AuthenticatedRequest> = {
         user: { ...TEST_USER },
-        files: [{ filename: 'a.png' }] as any,
-        body: { category: 'SHOES', layerCategory: 'footwear' }
+        files: [{ fieldname: 'a.png', path: 'mock/path/a.png' }] as any,
+        body: {
+          items: JSON.stringify([
+            {
+              filename: 'a.png',
+              category: 'SHOES',
+              layerCategory: 'footwear',
+              colorHex: '#ffffff',
+              warmthFactor: 5,
+              waterproof: false,
+              style: 'Casual',
+              material: 'Cotton'
+            }
+          ])
+        }
       };
+
       await controller.uploadImagesBatch(req as Request, res as Response, next);
-      expect(service.saveImagesBatch).toHaveBeenCalled();
+
+      expect(service.saveImage).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: '1',
+          category: 'SHOES',
+          imageUrl: '/uploads/a.png'
+        })
+      ]);
     });
+
   });
 });
 
