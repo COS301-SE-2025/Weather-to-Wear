@@ -15,8 +15,7 @@ class SocialService {
       closetItemId?: string;
     }
   ) {
-    console.log('🛠 Creating post for user:', userId);
-    console.log('📦 Post data:', data);
+
 
     return this.prisma.post.create({
       data: {
@@ -72,11 +71,13 @@ class SocialService {
     }
   ) {
     const existing = await this.prisma.post.findUnique({ where: { id } });
-
-    if (!existing || existing.userId !== userId) {
-      throw new Error('Forbidden or not found');
+    if (!existing) {
+      throw new Error('Post not found');
     }
 
+    if(existing.userId !== userId) {
+      throw new Error('Forbidden, token incorrect');
+    }
     return this.prisma.post.update({
       where: { id },
       data,
@@ -86,8 +87,12 @@ class SocialService {
   async deletePost(id: string, userId: string) {
     const existing = await this.prisma.post.findUnique({ where: { id } });
 
-    if (!existing || existing.userId !== userId) {
-      throw new Error('Forbidden or not found');
+    if (!existing) {
+      throw new Error('Post not found');
+    }
+
+    if(existing.userId !== userId) {
+      throw new Error('Forbidden, token incorrect');
     }
 
     await this.prisma.post.delete({ where: { id } });
