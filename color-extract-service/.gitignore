@@ -3,3 +3,5 @@ temp_*.png
 *.tmp
 *.log
 __pycache__/
+temp/*.jpg
+temp/*.png

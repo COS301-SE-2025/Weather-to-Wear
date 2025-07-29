@@ -78,6 +78,7 @@ describe('ClosetController', () => {
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         ownerId: 'test-user-id',
         colorHex: null,
+        dominantColors: null,
         warmthFactor: null,
         waterproof: null,
         style: null,
@@ -134,7 +135,18 @@ describe('ClosetController', () => {
   describe('getAll', () => {
     it('returns 200 + formatted URLs', async () => {
       const items = [{ id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }];
-      (service.getAllImages as jest.Mock) = jest.fn().mockResolvedValue(items);
+      // (service.getAllImages as jest.Mock) = jest.fn().mockResolvedValue(items);
+      (service.getAllImages as jest.Mock) = jest.fn().mockResolvedValue([
+        {
+          id: 1,
+          filename: 'a.png',
+          category: 'SHOES',
+          createdAt: new Date(),
+          ownerId: 'test-user-id',
+          dominantColors: null,
+        }
+      ]);
+
 
       let req: Partial<AuthenticatedRequest> = {};
       (req as any).protocol = 'http';
@@ -182,12 +194,12 @@ describe('ClosetController', () => {
       expect(service.getImagesByCategory).toHaveBeenCalledWith('SHOES', 'test-user-id');
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith([
-        {
+        expect.objectContaining({
           id: 1,
           category: 'SHOES',
           imageUrl: '/uploads/a.png',
-          createdAt: expect.any(Date)
-        }
+          createdAt: expect.any(Date),
+        })
       ]);
     });
   });
@@ -201,6 +213,7 @@ describe('ClosetController', () => {
         layerCategory: 'base_top',
         createdAt: new Date(),
         colorHex: null,
+        dominantColors: null,
         warmthFactor: null,
         waterproof: null,
         style: 'Casual',
@@ -317,6 +330,7 @@ describe('ClosetController', () => {
         createdAt: new Date(),
         ownerId: 'test-user-id',
         colorHex: '#ffffff',
+        dominantColors: ["#fdfdfd", "#1a253c", "#334363"],
         warmthFactor: 5,
         waterproof: false,
         style: 'Casual',
@@ -378,6 +392,7 @@ describe('Closet Routes Extended', () => {
       layerCategory: 'base_top',
       createdAt: new Date(),
       colorHex: null,
+      dominantColors: null,
       warmthFactor: null,
       waterproof: null,
       style: 'Casual',
