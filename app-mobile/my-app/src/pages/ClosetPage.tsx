@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 
 import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
-import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
+import { fetchAllOutfits, RecommendedOutfit, deleteOutfit } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
 
 import { useUploadQueue } from '../context/UploadQueueContext';
@@ -148,9 +148,7 @@ export default function ClosetPage() {
 
   const { queueLength, justFinished, resetJustFinished } = useUploadQueue();
 
-
-
-
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // useEffect(() => {
   //   const fetchItems = async () => {
@@ -403,13 +401,22 @@ export default function ClosetPage() {
     const { id, tab } = itemToRemove;
 
     try {
-      await deleteItem(id);
-      setItems(prev => prev.filter(i => i.id !== id));
-      setOutfits(prev => prev.filter(o => o.id !== id));
-      setFavourites(prev => prev.filter(f => f.id !== id));
-    } catch (err) {
+      if (tab === 'outfits') {
+        await deleteOutfit(id);
+        setOutfits(prev => prev.filter(o => o.id !== id));
+        setFavourites(prev => prev.filter(f => !(f.id === id && f.tab === 'outfits')));
+      } else {
+        await deleteItem(id);
+        setItems(prev => prev.filter(i => i.id !== id));
+        setFavourites(prev => prev.filter(f => !(f.id === id && f.tab !== 'outfits')));
+      }
+    } catch (err: any) {
       console.error('Failed to delete item:', err);
-      alert('Delete failed. Try again.');
+      if (err.response?.status === 400 || (err.message && err.message.includes("part of an outfit"))) {
+        setDeleteError("This item is part of an existing outfit and cannot be deleted.");
+      } else {
+        alert('Delete failed. Try again.');
+      }
     } finally {
       setShowModal(false);
       setItemToRemove(null);
@@ -554,7 +561,7 @@ export default function ClosetPage() {
 
 
         {/* Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
           {activeTab !== 'outfits'
             ? /* ITEMS & FAVOURITES: one map with edit + heart + remove */
             getCurrentData().map(item => (
@@ -615,7 +622,15 @@ export default function ClosetPage() {
             ))
             : /* OUTFITS: one map over UIOutfit[] */
             outfits.map(o => (
-              <div key={o.id} className="border rounded-lg p-2 bg-white">
+              <div key={o.id} className="relative bg-white border rounded-xl p-2 w-full">
+                <button
+                  onClick={() => handleRemoveClick(o.id, 'outfits', 'Outfit')}
+                  className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                >
+                  <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                </button>
+
+
                 <div className="space-y-1">
                   {/* headwear + accessory */}
                   <div
@@ -680,7 +695,7 @@ export default function ClosetPage() {
 
 
         {/* Remove Confirmation */}
-         <AnimatePresence>
+        <AnimatePresence>
           {showModal && itemToRemove && (
             <motion.div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -874,6 +889,34 @@ export default function ClosetPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {deleteError && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-80 text-center"
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+              >
+                <h2 className="text-lg font-semibold text-red-600 mb-3">❌ Delete Error</h2>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{deleteError}</p>
+                <button
+                  onClick={() => setDeleteError(null)}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full"
+                >
+                  OK
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {showEditSuccess && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
