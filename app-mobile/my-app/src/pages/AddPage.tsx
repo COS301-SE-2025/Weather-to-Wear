@@ -480,7 +480,7 @@ const AddPage: React.FC = () => {
                 </div>
 
                 {/* Color */}
-                <div className="flex flex-wrap gap-1 w-1/2">
+                {/* <div className="flex flex-wrap gap-1 w-1/2">
                   {COLOR_PALETTE.map(({ hex, label }) => (
                     <button
                       key={hex}
@@ -494,7 +494,7 @@ const AddPage: React.FC = () => {
                     />
                   ))}
 
-                </div>
+                </div> */}
               </div>
 
 
@@ -648,7 +648,7 @@ const AddPage: React.FC = () => {
                 </div>
 
                 {/* Color */}
-                <div className="flex flex-wrap gap-1 w-1/2">
+                {/* <div className="flex flex-wrap gap-1 w-1/2">
                   {COLOR_PALETTE.map(({ hex, label }) => (
                     <button
                       key={hex}
@@ -661,7 +661,7 @@ const AddPage: React.FC = () => {
                       onClick={() => setColor(hex)}
                     />
                   ))}
-                </div>
+                </div> */}
               </div>
 
               <button
@@ -810,7 +810,7 @@ const AddPage: React.FC = () => {
                     <label className="text-sm font-semibold">Waterproof</label>
                   </div>
 
-                  <div className="flex gap-1 flex-wrap">
+                  {/* <div className="flex gap-1 flex-wrap">
                     {COLOR_PALETTE.map(({ hex, label }) => (
                       <button
                         key={hex}
@@ -827,7 +827,7 @@ const AddPage: React.FC = () => {
                         }}
                       />
                     ))}
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
