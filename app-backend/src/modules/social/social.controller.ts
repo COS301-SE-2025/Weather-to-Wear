@@ -4,6 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import socialService from './social.service';
 
+
 class SocialController {
   createPost = async (
     req: Request,
@@ -17,13 +18,16 @@ class SocialController {
         return;
       }
 
-      const { imageUrl, caption, location, weather, closetItemId } = req.body;
+      const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+
+      const { caption, location, closetItemId, weather } = req.body;
+      const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
 
       const post = await socialService.createPost(user.id, {
         imageUrl,
         caption,
         location,
-        weather,
+        weather: weatherData,
         closetItemId,
       });
 
@@ -32,6 +36,7 @@ class SocialController {
       next(err);
     }
   };
+
 
   getPosts = async (
     req: Request,
