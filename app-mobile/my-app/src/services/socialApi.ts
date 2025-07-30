@@ -1,3 +1,4 @@
+//socialApi.ts
 import { fetchWithAuth } from "./fetchWithAuth";
 
 const API_URL = "http://localhost:5001/api/social";

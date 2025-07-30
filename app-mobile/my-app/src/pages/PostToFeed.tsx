@@ -155,7 +155,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     formData.append("location", location || "");
     formData.append("weather", JSON.stringify({ condition: weather }));
 
-    const response = await fetchWithAuth("http://localhost:5000/api/social/posts", {
+    const response = await fetchWithAuth("http://localhost:5001/api/social/posts", {
       method: "POST",
       body: formData,
     });
