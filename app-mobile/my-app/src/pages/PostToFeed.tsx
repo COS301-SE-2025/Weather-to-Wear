@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, ArrowLeft, Upload, Check, Sun, Cloud, CloudRain, CloudSnow, Wind, ChevronDown } from "lucide-react";
 import { useImage } from "../components/ImageContext";
+import { uploadPostImage, createPost } from "../services/socialApi";
+import { fetchWithAuth } from "../services/fetchWithAuth";
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
@@ -137,33 +139,37 @@ const PostToFeed = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!content.trim()) return;
 
-    console.log("New post content:", content);
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  try {
+    const formData = new FormData();
     if (uploadedImage || image) {
-      console.log("Selected image:", uploadedImage || image);
+      const res = await fetch(uploadedImage || image || "");
+      const blob = await res.blob();
+      formData.append("image", blob, "post.png");
     }
-    if (location) {
-      console.log("Location:", location);
-    }
-    if (weather) {
-      console.log("Weather:", weather);
-    }
-    // Reset form state
-    setContent("");
-    setLocalImage(null);
-    setCameraPreview(null);
-    setImage(null);
-    setLocation(null);
-    setWeather(null);
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      setStream(null);
-    }
+
+    formData.append("caption", content);
+    formData.append("location", location || "");
+    formData.append("weather", JSON.stringify({ condition: weather }));
+
+    const response = await fetchWithAuth("http://localhost:5000/api/social/posts", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+    console.log("Post created:", result);
+
     navigate("/feed");
-  };
+  } catch (err) {
+    console.error("Failed to create post:", err);
+    setError("Failed to share post.");
+  }
+};
+
 
   const weatherOptions = [
     { value: "Sunny", icon: <Sun className="w-5 h-5" /> },
@@ -199,7 +205,7 @@ const PostToFeed = () => {
               textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
             }}
           >
-            CREATE NEW POST  
+            CREATE NEW POST
           </h1>
         </div>
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
@@ -219,7 +225,7 @@ const PostToFeed = () => {
                 Add Photo
               </span>
               <div className="flex flex-col items-center space-y-4">
-                
+
                 <div className="flex gap-4">
                   <label className="cursor-pointer">
                     <input
@@ -273,7 +279,7 @@ const PostToFeed = () => {
               </div>
               <div className="w-1/4 space-y-2 relative">
                 <label htmlFor="weather" className="block text-sm font-bold text-gray-700" style={{ fontSize: '18px' }}>
-                  Weather 
+                  Weather
                 </label>
                 <div className="relative">
                   <button
