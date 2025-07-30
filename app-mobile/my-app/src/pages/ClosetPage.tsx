@@ -582,150 +582,152 @@ export default function ClosetPage() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-          {activeTab !== 'outfits'
-            ? /* ITEMS & FAVOURITES: one map with edit + heart + remove */
-            getCurrentData().map(item => (
-              <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
-
-                  <div className="flex-grow relative">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      onClick={() => setPreviewImage(item.image)}
-                      className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
-                    />
-
-                    <button
-                      onClick={() => {
-                        setItemToEdit({ ...item, tab: activeTab });
-                        setEditedCategory(item.category);
-                        setEditedColorHex(item.colorHex || '');
-                        setEditedWarmthFactor(item.warmthFactor || 0);
-                        setEditedWaterproof(item.waterproof || false);
-                        setEditedStyle(item.style || '');
-                        setEditedMaterial(item.material || '');
-                        setShowEditModal(true);
-                      }}
-                      className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
-                    >
-                      <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                    </button>
-
-                    <button
-                      onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-                      className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-                    >
-                      <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
-                    <button
-                      onClick={() =>
-                        toggleFavourite(
-                          item,
-                          activeTab === 'favourites'
-                            ? (item.tab as 'items' | 'outfits'
-                            )
-                            : activeTab
-                        )
-                      }
-                    >
-                      <Heart
-                        className={`h-4 w-4 sm:h-5 sm:w-5 ${item.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+          {getCurrentData().map(entry => {
+            // Item Card
+            if (isItem(entry)) {
+              return (
+                <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
+                  <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                    <div className="flex-grow relative">
+                      <img
+                        src={entry.image}
+                        alt={entry.name}
+                        onClick={() => setPreviewImage(entry.image)}
+                        className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
                       />
 
-                    </button>
+                      <button
+                        onClick={() => {
+                          setItemToEdit({ ...entry, tab: activeTab });
+                          setEditedCategory(entry.category);
+                          setEditedColorHex(entry.colorHex || '');
+                          setEditedWarmthFactor(entry.warmthFactor || 0);
+                          setEditedWaterproof(entry.waterproof || false);
+                          setEditedStyle(entry.style || '');
+                          setEditedMaterial(entry.material || '');
+                          setShowEditModal(true);
+                        }}
+                        className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
+                      >
+                        <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                      </button>
+
+                      <button
+                        onClick={() => handleRemoveClick(entry.id, activeTab, entry.name)}
+                        className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                      >
+                        <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+                      <button
+                        onClick={() =>
+                          toggleFavourite(
+                            entry,
+                            activeTab === 'favourites'
+                              ? (entry.tab as 'items' | 'outfits')
+                              : activeTab
+                          )
+                        }
+                      >
+                        <Heart
+                          className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-            : /* OUTFITS: one map over UIOutfit[] */
-            outfits.map(o => (
-              <div key={o.id} className="relative bg-white border rounded-xl p-2 w-full">
-                <button
-                  onClick={() => handleRemoveClick(o.id, 'outfits', 'Outfit')}
-                  className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-                >
-                  <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                </button>
-
-
-                <div className="space-y-1">
-                  {/* headwear + accessory */}
-                  <div
-                    className={`flex justify-center space-x-1 ${o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      ? ''
-                      : 'hidden'
-                      }`}
+              );
+            }
+            // Outfit Card
+            else if (isUIOutfit(entry)) {
+              return (
+                <div key={entry.id} className="relative bg-white border rounded-xl p-2 w-full">
+                  <button
+                    onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                    className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                   >
-                    {o.outfitItems
-                      .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                    <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                  </button>
 
-                  {/* tops */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                  <div className="space-y-1">
+                    {/* headwear + accessory */}
+                    <div
+                      className={`flex justify-center space-x-1 ${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                        ? ''
+                        : 'hidden'
+                        }`}
+                    >
+                      {entry.outfitItems
+                        .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
 
-                  {/* bottoms */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'base_bottom')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                    {/* tops */}
+                    <div className="flex justify-center space-x-1">
+                      {entry.outfitItems
+                        .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
 
-                  {/* footwear */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'footwear')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-14 h-14 object-contain rounded"
-                        />
-                      ))}
+                    {/* bottoms */}
+                    <div className="flex justify-center space-x-1">
+                      {entry.outfitItems
+                        .filter(it => it.layerCategory === 'base_bottom')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+
+                    {/* footwear */}
+                    <div className="flex justify-center space-x-1">
+                      {entry.outfitItems
+                        .filter(it => it.layerCategory === 'footwear')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-14 h-14 object-contain rounded"
+                          />
+                        ))}
+                    </div>
                   </div>
+                  {/* Outfit Favourite Button */}
+                  <button
+                    onClick={() => toggleFavourite(entry, 'outfits')}
+                    aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
+                    className="absolute bottom-2 left-2 z-10"
+                  >
+                    <Heart
+                      className={`h-4 w-4 sm:h-5 sm:w-5 transition 
+                ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                    />
+                  </button>
                 </div>
-                {/* Outfit Favourite Button */}
-                <button
-                  onClick={() => toggleFavourite(o, 'outfits')}
-                  aria-label={o.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
-                  className="absolute bottom-2 left-2 z-10"  // <-- No bg, no border, no shadow
-                >
-                  <Heart
-                    className={`h-4 w-4 sm:h-5 sm:w-5 transition 
-      ${o.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                  />
-                </button>
-
-              </div>
-
-            ))}
+              );
+            }
+            // Fallback: don't render anything
+            return null;
+          })}
         </div>
+
 
 
         {/* Remove Confirmation */}
