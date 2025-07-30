@@ -7,7 +7,8 @@ import {
   deleteOutfit,
   getItemsForOutfit,
   addItemToOutfit,
-  removeItemFromOutfit
+  removeItemFromOutfit,
+  toggleFavourite,
 
 } from './outfit.service';
 
@@ -216,6 +217,24 @@ class OutfitController {
       }
       const recommendations = await recommendOutfits(user.id, req.body);
       res.status(200).json(recommendations);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  toggleFavourite = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params.id;
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+      const updated = await toggleFavourite(id, user.id);
+      res.status(200).json({
+        id: updated.id,
+        favourite: updated.favourite,
+      });
     } catch (err) {
       next(err);
     }

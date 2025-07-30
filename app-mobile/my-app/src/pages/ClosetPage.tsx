@@ -4,11 +4,21 @@ import { Heart, Search, X, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 
-import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
+import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite, toggleFavourite } from '../services/closetApi';
 import { fetchAllOutfits, RecommendedOutfit, deleteOutfit } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
 
 import { useUploadQueue } from '../context/UploadQueueContext';
+
+import { toggleOutfitFavourite } from '../services/outfitApi';
+
+function isUIOutfit(obj: any): obj is UIOutfit {
+  return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
+}
+function isItem(obj: any): obj is Item {
+  return obj && (!obj.tab || obj.tab === 'items');
+}
+
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -100,7 +110,7 @@ type Item = {
   id: string;
   name: string;
   image: string;
-  favorite: boolean;
+  favourite: boolean;
   category: string;
   // newly‐editable fields:
   colorHex?: string;
@@ -116,7 +126,7 @@ type Item = {
 type TabType = 'items' | 'outfits' | 'favourites';
 
 type UIOutfit = RecommendedOutfit & {
-  favorite: boolean;
+  favourite: boolean;
   tab: 'outfits';
 };
 
@@ -127,7 +137,8 @@ export default function ClosetPage() {
   const [items, setItems] = useState<Item[]>([]);
   //const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
-  const [favourites, setFavourites] = useState<Item[]>([]);
+  //const [favourites, setFavourites] = useState<(Item | UIOutfit)[]>([]);
+
   const [layerFilter, setLayerFilter] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -180,7 +191,7 @@ export default function ClosetPage() {
           id: item.id,
           name: item.category,
           image: `http://localhost:5001${item.imageUrl}`,
-          favorite: false,
+          favourite: false,
           category: item.category,
           layerCategory: item.layerCategory,
           tab: 'items',
@@ -230,7 +241,7 @@ export default function ClosetPage() {
       .then(raw => {
         const uiList: UIOutfit[] = raw.map(o => ({
           ...o,
-          favorite: false,  // start un‐favorited
+          favourite: !!o.favourite,
           tab: 'outfits',
         }));
         setOutfits(uiList);
@@ -238,30 +249,32 @@ export default function ClosetPage() {
       .catch(console.error);
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    const stored = localStorage.getItem(`closet-favs-${token}`);
-    if (!stored) return;
-    const parsedFavs: Item[] = JSON.parse(stored);
-    setFavourites(parsedFavs);
 
-    // mark favourites in items
-    setItems(prev =>
-      prev.map(x => ({
-        ...x,
-        favorite: parsedFavs.some(f => f.id === x.id && f.tab === x.tab),
-      }))
-    );
+  // useEffect(() => {
+  //   const token = localStorage.getItem('token');
+  //   if (!token) return;
+  //   const stored = localStorage.getItem(`closet-favs-${token}`);
+  //   if (!stored) return;
+  //   const parsedFavs = JSON.parse(stored) as (Item | UIOutfit)[];
+  //   setFavourites(parsedFavs);
 
-    // mark favourites in outfits
-    setOutfits(prev =>
-      prev.map(o => ({
-        ...o,
-        favorite: parsedFavs.some(f => f.id === o.id && f.tab === 'outfits'),
-      }))
-    );
-  }, []);
+
+  //   // mark favourites in items
+  //   setItems(prev =>
+  //     prev.map(x => ({
+  //       ...x,
+  //       favorite: parsedFavs.some(f => f.id === x.id && f.tab === x.tab),
+  //     }))
+  //   );
+
+  //   // mark favourites in outfits
+  //   setOutfits(prev =>
+  //     prev.map(o => ({
+  //       ...o,
+  //       favorite: parsedFavs.some(f => f.id === o.id && f.tab === 'outfits'),
+  //     }))
+  //   );
+  // }, []);
 
   useEffect(() => {
     if (showModal || showEditModal || previewImage) {
@@ -273,38 +286,34 @@ export default function ClosetPage() {
 
 
 
-  const toggleFavorite = async (item: Item, originTab: 'items' | 'outfits') => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-
-    const isFav = favourites.some(f => f.id === item.id && f.tab === originTab);
-
-
-    const nextFavs = isFav
-      ? favourites.filter(f => !(f.id === item.id && f.tab === originTab))
-      : [...favourites, { ...item, favorite: true, tab: originTab }];
-
-
-    setFavourites(nextFavs);
-    localStorage.setItem(`closet-favs-${token}`, JSON.stringify(nextFavs));
-
-    setItems(prev =>
-      prev.map(i =>
-        i.id === item.id ? { ...i, favorite: !i.favorite } : i
-      )
-    );
-
-    try {
-      await apiToggleFavourite(Number(item.id));
-    } catch (err) {
-      console.error('Server toggle failed', err);
-
-      setFavourites(favourites);
-      setItems(items);
-      setOutfits(outfits);
+  const toggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
+    if (originTab === 'items') {
+      setItems(prev =>
+        prev.map(i =>
+          i.id === item.id ? { ...i, favourite: !i.favourite } : i
+        )
+      );
+      try {
+        await apiToggleFavourite(Number(item.id));
+      } catch (err) {
+        console.error('Server toggle failed', err);
+        // Optionally revert local state here if needed
+      }
+    } else if (originTab === 'outfits') {
+      setOutfits(prev =>
+        prev.map(o =>
+          o.id === item.id ? { ...o, favourite: !o.favourite } : o
+        )
+      );
+      try {
+        await toggleOutfitFavourite(item.id);
+      } catch (err) {
+        console.error('Server toggle failed', err);
+        // Optionally revert local state here if needed
+      }
     }
   };
+
 
 
   const handleSaveEdit = async () => {
@@ -356,30 +365,37 @@ export default function ClosetPage() {
         material: editedMaterial,
       };
       // for items & favourites
-      const itemUpdater = (arr: Item[]) => arr.map(i => i.id === updated.id ? updated : i);
+      const itemUpdater = (arr: (Item | UIOutfit)[]) =>
+        arr.map(i => isItem(i) && i.id === updated.id ? { ...i, ...updated } : i);
 
       // for outfits
-      const outfitUpdater = (arr: UIOutfit[]) =>
-        arr.map(o => o.id === updated.id
-          ? {
-            ...o,  // preserve all the RecommendedOutfit fields plus favorite & tab
-            category: updated.category,
-            colorHex: updated.colorHex,
-            warmthRating: updated.warmthFactor,        // adapt field names if needed
-            waterproof: updated.waterproof,
-            overallStyle: updated.style,
-            // …etc…
-          }
-          : o
+      const outfitUpdater = (arr: (UIOutfit | Item)[]) =>
+        arr.map(o =>
+          isUIOutfit(o) && o.id === updated.id
+            ? {
+              ...o,
+              category: updated.category,
+              colorHex: updated.colorHex,
+              warmthRating: updated.warmthFactor,
+              waterproof: updated.waterproof,
+              overallStyle: updated.style,
+            }
+            : o
         );
 
       if (itemToEdit.tab === 'items') {
-        setItems(itemUpdater(items));
+        setItems(
+          itemUpdater(items).filter(isItem)
+        );
+
       } else if (itemToEdit.tab === 'outfits') {
-        setOutfits(outfitUpdater(outfits));
+        setOutfits(
+          outfitUpdater(outfits).filter(isUIOutfit)
+        );
       } else {
-        setFavourites(itemUpdater(favourites));
+        //setFavourites(itemUpdater(favourites)); // now safe
       }
+
 
     } catch (err) {
       console.error("Save failed", err);
@@ -404,11 +420,9 @@ export default function ClosetPage() {
       if (tab === 'outfits') {
         await deleteOutfit(id);
         setOutfits(prev => prev.filter(o => o.id !== id));
-        setFavourites(prev => prev.filter(f => !(f.id === id && f.tab === 'outfits')));
       } else {
         await deleteItem(id);
         setItems(prev => prev.filter(i => i.id !== id));
-        setFavourites(prev => prev.filter(f => !(f.id === id && f.tab !== 'outfits')));
       }
     } catch (err: any) {
       console.error('Failed to delete item:', err);
@@ -424,6 +438,7 @@ export default function ClosetPage() {
   };
 
 
+
   const cancelRemove = () => {
     setShowModal(false);
     setItemToRemove(null);
@@ -435,8 +450,9 @@ export default function ClosetPage() {
       activeTab === 'items'
         ? items
         : activeTab === 'favourites'
-          ? favourites
+          ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
           : outfits;
+
 
 
     if (activeCategory) {
@@ -603,18 +619,19 @@ export default function ClosetPage() {
                   <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
                     <button
                       onClick={() =>
-                        toggleFavorite(
+                        toggleFavourite(
                           item,
                           activeTab === 'favourites'
-                            ? (favourites.find(f => f.id === item.id)!.tab as 'items' | 'outfits')
+                            ? (item.tab as 'items' | 'outfits'
+                            )
                             : activeTab
                         )
                       }
                     >
                       <Heart
-                        className={`h-4 w-4 sm:h-5 sm:w-5 ${favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
-                          }`}
+                        className={`h-4 w-4 sm:h-5 sm:w-5 ${item.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
                       />
+
                     </button>
                   </div>
                 </div>
@@ -689,7 +706,20 @@ export default function ClosetPage() {
                       ))}
                   </div>
                 </div>
+                {/* Outfit Favourite Button */}
+                <button
+                  onClick={() => toggleFavourite(o, 'outfits')}
+                  aria-label={o.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
+                  className="absolute bottom-2 left-2 z-10"  // <-- No bg, no border, no shadow
+                >
+                  <Heart
+                    className={`h-4 w-4 sm:h-5 sm:w-5 transition 
+      ${o.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                  />
+                </button>
+
               </div>
+
             ))}
         </div>
 
