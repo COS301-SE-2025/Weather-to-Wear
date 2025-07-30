@@ -191,7 +191,7 @@ export default function ClosetPage() {
           id: item.id,
           name: item.category,
           image: `http://localhost:5001${item.imageUrl}`,
-          favourite: false,
+          favourite: !!item.favourite,
           category: item.category,
           layerCategory: item.layerCategory,
           tab: 'items',
@@ -288,16 +288,17 @@ export default function ClosetPage() {
 
   const toggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
     if (originTab === 'items') {
-      setItems(prev =>
-        prev.map(i =>
-          i.id === item.id ? { ...i, favourite: !i.favourite } : i
-        )
-      );
       try {
-        await apiToggleFavourite(Number(item.id));
+        // Await the server and get new fav value
+        const res = await apiToggleFavourite(item.id);
+        setItems(prev =>
+          prev.map(i =>
+            i.id === item.id ? { ...i, favourite: res.data.favourite } : i
+          )
+        );
       } catch (err) {
         console.error('Server toggle failed', err);
-        // Optionally revert local state here if needed
+        // Optionally revert local state or show an error
       }
     } else if (originTab === 'outfits') {
       setOutfits(prev =>
@@ -309,7 +310,6 @@ export default function ClosetPage() {
         await toggleOutfitFavourite(item.id);
       } catch (err) {
         console.error('Server toggle failed', err);
-        // Optionally revert local state here if needed
       }
     }
   };
@@ -453,8 +453,6 @@ export default function ClosetPage() {
           ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
           : outfits;
 
-
-
     if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
     }
@@ -464,8 +462,14 @@ export default function ClosetPage() {
         i.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+
+    // Sort favourites to the top for "items" and "favourites" tabs
+    if (activeTab === 'items' || activeTab === 'favourites') {
+      data = data.sort((a, b) => Number(b.favourite) - Number(a.favourite));
+    }
     return data;
   }
+
 
   // Build list of categories for the active layer
   const categoryOptions = layerFilter
