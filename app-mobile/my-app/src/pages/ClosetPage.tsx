@@ -920,7 +920,7 @@ export default function ClosetPage() {
                 <div className="space-y-2 text-gray-700 text-base mt-2">
                   <div>
                     <span className="font-semibold">Warmth Rating:</span>{' '}
-                    {activeDetailsOutfit.warmthRating}/10
+                    {activeDetailsOutfit.warmthRating}
                   </div>
                   <div>
                     <span className="font-semibold">Waterproof:</span>{' '}
