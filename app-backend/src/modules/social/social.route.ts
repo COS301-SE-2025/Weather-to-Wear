@@ -18,4 +18,10 @@ router.post("/posts", authenticateToken, upload.single("image"), socialControlle
 router.patch('/posts/:id', authenticateToken, socialController.updatePost);
 router.delete('/posts/:id', authenticateToken, socialController.deletePost);
 
+//Comment endpoints
+router.post('/posts/:postId/comments', authenticateToken, socialController.addComment);
+router.get('/posts/:postId/comments', socialController.getCommentsForPost);
+router.put('/comments/:id', authenticateToken, socialController.updateComment);
+router.delete('/comments/:id', authenticateToken, socialController.deleteComment);
+
 export default router;
