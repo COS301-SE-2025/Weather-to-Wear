@@ -1,6 +1,6 @@
 // src/pages/ClosetPage.tsx
 import { useState, useEffect } from 'react';
-import { Heart, Search, X, Pen } from 'lucide-react';
+import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 
@@ -9,6 +9,8 @@ import { fetchAllOutfits, RecommendedOutfit, deleteOutfit } from '../services/ou
 import { fetchWithAuth } from "../services/fetchWithAuth";
 
 import { useUploadQueue } from '../context/UploadQueueContext';
+
+import StarRating from '../components/StarRating';
 
 import { toggleOutfitFavourite } from '../services/outfitApi';
 
@@ -165,6 +167,8 @@ export default function ClosetPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [favView, setFavView] = useState<'items' | 'outfits'>('items');
   const [activeDetailsItem, setActiveDetailsItem] = useState<Item | null>(null);
+  const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
+
 
 
   useEffect(() => {
@@ -364,11 +368,16 @@ export default function ClosetPage() {
       }
     } catch (err: any) {
       console.error('Failed to delete item:', err);
-      if (err.response?.status === 400 || (err.message && err.message.includes("part of an outfit"))) {
-        setDeleteError("This item is part of an existing outfit and cannot be deleted.");
+      if (
+        err.response?.status === 400 ||
+        (err.response?.data?.message && err.response.data.message.includes("part of an outfit")) ||
+        (err.message && err.message.includes("part of an outfit"))
+      ) {
+        setDeleteError("You can't delete this item because it's part of an outfit. Remove it from all outfits first!");
       } else {
-        alert('Delete failed. Try again.');
+        setDeleteError(err.response?.data?.message || 'Delete failed. Try again.');
       }
+
     } finally {
       setShowModal(false);
       setItemToRemove(null);
@@ -600,11 +609,14 @@ export default function ClosetPage() {
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
                     outfits.filter(o => o.favourite).map(entry => (
-                      <div key={entry.id} className="relative bg-white border rounded-xl p-2 w-full">
-                        <button
-                          onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
-                          className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-                        >
+                      <div
+                        key={entry.id}
+                        className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                        onClick={() => setActiveDetailsOutfit(entry)}
+                      >                        <button
+                        onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                        className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                      >
                           <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
                         <div className="space-y-1">
@@ -662,14 +674,6 @@ export default function ClosetPage() {
                               ))}
                           </div>
                         </div>
-
-                        {typeof entry.userRating === 'number' && (
-                          <div className="flex items-center justify-center mt-2">
-                            <span className="ml-1 text-black-600">
-                              {entry.userRating} / 5
-                            </span>
-                          </div>
-                        )}
 
                         <button
                           onClick={() => toggleFavourite(entry, 'outfits')}
@@ -740,11 +744,14 @@ export default function ClosetPage() {
                 );
               } else if (isUIOutfit(entry)) {
                 return (
-                  <div key={entry.id} className="relative bg-white border rounded-xl p-2 w-full">
-                    <button
-                      onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
-                      className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-                    >
+                  <div
+                    key={entry.id}
+                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    onClick={() => setActiveDetailsOutfit(entry)}
+                  >                    <button
+                    onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                    className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                  >
                       <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                     </button>
                     <div className="space-y-1">
@@ -804,15 +811,6 @@ export default function ClosetPage() {
                     </div>
 
 
-                    {typeof entry.userRating === 'number' && (
-                      <div className="flex items-center justify-center mt-2">
-                        <span className="ml-1 text-black-600">
-                          {entry.userRating} / 5
-                        </span>
-                      </div>
-                    )}
-
-
                     <button
                       onClick={() => toggleFavourite(entry, 'outfits')}
                       aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
@@ -831,9 +829,146 @@ export default function ClosetPage() {
           </div>
         )}
 
+        <AnimatePresence>
+          {activeDetailsOutfit && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setActiveDetailsOutfit(null)}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
+                {/* Favourite Heart (Top Left, smaller, no bg) */}
+                <button
+                  onClick={() => toggleFavourite(activeDetailsOutfit, 'outfits')}
+                  className="absolute top-3 left-3 z-20"
+                >
+                  <Heart
+                    className={`w-5 h-5 sm:w-6 sm:h-6 transition 
+              ${activeDetailsOutfit.favourite ? 'fill-red-500 text-red-500' : 'text-gray-300'}`}
+                  />
+                </button>
 
+                {/* Outfit Images */}
+                <div className="flex justify-center mb-2">
+                  <div className="space-y-1">
+                    {/* headwear + accessory */}
+                    <div className={`flex justify-center space-x-1 ${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? '' : 'hidden'}`}>
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* tops */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* bottoms */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => it.layerCategory === 'base_bottom')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* footwear */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => it.layerCategory === 'footwear')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-14 h-14 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                  </div>
+                </div>
 
+                {/* Outfit Info */}
+                <div className="space-y-2 text-gray-700 text-base mt-2">
+                  <div>
+                    <span className="font-semibold">Warmth Rating:</span>{' '}
+                    {activeDetailsOutfit.warmthRating}/10
+                  </div>
+                  <div>
+                    <span className="font-semibold">Waterproof:</span>{' '}
+                    {activeDetailsOutfit.waterproof ? "Yes" : "No"}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Overall Style:</span>{' '}
+                    {activeDetailsOutfit.overallStyle}
+                  </div>
+                  {typeof activeDetailsOutfit.userRating === 'number' && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Your Rating:</span>
+                      {Array(activeDetailsOutfit.userRating || 0)
+                        .fill(0)
+                        .map((_, i) => (
+                          <Star
+                            key={i}
+                            className="w-5 h-5 text-teal-500"
+                            style={{
+                              stroke: '#14b8a6', // Tailwind teal-500
+                              fill: '#14b8a6',
+                              strokeWidth: 1.5,
+                            }}
+                          />
+                        ))}
+                      <span className="ml-1">{activeDetailsOutfit.userRating}/5</span>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Delete button */}
+                <div className="flex justify-end pt-6">
+                  <button
+                    onClick={() => {
+                      setItemToRemove({ id: activeDetailsOutfit.id, tab: 'outfits', name: 'Outfit' });
+                      setShowModal(true);
+                      setActiveDetailsOutfit(null);
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Remove Confirmation */}
         <AnimatePresence>
@@ -1045,7 +1180,7 @@ export default function ClosetPage() {
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.9 }}
               >
-                <h2 className="text-lg font-semibold text-red-600 mb-3">❌ Delete Error</h2>
+                <h2 className="text-lg font-livvic text-red-600 mb-3"> Item is apart of an existing outfit!</h2>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{deleteError}</p>
                 <button
                   onClick={() => setDeleteError(null)}
@@ -1160,8 +1295,8 @@ export default function ClosetPage() {
         {showEditSuccess && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-                🎉 Saved Successfully! 🎉
+              <h2 className="text-xl font-livvic mb-2 text-gray-900 dark:text-gray-100">
+                Saved Successfully!
               </h2>
               <p className="mb-6 text-gray-700 dark:text-gray-300">
                 Changes have been saved.
