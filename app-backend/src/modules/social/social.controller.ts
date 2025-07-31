@@ -124,6 +124,114 @@ class SocialController {
       next(err);
     }
   };
+addComment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { postId } = req.params;
+    const { content } = req.body;
+
+    if (!user?.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+    if (!content) {
+      res.status(400).json({ message: 'Content is required' });
+      return;
+    }
+
+    const comment = await socialService.addComment(postId, user.id, content);
+    res.status(201).json({ message: 'Comment added successfully', comment });
+  } catch (err: any) {
+    if (err.message === 'Post not found') {
+      res.status(404).json({ message: err.message });
+      return;
+    }
+    if (err.message === 'Content is required') {
+      res.status(400).json({ message: err.message });
+      return;
+    }
+    next(err);
+  }
+};
+
+getCommentsForPost = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { postId } = req.params;
+    const { limit = 20, offset = 0, include = '' } = req.query;
+    const includeArr = typeof include === 'string' ? include.split(',') : [];
+
+    const comments = await socialService.getCommentsForPost(
+      postId,
+      Number(limit),
+      Number(offset),
+      includeArr
+    );
+    res.status(200).json({ message: 'Comments retrieved successfully', comments });
+  } catch (err: any) {
+    if (err.message === 'Post not found') {
+      res.status(404).json({ message: err.message });
+      return;
+    }
+    next(err);
+  }
+};
+
+updateComment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!user?.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const comment = await socialService.updateComment(id, user.id, content);
+    res.status(200).json({ message: 'Comment updated successfully', comment });
+  } catch (err: any) {
+    if (err.message === 'Comment not found') {
+      res.status(404).json({ message: err.message });
+      return;
+    }
+    if (err.message === 'Forbidden') {
+      res.status(403).json({ message: err.message });
+      return;
+    }
+    if (err.message === 'Content is required') {
+      res.status(400).json({ message: err.message });
+      return;
+    }
+    next(err);
+  }
+};
+
+deleteComment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { id } = req.params;
+
+    if (!user?.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    await socialService.deleteComment(id, user.id);
+    res.status(200).json({ message: 'Comment deleted successfully' });
+  } catch (err: any) {
+    if (err.message === 'Comment not found') {
+      res.status(404).json({ message: err.message });
+      return;
+    }
+    if (err.message === 'Forbidden') {
+      res.status(403).json({ message: err.message });
+      return;
+    }
+    next(err);
+  }
+};
+
+
 }
 
 export default new SocialController();

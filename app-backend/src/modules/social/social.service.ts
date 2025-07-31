@@ -75,7 +75,7 @@ class SocialService {
       throw new Error('Post not found');
     }
 
-    if(existing.userId !== userId) {
+    if (existing.userId !== userId) {
       throw new Error('Forbidden, token incorrect');
     }
     return this.prisma.post.update({
@@ -91,12 +91,67 @@ class SocialService {
       throw new Error('Post not found');
     }
 
-    if(existing.userId !== userId) {
+    if (existing.userId !== userId) {
       throw new Error('Forbidden, token incorrect');
     }
 
     await this.prisma.post.delete({ where: { id } });
   }
+
+  async addComment(postId: string, userId: string, content: string) {
+    // Check post exists
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new Error('Post not found');
+    if (!content || content.trim() === '') throw new Error('Content is required');
+
+    return this.prisma.comment.create({
+      data: {
+        postId,
+        userId,
+        content,
+      },
+      include: {
+        user: true, // Optional: include user info in response
+      }
+    });
+  }
+
+  async getCommentsForPost(postId: string, limit = 20, offset = 0, include: string[] = []) {
+    // Confirm post exists
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new Error('Post not found');
+
+    return this.prisma.comment.findMany({
+      where: { postId },
+      take: limit,
+      skip: offset,
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: include.includes('user'), // Prisma will join user via "UserComments"
+      },
+    });
+  }
+
+  async updateComment(id: string, userId: string, content: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) throw new Error('Comment not found');
+    if (comment.userId !== userId) throw new Error('Forbidden');
+    if (!content || content.trim() === '') throw new Error('Content is required');
+
+    return this.prisma.comment.update({
+      where: { id },
+      data: { content },
+    });
+  }
+
+  async deleteComment(id: string, userId: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) throw new Error('Comment not found');
+    if (comment.userId !== userId) throw new Error('Forbidden');
+
+    await this.prisma.comment.delete({ where: { id } });
+  }
+
 }
 
 export default new SocialService();
