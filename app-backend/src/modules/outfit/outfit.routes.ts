@@ -19,5 +19,6 @@ router.delete('/:id/items/:itemId', authenticateToken, outfitController.removeIt
 // outfit generation 
 router.post('/recommend', authenticateToken, outfitController.recommend);
 
+router.patch('/:id/favourite', authenticateToken,outfitController.toggleFavourite);
 
 export default router;

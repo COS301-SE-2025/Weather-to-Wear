@@ -3,6 +3,12 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5001/api/outfits';
 
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+
 export interface OutfitItem {
     closetItemId: string;
     imageUrl: string;
@@ -27,6 +33,7 @@ export interface RecommendedOutfit {
         willRain: boolean;
         mainCondition: string;
     };
+    favourite?: boolean; // indicates if the outfit is a favorite
 }
 
 export interface OutfitItemPayload {
@@ -132,3 +139,12 @@ export const deleteOutfit = async (id: string): Promise<{ success: boolean }> =>
     );
     return res.data;
 };
+
+export function toggleOutfitFavourite(id: string) {
+  return axios.patch(
+    `${API_URL}/${id}/favourite`,
+    {},
+    { headers: { ...getAuthHeader() } }
+  );
+}
+

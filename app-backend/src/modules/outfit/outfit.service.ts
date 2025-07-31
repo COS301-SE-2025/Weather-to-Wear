@@ -209,3 +209,12 @@ export async function removeItemFromOutfit(outfitId: string, itemId: string, use
   await prisma.outfitItem.delete({ where: { id: itemId } });
   return { success: true };
 }
+
+export async function toggleFavourite(id: string, userId: string) {
+  const outfit = await prisma.outfit.findFirst({ where: { id, userId } });
+  if (!outfit) throw new Error('Outfit not found');
+  return prisma.outfit.update({
+    where: { id },
+    data: { favourite: !outfit.favourite }
+  });
+}
