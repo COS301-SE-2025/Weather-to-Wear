@@ -1,6 +1,7 @@
 // src/pages/HomePage.tsx
 
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Plus } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
@@ -11,6 +12,11 @@ import { fetchAllEvents, createEvent, updateEvent, deleteEvent } from '../servic
 import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
 import StarRating from '../components/StarRating';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+export async function updateOutfit(outfitId: string, data: any) {
+  const response = await axios.put(`/api/outfits/${outfitId}`, data);
+  return response.data;
+}
 
 function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join("-");
@@ -107,6 +113,10 @@ export default function HomePage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   // Style dropdown state
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
+  // Add to state at the top:
+  const [outfitIdMap, setOutfitIdMap] = useState<Record<string, string>>({});
+
 
   //store ratings as dictionary
   const [ratings, setRatings] = useState<Record<string, number>>({});
@@ -217,32 +227,40 @@ export default function HomePage() {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
 
-    const payload = {
-      outfitItems: outfit.outfitItems.map((i) => ({
-        closetItemId: i.closetItemId,
-        layerCategory: i.layerCategory,
-        sortOrder: 0,
-      })),
-      warmthRating: outfit.warmthRating,
-      waterproof: outfit.waterproof,
-      overallStyle: outfit.overallStyle,
-      weatherSummary: JSON.stringify({
-        temperature: outfit.weatherSummary.avgTemp,
-        condition: outfit.weatherSummary.mainCondition,
-      }),
-      userRating: rating,
-    };
+    const key = getOutfitKey(outfit);
 
     setSaving(true);
     try {
-      await createOutfit(payload);
-
-      const key = getOutfitKey(outfit);
-      setRatings((prev) => ({
+      // If we have an ID for this outfit, update it instead of creating
+      if (outfitIdMap[key]) {
+        await updateOutfit(outfitIdMap[key], { userRating: rating });
+      } else {
+        const payload = {
+          outfitItems: outfit.outfitItems.map((i) => ({
+            closetItemId: i.closetItemId,
+            layerCategory: i.layerCategory,
+            sortOrder: 0,
+          })),
+          warmthRating: outfit.warmthRating,
+          waterproof: outfit.waterproof,
+          overallStyle: outfit.overallStyle,
+          weatherSummary: JSON.stringify({
+            temperature: outfit.weatherSummary.avgTemp,
+            condition: outfit.weatherSummary.mainCondition,
+          }),
+          userRating: rating,
+        };
+        // ----------> ADD HERE:
+        const created = await createOutfit(payload);
+        setOutfitIdMap(prev => ({
+          ...prev,
+          [getOutfitKey(outfit)]: created.id // save the db id under the outfit key
+        }));
+      }
+      setRatings(prev => ({
         ...prev,
         [key]: rating,
       }));
-
     } catch (err) {
       console.error('Save failed', err);
       alert('Failed to save your rating.');
@@ -250,6 +268,7 @@ export default function HomePage() {
       setSaving(false);
     }
   };
+
 
 
   return (

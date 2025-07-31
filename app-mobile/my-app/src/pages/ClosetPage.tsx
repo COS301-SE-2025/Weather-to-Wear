@@ -662,6 +662,15 @@ export default function ClosetPage() {
                               ))}
                           </div>
                         </div>
+
+                        {typeof entry.userRating === 'number' && (
+                          <div className="flex items-center justify-center mt-2">
+                            <span className="ml-1 text-black-600">
+                              {entry.userRating} / 5
+                            </span>
+                          </div>
+                        )}
+
                         <button
                           onClick={() => toggleFavourite(entry, 'outfits')}
                           aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
@@ -793,6 +802,17 @@ export default function ClosetPage() {
                           ))}
                       </div>
                     </div>
+
+
+                    {typeof entry.userRating === 'number' && (
+                      <div className="flex items-center justify-center mt-2">
+                        <span className="ml-1 text-black-600">
+                          {entry.userRating} / 5
+                        </span>
+                      </div>
+                    )}
+
+
                     <button
                       onClick={() => toggleFavourite(entry, 'outfits')}
                       aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
