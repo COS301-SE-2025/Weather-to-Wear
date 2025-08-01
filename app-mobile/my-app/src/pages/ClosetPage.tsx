@@ -601,6 +601,7 @@ export default function ClosetPage() {
                           </div>
                           <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
                             <button
+
                               onClick={() => toggleFavourite(entry, 'items')}
                             >
                               <Heart
@@ -689,7 +690,10 @@ export default function ClosetPage() {
                         </div>
 
                         <button
-                          onClick={() => toggleFavourite(entry, 'outfits')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavourite(entry, 'outfits');
+                          }}
                           aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
                           className="absolute bottom-2 left-2 z-10"
                         >
@@ -764,14 +768,14 @@ export default function ClosetPage() {
                     key={entry.id}
                     className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
                     onClick={() => setActiveDetailsOutfit(entry)}
-                  >                    
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      handleRemoveClick(entry.id, 'outfits', 'Outfit');
-                    }}
-                    className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                   >
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleRemoveClick(entry.id, 'outfits', 'Outfit');
+                      }}
+                      className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                    >
                       <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                     </button>
 
@@ -833,7 +837,10 @@ export default function ClosetPage() {
 
 
                     <button
-                      onClick={() => toggleFavourite(entry, 'outfits')}
+                      onClick={(e) => {
+                        e.stopPropagation(); 
+                        toggleFavourite(entry, 'outfits');
+                      }}
                       aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
                       className="absolute bottom-2 left-2 z-10"
                     >

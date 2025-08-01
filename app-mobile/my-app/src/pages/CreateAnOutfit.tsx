@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import { fetchAllItems } from '../services/closetApi';
 import { createOutfitManual } from '../services/outfitApi';
+import ClosetPickerModal from '../components/ClosetPickerModal';
 
-
-// Types for your closet items
+// Types
 export interface ClosetItem {
   id: string;
   name: string;
@@ -13,68 +12,6 @@ export interface ClosetItem {
   imageUrl?: string;
   layerCategory: string;
 }
-
-// Props for ClosetPickerModal
-interface ClosetPickerModalProps {
-  visible: boolean;
-  onClose: () => void;
-  items: ClosetItem[];
-  onSelect: (item: ClosetItem) => void;
-  title: string;
-}
-
-// ClosetPickerModal component
-const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
-  visible,
-  onClose,
-  items,
-  onSelect,
-  title
-}) => {
-  if (!visible) return null;
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center">
-      <div className="bg-white max-w-md w-full p-6 rounded-2xl shadow-xl relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black">
-          <X className="w-6 h-6" />
-        </button>
-        <h2 className="text-lg font-semibold mb-4">{title}</h2>
-        <div className="grid grid-cols-2 gap-4">
-          {items.length === 0 && (
-            <div className="col-span-2 text-gray-500 italic">No items found.</div>
-          )}
-          {items.map((item) => (
-            <button
-              key={item.id}
-              className="flex flex-col items-center rounded-lg p-3 bg-gray-50 hover:bg-teal-50 border border-gray-200 transition"
-              onClick={() => {
-                onSelect(item);
-                onClose();
-              }}
-              type="button"
-            >
-              <img
-                src={item.image || item.imageUrl || "/placeholder.svg"}
-                alt={item.name}
-                className="w-24 h-24 object-contain rounded mb-2"
-              />
-              <span className="text-sm font-medium">{item.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// MOCK ITEMS for demo; replace with API call for real use
-const MOCK_ITEMS: ClosetItem[] = [
-  { id: "1", name: "White Tee", layerCategory: "base_top" },
-  { id: "2", name: "Black Jeans", layerCategory: "base_bottom" },
-  { id: "3", name: "Sneakers", layerCategory: "footwear" },
-  { id: "4", name: "Denim Jacket", layerCategory: "outerwear" },
-  { id: "5", name: "Scarf", layerCategory: "accessory" },
-];
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
@@ -110,23 +47,19 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
-
 type OutfitItemInput = {
   closetItemId: string;
   layerCategory: string;
   sortOrder: number;
 };
 
-
 export default function CreateAnOutfit() {
-  // Closet items (should fetch from API)
+  // State
   const [allItems, setAllItems] = useState<ClosetItem[]>([]);
-  // Selections
   const [baseTop, setBaseTop] = useState<ClosetItem | null>(null);
   const [baseBottom, setBaseBottom] = useState<ClosetItem | null>(null);
   const [footwear, setFootwear] = useState<ClosetItem | null>(null);
   const [additional, setAdditional] = useState<ClosetItem[]>([]);
-  // Modal state
   const [modal, setModal] = useState<null | "base_top" | "base_bottom" | "footwear">(null);
 
   // Submission
@@ -138,7 +71,6 @@ export default function CreateAnOutfit() {
     const getItems = async () => {
       try {
         const res = await fetchAllItems();
-        // Map backend items to your ClosetItem shape (match what ClosetPage does)
         const formatted: ClosetItem[] = res.data.map((item: any) => ({
           id: item.id,
           name: item.category,
@@ -158,12 +90,7 @@ export default function CreateAnOutfit() {
     getItems();
   }, []);
 
-
   // Helpers
-  const itemsForLayer = (layer: string) =>
-    allItems.filter(i => (i.layerCategory || '').toLowerCase() === layer.toLowerCase());
-
-
   const selectedIds = [
     baseTop?.id,
     baseBottom?.id,
@@ -176,7 +103,6 @@ export default function CreateAnOutfit() {
   const handleRemoveAdditional = (id: string) =>
     setAdditional((prev) => prev.filter((i) => i.id !== id));
 
-  // Submission logic
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
@@ -187,7 +113,6 @@ export default function CreateAnOutfit() {
         setCreating(false);
         return;
       }
-      // Build outfitItems array
       const outfitItems: OutfitItemInput[] = [
         { closetItemId: baseTop.id, layerCategory: "base_top", sortOrder: 1 },
         { closetItemId: baseBottom.id, layerCategory: "base_bottom", sortOrder: 2 },
@@ -210,6 +135,7 @@ export default function CreateAnOutfit() {
       setBaseBottom(null);
       setFootwear(null);
       setAdditional([]);
+      setTimeout(() => setSuccess(false), 2500);
     } catch (e: any) {
       setError(e.message || "Unknown error");
     } finally {
@@ -218,116 +144,242 @@ export default function CreateAnOutfit() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-2xl shadow space-y-6">
-      <h1 className="text-2xl font-bold text-center">Create An Outfit</h1>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        {/* --- Main Three Selection Boxes --- */}
-        <div>
-          <label className="block font-medium mb-1">Base Top</label>
-          <button
-            type="button"
-            className="w-full border rounded px-3 py-2 text-left flex items-center justify-between"
-            onClick={() => setModal("base_top")}
-          >
-            <span>
-              {baseTop
-                ? baseTop.name
-                : <span className="text-gray-400">Pick a base top...</span>}
-            </span>
-            <span className="text-gray-400">{baseTop ? "Change" : "Pick"}</span>
-          </button>
+    <div className="min-h-screen bg-white font-sans">
+      {/* Header */}
+      <div className="w-full relative flex items-center justify-center h-48 mb-8">
+        <div
+          className="absolute inset-0 z-0 rounded-b-2xl"
+          style={{
+            backgroundImage: `url(/header2.jpg)`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'brightness(0.7)'
+          }}
+        ></div>
+        <div className="relative z-10 px-6 py-4">
+          <h1 className="text-2xl sm:text-3xl font-light font-bodoni tracking-tight text-white text-center drop-shadow"
+            style={{ letterSpacing: '0.04em' }}>
+            CREATE AN OUTFIT
+          </h1>
         </div>
-        <div>
-          <label className="block font-medium mb-1">Base Bottom</label>
-          <button
-            type="button"
-            className="w-full border rounded px-3 py-2 text-left flex items-center justify-between"
-            onClick={() => setModal("base_bottom")}
-          >
-            <span>
-              {baseBottom
-                ? baseBottom.name
-                : <span className="text-gray-400">Pick a base bottom...</span>}
-            </span>
-            <span className="text-gray-400">{baseBottom ? "Change" : "Pick"}</span>
-          </button>
-        </div>
-        <div>
-          <label className="block font-medium mb-1">Footwear</label>
-          <button
-            type="button"
-            className="w-full border rounded px-3 py-2 text-left flex items-center justify-between"
-            onClick={() => setModal("footwear")}
-          >
-            <span>
-              {footwear
-                ? footwear.name
-                : <span className="text-gray-400">Pick footwear...</span>}
-            </span>
-            <span className="text-gray-400">{footwear ? "Change" : "Pick"}</span>
-          </button>
-        </div>
-        {/* --- Additional Items --- */}
-        <div>
-          <label className="block font-medium mb-1">Additional Items</label>
-          <div className="flex flex-col gap-2">
-            {additional.map((item) => (
-              <div key={item.id} className="flex items-center gap-2">
-                <span>{item.name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveAdditional(item.id)}
-                  className="text-red-600 hover:underline text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            {/* Add new item */}
-            <select
-              className="w-full border rounded px-3 py-2 mt-2"
-              value=""
-              onChange={e => {
-                const id = e.target.value;
-                const item = allItems.find(
-                  i =>
-                    i.id === id &&
-                    !selectedIds.includes(i.id) &&
-                    !["base_top", "base_bottom", "footwear"].includes(i.layerCategory)
-                );
-                if (item) handleAddAdditional(item);
-              }}
-            >
-              <option value="">Add another item...</option>
-              {allItems
-                .filter(
-                  i =>
-                    !selectedIds.includes(i.id) &&
-                    !["base_top", "base_bottom", "footwear"].includes(i.layerCategory)
-                )
-                .map(i => (
-                  <option value={i.id} key={i.id}>
-                    {i.name} (
-                    {
-                      CATEGORY_BY_LAYER[i.layerCategory]?.find(c => c.value === i.category)?.label || i.category || i.layerCategory
-                    }
-                    )
-                  </option>
+      </div>
+
+      {/* Main content */}
+      <div className="max-w-3xl mx-auto flex flex-col md:flex-row gap-10 pb-10 px-3">
+        {/* --- FORM --- */}
+        <div className="flex-1 bg-white rounded-2xl shadow-lg px-7 py-7">
+          <form className="space-y-7" onSubmit={handleSubmit}>
+            {/* Base Top */}
+            <div>
+              <label className="text-base font-medium text-black mb-3 block font-sans">Base Top</label>
+              <button
+                type="button"
+                className="w-full border font-normal text-base rounded-full px-5 py-3 bg-white flex items-center justify-between shadow transition outline-none focus:ring-2"
+                style={{
+                  borderColor: 'black',
+                  color: baseTop ? "#222" : "#aaa"
+                }}
+                onClick={() => setModal("base_top")}
+              >
+                <span>
+                  {baseTop ? baseTop.name : <span className="text-gray-400">Pick a base top...</span>}
+                </span>
+                <span className="text-gray-400 text-sm">{baseTop ? "Change" : "Pick"}</span>
+              </button>
+            </div>
+            {/* Base Bottom */}
+            <div>
+              <label className="text-base font-medium text-black mb-3 block font-sans">Base Bottom</label>
+              <button
+                type="button"
+                className="w-full border font-normal text-base rounded-full px-5 py-3 bg-white flex items-center justify-between shadow transition outline-none focus:ring-2"
+                style={{
+                  borderColor: 'black',
+                  color: baseBottom ? "#222" : "#aaa"
+                }}
+                onClick={() => setModal("base_bottom")}
+              >
+                <span>
+                  {baseBottom ? baseBottom.name : <span className="text-gray-400">Pick a base bottom...</span>}
+                </span>
+                <span className="text-gray-400 text-sm">{baseBottom ? "Change" : "Pick"}</span>
+              </button>
+            </div>
+            {/* Footwear */}
+            <div>
+              <label className="text-base font-medium text-black mb-3 block font-sans">Footwear</label>
+              <button
+                type="button"
+                className="w-full border font-normal text-base rounded-full px-5 py-3 bg-white flex items-center justify-between shadow transition outline-none focus:ring-2"
+                style={{
+                  borderColor: 'black',
+                  color: footwear ? "#222" : "#aaa"
+                }}
+                onClick={() => setModal("footwear")}
+              >
+                <span>
+                  {footwear ? footwear.name : <span className="text-gray-400">Pick footwear...</span>}
+                </span>
+                <span className="text-gray-400 text-sm">{footwear ? "Change" : "Pick"}</span>
+              </button>
+            </div>
+            {/* Additional Items */}
+            <div>
+              <label className="text-base font-medium text-black mb-3 block font-sans">Additional Items</label>
+              <div className="flex flex-col gap-2">
+                {additional.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 bg-[#e5f6f4] rounded-full px-4 py-2 shadow-sm font-sans">
+                    <span>{item.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAdditional(item.id)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 ))}
-            </select>
+                <select
+                  className="w-full border font-normal text-base rounded-full px-5 py-3 mt-1 bg-white shadow-sm outline-none focus:ring-2"
+                  style={{ borderColor: 'black' }}
+                  value=""
+                  onChange={e => {
+                    const id = e.target.value;
+                    const item = allItems.find(
+                      i =>
+                        i.id === id &&
+                        !selectedIds.includes(i.id) &&
+                        !["base_top", "base_bottom", "footwear"].includes(i.layerCategory)
+                    );
+                    if (item) handleAddAdditional(item);
+                  }}
+                >
+                  <option value="">Add another item...</option>
+                  {allItems
+                    .filter(
+                      i =>
+                        !selectedIds.includes(i.id) &&
+                        !["base_top", "base_bottom", "footwear"].includes(i.layerCategory)
+                    )
+                    .map(i => (
+                      <option value={i.id} key={i.id}>
+                        {i.name} (
+                        {
+                          CATEGORY_BY_LAYER[i.layerCategory]?.find(c => c.value === i.category)?.label || i.category || i.layerCategory
+                        }
+                        )
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+            {/* --- Error / Success --- */}
+            {error && (
+              <div className="bg-red-100 border border-red-200 rounded-full px-4 py-2 text-red-700 text-center text-base shadow-sm font-sans">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-100 border border-green-200 rounded-full px-4 py-2 text-green-700 text-center text-base shadow-sm font-semibold font-sans">
+                Outfit created successfully!
+              </div>
+            )}
+            {/* --- Submit --- */}
+            <button
+              type="submit"
+              style={{
+                backgroundColor: '#3f978f',
+                borderRadius: '9999px',
+                padding: '0.85rem 1.5rem',
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+              }}
+              className="w-full text-white shadow-sm transition hover:opacity-90 outline-none font-sans"
+              disabled={creating}
+            >
+              {creating ? "Creating..." : "Create Outfit"}
+            </button>
+          </form>
+        </div>
+
+        {/* --- OUTFIT PREVIEW --- */}
+        <div className="w-full md:w-[340px] mt-8 md:mt-0 flex justify-center">
+          <div className="bg-gradient-to-br from-[#e5f6f4] via-white to-white rounded-2xl shadow-lg px-6 py-8 flex flex-col items-center min-h-[390px]">
+            {/* Preview Images Only, Centered and Large */}
+            <div className="flex flex-wrap justify-center items-center gap-6 w-full">
+              {baseTop && (
+                <div>
+                  {baseTop.imageUrl ? (
+                    <img
+                      src={baseTop.imageUrl}
+                      alt=""
+                      className="w-28 h-28 object-contain rounded-2xl border bg-white mx-auto"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-xl font-sans">
+                      Top
+                    </div>
+                  )}
+                </div>
+              )}
+              {baseBottom && (
+                <div>
+                  {baseBottom.imageUrl ? (
+                    <img
+                      src={baseBottom.imageUrl}
+                      alt=""
+                      className="w-28 h-28 object-contain rounded-2xl border bg-white mx-auto"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-xl font-sans">
+                      Bottom
+                    </div>
+                  )}
+                </div>
+              )}
+              {footwear && (
+                <div>
+                  {footwear.imageUrl ? (
+                    <img
+                      src={footwear.imageUrl}
+                      alt=""
+                      className="w-28 h-28 object-contain rounded-2xl border bg-white mx-auto"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-xl font-sans">
+                      Shoes
+                    </div>
+                  )}
+                </div>
+              )}
+              {additional.length > 0 && additional.map(item => (
+                <div key={item.id}>
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt=""
+                      className="w-20 h-20 object-contain rounded-2xl border bg-white mx-auto"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-lg font-sans">
+                      +
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* If nothing picked */}
+            {(!baseTop && !baseBottom && !footwear && additional.length === 0) && (
+              <div className="text-gray-400 text-center mt-20 text-base font-sans">
+                Start picking items<br />to build your outfit!
+              </div>
+            )}
           </div>
         </div>
-        {/* --- Submit --- */}
-        {error && <div className="text-red-600">{error}</div>}
-        <button
-          type="submit"
-          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded"
-          disabled={creating}
-        >
-          {creating ? "Creating..." : "Create Outfit"}
-        </button>
-        {success && <div className="text-green-600 text-center font-semibold">Outfit created successfully!</div>}
-      </form>
+      </div>
+
+      {/* --- MODALS --- */}
       <ClosetPickerModal
         visible={modal === "base_top"}
         onClose={() => setModal(null)}
@@ -364,8 +416,6 @@ export default function CreateAnOutfit() {
         onSelect={item => setFootwear(item)}
         title="Pick Footwear"
       />
-
-
     </div>
   );
 }
