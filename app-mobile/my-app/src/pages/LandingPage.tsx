@@ -79,52 +79,70 @@ const LandingPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Hero Section */}
-      <section className="relative flex flex-col lg:flex-row items-center lg:justify-between bg-black overflow-visible overflow-x-visible py-6 lg:py-8 sticky top-0 z-10 ">
-        {/* Text & CTAs */}
-        <div
-          className="
-      relative z-20 px-6 sm:px-12 lg:px-16 max-w-lg mx-auto lg:mx-0
-      text-center lg:text-left
-      min-h-[8rem] flex flex-col justify-center
-    "
-        >
-          <TypingSlogan />
+    {/* Hero Section */}
+<section className="relative flex flex-col lg:flex-row items-center lg:justify-between bg-black overflow-visible py-6 lg:py-8">
+  {/* Text + Typing */}
+  <div className="relative z-20 px-6 sm:px-12 lg:px-16 max-w-lg mx-auto lg:mx-0 text-center lg:text-left flex flex-col justify-center">
+    <TypingSlogan />
 
-          <p className="mt-4 text-base sm:text-lg lg:text-xl text-white max-w-sm mx-auto lg:mx-0">
-            Your personal weather-based clothing assistant.
-          </p>
+    <p className="mt-4 text-base sm:text-lg lg:text-xl text-white max-w-sm mx-auto lg:mx-0">
+      Your personal weather-based clothing assistant.
+    </p>
 
-          <div className="mt-6 flex justify-center lg:justify-start gap-4">
-            <Link
-              to="/signup"
-              className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition"
-            >
-              Sign Up
-            </Link>
-            <Link
-              to="/login"
-              className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition"
-            >
-              Log In
-            </Link>
-          </div>
-        </div>
+    {/* Desktop Buttons */}
+    <div className="mt-6 hidden md:flex justify-center lg:justify-start gap-4">
+      <Link
+        to="/signup"
+        className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition text-center"
+      >
+        Sign Up
+      </Link>
+      <Link
+        to="/login"
+        className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition text-center"
+      >
+        Log In
+      </Link>
+    </div>
+  </div>
 
-        {/* Decorative circle */}
+  {/* Image & Circle */}
+  <div className="w-full lg:w-1/3 flex flex-col items-center justify-center mt-6 lg:mt-0 px-6 sm:px-0 relative z-20">
+    <div className="relative w-fit">
+      {/* Circle */}
+      <div className="absolute -top-6 sm:-top-10 -right-6 sm:right-0 w-32 h-32 sm:w-40 sm:h-40 lg:w-56 lg:h-56 bg-teal-800 rounded-full z-0" />
+      
+      {/* Image */}
+      <div className="relative z-10 w-32 sm:w-40 md:w-48 lg:w-60 max-w-[200px]">
+        <img
+          src="/LPcloset.jpg"
+          alt="Closet preview"
+          className="object-cover rounded-tl-full rounded-tr-full shadow-md w-full h-auto"
+        />
+      </div>
+    </div>
 
-        <div className="absolute top-0 z-10 right-20 h-40 w-40 lg:h-56 lg:w-56 bg-teal-800 rounded-full transform translate-x-1/4 -translate-y-1/4" />
-        {/* Arch image */}
-        <div className="w-full lg:w-1/3 flex justify-center lg:justify-end mt-6 lg:mt-0 pr-6 lg:pr-16 relative z-20 right-20">
-          <div className="aspect-w-3 aspect-h-4 w-2/3 sm:w-1/2 lg:w-3/4 max-w-[160px]">
-            <img
-              src="/LPcloset.jpg"
-              alt="Closet preview"
-              className="object-cover rounded-tl-full rounded-tr-full shadow-md"
-            />
-          </div>
-        </div>
-      </section>
+    {/* Mobile & Tablet Buttons (stacked under image) */}
+    <div className="mt-4 flex md:hidden flex-row gap-4 justify-center z-10">
+      <Link
+        to="/signup"
+        className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition text-center"
+      >
+        Sign Up
+      </Link>
+      <Link
+        to="/login"
+        className="px-6 py-2 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition text-center"
+      >
+        Log In
+      </Link>
+    </div>
+  </div>
+</section>
+
+
+
+
 
       {/* What is Weather to Wear Section */}
       <section
