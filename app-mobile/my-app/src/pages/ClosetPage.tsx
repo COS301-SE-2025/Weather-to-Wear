@@ -1255,9 +1255,9 @@ export default function ClosetPage() {
                     className="w-40 h-40 object-contain rounded-lg shadow"
                   />
                 </div>
+                
                 {/* Item details */}
                 <div className="space-y-2 text-gray-700 text-base">
-                  <div><span className="font-semibold">ID:</span> {activeDetailsItem.id}</div>
                   <div><span className="font-semibold">Category:</span> {activeDetailsItem.category}</div>
                   <div><span className="font-semibold">Style:</span> {activeDetailsItem.style}</div>
                   <div><span className="font-semibold">Material:</span> {activeDetailsItem.material}</div>
