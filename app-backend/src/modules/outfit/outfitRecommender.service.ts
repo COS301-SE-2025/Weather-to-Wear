@@ -284,3 +284,10 @@ function buildFakeRec(outfit: any): OutfitRecommendation {
     weatherSummary: JSON.parse(outfit.weatherSummary || '{}'),
   };
 }
+
+export {
+  partitionClosetByLayer,
+  getRequiredLayers,
+  getCandidateOutfits,
+  scoreOutfit,
+};
