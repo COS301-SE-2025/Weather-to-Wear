@@ -148,7 +148,7 @@ export default function CreateAnOutfit() {
       {/* Header */}
       <div className="w-full relative flex items-center justify-center h-48 mb-8">
         <div
-          className="absolute inset-0 z-0 rounded-b-2xl"
+          className="absolute inset-0 z-0"
           style={{
             backgroundImage: `url(/header2.jpg)`,
             backgroundSize: 'cover',
@@ -156,9 +156,8 @@ export default function CreateAnOutfit() {
             filter: 'brightness(0.7)'
           }}
         ></div>
-        <div className="relative z-10 px-6 py-4">
-          <h1 className="text-2xl sm:text-3xl font-light font-bodoni tracking-tight text-white text-center drop-shadow"
-            style={{ letterSpacing: '0.04em' }}>
+         <div className="px-6 py-2 border-2 border-white z-10">
+          <h1 className="text-2xl font-bodoni font-light text-center text-white">
             CREATE AN OUTFIT
           </h1>
         </div>

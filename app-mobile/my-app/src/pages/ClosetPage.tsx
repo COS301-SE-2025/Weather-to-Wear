@@ -742,7 +742,7 @@ export default function ClosetPage() {
                         <button
                           onClick={e => {
                             e.stopPropagation();
-                            handleRemoveClick(entry.id, 'outfits', 'Outfit');
+                            handleRemoveClick(entry.id, 'items', entry.name);
                           }}
                           className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                         >
