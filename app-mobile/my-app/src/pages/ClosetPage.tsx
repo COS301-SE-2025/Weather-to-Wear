@@ -20,6 +20,11 @@ function isUIOutfit(obj: any): obj is UIOutfit {
 function isItem(obj: any): obj is Item {
   return obj && (!obj.tab || obj.tab === 'items');
 }
+function getSortedOutfits(list: UIOutfit[]) {
+  return [...list].sort(
+    (a, b) => (b.userRating || 0) - (a.userRating || 0)
+  );
+}
 
 
 const LAYER_OPTIONS = [
@@ -731,12 +736,15 @@ export default function ClosetPage() {
                           <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
                         <button
-                          onClick={() => handleRemoveClick(entry.id, entry.tab === 'outfits' ? 'outfits' : 'items', entry.name)
-                          }
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleRemoveClick(entry.id, 'outfits', 'Outfit');
+                          }}
                           className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                         >
                           <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
+
                       </div>
                       <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
                         <button
@@ -756,12 +764,17 @@ export default function ClosetPage() {
                     key={entry.id}
                     className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
                     onClick={() => setActiveDetailsOutfit(entry)}
-                  >                    <button
-                    onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                  >                    
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleRemoveClick(entry.id, 'outfits', 'Outfit');
+                    }}
                     className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                   >
                       <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                     </button>
+
                     <div className="space-y-1">
                       {/* headwear + accessory */}
                       <div
