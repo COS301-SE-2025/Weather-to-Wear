@@ -7,7 +7,7 @@ import CalendarPage from "./pages/CalendarPage";
 import FeedPage from "./pages/FeedPage";
 import Appearance from "./pages/Appearance";
 import ProfilePage from "./pages/Profile";
-import CreateAnOutfit from "./pages/UnderConstruction";
+import CreateAnOutfit from "./pages/CreateAnOutfit";
 import PostToFeed from "./pages/PostToFeed";
 import UnderConstruction from "./pages/UnderConstruction";
 import Login from "./pages/Login";

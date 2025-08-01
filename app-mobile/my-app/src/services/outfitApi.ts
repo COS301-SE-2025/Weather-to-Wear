@@ -1,5 +1,7 @@
 // src/services/outfitApi.ts
 import axios from 'axios';
+import { fetchWithAuth } from "./fetchWithAuth";
+
 
 const API_URL = 'http://localhost:5001/api/outfits';
 
@@ -148,3 +150,18 @@ export function toggleOutfitFavourite(id: string) {
   );
 }
 
+export async function createOutfitManual(data: any) {
+  const token = localStorage.getItem("token");
+  const res = await fetchWithAuth("http://localhost:5001/api/outfits", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create outfit");
+  }
+  return res.json();
+}
