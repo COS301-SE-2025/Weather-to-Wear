@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarPlus, Luggage } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
@@ -29,6 +29,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTripModal, setShowTripModal] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: '',
     location: '',
@@ -340,14 +341,23 @@ export default function CalendarPage() {
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Calendar</h1>
-        <button 
-          onClick={() => setShowCreateModal(true)}
-          className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
+  <h1 className="text-2xl font-bold">Calendar</h1>
+  <div className="flex gap-2">
+    <button 
+      onClick={() => setShowCreateModal(true)}
+      className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+    >
+      <CalendarPlus className="w-5 h-5" />
+    </button>
+    <button 
+      onClick={() => setShowTripModal(true)}
+      className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+    >
+      <Luggage className="w-5 h-5" />
+    </button>
+  </div>
+</div>
+
 
       {renderHeader()}
       {renderDays()}
@@ -423,6 +433,68 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      {showTripModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative">
+      <button
+        className="absolute top-4 right-4 text-xl"
+        onClick={() => setShowTripModal(false)}
+      >
+        ×
+      </button>
+
+      <h2 className="text-2xl mb-4 font-livvic">Plan a new trip</h2>
+
+      <div className="space-y-3">
+        <input
+          className="w-full p-2 border rounded"
+          placeholder="Trip name"
+        />
+        <input
+          className="w-full p-2 border rounded"
+          placeholder="Destination"
+        />
+        <input
+          type="datetime-local"
+          className="w-full p-2 border rounded"
+        />
+        <input
+          type="datetime-local"
+          className="w-full p-2 border rounded"
+        />
+        <select className="w-full p-2 border rounded">
+          <option value="Casual">Casual</option>
+          <option value="Formal">Formal</option>
+          <option value="Athletic">Athletic</option>
+          <option value="Party">Party</option>
+          <option value="Business">Business</option>
+          <option value="Outdoor">Outdoor</option>
+        </select>
+      </div>
+
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          className="px-4 py-2 rounded-full border border-black"
+          onClick={() => setShowTripModal(false)}
+        >
+          Cancel
+        </button>
+        <button
+          className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+          onClick={() => {
+            // You can later hook this into a "createTrip" API
+            alert("Trip saved (placeholder)");
+            setShowTripModal(false);
+          }}
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Edit Event Modal */}
       {showEventModal && selectedEvent && (
