@@ -34,6 +34,16 @@ function stripWhite(hexes: string[]): string[] {
   });
 }
 
+// eplison greedy to randomly pick a low rated outfit to add some spice into the mix
+function shuffleArray<T>(array: T[]): T[] {
+  const a = array.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /**
  * Score an outfit by blending:
  *  • color harmony
@@ -47,12 +57,12 @@ function scoreOutfit(
   weather: { avgTemp: number; minTemp: number; willRain: boolean }
 ): number {
   // 1) collect all hexes from dominantColors or fallback colorHex
-  const rawHexes = outfit.flatMap(item =>
+  const hexes = outfit.flatMap(item =>
     Array.isArray(item.dominantColors) && item.dominantColors.length > 0
       ? (item.dominantColors as string[])
       : [item.colorHex ?? '#000000']
   );
-  const hexes = stripWhite(rawHexes);
+  // const hexes = stripWhite(rawHexes);
   // 2) color harmony
   const harmony = computeColorHarmony(hexes);
   // 3) preference matches
@@ -242,16 +252,29 @@ export async function recommendOutfits(
   const WINDOW = 20;
   // const pool = augmented.slice(0, WINDOW);
   const pool = augmented;
-  const diversified: Array<OutfitRecommendation & { finalScore: number }> = [];
-  const used = { bottoms: new Set(), tops: new Set(), shoes: new Set() };
+  console.log("Random check - From Outfit Recommender Service");
 
-  for (const rec of pool) {
-    const bottom = rec.outfitItems.find(i => i.layerCategory === LayerCategory.base_bottom)
-      ?.closetItemId;
-    const topItem = rec.outfitItems.find(i => i.layerCategory === LayerCategory.base_top)
-      ?.closetItemId;
-    const shoe = rec.outfitItems.find(i => i.layerCategory === LayerCategory.footwear)
-      ?.closetItemId;
+  // epsilon-greedy: sometimes explore
+  // const EPSILON = 0.2;
+  const EPSILON = 0.2;
+  let candidatePool: typeof pool;
+  if (Math.random() < EPSILON) {
+    // exploration: randomize the pool
+    candidatePool = shuffleArray(pool);
+    console.log("Eplison activated! - from ourfit recommender service");
+  } else {
+    // exploitation: use the sorted pool
+    candidatePool = pool;
+  }
+
+  // —— Greedy diversity on candidatePool ——
+  const diversified: Array<OutfitRecommendation & { finalScore: number }> = [];
+  const used = { bottoms: new Set<string>(), tops: new Set<string>(), shoes: new Set<string>() };
+
+  for (const rec of candidatePool) {
+    const bottom = rec.outfitItems.find(i => i.layerCategory === LayerCategory.base_bottom)?.closetItemId;
+    const topItem = rec.outfitItems.find(i => i.layerCategory === LayerCategory.base_top)?.closetItemId;
+    const shoe = rec.outfitItems.find(i => i.layerCategory === LayerCategory.footwear)?.closetItemId;
 
     if (
       bottom && topItem && shoe &&
@@ -267,8 +290,10 @@ export async function recommendOutfits(
     if (diversified.length >= 5) break;
   }
 
+  // fallback fill
   if (diversified.length < 5) {
-    for (const rec of pool) {
+    console.log("Outfit Recommender Service Fallback Notice");
+    for (const rec of candidatePool) {
       if (!diversified.includes(rec)) {
         diversified.push(rec);
         if (diversified.length >= 5) break;
@@ -276,6 +301,7 @@ export async function recommendOutfits(
     }
   }
 
+  // finally return without finalScore
   return diversified.slice(0, 5).map(({ finalScore, ...rest }) => rest);
 }
 
