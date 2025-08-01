@@ -1,5 +1,3 @@
-// app-backend/src/modules/outfit/outfitRecommender.service.ts
-
 import { PrismaClient, ClosetItem, LayerCategory, Style } from '@prisma/client';
 import {
   RecommendOutfitsRequest,
@@ -7,12 +5,57 @@ import {
   OutfitItemRecommendation,
   WeatherSummary,
 } from './outfit.types';
-import { getFeatureVector, predictRatingKnn } from './itemItemKnn';
+import { getFeatureVector, predictRatingKnn, cosineSimilarity } from './itemItemKnn';
 import tinycolor from 'tinycolor2';
 
 const prisma = new PrismaClient();
 
-// —–––– helper: pairwise hue-distance
+// Helper: Shuffle an array for randomization
+function shuffleArray<T>(array: T[]): T[] {
+  const a = array.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Helper: Simple k-means clustering
+function kMeansCluster(outfits: (OutfitRecommendation & { finalScore: number })[], k: number): number[][] {
+  const vectors = outfits.map(outfit => getFeatureVector(outfit));
+  const centroids: number[][] = vectors.slice(0, k);
+  const maxIterations = 10;
+  const clusters: number[][] = Array(k).fill(0).map(() => []);
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    // Clear clusters
+    for (let j = 0; j < k; j++) clusters[j] = [];
+    // Assign to nearest centroid
+    for (let i = 0; i < vectors.length; i++) {
+      let minDist = Infinity;
+      let clusterIdx = 0;
+      for (let j = 0; j < k; j++) {
+        const dist = vectors[i].reduce((sum, v, idx) => sum + (v - centroids[j][idx]) ** 2, 0);
+        if (dist < minDist) {
+          minDist = dist;
+          clusterIdx = j;
+        }
+      }
+      clusters[clusterIdx].push(i);
+    }
+    // Update centroids
+    for (let j = 0; j < k; j++) {
+      if (clusters[j].length === 0) continue;
+      const newCentroid = vectors[0].map((_, idx) =>
+        clusters[j].reduce((sum, i) => sum + vectors[i][idx], 0) / clusters[j].length
+      );
+      centroids[j] = newCentroid;
+    }
+  }
+  return clusters;
+}
+
+// Helper: Compute pairwise hue-distance for color harmony
 function computeColorHarmony(hexes: string[]): number {
   if (hexes.length < 2) return 0;
   let total = 0, count = 0;
@@ -27,115 +70,35 @@ function computeColorHarmony(hexes: string[]): number {
   return total / count;
 }
 
-function stripWhite(hexes: string[]): string[] {
-  return hexes.filter(h => {
-    const { l, s } = tinycolor(h).toHsl();
-    return !(l > 0.95 && s < 0.1);
-  });
-}
-
-// eplison greedy to randomly pick a low rated outfit to add some spice into the mix
-function shuffleArray<T>(array: T[]): T[] {
-  const a = array.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/**
- * Score an outfit by blending:
- *  • color harmony
- *  • user preference matches
- *  • warmth alignment
- *  • rain bonus
- */
+// Score an outfit based on harmony, preferences, warmth, and weather conditions
 function scoreOutfit(
   outfit: ClosetItem[],
   userPreferredColors: string[] = [],
   weather: { avgTemp: number; minTemp: number; willRain: boolean }
 ): number {
-  // 1) collect all hexes from dominantColors or fallback colorHex
   const hexes = outfit.flatMap(item =>
     Array.isArray(item.dominantColors) && item.dominantColors.length > 0
       ? (item.dominantColors as string[])
       : [item.colorHex ?? '#000000']
   );
-  // const hexes = stripWhite(rawHexes);
-  // 2) color harmony
   const harmony = computeColorHarmony(hexes);
-  // 3) preference matches
   const prefHits = hexes.filter(h => userPreferredColors.includes(h)).length;
-  // 4) warmth alignment: high when totalWarmth ≈ avgTemp
+  // Penalize white or near-white colors
+  const whitePenalty = hexes.some(h => {
+    const { l, s } = tinycolor(h).toHsl();
+    return l > 0.95 && s < 0.1;
+  }) ? -2 : 0;
   const totalWarmth = outfit.reduce((sum, i) => sum + (i.warmthFactor || 0), 0);
-  const avgT = (weather.avgTemp + weather.minTemp) / 2;
-  const warmthScore = 1 / (1 + Math.abs(totalWarmth - avgT));
-  // 5) rain bonus
+  const requiredWarmth = Math.max(3, 30 - weather.minTemp);
+  const warmthDiff = totalWarmth - requiredWarmth;
+  const warmthScore = Math.exp(-(warmthDiff * warmthDiff) / 200); // Gaussian-like, sigma^2 = 200
   const rainBonus = weather.willRain && outfit.some(i => i.waterproof) ? 1 : 0;
-
-  // weights
-  const W_COLOR = 1, W_PREF = 2, W_WARMTH = 1, W_RAIN = 1;
-
-  // const repeatPenaltyPerItem = 0.5;
-  // const servedSet = new Set(lastServedIds);
-  // const repeatCount = outfit.filter(i => servedSet.has(i.id)).length;
-  // return baseScore - repeatCount * repeatPenaltyPerItem;
-
-  return (
-    W_COLOR * harmony +
-    W_PREF * prefHits +
-    W_WARMTH * warmthScore +
-    W_RAIN * rainBonus
-  );
-
-
+  const W_WARMTH = weather.minTemp < 10 ? 3 : 1;
+  return (1 * harmony + 2 * prefHits + W_WARMTH * warmthScore + 1 * rainBonus + whitePenalty);
 }
 
-/**
- * Rebuilds an OutfitRecommendation from a Prisma Outfit record `p`
- */
-function buildFakeRec(p: {
-  outfitItems: Array<{
-    closetItemId: string;
-    layerCategory: LayerCategory;
-    closetItem: ClosetItem;
-  }>;
-  overallStyle: Style;
-  userRating: number | null;
-  warmthRating: number;
-  waterproof: boolean;
-  weatherSummary: string | null;
-}): OutfitRecommendation {
-  const weather: WeatherSummary = p.weatherSummary
-    ? JSON.parse(p.weatherSummary)
-    : { avgTemp: 0, minTemp: 0, maxTemp: 0, willRain: false, mainCondition: '' };
+type PartitionedCloset = { [layer: string]: ClosetItem[] };
 
-  const items: OutfitItemRecommendation[] = p.outfitItems.map(oi => ({
-    closetItemId: oi.closetItemId,
-    imageUrl: `/uploads/${oi.closetItem.filename}`,
-    layerCategory: oi.layerCategory,
-    category: oi.closetItem.category,
-    style: oi.closetItem.style ?? Style.Casual,
-    dominantColors:
-      Array.isArray(oi.closetItem.dominantColors) && oi.closetItem.dominantColors.length > 0
-        ? (oi.closetItem.dominantColors as string[])
-        : [oi.closetItem.colorHex ?? '#000000'],
-    warmthFactor: oi.closetItem.warmthFactor ?? 5,
-    waterproof: oi.closetItem.waterproof ?? false,
-  }));
-
-  return {
-    outfitItems: items,
-    overallStyle: p.overallStyle,
-    score: p.userRating ?? 0,
-    warmthRating: p.warmthRating,
-    waterproof: p.waterproof,
-    weatherSummary: weather,
-  };
-}
-
-type PartitionedCloset = { [layer: string]: ClosetItem[]; };
 function partitionClosetByLayer(closetItems: ClosetItem[]): PartitionedCloset {
   return closetItems.reduce((part, item) => {
     (part[item.layerCategory] ||= []).push(item);
@@ -153,16 +116,25 @@ function getRequiredLayers(weather: { avgTemp: number; minTemp: number }): strin
 function getCandidateOutfits(
   partitioned: PartitionedCloset,
   requiredLayers: string[],
-  style: Style
+  style: Style,
+  weather: { minTemp: number }
 ): ClosetItem[][] {
-  const choices = requiredLayers.map(layer =>
-    (partitioned[layer] || []).filter(item => item.style === style)
-  );
-  if (choices.some(arr => arr.length === 0)) return [];
+  console.log('Debug: Required Layers:', requiredLayers);
+  // Limit items per layer to 5 for performance
+  const choices = requiredLayers.map(layer => {
+    const layerItems = (partitioned[layer] || []).filter(item => item.style === style);
+    return layerItems.length > 5 ? shuffleArray(layerItems).slice(0, 5) : layerItems;
+  });
+  console.log('Debug: Choices per layer:', choices.map(arr => arr.length));
+  if (choices.some(arr => arr.length === 0)) {
+    console.log('Debug: Empty layer detected, no candidates possible');
+    return [];
+  }
 
   function* combine(i = 0, current: ClosetItem[] = []): Generator<ClosetItem[]> {
     if (i === choices.length) {
-      yield current; return;
+      yield current;
+      return;
     }
     for (const itm of choices[i]) {
       if (current.some(c => c.id === itm.id)) continue;
@@ -170,25 +142,49 @@ function getCandidateOutfits(
     }
   }
 
-  return Array.from(combine());
+  const minRequiredWarmth = Math.max(3, 30 - weather.minTemp);
+  console.log('Debug: minRequiredWarmth:', minRequiredWarmth);
+  const candidates = Array.from(combine()).filter(outfit =>
+    outfit.reduce((sum, i) => sum + (i.warmthFactor || 0), 0) >= minRequiredWarmth
+  );
+  console.log('Debug: Candidate outfits after warmth filter:', candidates.length);
+  return candidates.length > 100 ? shuffleArray(candidates).slice(0, 100) : candidates; // Cap at 100
 }
 
 export async function recommendOutfits(
   userId: string,
   req: RecommendOutfitsRequest
 ): Promise<OutfitRecommendation[]> {
+  console.log('Debug: Starting recommendOutfits for user:', userId);
+  console.log('Debug: WeatherSummary:', req.weatherSummary);
+  console.log('Debug: Requested style:', req.style);
+
   const closetItems = await prisma.closetItem.findMany({ where: { ownerId: userId } });
+  console.log('Debug: Closet items retrieved:', closetItems.length);
+  console.log('Debug: Items with style defined:', closetItems.filter(item => item.style).length);
+  console.log('Debug: Items with warmthFactor defined:', closetItems.filter(item => item.warmthFactor).length);
+
   const userPref = await prisma.userPreference.findUnique({ where: { userId } });
   const style: Style = (req.style as Style) || userPref?.style || Style.Casual;
+  console.log('Debug: Selected style:', style);
 
   const partitioned = partitionClosetByLayer(closetItems);
+  console.log('Debug: Partitioned closet:', Object.keys(partitioned).map(layer => ({
+    layer,
+    count: partitioned[layer].length,
+    styles: [...new Set(partitioned[layer].map(item => item.style))],
+  })));
+
   const requiredLayers = getRequiredLayers(req.weatherSummary);
-  const raw = getCandidateOutfits(partitioned, requiredLayers, style);
+  const raw = getCandidateOutfits(partitioned, requiredLayers, style, req.weatherSummary);
+  console.log('Debug: Raw candidate outfits:', raw.length);
+
   const prefColors = Array.isArray(userPref?.preferredColours)
     ? (userPref.preferredColours as string[])
     : [];
+  console.log('Debug: Preferred colors:', prefColors);
 
-  // rule-based scoring
+  // Rule-based scoring
   const scored = raw.map(outfit => {
     const items = outfit.map(item => ({
       closetItemId: item.id,
@@ -207,23 +203,21 @@ export async function recommendOutfits(
     return {
       outfitItems: items,
       overallStyle: style,
-      score: scoreOutfit(outfit, prefColors, {
-        ...(req.weatherSummary as any),
-        willRain: (req.weatherSummary as any).willRain,
-      }),
+      score: scoreOutfit(outfit, prefColors, req.weatherSummary),
       warmthRating: outfit.reduce((s, i) => s + (i.warmthFactor || 0), 0),
       waterproof: outfit.some(i => i.waterproof),
       weatherSummary: req.weatherSummary,
     };
   });
-
-  scored.sort((a, b) => b.score - a.score);
+  console.log('Debug: Scored outfits:', scored.length);
 
   // K-NN personalization
   const past = await prisma.outfit.findMany({
     where: { userId, userRating: { not: null } },
     include: { outfitItems: { include: { closetItem: true } } },
   });
+  console.log('Debug: Past rated outfits:', past.length);
+
   const historyVecs: number[][] = [];
   const historyRatings: number[] = [];
 
@@ -241,73 +235,52 @@ export async function recommendOutfits(
       historyRatings,
       5
     );
-    // 30% rule based, 70% KNN
-    const alpha = 0.3;
+    const alpha = 0.3; // 30% rule-based, 70% KNN
     return { ...rec, finalScore: alpha * rec.score + (1 - alpha) * knn };
   });
+  console.log('Debug: Augmented outfits:', augmented.length);
 
-  augmented.sort((a, b) => b.finalScore - a.finalScore);
+  // Cluster for diversity
+  const k = Math.min(10, augmented.length); // Up to 10 clusters
+  const clusters = kMeansCluster(augmented, k);
+  console.log('Debug: Clusters formed:', clusters.map(c => c.length));
+  const selected: OutfitRecommendation[] = [];
 
-  // windowed diversity on top-20
-  const WINDOW = 20;
-  // const pool = augmented.slice(0, WINDOW);
-  const pool = augmented;
-  console.log("Random check - From Outfit Recommender Service");
-
-  // epsilon-greedy: sometimes explore
-  // const EPSILON = 0.2;
-  const EPSILON = 0.2;
-  let candidatePool: typeof pool;
-  if (Math.random() < EPSILON) {
-    // exploration: randomize the pool
-    candidatePool = shuffleArray(pool);
-    console.log("Eplison activated! - from ourfit recommender service");
-  } else {
-    // exploitation: use the sorted pool
-    candidatePool = pool;
+  // Select highest-scoring outfit from each cluster
+  for (const cluster of clusters) {
+    if (cluster.length === 0) continue;
+    const clusterOutfits = cluster.map(idx => augmented[idx]);
+    const bestInCluster = clusterOutfits.reduce((best, curr) =>
+      curr.finalScore > best.finalScore ? curr : best
+    );
+    selected.push(bestInCluster);
+    if (selected.length >= 5) break;
   }
+  console.log('Debug: Selected outfits:', selected.length);
 
-  // —— Greedy diversity on candidatePool ——
-  const diversified: Array<OutfitRecommendation & { finalScore: number }> = [];
-  const used = { bottoms: new Set<string>(), tops: new Set<string>(), shoes: new Set<string>() };
-
-  for (const rec of candidatePool) {
-    const bottom = rec.outfitItems.find(i => i.layerCategory === LayerCategory.base_bottom)?.closetItemId;
-    const topItem = rec.outfitItems.find(i => i.layerCategory === LayerCategory.base_top)?.closetItemId;
-    const shoe = rec.outfitItems.find(i => i.layerCategory === LayerCategory.footwear)?.closetItemId;
-
-    if (
-      bottom && topItem && shoe &&
-      !used.bottoms.has(bottom) &&
-      !used.tops.has(topItem) &&
-      !used.shoes.has(shoe)
-    ) {
-      diversified.push(rec);
-      used.bottoms.add(bottom);
-      used.tops.add(topItem);
-      used.shoes.add(shoe);
-    }
-    if (diversified.length >= 5) break;
-  }
-
-  // fallback fill
-  if (diversified.length < 5) {
-    console.log("Outfit Recommender Service Fallback Notice");
-    for (const rec of candidatePool) {
-      if (!diversified.includes(rec)) {
-        diversified.push(rec);
-        if (diversified.length >= 5) break;
-      }
-    }
-  }
-
-  // finally return without finalScore
-  return diversified.slice(0, 5).map(({ finalScore, ...rest }) => rest);
+  return selected;
 }
 
-export {
-  partitionClosetByLayer,
-  getRequiredLayers,
-  getCandidateOutfits,
-  scoreOutfit,
-};
+// Helper to build a fake OutfitRecommendation from past outfit data
+function buildFakeRec(outfit: any): OutfitRecommendation {
+  return {
+    outfitItems: outfit.outfitItems.map((oi: any) => ({
+      closetItemId: oi.closetItemId,
+      imageUrl: `/uploads/${oi.closetItem.filename}`,
+      layerCategory: oi.closetItem.layerCategory,
+      category: oi.closetItem.category,
+      style: oi.closetItem.style ?? 'Casual',
+      dominantColors:
+        Array.isArray(oi.closetItem.dominantColors) && oi.closetItem.dominantColors.length > 0
+          ? (oi.closetItem.dominantColors as string[])
+          : [oi.closetItem.colorHex ?? '#000000'],
+      warmthFactor: oi.closetItem.warmthFactor ?? 5,
+      waterproof: oi.closetItem.waterproof ?? false,
+    })),
+    overallStyle: outfit.overallStyle,
+    score: outfit.userRating ?? 0,
+    warmthRating: outfit.warmthRating,
+    waterproof: outfit.waterproof,
+    weatherSummary: JSON.parse(outfit.weatherSummary || '{}'),
+  };
+}

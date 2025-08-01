@@ -1,12 +1,8 @@
-// app-backend/src/modules/outfit/itemItemKnn.ts
-
 import { OutfitRecommendation } from "./outfit.types";
 import tinycolor from "tinycolor2";
 import { Style } from "@prisma/client";
 
-/**
- * Style enum list in order for one-hot encoding
- */
+// Style enum list for one-hot encoding
 const ALL_STYLES: Style[] = [
   Style.Formal,
   Style.Casual,
@@ -16,7 +12,7 @@ const ALL_STYLES: Style[] = [
   Style.Outdoor,
 ];
 
-/** Compute average pairwise hue distance for a set of hex colors */
+// Compute average pairwise hue distance for color harmony
 function computeColorHarmony(hexes: string[]): number {
   if (hexes.length < 2) return 0;
   let total = 0, count = 0;
@@ -31,9 +27,7 @@ function computeColorHarmony(hexes: string[]): number {
   return total / count;
 }
 
-/**
- * Build a numeric feature vector from an OutfitRecommendation
- */
+// Build a numeric feature vector from an OutfitRecommendation
 export function getFeatureVector(outfit: OutfitRecommendation): number[] {
   const { avgTemp = 0, minTemp = 0 } = outfit.weatherSummary as any;
   const warmth = outfit.warmthRating;
@@ -42,7 +36,6 @@ export function getFeatureVector(outfit: OutfitRecommendation): number[] {
     outfit.overallStyle === s ? 1 : 0
   );
 
-  // pull all hexes from each item's dominantColors[], falling back to colorHex
   const hexes = outfit.outfitItems.flatMap(i =>
     Array.isArray(i.dominantColors) && i.dominantColors.length > 0
       ? i.dominantColors
@@ -50,47 +43,34 @@ export function getFeatureVector(outfit: OutfitRecommendation): number[] {
   );
   const harmony = computeColorHarmony(hexes);
 
-  return [
-    avgTemp,
-    minTemp,
-    warmth,
-    waterproof,
-    harmony,
-    ...styleOneHot,
-  ];
+  return [avgTemp, minTemp, warmth, waterproof, harmony, ...styleOneHot]; // Removed warmthDiff
 }
 
-/** Cosine similarity between two vectors */
-function cosineSimilarity(a: number[], b: number[]): number {
+// Cosine similarity between two vectors
+export function cosineSimilarity(a: number[], b: number[]): number {
   const dot = a.reduce((sum, x, i) => sum + x * b[i], 0);
   const magA = Math.sqrt(a.reduce((s, x) => s + x * x, 0));
   const magB = Math.sqrt(b.reduce((s, y) => s + y * y, 0));
   return magA && magB ? dot / (magA * magB) : 0;
 }
 
-/**
- * Item–item K-NN predictor
- * @param queryVec  feature vector for the candidate outfit
- * @param historyVecs  past-rated outfit vectors
- * @param historyRatings  corresponding user ratings (1–5)
- * @param k  number of neighbors
- */
+// Item–item K-NN predictor
 export function predictRatingKnn(
   queryVec: number[],
   historyVecs: number[][],
   historyRatings: number[],
   k = 5
 ): number {
-  // compute sims
+  // Compute similarities
   const sims = historyVecs.map(hv => cosineSimilarity(queryVec, hv));
 
-  // pick top-k
+  // Pick top-k neighbors
   const top = sims
     .map((sim, i) => ({ sim, rating: historyRatings[i] }))
     .sort((a, b) => b.sim - a.sim)
     .slice(0, k);
 
-  // baseline-adjusted weighted avg
+  // Baseline-adjusted weighted average
   const mean = historyRatings.reduce((s, r) => s + r, 0) / historyRatings.length;
   let num = 0, den = 0;
   for (const { sim, rating } of top) {
