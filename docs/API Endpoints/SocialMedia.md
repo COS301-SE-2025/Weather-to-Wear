@@ -367,7 +367,7 @@
 ---
 
 ## 14. Unfollow User
-- **DELETE** `/api/social/users/:userId/follow`  
+- **DELETE** `/api/social/users/:userId/unfollow`  
   **Status:** 🟡 _Not yet implemented_
   - **Headers:**
     - `Authorization: Bearer <token>`
