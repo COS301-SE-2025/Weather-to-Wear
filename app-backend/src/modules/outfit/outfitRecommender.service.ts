@@ -28,9 +28,7 @@ function kMeansCluster(outfits: (OutfitRecommendation & { finalScore: number })[
   const clusters: number[][] = Array(k).fill(0).map(() => []);
 
   for (let iter = 0; iter < maxIterations; iter++) {
-    // Clear clusters
     for (let j = 0; j < k; j++) clusters[j] = [];
-    // Assign to nearest centroid
     for (let i = 0; i < vectors.length; i++) {
       let minDist = Infinity;
       let clusterIdx = 0;
@@ -43,7 +41,6 @@ function kMeansCluster(outfits: (OutfitRecommendation & { finalScore: number })[
       }
       clusters[clusterIdx].push(i);
     }
-    // Update centroids
     for (let j = 0; j < k; j++) {
       if (clusters[j].length === 0) continue;
       const newCentroid = vectors[0].map((_, idx) =>
@@ -83,7 +80,6 @@ function scoreOutfit(
   );
   const harmony = computeColorHarmony(hexes);
   const prefHits = hexes.filter(h => userPreferredColors.includes(h)).length;
-  // Penalize white or near-white colors
   const whitePenalty = hexes.some(h => {
     const { l, s } = tinycolor(h).toHsl();
     return l > 0.95 && s < 0.1;
@@ -91,7 +87,7 @@ function scoreOutfit(
   const totalWarmth = outfit.reduce((sum, i) => sum + (i.warmthFactor || 0), 0);
   const requiredWarmth = Math.max(3, 30 - weather.minTemp);
   const warmthDiff = totalWarmth - requiredWarmth;
-  const warmthScore = Math.exp(-(warmthDiff * warmthDiff) / 200); // Gaussian-like, sigma^2 = 200
+  const warmthScore = Math.exp(-(warmthDiff * warmthDiff) / 200);
   const rainBonus = weather.willRain && outfit.some(i => i.waterproof) ? 1 : 0;
   const W_WARMTH = weather.minTemp < 10 ? 3 : 1;
   return (1 * harmony + 2 * prefHits + W_WARMTH * warmthScore + 1 * rainBonus + whitePenalty);
@@ -113,6 +109,31 @@ function getRequiredLayers(weather: { avgTemp: number; minTemp: number }): strin
   return required;
 }
 
+// Define minimum warmth requirements per layer based on temperature
+function getMinWarmthForLayer(layer: string, minTemp: number): number {
+  if (minTemp < 10) {
+    switch (layer) {
+      case 'base_bottom': return 5;
+      case 'base_top': return 4;
+      case 'footwear': return 5;
+      case 'mid_top': return 6;
+      case 'outerwear': return 7;
+      default: return 1;
+    }
+  } else if (minTemp < 20) {
+    switch (layer) {
+      case 'base_bottom': return 3;
+      case 'base_top': return 2;
+      case 'footwear': return 3;
+      case 'mid_top': return 4;
+      case 'outerwear': return 5;
+      default: return 1;
+    }
+  } else {
+    return 1; // No strict minimum for warm weather
+  }
+}
+
 function getCandidateOutfits(
   partitioned: PartitionedCloset,
   requiredLayers: string[],
@@ -122,7 +143,11 @@ function getCandidateOutfits(
   console.log('Debug: Required Layers:', requiredLayers);
   // Limit items per layer to 5 for performance
   const choices = requiredLayers.map(layer => {
-    const layerItems = (partitioned[layer] || []).filter(item => item.style === style);
+    const minWarmth = getMinWarmthForLayer(layer, weather.minTemp);
+    console.log(`Debug: Min warmth for ${layer}: ${minWarmth}`);
+    const layerItems = (partitioned[layer] || []).filter(item =>
+      item.style === style && (item.warmthFactor || 0) >= minWarmth
+    );
     return layerItems.length > 5 ? shuffleArray(layerItems).slice(0, 5) : layerItems;
   });
   console.log('Debug: Choices per layer:', choices.map(arr => arr.length));
@@ -184,7 +209,6 @@ export async function recommendOutfits(
     : [];
   console.log('Debug: Preferred colors:', prefColors);
 
-  // Rule-based scoring
   const scored = raw.map(outfit => {
     const items = outfit.map(item => ({
       closetItemId: item.id,
@@ -211,7 +235,6 @@ export async function recommendOutfits(
   });
   console.log('Debug: Scored outfits:', scored.length);
 
-  // K-NN personalization
   const past = await prisma.outfit.findMany({
     where: { userId, userRating: { not: null } },
     include: { outfitItems: { include: { closetItem: true } } },
@@ -235,18 +258,16 @@ export async function recommendOutfits(
       historyRatings,
       5
     );
-    const alpha = 0.3; // 30% rule-based, 70% KNN
+    const alpha = 0.3;
     return { ...rec, finalScore: alpha * rec.score + (1 - alpha) * knn };
   });
   console.log('Debug: Augmented outfits:', augmented.length);
 
-  // Cluster for diversity
-  const k = Math.min(10, augmented.length); // Up to 10 clusters
+  const k = Math.min(10, augmented.length);
   const clusters = kMeansCluster(augmented, k);
   console.log('Debug: Clusters formed:', clusters.map(c => c.length));
   const selected: OutfitRecommendation[] = [];
 
-  // Select highest-scoring outfit from each cluster
   for (const cluster of clusters) {
     if (cluster.length === 0) continue;
     const clusterOutfits = cluster.map(idx => augmented[idx]);
@@ -261,7 +282,6 @@ export async function recommendOutfits(
   return selected;
 }
 
-// Helper to build a fake OutfitRecommendation from past outfit data
 function buildFakeRec(outfit: any): OutfitRecommendation {
   return {
     outfitItems: outfit.outfitItems.map((oi: any) => ({
