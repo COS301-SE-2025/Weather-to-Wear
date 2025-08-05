@@ -3,6 +3,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import socialService from './social.service';
+import prisma from "../../prisma";
+
 
 
 class SocialController {
@@ -227,6 +229,48 @@ deleteComment = async (req: Request, res: Response, next: NextFunction) => {
       res.status(403).json({ message: err.message });
       return;
     }
+    next(err);
+  }
+};
+
+likePost = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { postId } = req.params;
+    if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+
+    const like = await socialService.likePost(postId, user.id);
+    res.status(201).json({ message: "Post liked successfully", like });
+  } catch (err: any) {
+    if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
+    if (err.message === 'User already liked this post') return res.status(400).json({ message: err.message });
+    next(err);
+  }
+};
+
+unlikePost = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { postId } = req.params;
+    if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+
+    await socialService.unlikePost(postId, user.id);
+    res.status(200).json({ message: "Post unliked successfully" });
+  } catch (err: any) {
+    if (err.message === 'Like not found') return res.status(404).json({ message: err.message });
+    next(err);
+  }
+};
+
+getLikesForPost = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { postId } = req.params;
+    const { limit = 20, offset = 0, include } = req.query;
+    const includeUser = (include as string)?.split(',').includes('user');
+    const likes = await socialService.getLikesForPost(postId, Number(limit), Number(offset), includeUser);
+    res.status(200).json({ message: "Likes retrieved successfully", likes });
+  } catch (err: any) {
+    if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
     next(err);
   }
 };

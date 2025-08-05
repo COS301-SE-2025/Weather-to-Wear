@@ -152,6 +152,44 @@ class SocialService {
     await this.prisma.comment.delete({ where: { id } });
   }
 
+  // Like endpoints
+async likePost(postId: string, userId: string) {
+  const post = await this.prisma.post.findUnique({ where: { id: postId } });
+  if (!post) throw new Error('Post not found');
+
+  const existingLike = await this.prisma.like.findUnique({
+    where: { postId_userId: { postId, userId } },
+  });
+  if (existingLike) throw new Error('User already liked this post');
+
+  return this.prisma.like.create({ data: { userId, postId } });
+}
+
+async unlikePost(postId: string, userId: string) {
+  const existingLike = await this.prisma.like.findUnique({
+    where: { postId_userId: { postId, userId } },
+  });
+  if (!existingLike) throw new Error('Like not found');
+
+  await this.prisma.like.delete({
+    where: { postId_userId: { postId, userId } },
+  });
+}
+
+async getLikesForPost(postId: string, limit = 20, offset = 0, includeUser = false) {
+  const post = await this.prisma.post.findUnique({ where: { id: postId } });
+  if (!post) throw new Error('Post not found');
+
+  return this.prisma.like.findMany({
+    where: { postId },
+    skip: offset,
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: includeUser ? { user: { select: { id: true, name: true } } } : undefined,
+  });
+}
+
+
 }
 
 export default new SocialService();
