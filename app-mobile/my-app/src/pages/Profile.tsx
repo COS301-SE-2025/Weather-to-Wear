@@ -1,63 +1,114 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
-  Settings,
   Camera,
-  Edit,
   Mail,
-  Phone,
-  MapPin,
+
+
   Calendar,
+  Heart,
+  Settings,
 } from "lucide-react";
+import { fetchAllOutfits } from "../services/outfitApi";
+import { getItemCount } from "../services/closetApi";
+import { getOutfitCount } from "../services/outfitApi";
+
+interface OutfitItem {
+  closetItemId: string;
+  imageUrl: string;
+  layerCategory: string;
+}
+
+interface UIOutfit {
+  id: string;
+  outfitItems: OutfitItem[];
+  favourite: boolean;
+  warmthRating?: number;
+  waterproof?: boolean;
+  overallStyle?: string;
+  userRating?: number;
+}
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [userInfo, setUserInfo] = useState({
-    name: "User Name",
-    email: "user@email.com",
-    phone: "+1 (555) 123-4567",
-    location: "South Africa, SA",
-    joinDate: "May 2024",
+    name: "",
+    email: "",
   });
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [topOutfits, setTopOutfits] = useState<UIOutfit[]>([]);
+  const [loadingOutfits, setLoadingOutfits] = useState(true);
+  const [closetCount, setClosetCount] = useState<number>(0);
+  const [outfitCount, setOutfitCount] = useState<number>(0);
+  // Helper to prefix image URLs
+  const prefixed = (url: string) =>
+    url.startsWith("http") ? url : `http://localhost:5001${url}`;
 
-  // Fetch user data from localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    // Fetch user data from localStorage
+    const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        setUserInfo(prev => ({
+        setUserInfo((prev) => ({
           ...prev,
           name: parsedUser.name || prev.name,
-          email: parsedUser.email || prev.email
+          email: parsedUser.email || prev.email,
         }));
       } catch (error) {
-        console.error('Failed to parse user data', error);
+        console.error("Failed to parse user data", error);
       }
     }
+    fetchAllOutfits()
+      .then(raw => {
+        const uiList: UIOutfit[] = raw.map(o => ({
+          ...o,
+          favourite: !!o.favourite,
+          tab: "outfits",
+        }));
+        // keep only the top 5
+        setTopOutfits(uiList.slice(0, 5));
+      })
+      .catch(err => console.error("Error fetching outfits", err))
+      .finally(() => setLoadingOutfits(false));
+
+    getItemCount()
+      .then(count => setClosetCount(count))
+      .catch(err => console.error("Error counting items", err));
+
+    getOutfitCount()                    
+      .then(count => setOutfitCount(count))
+      .catch(err => console.error("Error counting outfits", err));
+
   }, []);
+
+
 
   const handleSave = () => {
     setIsEditing(false);
-    // Update localStorage
-    const storedUser = localStorage.getItem('user');
+    setShowSuccess(true);
+    const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        localStorage.setItem('user', JSON.stringify({
-          ...parsedUser,
-          name: userInfo.name,
-          email: userInfo.email
-        }));
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...parsedUser,
+            name: userInfo.name,
+            email: userInfo.email,
+          })
+        );
       } catch (error) {
-        console.error('Failed to update user data', error);
+        console.error("Failed to update user data", error);
       }
     }
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setUserInfo(prev => ({
+    setUserInfo((prev) => ({
       ...prev,
       [field]: value,
     }));
@@ -70,234 +121,317 @@ const Profile = () => {
       .join("")
       .toUpperCase();
 
+  const toggleFavourite = (outfitId: string) => {
+    setTopOutfits((prev) =>
+      prev.map((outfit) =>
+        outfit.id === outfitId ? { ...outfit, favourite: !outfit.favourite } : outfit
+      )
+    );
+    // Add API call to update favourite status on server if needed
+    // e.g., fetchWithAuth(`/api/outfits/${outfitId}/favourite`, { method: "PATCH" });
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-4 bg-white dark:bg-gray-900">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1
-          className="text-3xl font-bold mb-2 text-black dark:text-gray-100"
-          style={{ fontFamily: "'Bodoni Moda', serif" }}
+    <div className="min-h-screen bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out">
+      {/* Header Image Section with Layered Profile Photo */}
+      <div
+        className="w-screen -mx-4 sm:-mx-6 relative h-48 -mt-12 mb-20" // Increased mb-6 to mb-20
+        style={{
+          backgroundImage: `url(/header.jpg)`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          marginLeft: "calc(-50vw + 50%)",
+          width: "100vw",
+        }}
+      >
+        {/* dark overlay */}
+        <div className="absolute inset-0 bg-black bg-opacity-30" />
+
+        {/* profile circle + full name, side by side */}
+        <div
+          className="absolute left-10 top-full transform -translate-y-1/2 z-10 flex items-center gap-6"
         >
-          My Profile
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Manage your account and preferences
-        </p>
-      </div>
-
-      {/* Profile Card */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-2xl">
-        <div className="text-center p-6">
-          <div className="relative mx-auto w-32 h-32 mb-4">
-            <div className="w-32 h-32 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 flex items-center justify-center text-2xl font-medium">
-              {getInitials(userInfo.name)}
-            </div>
-            <button className="absolute bottom-0 right-0 rounded-full bg-teal-500 hover:bg-teal-600 p-2 text-white">
-              <Camera className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <h2 className="text-2xl font-semibold text-black dark:text-gray-100">
-              {userInfo.name}
-            </h2>
-            <button
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-              onClick={() => setIsEditing(!isEditing)}
+          {/* avatar */}
+          <div className="relative">
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              className="w-40 h-40 rounded-full bg-[#3F978F] text-white 
+                 flex items-center justify-center text-5xl font-bodoni"
             >
-              <Edit className="h-4 w-4 text-black dark:text-gray-100" />
+              {getInitials(userInfo.name)}
+            </motion.div>
+            <button
+              className="absolute bottom-0 right-0 rounded-full bg-[#000000] 
+                 hover:bg-[#2F6F6A] p-2 text-white transition"
+            >
+              <Camera className="h-5 w-5" />
             </button>
           </div>
+
+          {/* full name next to it */}
+          <h2 className="text-4xl font-semibold text-black mt-16 font-livvic">
+            {userInfo.name}
+          </h2>
         </div>
 
-        <div className="p-6 space-y-6 text-black dark:text-gray-100">
-          {/* Personal Information */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2 text-black dark:text-gray-100">
-                <User className="h-5 w-5 text-black dark:text-gray-100" />
-                Personal Information
-              </h3>
-
-              <div className="space-y-3">
-                {/* Name */}
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Full Name
-                  </label>
-                  {isEditing ? (
-                    <input
-                      id="name"
-                      value={userInfo.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      className="mt-1 w-full p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  ) : (
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">
-                      {userInfo.name}
-                    </p>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <Mail className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                    Email
-                  </label>
-                  {isEditing ? (
-                    <input
-                      id="email"
-                      type="email"
-                      value={userInfo.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                      className="mt-1 w-full p-2 rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  ) : (
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">
-                      {userInfo.email}
-                    </p>
-                  )}
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <Phone className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                    Phone
-                  </label>
-                  {isEditing ? (
-                    <input
-                      id="phone"
-                      value={userInfo.phone}
-                      onChange={(e) => handleInputChange("phone", e.target.value)}
-                      className="mt-1 w-full p-2 rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  ) : (
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">
-                      {userInfo.phone}
-                    </p>
-                  )}
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label htmlFor="location" className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <MapPin className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                    Location
-                  </label>
-                  {isEditing ? (
-                    <input
-                      id="location"
-                      value={userInfo.location}
-                      onChange={(e) => handleInputChange("location", e.target.value)}
-                      className="mt-1 w-full p-2 rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  ) : (
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">
-                      {userInfo.location}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Account Stats */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2 text-black dark:text-gray-100">
-                <Settings className="h-5 w-5 text-black dark:text-gray-100" />
-                Account Details
-              </h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Member since
-                  </span>
-                  <span className="text-sm font-medium text-black dark:text-gray-100">
-                    {userInfo.joinDate}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-teal-600">24</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Clothing Items
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-teal-600">8</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Saved Outfits
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          {isEditing && (
-            <div className="flex gap-3 pt-4 border-t border-gray-300 dark:border-gray-600">
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-              >
-                Save Changes
-              </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-black dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4">
-        {/* Settings Card */}
+      {/* Buttons under profile photo */}
+      <div className="flex justify-start gap-4 px-6 mb-0 mt-28 ml-">
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className="px-6 py-2 bg-[#000000] text-white rounded-full font-livvic text-base hover:bg-[#2F6F6A] transition"
+        >
+          Edit Profile
+        </button>
         <Link to="/appearance" className="block">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow">
-            <div className="p-6 text-center">
-              <Settings className="h-8 w-8 mx-auto mb-3 text-teal-500" />
-              <h3 className="font-semibold mb-2 text-black dark:text-gray-100">
-                Settings
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Manage app preferences
-              </p>
-            </div>
-          </div>
+          <button
+            className="px-6 py-2 bg-white border border-black text-black rounded-full font-livvic text-base hover:bg-gray-100 transition"
+          >
+            Style Settings
+          </button>
         </Link>
+      </div>
 
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow">
-          <div className="p-6 text-center">
-            <User className="h-8 w-8 mx-auto mb-3 text-teal-500" />
-            <h3 className="font-semibold mb-2 text-black dark:text-gray-100">
-              Privacy
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Control your privacy
-            </p>
-          </div>
-        </div>
+      <div className="w-full px-6 pb-12">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Profile Showcase */}
+          <div className="w-full lg:w-2/3">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 mb-8 shadow-md"
+            >
 
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow">
-          <div className="p-6 text-center">
-            <Mail className="h-8 w-8 mx-auto mb-3 text-teal-500" />
-            <h3 className="font-semibold mb-2 text-black dark:text-gray-100">
-              Support
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Get help and support
-            </p>
+
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-8 text-gray-900 dark:text-gray-100">
+                {/* Personal Details */}
+                <div className="space-y-5">
+                  <h3 className="text-lg font-livvic font-medium flex items-center gap-2 text-[#3F978F]">
+                    <User className="h-5 w-5" />
+                    My Details
+                  </h3>
+                  <div className="space-y-5">
+                    <div>
+                      <label
+                        htmlFor="name"
+                        className="flex items-center gap-2 text-sm font-livvic text-gray-700 dark:text-gray-300"
+                      >
+                        Name
+                      </label>
+                      {isEditing ? (
+                        <input
+                          id="name"
+                          value={userInfo.name}
+                          onChange={(e) => handleInputChange("name", e.target.value)}
+                          className="mt-1 w-full p-2 rounded-lg text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F] border border-gray-300 dark:border-gray-600 rounded-full"
+                        />
+                      ) : (
+                        <p className="mt-1 text-base font-livvic">{userInfo.name}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="flex items-center gap-2 text-sm font-livvic text-gray-700 dark:text-gray-300"
+                      >
+                        <Mail className="h-4 w-4" />
+                        Email
+                      </label>
+                      {isEditing ? (
+                        <input
+                          id="email"
+                          type="email"
+                          value={userInfo.email}
+                          onChange={(e) => handleInputChange("email", e.target.value)}
+                          className="mt-1 w-full p-2 rounded-lg text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F] border border-gray-300 dark:border-gray-600 rounded-full"
+                        />
+                      ) : (
+                        <p className="mt-1 text-base font-livvic">{userInfo.email}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Style Stats */}
+                <div className="space-y-5">
+
+                  <div className="space-y-5">
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center shadow-sm"
+                      >
+                        <div className="text-xl font-Livvic font-bold text-[#3F978F]">
+                          {closetCount}
+                        </div>
+                        <div className="text-sm font-Livvic text-gray-600 dark:text-gray-400">
+                          Total Items in Closet
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center shadow-sm"
+                      >
+                        <div className="text-xl font-livvic font-bold text-[#3F978F]">
+                          {outfitCount}
+                        </div>
+                        <div className="text-sm font-livvic text-gray-600 dark:text-gray-400">
+                          Total Outfits in Closet
+                        </div>
+                      </motion.div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              {isEditing && (
+                <div className="flex gap-4 pt-6">
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-3 py-1 bg-white dark:bg-gray-700 text-black dark:text-white rounded-full hover:bg-black dark:hover:bg-black transition font-livvic border border-black dark:border-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-3 py-1 bg-[#3F978F] hover:bg-[#2F6F6A] text-white rounded-full transition font-livvic"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+            </motion.div>
           </div>
+
+          {/* Top 5 Outfits Section */}
+          <div className="w-full lg:w-1/3">
+            <h3 className="text-lg font-livvic font-medium text-[#3F978F] mb-4">
+              Top 5 Outfits
+            </h3>
+            {loadingOutfits ? (
+              <p className="text-gray-500">Loading outfits...</p>
+            ) : topOutfits.length === 0 ? (
+              <p className="text-gray-500">No outfits available.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {topOutfits.map((outfit) => (
+                  <motion.div
+                    key={outfit.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                  >
+                    <div className="space-y-1">
+                      {/* headwear + accessory */}
+                      <div
+                        className={`flex justify-center space-x-1 ${outfit.outfitItems.some((it) =>
+                          ["headwear", "accessory"].includes(it.layerCategory)
+                        )
+                          ? ""
+                          : "hidden"
+                          }`}
+                      >
+                        {outfit.outfitItems
+                          .filter((it) =>
+                            ["headwear", "accessory"].includes(it.layerCategory)
+                          )
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* tops */}
+                      <div className="flex justify-center space-x-1">
+                        {outfit.outfitItems
+                          .filter((it) =>
+                            ["base_top", "mid_top", "outerwear"].includes(
+                              it.layerCategory
+                            )
+                          )
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* bottoms */}
+                      <div className="flex justify-center space-x-1">
+                        {outfit.outfitItems
+                          .filter((it) => it.layerCategory === "base_bottom")
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* footwear */}
+                      <div className="flex justify-center space-x-1">
+                        {outfit.outfitItems
+                          .filter((it) => it.layerCategory === "footwear")
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-14 h-14 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+
+
         </div>
       </div>
+
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full text-center shadow-md"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <h2 className="text-lg font-livvic mb-2 text-[#3F978F]">
+                Changes Saved!
+              </h2>
+              <p className="mb-4 text-gray-700 dark:text-gray-300 font-livvic">
+                Your profile has been updated.
+              </p>
+              <button
+                onClick={() => setShowSuccess(false)}
+                className="px-4 py-1 bg-[#3F978F] hover:bg-[#2F6F6A] text-white rounded-full transition"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

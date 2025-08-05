@@ -6,8 +6,8 @@ import { fetchWithAuth } from "./fetchWithAuth";
 const API_URL = 'http://localhost:5001/api/outfits';
 
 function getAuthHeader() {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 
@@ -143,25 +143,35 @@ export const deleteOutfit = async (id: string): Promise<{ success: boolean }> =>
 };
 
 export function toggleOutfitFavourite(id: string) {
-  return axios.patch(
-    `${API_URL}/${id}/favourite`,
-    {},
-    { headers: { ...getAuthHeader() } }
-  );
+    return axios.patch(
+        `${API_URL}/${id}/favourite`,
+        {},
+        { headers: { ...getAuthHeader() } }
+    );
 }
 
 export async function createOutfitManual(data: any) {
-  const token = localStorage.getItem("token");
-  const res = await fetchWithAuth("http://localhost:5001/api/outfits", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    throw new Error("Failed to create outfit");
-  }
-  return res.json();
+    const token = localStorage.getItem("token");
+    const res = await fetchWithAuth("http://localhost:5001/api/outfits", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        throw new Error("Failed to create outfit");
+    }
+    return res.json();
 }
+
+export const getOutfitCount = async (): Promise<number> => {
+    try {
+        const outfits = await fetchAllOutfits();
+        return Array.isArray(outfits) ? outfits.length : 0;
+    } catch (err) {
+        console.error("Error counting outfits", err);
+        return 0;
+    }
+};
