@@ -153,41 +153,96 @@ class SocialService {
   }
 
   // Like endpoints
-async likePost(postId: string, userId: string) {
-  const post = await this.prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+  async likePost(postId: string, userId: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new Error('Post not found');
 
-  const existingLike = await this.prisma.like.findUnique({
-    where: { postId_userId: { postId, userId } },
-  });
-  if (existingLike) throw new Error('User already liked this post');
+    const existingLike = await this.prisma.like.findUnique({
+      where: { postId_userId: { postId, userId } },
+    });
+    if (existingLike) throw new Error('User already liked this post');
 
-  return this.prisma.like.create({ data: { userId, postId } });
-}
+    return this.prisma.like.create({ data: { userId, postId } });
+  }
 
-async unlikePost(postId: string, userId: string) {
-  const existingLike = await this.prisma.like.findUnique({
-    where: { postId_userId: { postId, userId } },
-  });
-  if (!existingLike) throw new Error('Like not found');
+  async unlikePost(postId: string, userId: string) {
+    const existingLike = await this.prisma.like.findUnique({
+      where: { postId_userId: { postId, userId } },
+    });
+    if (!existingLike) throw new Error('Like not found');
 
-  await this.prisma.like.delete({
-    where: { postId_userId: { postId, userId } },
-  });
-}
+    await this.prisma.like.delete({
+      where: { postId_userId: { postId, userId } },
+    });
+  }
 
-async getLikesForPost(postId: string, limit = 20, offset = 0, includeUser = false) {
-  const post = await this.prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+  async getLikesForPost(postId: string, limit = 20, offset = 0, includeUser = false) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new Error('Post not found');
 
-  return this.prisma.like.findMany({
-    where: { postId },
-    skip: offset,
-    take: limit,
-    orderBy: { createdAt: 'desc' },
-    include: includeUser ? { user: { select: { id: true, name: true } } } : undefined,
-  });
-}
+    return this.prisma.like.findMany({
+      where: { postId },
+      skip: offset,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: includeUser ? { user: { select: { id: true, name: true } } } : undefined,
+    });
+  }
+
+  // follow endpoints
+  async followUser(followerId: string, followingId: string) {
+    if (followerId === followingId) throw new Error('You cannot follow yourself');
+
+    const existingUser = await this.prisma.user.findUnique({ where: { id: followingId } });
+    if (!existingUser) throw new Error('User not found');
+
+    const alreadyFollowing = await this.prisma.follow.findUnique({
+      where: { followerId_followingId: { followerId, followingId } },
+    });
+    if (alreadyFollowing) throw new Error('Already following this user');
+
+    return this.prisma.follow.create({
+      data: { followerId, followingId },
+    });
+  }
+
+  async unfollowUser(followerId: string, followingId: string) {
+    try {
+      await this.prisma.follow.delete({
+        where: { followerId_followingId: { followerId, followingId } },
+      });
+    } catch (err) {
+      throw new Error('Follow relationship not found');
+    }
+  }
+
+  async getFollowers(userId: string, limit = 20, offset = 0) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+
+    return this.prisma.follow.findMany({
+      where: { followingId: userId },
+      skip: offset,
+      take: limit,
+      include: {
+        follower: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  async getFollowing(userId: string, limit = 20, offset = 0) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+
+    return this.prisma.follow.findMany({
+      where: { followerId: userId },
+      skip: offset,
+      take: limit,
+      include: {
+        following: { select: { id: true, name: true } },
+      },
+    });
+  }
 
 
 }

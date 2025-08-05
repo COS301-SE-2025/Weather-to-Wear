@@ -25,7 +25,6 @@ router.put('/comments/:id', authenticateToken, socialController.updateComment);
 router.delete('/comments/:id', authenticateToken, socialController.deleteComment);
 
 // Like endpoints
-// Helper to wrap async route handlers
 function asyncHandler(fn: any) {
 	return function (req: any, res: any, next: any) {
 		Promise.resolve(fn(req, res, next)).catch(next);
@@ -35,5 +34,11 @@ function asyncHandler(fn: any) {
 router.get('/posts/:postId/likes', asyncHandler(socialController.getLikesForPost));
 router.post('/posts/:postId/likes', authenticateToken, asyncHandler(socialController.likePost));
 router.delete('/posts/:postId/likes', authenticateToken, asyncHandler(socialController.unlikePost));
+
+//follow endpoints
+router.get('/:userId/following', authenticateToken, asyncHandler(socialController.getFollowing));
+router.get('/:userId/followers', authenticateToken, asyncHandler(socialController.getFollowers));
+router.post('/:userId/follow', authenticateToken, asyncHandler(socialController.followUser));
+router.delete('/:userId/unfollow', authenticateToken, asyncHandler(socialController.unfollowUser));
 
 export default router;
