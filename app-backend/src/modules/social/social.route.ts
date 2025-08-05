@@ -3,7 +3,6 @@
 import { Router } from 'express';
 import socialController from './social.controller';
 import { authenticateToken } from '../auth/auth.middleware';
-import {getLikesForPost,likePost,unlikePost} from '../like/like.controller';
 import multer from "multer";
 
 
