@@ -24,6 +24,7 @@ async function detectUserLocation(): Promise<string> {
       return response.data.city;
     }
   } catch (err) {
+    console.log("User Location Detection Failed, falling back to pretoria");
     return "Pretoria";
   }
   return '';
