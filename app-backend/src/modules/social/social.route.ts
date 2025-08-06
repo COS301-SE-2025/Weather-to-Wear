@@ -10,10 +10,10 @@ const upload = multer({ dest: "uploads/" });
 const router = Router();
 
 // Public endpoints
-router.get('/posts', socialController.getPosts);
 router.get('/posts/:id', socialController.getPostById);
 
 // Authenticated endpoints
+router.get('/posts',  authenticateToken ,socialController.getPosts);
 router.post("/posts", authenticateToken, upload.single("image"), socialController.createPost);
 router.patch('/posts/:id', authenticateToken, socialController.updatePost);
 router.delete('/posts/:id', authenticateToken, socialController.deletePost);

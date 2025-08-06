@@ -46,10 +46,16 @@ class SocialController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { userId, limit = 20, offset = 0, include } = req.query;
+      const { user } = req as AuthenticatedRequest;
+      const { limit = 20, offset = 0, include } = req.query;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+      const currentUserId = user.id;
 
       const posts = await socialService.getPosts({
-        userId: userId as string | undefined,
+        currentUserId: user.id,
         limit: Number(limit),
         offset: Number(offset),
         include: (include as string | undefined)?.split(',') ?? [],

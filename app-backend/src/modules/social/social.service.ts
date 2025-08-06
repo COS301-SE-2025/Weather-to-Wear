@@ -30,14 +30,22 @@ class SocialService {
   }
 
   async getPosts(options: {
-    userId?: string;
+    currentUserId: string;
     limit: number;
     offset: number;
     include: string[];
   }) {
-    const { userId, limit, offset, include } = options;
+    const { currentUserId, limit, offset, include } = options;
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: currentUserId },
+      select: { followingId: true },
+    });
+    const followingIds = following.map(f => f.followingId);
+    followingIds.push(currentUserId);
     return this.prisma.post.findMany({
-      where: userId ? { userId } : {},
+      where: {
+        userId: { in: followingIds }
+      },
       take: limit,
       skip: offset,
       orderBy: { createdAt: 'desc' },
@@ -48,6 +56,7 @@ class SocialService {
       },
     });
   }
+
 
   async getPostById(id: string, include: string[]) {
     return this.prisma.post.findUnique({
