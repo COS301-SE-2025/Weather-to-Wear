@@ -1,14 +1,26 @@
 // src/pages/ClosetPage.tsx
 import { useState, useEffect } from 'react';
-import { Heart, Search, X, Pen } from 'lucide-react';
+import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 
-import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
-import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
+import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite, toggleFavourite } from '../services/closetApi';
+import { fetchAllOutfits, RecommendedOutfit, deleteOutfit } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
 
 import { useUploadQueue } from '../context/UploadQueueContext';
+
+import StarRating from '../components/StarRating';
+
+import { toggleOutfitFavourite } from '../services/outfitApi';
+
+function isUIOutfit(obj: any): obj is UIOutfit {
+  return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
+}
+function isItem(obj: any): obj is Item {
+  return obj && (!obj.tab || obj.tab === 'items');
+}
+
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -89,6 +101,9 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
+
+
+
 interface ClosetApiItem {
   id: string;
   category: string;
@@ -100,7 +115,7 @@ type Item = {
   id: string;
   name: string;
   image: string;
-  favorite: boolean;
+  favourite: boolean;
   category: string;
   // newly‐editable fields:
   colorHex?: string;
@@ -116,7 +131,7 @@ type Item = {
 type TabType = 'items' | 'outfits' | 'favourites';
 
 type UIOutfit = RecommendedOutfit & {
-  favorite: boolean;
+  favourite: boolean;
   tab: 'outfits';
 };
 
@@ -127,7 +142,8 @@ export default function ClosetPage() {
   const [items, setItems] = useState<Item[]>([]);
   //const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
-  const [favourites, setFavourites] = useState<Item[]>([]);
+  //const [favourites, setFavourites] = useState<(Item | UIOutfit)[]>([]);
+
   const [layerFilter, setLayerFilter] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,30 +164,11 @@ export default function ClosetPage() {
 
   const { queueLength, justFinished, resetJustFinished } = useUploadQueue();
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [favView, setFavView] = useState<'items' | 'outfits'>('items');
+  const [activeDetailsItem, setActiveDetailsItem] = useState<Item | null>(null);
+  const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
 
-
-
-
-  // useEffect(() => {
-  //   const fetchItems = async () => {
-  //     try {
-  //       const res = await fetchAllItems();
-  //       const formattedItems: Item[] = res.data.map((item: any) => ({
-  //         id: item.id,
-  //         name: item.category,
-  //         image: `http://localhost:5001${item.imageUrl}`,
-  //         favorite: false,
-  //         category: item.category,
-  //       }));
-
-  //       setItems(formattedItems);
-  //     } catch (error) {
-  //       console.error('Error fetching items:', error);
-  //     }
-  //   };
-
-  //   fetchItems();
-  // }, []);
 
 
   useEffect(() => {
@@ -182,7 +179,7 @@ export default function ClosetPage() {
           id: item.id,
           name: item.category,
           image: `http://localhost:5001${item.imageUrl}`,
-          favorite: false,
+          favourite: !!item.favourite,
           category: item.category,
           layerCategory: item.layerCategory,
           tab: 'items',
@@ -207,62 +204,18 @@ export default function ClosetPage() {
   const prefixed = (url: string) =>
     url.startsWith('http') ? url : `http://localhost:5001${url}`;
 
-  // Fetch closet items
-  // useEffect(() => {
-  //   fetchAllItems()
-  //     .then(res => {
-  //       setItems(
-  //         res.data.map((i: ClosetApiItem) => ({
-  //           id: i.id,
-  //           name: i.category,
-  //           image: prefixed(i.imageUrl),
-  //           favorite: false,
-  //           category: i.category,
-  //           layerCategory: i.layerCategory,
-  //           tab: 'items',
-  //         }))
-  //       );
-  //     })
-  //     .catch(console.error);
-  // }, []);
-
   // Fetch saved outfits
   useEffect(() => {
     fetchAllOutfits()
       .then(raw => {
         const uiList: UIOutfit[] = raw.map(o => ({
           ...o,
-          favorite: false,  // start un‐favorited
+          favourite: !!o.favourite,
           tab: 'outfits',
         }));
         setOutfits(uiList);
       })
       .catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    const stored = localStorage.getItem(`closet-favs-${token}`);
-    if (!stored) return;
-    const parsedFavs: Item[] = JSON.parse(stored);
-    setFavourites(parsedFavs);
-
-    // mark favourites in items
-    setItems(prev =>
-      prev.map(x => ({
-        ...x,
-        favorite: parsedFavs.some(f => f.id === x.id && f.tab === x.tab),
-      }))
-    );
-
-    // mark favourites in outfits
-    setOutfits(prev =>
-      prev.map(o => ({
-        ...o,
-        favorite: parsedFavs.some(f => f.id === o.id && f.tab === 'outfits'),
-      }))
-    );
   }, []);
 
   useEffect(() => {
@@ -275,38 +228,34 @@ export default function ClosetPage() {
 
 
 
-  const toggleFavorite = async (item: Item, originTab: 'items' | 'outfits') => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-
-    const isFav = favourites.some(f => f.id === item.id && f.tab === originTab);
-
-
-    const nextFavs = isFav
-      ? favourites.filter(f => !(f.id === item.id && f.tab === originTab))
-      : [...favourites, { ...item, favorite: true, tab: originTab }];
-
-
-    setFavourites(nextFavs);
-    localStorage.setItem(`closet-favs-${token}`, JSON.stringify(nextFavs));
-
-    setItems(prev =>
-      prev.map(i =>
-        i.id === item.id ? { ...i, favorite: !i.favorite } : i
-      )
-    );
-
-    try {
-      await apiToggleFavourite(Number(item.id));
-    } catch (err) {
-      console.error('Server toggle failed', err);
-
-      setFavourites(favourites);
-      setItems(items);
-      setOutfits(outfits);
+  const toggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
+    if (originTab === 'items') {
+      try {
+        // Await the server and get new fav value
+        const res = await apiToggleFavourite(item.id);
+        setItems(prev =>
+          prev.map(i =>
+            i.id === item.id ? { ...i, favourite: res.data.favourite } : i
+          )
+        );
+      } catch (err) {
+        console.error('Server toggle failed', err);
+        // Optionally revert local state or show an error
+      }
+    } else if (originTab === 'outfits') {
+      setOutfits(prev =>
+        prev.map(o =>
+          o.id === item.id ? { ...o, favourite: !o.favourite } : o
+        )
+      );
+      try {
+        await toggleOutfitFavourite(item.id);
+      } catch (err) {
+        console.error('Server toggle failed', err);
+      }
     }
   };
+
 
 
   const handleSaveEdit = async () => {
@@ -358,30 +307,37 @@ export default function ClosetPage() {
         material: editedMaterial,
       };
       // for items & favourites
-      const itemUpdater = (arr: Item[]) => arr.map(i => i.id === updated.id ? updated : i);
+      const itemUpdater = (arr: (Item | UIOutfit)[]) =>
+        arr.map(i => isItem(i) && i.id === updated.id ? { ...i, ...updated } : i);
 
       // for outfits
-      const outfitUpdater = (arr: UIOutfit[]) =>
-        arr.map(o => o.id === updated.id
-          ? {
-            ...o,  // preserve all the RecommendedOutfit fields plus favorite & tab
-            category: updated.category,
-            colorHex: updated.colorHex,
-            warmthRating: updated.warmthFactor,        // adapt field names if needed
-            waterproof: updated.waterproof,
-            overallStyle: updated.style,
-            // …etc…
-          }
-          : o
+      const outfitUpdater = (arr: (UIOutfit | Item)[]) =>
+        arr.map(o =>
+          isUIOutfit(o) && o.id === updated.id
+            ? {
+              ...o,
+              category: updated.category,
+              colorHex: updated.colorHex,
+              warmthRating: updated.warmthFactor,
+              waterproof: updated.waterproof,
+              overallStyle: updated.style,
+            }
+            : o
         );
 
       if (itemToEdit.tab === 'items') {
-        setItems(itemUpdater(items));
+        setItems(
+          itemUpdater(items).filter(isItem)
+        );
+
       } else if (itemToEdit.tab === 'outfits') {
-        setOutfits(outfitUpdater(outfits));
+        setOutfits(
+          outfitUpdater(outfits).filter(isUIOutfit)
+        );
       } else {
-        setFavourites(itemUpdater(favourites));
+        //setFavourites(itemUpdater(favourites)); // now safe
       }
+
 
     } catch (err) {
       console.error("Save failed", err);
@@ -403,18 +359,31 @@ export default function ClosetPage() {
     const { id, tab } = itemToRemove;
 
     try {
-      await deleteItem(id);
-      setItems(prev => prev.filter(i => i.id !== id));
-      setOutfits(prev => prev.filter(o => o.id !== id));
-      setFavourites(prev => prev.filter(f => f.id !== id));
-    } catch (err) {
+      if (tab === 'outfits') {
+        await deleteOutfit(id);
+        setOutfits(prev => prev.filter(o => o.id !== id));
+      } else {
+        await deleteItem(id);
+        setItems(prev => prev.filter(i => i.id !== id));
+      }
+    } catch (err: any) {
       console.error('Failed to delete item:', err);
-      alert('Delete failed. Try again.');
+      if (
+        err.response?.status === 400 ||
+        (err.response?.data?.message && err.response.data.message.includes("part of an outfit")) ||
+        (err.message && err.message.includes("part of an outfit"))
+      ) {
+        setDeleteError("You can't delete this item because it's part of an outfit. Remove it from all outfits first!");
+      } else {
+        setDeleteError(err.response?.data?.message || 'Delete failed. Try again.');
+      }
+
     } finally {
       setShowModal(false);
       setItemToRemove(null);
     }
   };
+
 
 
   const cancelRemove = () => {
@@ -428,9 +397,8 @@ export default function ClosetPage() {
       activeTab === 'items'
         ? items
         : activeTab === 'favourites'
-          ? favourites
+          ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
           : outfits;
-
 
     if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
@@ -441,8 +409,14 @@ export default function ClosetPage() {
         i.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+
+    // Sort favourites to the top for "items" and "favourites" tabs
+    if (activeTab === 'items' || activeTab === 'favourites') {
+      data = data.sort((a, b) => Number(b.favourite) - Number(a.favourite));
+    }
     return data;
   }
+
 
   // Build list of categories for the active layer
   const categoryOptions = layerFilter
@@ -554,133 +528,450 @@ export default function ClosetPage() {
 
 
         {/* Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-          {activeTab !== 'outfits'
-            ? /* ITEMS & FAVOURITES: one map with edit + heart + remove */
-            getCurrentData().map(item => (
-              <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+        {activeTab === 'favourites' ? (
+          <div>
+            {/* --- ITEMS/OUTFITS TOGGLE BUTTONS --- */}
+            <div className="flex justify-center gap-4 mb-6">
+              <button
+                className={`px-4 py-2 rounded-full border transition ${favView === 'items' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300'}`}
+                onClick={() => setFavView('items')}
+              >
+                Items
+              </button>
+              <button
+                className={`px-4 py-2 rounded-full border transition ${favView === 'outfits' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300'}`}
+                onClick={() => setFavView('outfits')}
+              >
+                Outfits
+              </button>
+            </div>
+            {/* --- END TOGGLE BUTTONS --- */}
 
-                  <div className="flex-grow relative">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      onClick={() => setPreviewImage(item.image)}
-                      className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
-                    />
+            {favView === 'items' ? (
+              <div>
 
-                    <button
-                      onClick={() => {
-                        setItemToEdit({ ...item, tab: activeTab });
-                        setEditedCategory(item.category);
-                        setEditedColorHex(item.colorHex || '');
-                        setEditedWarmthFactor(item.warmthFactor || 0);
-                        setEditedWaterproof(item.waterproof || false);
-                        setEditedStyle(item.style || '');
-                        setEditedMaterial(item.material || '');
-                        setShowEditModal(true);
-                      }}
-                      className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
-                    >
-                      <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                  {items.filter(i => i.favourite).length === 0 ? (
+                    <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
+                  ) : (
+                    items.filter(i => i.favourite).map(entry => (
+                      <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
+                        <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                          <div className="flex-grow relative">
+                            <img
+                              src={entry.image}
+                              alt={entry.name}
+                              onClick={() => setActiveDetailsItem(entry)}
+                              className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+                            />
+                            <button
+                              onClick={() => {
+                                setItemToEdit({ ...entry, tab: 'items' });
+                                setEditedCategory(entry.category);
+                                setEditedColorHex(entry.colorHex || '');
+                                setEditedWarmthFactor(entry.warmthFactor || 0);
+                                setEditedWaterproof(entry.waterproof || false);
+                                setEditedStyle(entry.style || '');
+                                setEditedMaterial(entry.material || '');
+                                setShowEditModal(true);
+                              }}
+                              className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
+                            >
+                              <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={() => handleRemoveClick(entry.id, 'items', entry.name)}
+                              className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                            >
+                              <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+                            <button
+                              onClick={() => toggleFavourite(entry, 'items')}
+                            >
+                              <Heart
+                                className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div>
 
-                    <button
-                      onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-                      className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-                    >
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                  {outfits.filter(o => o.favourite).length === 0 ? (
+                    <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
+                  ) : (
+                    outfits.filter(o => o.favourite).map(entry => (
+                      <div
+                        key={entry.id}
+                        className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                        onClick={() => setActiveDetailsOutfit(entry)}
+                      >                        <button
+                        onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                        className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                      >
+                          <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                        </button>
+                        <div className="space-y-1">
+                          {/* headwear + accessory */}
+                          <div
+                            className={`flex justify-center space-x-1 ${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                              ? ''
+                              : 'hidden'
+                              }`}
+                          >
+                            {entry.outfitItems
+                              .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                              .map(it => (
+                                <img
+                                  key={it.closetItemId}
+                                  src={prefixed(it.imageUrl)}
+                                  className="w-16 h-16 object-contain rounded"
+                                />
+                              ))}
+                          </div>
+                          {/* tops */}
+                          <div className="flex justify-center space-x-1">
+                            {entry.outfitItems
+                              .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                              .map(it => (
+                                <img
+                                  key={it.closetItemId}
+                                  src={prefixed(it.imageUrl)}
+                                  className="w-16 h-16 object-contain rounded"
+                                />
+                              ))}
+                          </div>
+                          {/* bottoms */}
+                          <div className="flex justify-center space-x-1">
+                            {entry.outfitItems
+                              .filter(it => it.layerCategory === 'base_bottom')
+                              .map(it => (
+                                <img
+                                  key={it.closetItemId}
+                                  src={prefixed(it.imageUrl)}
+                                  className="w-16 h-16 object-contain rounded"
+                                />
+                              ))}
+                          </div>
+                          {/* footwear */}
+                          <div className="flex justify-center space-x-1">
+                            {entry.outfitItems
+                              .filter(it => it.layerCategory === 'footwear')
+                              .map(it => (
+                                <img
+                                  key={it.closetItemId}
+                                  src={prefixed(it.imageUrl)}
+                                  className="w-14 h-14 object-contain rounded"
+                                />
+                              ))}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => toggleFavourite(entry, 'outfits')}
+                          aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
+                          className="absolute bottom-2 left-2 z-10"
+                        >
+                          <Heart
+                            className={`h-4 w-4 sm:h-5 sm:w-5 transition 
+                  ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                          />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          // NORMAL GRID FOR ITEMS / OUTFITS TAB
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+            {getCurrentData().map(entry => {
+              if (isItem(entry)) {
+                return (
+                  <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
+                    <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                      <div className="flex-grow relative">
+                        <img
+                          src={entry.image}
+                          alt={entry.name}
+                          onClick={() => setActiveDetailsItem(entry)}
+                          className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+                        />
+                        <button
+                          onClick={() => {
+                            setItemToEdit({ ...entry, tab: activeTab });
+                            setEditedCategory(entry.category);
+                            setEditedColorHex(entry.colorHex || '');
+                            setEditedWarmthFactor(entry.warmthFactor || 0);
+                            setEditedWaterproof(entry.waterproof || false);
+                            setEditedStyle(entry.style || '');
+                            setEditedMaterial(entry.material || '');
+                            setShowEditModal(true);
+                          }}
+                          className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
+                        >
+                          <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveClick(entry.id, entry.tab === 'outfits' ? 'outfits' : 'items', entry.name)
+                          }
+                          className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                        >
+                          <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+                        <button
+                          onClick={() => toggleFavourite(entry, entry.tab === 'outfits' ? 'outfits' : 'items')}
+                        >
+                          <Heart
+                            className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              } else if (isUIOutfit(entry)) {
+                return (
+                  <div
+                    key={entry.id}
+                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    onClick={() => setActiveDetailsOutfit(entry)}
+                  >                    <button
+                    onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                    className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                  >
                       <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                     </button>
-                  </div>
+                    <div className="space-y-1">
+                      {/* headwear + accessory */}
+                      <div
+                        className={`flex justify-center space-x-1 ${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                          ? ''
+                          : 'hidden'
+                          }`}
+                      >
+                        {entry.outfitItems
+                          .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* tops */}
+                      <div className="flex justify-center space-x-1">
+                        {entry.outfitItems
+                          .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* bottoms */}
+                      <div className="flex justify-center space-x-1">
+                        {entry.outfitItems
+                          .filter(it => it.layerCategory === 'base_bottom')
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* footwear */}
+                      <div className="flex justify-center space-x-1">
+                        {entry.outfitItems
+                          .filter(it => it.layerCategory === 'footwear')
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={prefixed(it.imageUrl)}
+                              className="w-14 h-14 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                    </div>
 
-                  <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+
                     <button
-                      onClick={() =>
-                        toggleFavorite(
-                          item,
-                          activeTab === 'favourites'
-                            ? (favourites.find(f => f.id === item.id)!.tab as 'items' | 'outfits')
-                            : activeTab
-                        )
-                      }
+                      onClick={() => toggleFavourite(entry, 'outfits')}
+                      aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
+                      className="absolute bottom-2 left-2 z-10"
                     >
                       <Heart
-                        className={`h-4 w-4 sm:h-5 sm:w-5 ${favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
-                          }`}
+                        className={`h-4 w-4 sm:h-5 sm:w-5 transition 
+                  ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
                       />
                     </button>
                   </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+
+        <AnimatePresence>
+          {activeDetailsOutfit && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setActiveDetailsOutfit(null)}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Favourite Heart (Top Left, smaller, no bg) */}
+                <button
+                  onClick={() => toggleFavourite(activeDetailsOutfit, 'outfits')}
+                  className="absolute top-3 left-3 z-20"
+                >
+                  <Heart
+                    className={`w-5 h-5 sm:w-6 sm:h-6 transition 
+              ${activeDetailsOutfit.favourite ? 'fill-red-500 text-red-500' : 'text-gray-300'}`}
+                  />
+                </button>
+
+                {/* Outfit Images */}
+                <div className="flex justify-center mb-2">
+                  <div className="space-y-1">
+                    {/* headwear + accessory */}
+                    <div className={`flex justify-center space-x-1 ${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? '' : 'hidden'}`}>
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* tops */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* bottoms */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => it.layerCategory === 'base_bottom')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* footwear */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => it.layerCategory === 'footwear')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            className="w-14 h-14 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))
-            : /* OUTFITS: one map over UIOutfit[] */
-            outfits.map(o => (
-              <div key={o.id} className="border rounded-lg p-2 bg-white">
-                <div className="space-y-1">
-                  {/* headwear + accessory */}
-                  <div
-                    className={`flex justify-center space-x-1 ${o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      ? ''
-                      : 'hidden'
-                      }`}
+
+                {/* Outfit Info */}
+                <div className="space-y-2 text-gray-700 text-base mt-2">
+                  <div>
+                    <span className="font-semibold">Warmth Rating:</span>{' '}
+                    {activeDetailsOutfit.warmthRating}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Waterproof:</span>{' '}
+                    {activeDetailsOutfit.waterproof ? "Yes" : "No"}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Overall Style:</span>{' '}
+                    {activeDetailsOutfit.overallStyle}
+                  </div>
+                  {typeof activeDetailsOutfit.userRating === 'number' && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Your Rating:</span>
+                      {Array(activeDetailsOutfit.userRating || 0)
+                        .fill(0)
+                        .map((_, i) => (
+                          <Star
+                            key={i}
+                            className="w-5 h-5 text-teal-500"
+                            style={{
+                              stroke: '#14b8a6', // Tailwind teal-500
+                              fill: '#14b8a6',
+                              strokeWidth: 1.5,
+                            }}
+                          />
+                        ))}
+                      <span className="ml-1">{activeDetailsOutfit.userRating}/5</span>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Delete button */}
+                <div className="flex justify-end pt-6">
+                  <button
+                    onClick={() => {
+                      setItemToRemove({ id: activeDetailsOutfit.id, tab: 'outfits', name: 'Outfit' });
+                      setShowModal(true);
+                      setActiveDetailsOutfit(null);
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
                   >
-                    {o.outfitItems
-                      .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-
-                  {/* tops */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-
-                  {/* bottoms */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'base_bottom')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-
-                  {/* footwear */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'footwear')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-14 h-14 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                    Delete
+                  </button>
                 </div>
-              </div>
-            ))}
-        </div>
-
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Remove Confirmation */}
-         <AnimatePresence>
+        <AnimatePresence>
           {showModal && itemToRemove && (
             <motion.div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -874,11 +1165,138 @@ export default function ClosetPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {deleteError && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-80 text-center"
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+              >
+                <h2 className="text-lg font-livvic text-red-600 mb-3"> Item is apart of an existing outfit!</h2>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{deleteError}</p>
+                <button
+                  onClick={() => setDeleteError(null)}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full"
+                >
+                  OK
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {activeDetailsItem && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-sm md:max-w-md p-6 relative flex flex-col gap-4"
+              >
+                {/* Close button */}
+                <button
+                  onClick={() => setActiveDetailsItem(null)}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                {/* Image */}
+                <div className="w-full flex justify-center">
+                  <img
+                    src={activeDetailsItem.image}
+                    alt={activeDetailsItem.name}
+                    className="w-40 h-40 object-contain rounded-lg shadow"
+                  />
+                </div>
+                {/* Item details */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-semibold">{activeDetailsItem.name}</span>
+                    <Heart
+                      className={`w-6 h-6 transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                      onClick={() => toggleFavourite(activeDetailsItem, 'items')}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <div>Category: <span className="font-medium">{activeDetailsItem.category}</span></div>
+                    {activeDetailsItem.style && <div>Style: {activeDetailsItem.style}</div>}
+                    {activeDetailsItem.material && <div>Material: {activeDetailsItem.material}</div>}
+                    {activeDetailsItem.colorHex && (
+                      <div className="flex items-center gap-2">
+                        Color:
+                        <span
+                          className="w-4 h-4 rounded-full border"
+                          style={{ background: activeDetailsItem.colorHex, display: 'inline-block' }}
+                        />
+                        <span>{activeDetailsItem.colorHex}</span>
+                      </div>
+                    )}
+                    {typeof activeDetailsItem.warmthFactor === 'number' && (
+                      <div>Warmth: {activeDetailsItem.warmthFactor}/10</div>
+                    )}
+                    {typeof activeDetailsItem.waterproof === 'boolean' && (
+                      <div>Waterproof: {activeDetailsItem.waterproof ? 'Yes' : 'No'}</div>
+                    )}
+                    {activeDetailsItem.layerCategory && (
+                      <div>Layer: {activeDetailsItem.layerCategory}</div>
+                    )}
+                  </div>
+                </div>
+                {/* Optionally: Edit or Delete buttons here */}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setItemToEdit({ ...activeDetailsItem, tab: 'items' });
+                      setEditedCategory(activeDetailsItem.category);
+                      setEditedColorHex(activeDetailsItem.colorHex || '');
+                      setEditedWarmthFactor(activeDetailsItem.warmthFactor || 0);
+                      setEditedWaterproof(activeDetailsItem.waterproof || false);
+                      setEditedStyle(activeDetailsItem.style || '');
+                      setEditedMaterial(activeDetailsItem.material || '');
+                      setShowEditModal(true);
+                      setActiveDetailsItem(null); // Close details modal
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setItemToRemove({ id: activeDetailsItem.id, tab: 'items', name: activeDetailsItem.name });
+                      setShowModal(true);
+                      setActiveDetailsItem(null); // Close details modal
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+
         {showEditSuccess && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-                🎉 Saved Successfully! 🎉
+              <h2 className="text-xl font-livvic mb-2 text-gray-900 dark:text-gray-100">
+                Saved Successfully!
               </h2>
               <p className="mb-6 text-gray-700 dark:text-gray-300">
                 Changes have been saved.

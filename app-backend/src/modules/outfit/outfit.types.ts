@@ -23,6 +23,7 @@ export interface OutfitItemRecommendation {
   colorHex?: string;
   warmthFactor?: number;
   waterproof?: boolean;
+  dominantColors?: string[];
 }
 
 export interface OutfitRecommendation {

@@ -15,7 +15,7 @@ export const fetchAllItems = () =>
     },
   });
 
-export function toggleFavourite(id: number) {
+export function toggleFavourite(id: string) {
   return axios.patch(
     `${BASE_URL}/${id}/favourite`,
     {}, // no body

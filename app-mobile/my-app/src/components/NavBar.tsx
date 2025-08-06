@@ -142,14 +142,14 @@ const NavBar: React.FC = () => {
                   : "hover:bg-[#304946]"
                   } text-white`}
               >
-                home
+                Home
               </Link>
               <Link
                 to="/closet"
                 className={`px-3 py-1 rounded-full text-white transition-colors ${isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                   }`}
               >
-                closet
+                Closet
               </Link>
               <button
                 onClick={toggleMenu}
@@ -168,14 +168,14 @@ const NavBar: React.FC = () => {
                   : "hover:bg-[#304946]"
                   } text-white`}
               >
-                calendar
+                Calendar
               </Link>
               <Link
                 to="/feed"
                 className={`px-3 py-1 rounded-full text-white transition-colors ${isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                   }`}
               >
-                feed
+                Feed
               </Link>
             </div>
 
@@ -198,7 +198,7 @@ const NavBar: React.FC = () => {
                 onClick={handleLogout}
                 className="px-4 py-1 rounded-full border border-black dark:border-gray-100 text-black dark:text-gray-100 hover:bg-black dark:hover:bg-gray-800 hover:text-white transition-all font-livvic"
               >
-                log out
+                Log Out
               </button>
               {profileOpen && (
                 <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
@@ -230,21 +230,21 @@ const NavBar: React.FC = () => {
                   onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 text-black dark:text-gray-100 text-sm font-livvic hover:underline"
                 >
-                  add to closet
+                  Add To Closet
                 </Link>
                 <Link
                   to="/create-outfit"
                   onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 text-black dark:text-gray-100 text-sm font-livvic hover:underline"
                 >
-                  create an outfit
+                  Create An Outfit
                 </Link>
                 <Link
                   to="/post-to-feed"
                   onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 text-black dark:text-gray-100 text-sm font-livvic hover:underline"
                 >
-                  post to feed
+                  Post To Feed
                 </Link>
               </div>
             </div>
@@ -302,21 +302,21 @@ const NavBar: React.FC = () => {
                   onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 text-sm text-black dark:text-gray-100 font-livvic"
                 >
-                  add to closet
+                  Add To Closet
                 </Link>
                 <Link
                   to="/create-outfit"
                   onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 text-sm text-black dark:text-gray-100 font-livvic"
                 >
-                  create an outfit
+                  Create An Outfit
                 </Link>
                 <Link
                   to="/post-to-feed"
                   onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 text-sm text-black dark:text-gray-100 font-livvic"
                 >
-                  post to feed
+                  Post To Feed
                 </Link>
               </div>
             )}
