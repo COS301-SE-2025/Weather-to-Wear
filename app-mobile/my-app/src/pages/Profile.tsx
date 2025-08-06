@@ -127,7 +127,6 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out">
-      {/* Header Image Section with Layered Profile Photo */}
       <div
         className="w-full relative h-40 sm:h-48 md:h-64 -mt-12 mb-16 sm:mb-20 md:mb-24"
         style={{
@@ -136,26 +135,37 @@ const Profile = () => {
           backgroundPosition: "center",
         }}
       >
-        {/* dark overlay */}
         <div className="absolute inset-0 bg-black bg-opacity-30" />
 
-        {/* profile circle + full name */}
-        <div className="absolute left-4 sm:left-6 top-full transform -translate-y-1/2 z-10 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 md:gap-6">
+        <div
+          className="
+      absolute left-4 top-28
+      sm:left-6 sm:top-full sm:transform sm:-translate-y-1/2
+      z-10
+      flex flex-col items-center gap-2
+      sm:flex-row sm:items-center sm:gap-6
+    "
+        >
           <div className="relative">
             <motion.div
               whileHover={{ scale: 1.1 }}
-              className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full bg-[#3F978F] text-white flex items-center justify-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bodoni"
+              className="
+          w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40
+          rounded-full bg-[#3F978F] text-white
+          flex items-center justify-center
+          text-2xl sm:text-3xl md:text-4xl lg:text-5xl
+          font-bodoni
+        "
             >
               {getInitials(userInfo.name).charAt(0)}
             </motion.div>
-            <button
-              className="absolute bottom-0 right-0 rounded-full bg-[#000000] hover:bg-[#2F6F6A] p-1 sm:p-1.5 md:p-2 text-white transition"
-            >
+            <button className="absolute bottom-0 right-0 rounded-full bg-black hover:bg-[#2F6F6A] p-1 sm:p-1.5 md:p-2 text-white transition">
               <Camera className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
             </button>
           </div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-black font-livvic mt-16">
-            {getInitials(userInfo.name)}
+
+          <h2 className="-mt-2 sm:mt-14 text-black text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold font-livvic">
+            {userInfo.name}
           </h2>
         </div>
       </div>
@@ -185,15 +195,12 @@ const Profile = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8 shadow-md"
+              className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8 "
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8 text-gray-900 dark:text-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8 text-gray-900 dark:text-gray-100 -mt-4">
                 {/* Personal Details */}
                 <div className="space-y-4 sm:space-y-5">
-                  <h3 className="text-base sm:text-lg font-livvic font-medium flex items-center gap-2 text-[#3F978F]">
-                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
-                    My Details
-                  </h3>
+                  
                   <div className="space-y-4 sm:space-y-5">
                     <div>
                       <label
@@ -238,10 +245,6 @@ const Profile = () => {
 
                 {/* Style Stats */}
                 <div className="space-y-4 sm:space-y-5">
-                  <h3 className="text-base sm:text-lg font-livvic font-medium flex items-center gap-2 text-[#3F978F]">
-                    <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Style Stats
-                  </h3>
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <motion.div
@@ -293,7 +296,7 @@ const Profile = () => {
           {/* Top 6 Outfits Section */}
           <div className="w-full lg:w-1/2">
             <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4">
-              Top 6 Outfits
+              Top Outfits
             </h3>
             {loadingOutfits ? (
               <p className="text-gray-500 text-xs sm:text-sm">Loading outfits...</p>
