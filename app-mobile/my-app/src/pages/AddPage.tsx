@@ -125,6 +125,8 @@ const AddPage: React.FC = () => {
   const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  
+
 
   const { addToQueue, queueLength, isProcessing, progressPercent } = useUploadQueue();
 

@@ -1,14 +1,16 @@
-// closetService.controller.ts
-import { Request, Response, NextFunction } from 'express';
-import { Style, Material, Category, LayerCategory } from '@prisma/client';
-import ClosetService from './closet.service';
-import { AuthenticatedRequest } from '../auth/auth.middleware';
-import closetService from './closet.service';
+// src/modules/closet/closet.controller.ts
+import { Request, Response, NextFunction } from "express";
+import { Style, Material, Category, LayerCategory } from "@prisma/client";
+import ClosetService from "./closet.service";
+import { AuthenticatedRequest } from "../auth/auth.middleware";
+import closetService from "./closet.service";
+import { removeBgQueue } from "../../queues/removeBgQueue";
+import path from "path";
 
 class ClosetController {
   uploadImage = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.file) {
-      res.status(400).json({ message: 'No file provided' });
+      res.status(400).json({ message: "No file provided" });
       return;
     }
     try {
@@ -16,23 +18,32 @@ class ClosetController {
       const category = req.body.category as Category;
       const { user } = req as AuthenticatedRequest;
       if (!user || !user.id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        res.status(401).json({ message: "Unauthorized" });
         return;
       }
 
       const extras = {
         colorHex: req.body.colorHex,
-        warmthFactor: req.body.warmthFactor ? Number(req.body.warmthFactor) : undefined,
-        waterproof: req.body.waterproof !== undefined
-          ? req.body.waterproof === 'true'
+        warmthFactor: req.body.warmthFactor
+          ? Number(req.body.warmthFactor)
           : undefined,
+        waterproof:
+          req.body.waterproof !== undefined
+            ? req.body.waterproof === "true"
+            : undefined,
         style: req.body.style as Style,
         material: req.body.material as Material,
       };
 
       const layerCategory = req.body.layerCategory as any;
 
-      const item = await ClosetService.saveImage(file, category, layerCategory, user.id, extras);
+      const item = await ClosetService.saveImage(
+        file,
+        category,
+        layerCategory,
+        user.id,
+        extras
+      );
 
       res.status(201).json({
         id: item.id,
@@ -55,19 +66,19 @@ class ClosetController {
       const category = req.params.category as Category;
       const { user } = req as AuthenticatedRequest;
       if (!user || !user.id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        res.status(401).json({ message: "Unauthorized" });
         return;
       }
       const items = await ClosetService.getImagesByCategory(category, user.id);
 
       res.status(200).json(
-        items.map(i => ({
+        items.map((i) => ({
           id: i.id,
           category: i.category,
           imageUrl: `/uploads/${i.filename}`,
           createdAt: i.createdAt,
           colorHex: i.colorHex,
-          dominantColors: i.dominantColors ?? [], 
+          dominantColors: i.dominantColors ?? [],
           warmthFactor: i.warmthFactor,
           waterproof: i.waterproof,
           style: i.style,
@@ -75,13 +86,12 @@ class ClosetController {
           favourite: i.favourite,
         }))
       );
-
     } catch (err) {
       next(err);
     }
   };
 
-  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction) => { 
+  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction) => {
   //   const { user } = req as AuthenticatedRequest;
   //   if (!user || !user.id) {
   //     res.status(401).json({ message: 'Unauthorized' });
@@ -135,91 +145,185 @@ class ClosetController {
   //   }
   // };
 
-  uploadImagesBatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { user } = req as AuthenticatedRequest;
-    const files = req.files as Express.Multer.File[];
+  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  //   const { user } = req as AuthenticatedRequest;
+  //   const files = req.files as Express.Multer.File[];
 
-    if (!user || !user.id) {
-      res.status(401).json({ message: 'Unauthorized' });
+  //   if (!user || !user.id) {
+  //     res.status(401).json({ message: 'Unauthorized' });
+  //     return;
+  //   }
+
+  //   try {
+  //     const itemsJson = req.body.items;
+  //     if (!itemsJson) {
+  //       res.status(400).json({ message: 'Missing "items" field in body' });
+  //     }
+
+  //     const parsed = JSON.parse(itemsJson);
+  //     if (!Array.isArray(parsed)) {
+  //       res.status(400).json({ message: '"items" must be a JSON array' });
+  //     }
+
+  //     const results = [];
+
+  //     for (const item of parsed) {
+  //       const {
+  //         category,
+  //         layerCategory,
+  //         colorHex,
+  //         warmthFactor,
+  //         waterproof,
+  //         style,
+  //         material,
+  //         filename // refers to the key of the file
+  //       } = item;
+
+  //       const file = files.find(f => f.fieldname === filename);
+  //       if (!file) {
+  //         res.status(400).json({ message: `Missing file for ${filename}` });
+  //         return;
+  //       }
+
+  //       // ! does not make use of background removal service
+  //       // const saved = await ClosetService.saveImageDirect(
+  //       //   file,
+  //       //   category,
+  //       //   layerCategory,
+  //       //   user.id,
+  //       //   {
+  //       //     colorHex,
+  //       //     warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
+  //       //     waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
+  //       //     style,
+  //       //     material
+  //       //   }
+  //       // );
+
+  //       const saved = await ClosetService.saveImage(
+  //         file,
+  //         category as Category,
+  //         layerCategory as LayerCategory,
+  //         user.id,
+  //         {
+  //           colorHex,
+  //           warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
+  //           waterproof: waterproof !== undefined
+  //             ? waterproof === true || waterproof === 'true'
+  //             : undefined,
+  //           style,
+  //           material
+  //         }
+  //       );
+
+  //       results.push({
+  //         id: saved.id,
+  //         category: saved.category,
+  //         imageUrl: `/uploads/${saved.filename}`,
+  //         createdAt: saved.createdAt,
+  //         colorHex: saved.colorHex,
+  //         warmthFactor: saved.warmthFactor,
+  //         waterproof: saved.waterproof,
+  //         style: saved.style,
+  //         material: saved.material,
+  //       });
+  //     }
+
+  //     res.status(201).json(results);
+  //   } catch (err) {
+  //     next(err);
+  //   }
+  // };
+
+  // *****************************************
+  // Batch images testing if the multithreading will work
+  // *****************************************
+  uploadImagesBatch = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    const { user } = req as AuthenticatedRequest;
+    if (!user?.id) {
+      res.status(401).json({ message: "Unauthorized" });
       return;
     }
 
     try {
+      const files = req.files as Express.Multer.File[]; // Multer must be set to multi-file
       const itemsJson = req.body.items;
+
       if (!itemsJson) {
         res.status(400).json({ message: 'Missing "items" field in body' });
+        return;
       }
 
       const parsed = JSON.parse(itemsJson);
       if (!Array.isArray(parsed)) {
         res.status(400).json({ message: '"items" must be a JSON array' });
+        return;
       }
 
-      const results = [];
+      // Track processed files to prevent duplicates
+      const processedFiles = new Set<string>();
 
-      for (const item of parsed) {
-        const {
-          category,
-          layerCategory,
-          colorHex,
-          warmthFactor,
-          waterproof,
-          style,
-          material,
-          filename // refers to the key of the file
-        } = item;
-
-        const file = files.find(f => f.fieldname === filename);
+      for (const meta of parsed) {
+        // meta.filename is the field name that your frontend uses to map each file
+        const file = files.find((f) => f.fieldname === meta.filename);
         if (!file) {
-          res.status(400).json({ message: `Missing file for ${filename}` });
+          res.status(400).json({ message: `Missing file for ${meta.filename}` });
           return;
         }
 
-        // ! does not make use of background removal service
-        // const saved = await ClosetService.saveImageDirect(
-        //   file,
-        //   category,
-        //   layerCategory,
-        //   user.id,
-        //   {
-        //     colorHex,
-        //     warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-        //     waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
-        //     style,
-        //     material
-        //   }
-        // );
+        // Check if this file has already been processed
+        if (processedFiles.has(file.path)) {
+          console.log(`⚠️ File ${file.path} already processed, skipping`);
+          continue;
+        }
+        processedFiles.add(file.path);
 
-        const saved = await ClosetService.saveImage(
-          file,
-          category as Category,
-          layerCategory as LayerCategory,
-          user.id,
+        // Create a unique filename to prevent conflicts
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substr(2, 9);
+        const fileExtension = path.extname(file.path);
+        const uniqueFilename = `${timestamp}-${randomSuffix}${fileExtension}`;
+        const persistentPath = path.join(process.env.UPLOAD_DIR || '/app/uploads', uniqueFilename);
+        
+        console.log(`📁 Processing file: ${file.path} -> ${persistentPath}`);
+        
+        const fs = require('fs');
+        fs.copyFileSync(file.path, persistentPath);
+
+        // Send the persistent file path to the worker for processing
+        await removeBgQueue.add(
+          `remove-bg-${uniqueFilename}`, // Unique job name
           {
-            colorHex,
-            warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-            waterproof: waterproof !== undefined
-              ? waterproof === true || waterproof === 'true'
-              : undefined,
-            style,
-            material
+            userId: user.id,
+            filePath: persistentPath,  // Use the persistent path
+            category: meta.category as Category,
+            layerCategory: meta.layerCategory as LayerCategory,
+            extras: {
+              colorHex: meta.colorHex,
+              warmthFactor:
+                meta.warmthFactor !== undefined ? Number(meta.warmthFactor) : undefined,
+              waterproof:
+                meta.waterproof !== undefined
+                  ? meta.waterproof === true || meta.waterproof === "true"
+                  : undefined,
+              style: meta.style as Style,
+              material: meta.material as Material,
+            },
+          },
+          { 
+            jobId: `remove-bg-${timestamp}-${randomSuffix}`, 
+            delay: 1000 
           }
         );
 
-        results.push({
-          id: saved.id,
-          category: saved.category,
-          imageUrl: `/uploads/${saved.filename}`,
-          createdAt: saved.createdAt,
-          colorHex: saved.colorHex,
-          warmthFactor: saved.warmthFactor,
-          waterproof: saved.waterproof,
-          style: saved.style,
-          material: saved.material,
-        });
+        console.log("📥 Enqueued remove-bg-task for", meta.filename, "->", uniqueFilename);
       }
 
-      res.status(201).json(results);
+      res.status(202).json({ message: "Batch accepted, processing in background." });
     } catch (err) {
       next(err);
     }
@@ -229,19 +333,19 @@ class ClosetController {
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     const { user } = req as AuthenticatedRequest;
     if (!user?.id) {
-      res.status(401).json({ message: 'Unauthorized' });
+      res.status(401).json({ message: "Unauthorized" });
       return;
     }
     try {
       const items = await ClosetService.getAllImages(user.id);
       res.status(200).json(
-        items.map(i => ({
+        items.map((i) => ({
           id: i.id,
           category: i.category,
           imageUrl: `/uploads/${i.filename}`,
           createdAt: i.createdAt,
           colorHex: i.colorHex,
-          dominantColors: i.dominantColors ?? [], 
+          dominantColors: i.dominantColors ?? [],
           warmthFactor: i.warmthFactor,
           waterproof: i.waterproof,
           style: i.style,
@@ -263,7 +367,7 @@ class ClosetController {
       const id = req.params.id;
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        res.status(401).json({ message: "Unauthorized" });
         return;
       }
 
@@ -284,26 +388,28 @@ class ClosetController {
       const id = req.params.id;
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        res.status(401).json({ message: "Unauthorized" });
         return;
       }
 
-      const { category, layerCategory, colorHex, warmthFactor, waterproof, style, material } = req.body;
+      const {
+        category,
+        layerCategory,
+        colorHex,
+        warmthFactor,
+        waterproof,
+        style,
+        material,
+      } = req.body;
       const updateData: any = {};
-      if (category)
-        updateData.category = category as Category;
-      if (colorHex)
-        updateData.colorHex = colorHex;
+      if (category) updateData.category = category as Category;
+      if (colorHex) updateData.colorHex = colorHex;
       if (warmthFactor !== undefined)
         updateData.warmthFactor = Number(warmthFactor);
-      if (waterproof !== undefined)
-        updateData.waterproof = Boolean(waterproof);
-      if (style)
-        updateData.style = style as Style;
-      if (material)
-        updateData.material = material as Material;
-      if (layerCategory)
-        updateData.layerCategory = layerCategory as any;
+      if (waterproof !== undefined) updateData.waterproof = Boolean(waterproof);
+      if (style) updateData.style = style as Style;
+      if (material) updateData.material = material as Material;
+      if (layerCategory) updateData.layerCategory = layerCategory as any;
 
       const updated = await ClosetService.updateImage(id, user.id, updateData);
 
@@ -316,7 +422,7 @@ class ClosetController {
         warmthFactor: updated.warmthFactor,
         waterproof: updated.waterproof,
         style: updated.style,
-        material: updated.material
+        material: updated.material,
       });
     } catch (err) {
       next(err);
@@ -332,7 +438,7 @@ class ClosetController {
       const id = req.params.id;
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        res.status(401).json({ message: "Unauthorized" });
         return;
       }
 
@@ -345,7 +451,6 @@ class ClosetController {
       next(err);
     }
   };
-
 }
 
 export default new ClosetController();
