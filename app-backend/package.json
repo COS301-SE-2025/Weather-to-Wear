@@ -4,9 +4,13 @@
   "description": "Everything related to backend will be done here",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
     "test": "jest --coverage",
     "test:unit": "jest --coverage --config jest.config.js",
-    "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js --runInBand"
+    "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js --runInBand",
+    "worker": "node dist/workers/removeBgWorker.js",
+    "worker:cluster": "node dist/workers/cluster.js"
+
   },
   "keywords": [],
   "author": "",
@@ -37,10 +41,12 @@
     "@prisma/client": "^6.11.1",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.56.9",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "form-data": "^4.0.3",
+    "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.0",
     "tinycolor2": "^1.6.0",

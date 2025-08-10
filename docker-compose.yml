@@ -8,21 +8,27 @@ services:
     ports:
       - "5001:5000"
     environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      WORKER_CONCURRENCY: 4
+      WORKER_PROCESSES: 4
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
       BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
-      COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors   
+      COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors
+      UPLOAD_DIR: /app/uploads               # ← add this
     env_file:
       - ./app-backend/.env
     depends_on:
+      - redis
       - db
       - bg-removal
       - color-picker
     volumes:
       - ./app-backend:/app
       - /app/node_modules
-      - ./app-backend/uploads:/app/uploads
+      - ./app-backend/uploads:/app/uploads   # ← ensure this exists and matches worker
       - ./app-backend/prisma:/app/prisma
 
   frontend:
@@ -71,6 +77,43 @@ services:
       - "8002:8002"
     volumes:
       - ./color-extract-service:/app
+
+  worker:
+    build:
+      context: ./app-backend
+    container_name: weather-worker
+    command: node dist/src/workers/cluster.js
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      WORKER_CONCURRENCY: 1
+      WORKER_PROCESSES: 1
+      BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
+      COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors
+      UPLOAD_DIR: /app/uploads               # ← add this (must match backend)
+      POSTGRES_USER: weatheruser
+      POSTGRES_PASSWORD: weatherpass
+      POSTGRES_DB: weatherdb
+      DATABASE_URL: postgresql://weatheruser:weatherpass@db:5432/weatherdb
+    env_file:
+      - ./app-backend/.env
+    depends_on:
+      - redis
+      - backend
+      - bg-removal                           # optional but nice: ensure available
+      - color-picker
+      - db                                  # ← add database dependency
+    volumes:
+      - ./app-backend:/app
+      - /app/node_modules
+      - ./app-backend/uploads:/app/uploads   # ← critical: share the same host dir
+
+  redis:
+    image: redis:7
+    container_name: weather-redis
+    ports:
+      - "6379:6379"
+    restart: always
 
 volumes:
   pgdata:
