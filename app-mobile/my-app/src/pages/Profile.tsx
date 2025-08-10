@@ -67,7 +67,7 @@ const Profile = () => {
           favourite: !!o.favourite,
           tab: "outfits",
         }));
-        setTopOutfits(uiList.slice(0, 6));
+        setTopOutfits(uiList.slice(0, 3));
       })
       .catch(err => console.error("Error fetching outfits", err))
       .finally(() => setLoadingOutfits(false));
@@ -200,7 +200,7 @@ const Profile = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8 text-gray-900 dark:text-gray-100 -mt-4">
                 {/* Personal Details */}
                 <div className="space-y-4 sm:space-y-5">
-                  
+
                   <div className="space-y-4 sm:space-y-5">
                     <div>
                       <label
@@ -295,7 +295,7 @@ const Profile = () => {
 
           {/* Top 6 Outfits Section */}
           <div className="w-full lg:w-1/2">
-            <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4 sm:-mt-32 -mt-48">
               Top Outfits
             </h3>
             {loadingOutfits ? (
@@ -309,7 +309,19 @@ const Profile = () => {
                     key={outfit.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    whileHover={{ scale: 1.03 }}
+                    className="
+    relative
+    bg-white
+    rounded-xl
+    p-4
+    w-full
+    cursor-pointer
+    shadow-lg
+    hover:shadow-2xl
+    transition-shadow
+    duration-300
+  "
                   >
                     <div className="space-y-1">
                       {/* headwear + accessory */}
