@@ -4,7 +4,6 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
 import prisma from "../../../src/prisma";
 
-
 class EventsController {
   getEvents = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -85,6 +84,8 @@ class EventsController {
       }
 
       const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -92,28 +93,23 @@ class EventsController {
         res.status(400).json({ message: 'Event start date cannot be in the past.' });
         return;
       }
-
-      const MAX_FORECAST_DAYS = 3;
-      const maxAllowedDate = new Date(today);
-      maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
-
-      if (fromDate > maxAllowedDate) {
-        res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
+      if (toDate < fromDate) {
+        res.status(400).json({ message: 'Event end date must be after start date.' });
         return;
       }
 
+      const daysUntilStart = Math.floor((fromDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      const dateFromObj = new Date(dateFrom);
-      const dateToObj = new Date(dateTo);
-      const allDates = getAllDatesInRange(dateFromObj, dateToObj);
-
-      const weatherSummaries: { date: string; summary: any }[] = [];
-      for (const date of allDates) {
-        try {
-          const weatherData = await getWeatherByDay(location, date);
-          weatherSummaries.push({ date, summary: weatherData.summary });
-        } catch (err) {
-          weatherSummaries.push({ date, summary: null }); 
+      let weatherSummaries: { date: string; summary: any }[] = [];
+      if (daysUntilStart <= 3) {
+        const allDates = getAllDatesInRange(fromDate, toDate);
+        for (const date of allDates) {
+          try {
+            const weatherData = await getWeatherByDay(location, date);
+            weatherSummaries.push({ date, summary: weatherData.summary });
+          } catch {
+            weatherSummaries.push({ date, summary: null });
+          }
         }
       }
 
@@ -122,9 +118,9 @@ class EventsController {
           userId: user.id,
           name,
           location,
-          weather: JSON.stringify(weatherSummaries),
-          dateFrom: new Date(dateFrom),
-          dateTo: new Date(dateTo),
+          weather: weatherSummaries.length ? JSON.stringify(weatherSummaries) : null,
+          dateFrom: fromDate,
+          dateTo: toDate,
           style: style as Style,
         },
         select: {
@@ -176,38 +172,38 @@ class EventsController {
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
 
-      if (location !== undefined || dateFrom !== undefined) {
-        const newLocation = location ?? existing.location;
-        const newFromDate = dateFrom !== undefined
-          ? new Date(dateFrom)
-          : existing.dateFrom;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      const newLocation = location ?? existing.location;
+      const newFromDate = dateFrom !== undefined ? new Date(dateFrom) : existing.dateFrom;
+      const newToDate = dateTo !== undefined ? new Date(dateTo) : existing.dateTo;
 
-        if (newFromDate < today) {
-          res.status(400).json({ message: 'Event start date cannot be in the past.' });
-          return;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (newFromDate < today) {
+        res.status(400).json({ message: 'Event start date cannot be in the past.' });
+        return;
+      }
+      if (newToDate < newFromDate) {
+        res.status(400).json({ message: 'Event end date must be after start date.' });
+        return;
+      }
+
+      // Only fetch/attach weather if within 3 days; otherwise clear to avoid stale
+      const daysUntilStart = Math.floor((newFromDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysUntilStart <= 3) {
+        const allDates = getAllDatesInRange(newFromDate, newToDate);
+        const weatherSummaries: { date: string; summary: any }[] = [];
+        for (const date of allDates) {
+          try {
+            const weatherData = await getWeatherByDay(newLocation, date);
+            weatherSummaries.push({ date, summary: weatherData.summary });
+          } catch {
+            weatherSummaries.push({ date, summary: null });
+          }
         }
-
-        const MAX_FORECAST_DAYS = 3;
-        const maxAllowedDate = new Date(today);
-        maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
-
-        if (newFromDate > maxAllowedDate) {
-          res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
-          return;
-        }
-
-        const weatherDate = newFromDate.toISOString().split('T')[0];
-
-        let weatherData;
-        try {
-          weatherData = await getWeatherByDay(newLocation, weatherDate);
-        } catch (err: any) {
-          res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
-          return;
-        }
-        updateData.weather = JSON.stringify(weatherData.summary);
+        updateData.weather = JSON.stringify(weatherSummaries);
+      } else {
+        updateData.weather = null;
       }
 
       if (Object.keys(updateData).length === 0) {
@@ -270,9 +266,13 @@ class EventsController {
 }
 
 function getAllDatesInRange(start: Date, end: Date): string[] {
-  const dates = [];
+  const dates: string[] = [];
   const curr = new Date(start);
-  while (curr <= end) {
+  curr.setHours(0, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(0, 0, 0, 0);
+
+  while (curr <= last) {
     dates.push(curr.toISOString().split('T')[0]);
     curr.setDate(curr.getDate() + 1);
   }
