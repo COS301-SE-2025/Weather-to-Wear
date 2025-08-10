@@ -1,16 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, ArrowLeft, Upload, Check, Sun, Cloud, CloudRain, CloudSnow, Wind, ChevronDown } from "lucide-react";
+import { Camera, Upload, Check, Sun, Cloud, CloudRain, CloudSnow, Wind, ChevronDown } from "lucide-react";
 import { useImage } from "../components/ImageContext";
-import { uploadPostImage, createPost } from "../services/socialApi";
+import { createPost } from "../services/socialApi";
 import { fetchWithAuth } from "../services/fetchWithAuth";
+
+interface ClosetItem {
+  id: string;
+  filename: string;
+  category: string;
+}
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
   const [content, setContent] = useState("");
-  const [image, setLocalImage] = useState<string | null>(null);
-  const [location, setLocation] = useState<string | null>(null);
-  const [weather, setWeather] = useState<string | null>(null);
+  const [image, setLocalImage] = useState<string | null>(null); // Data URL for preview
+  const [location, setLocation] = useState<string>("");
+  const [weather, setWeather] = useState<{ temp: number; condition: string } | null>(null);
+  const [closetItemId, setClosetItemId] = useState<string>("");
+  const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
   const [showWeatherDropdown, setShowWeatherDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -19,6 +27,23 @@ const PostToFeed = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const navigate = useNavigate();
+
+  // Fetch closet items
+  useEffect(() => {
+    const fetchClosetItems = async () => {
+      try {
+        const response = await fetchWithAuth("http://localhost:5001/api/closet-items", {
+          method: "GET",
+        });
+        const data = await response.json();
+        setClosetItems(data.items || []); // Adjust based on your API response
+      } catch (err) {
+        console.error("Failed to fetch closet items:", err);
+        setError("Failed to load closet items.");
+      }
+    };
+    fetchClosetItems();
+  }, []);
 
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
@@ -63,11 +88,9 @@ const PostToFeed = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Match canvas size to video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // Flip horizontally
     ctx.save();
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
@@ -77,12 +100,14 @@ const PostToFeed = () => {
     const dataUrl = canvas.toDataURL("image/png");
     setCameraPreview(dataUrl);
     setLocalImage(dataUrl);
-    setImage(dataUrl); // Store in ImageContext
+    setImage(dataUrl);
   };
 
   const redoPhoto = () => {
     console.log("Redoing photo...");
     setCameraPreview(null);
+    setLocalImage(null);
+    setImage(null);
     if (stream) {
       console.log("Stopping current stream...");
       stream.getTracks().forEach((t) => t.stop());
@@ -95,7 +120,7 @@ const PostToFeed = () => {
     setTimeout(() => {
       console.log("Attempting to restart camera...");
       startCamera();
-    }, 100); // Minimal delay for browser compatibility
+    }, 100);
   };
 
   const handleDone = () => {
@@ -113,8 +138,9 @@ const PostToFeed = () => {
     setLocalImage(null);
     setCameraPreview(null);
     setImage(null);
-    setLocation(null);
+    setLocation("");
     setWeather(null);
+    setClosetItemId("");
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -129,47 +155,55 @@ const PostToFeed = () => {
         setError("File size exceeds 10MB");
         return;
       }
+      if (!["image/png", "image/jpeg"].includes(file.type)) {
+        setError("Only PNG or JPEG images are allowed");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
         setLocalImage(result);
-        setImage(result); // Store in ImageContext
+        setImage(result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-
-  try {
-    const formData = new FormData();
-    if (uploadedImage || image) {
-      const res = await fetch(uploadedImage || image || "");
-      const blob = await res.blob();
-      formData.append("image", blob, "post.png");
+  const dataURLtoFile = (dataUrl: string, filename: string): File => {
+    const arr = dataUrl.split(",");
+    const mime = arr[0].match(/:(.*?);/)?.[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
     }
+    return new File([u8arr], filename, { type: mime });
+  };
 
-    formData.append("caption", content);
-    formData.append("location", location || "");
-    formData.append("weather", JSON.stringify({ condition: weather }));
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      let imageFile: File | undefined;
+      if (uploadedImage || image) {
+        imageFile = dataURLtoFile(uploadedImage || image || "", "post.png");
+      }
 
-    const response = await fetchWithAuth("http://localhost:5001/api/social/posts", {
-      method: "POST",
-      body: formData,
-    });
+      await createPost({
+        caption: content,
+        location: location || undefined,
+        image: imageFile,
+        weather: weather || undefined,
+        closetItemId: closetItemId || undefined,
+      });
 
-    const result = await response.json();
-    console.log("Post created:", result);
-
-    navigate("/feed");
-  } catch (err) {
-    console.error("Failed to create post:", err);
-    setError("Failed to share post.");
-  }
-};
-
+      console.log("Post created successfully");
+      navigate("/feed");
+    } catch (err: any) {
+      console.error("Failed to create post:", err);
+      setError(err.message || "Failed to share post.");
+    }
+  };
 
   const weatherOptions = [
     { value: "Sunny", icon: <Sun className="w-5 h-5" /> },
@@ -180,7 +214,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   ];
 
   const handleWeatherSelect = (value: string) => {
-    setWeather(value);
+    setWeather(value ? { temp: 20, condition: value } : null);
     setShowWeatherDropdown(false);
   };
 
@@ -190,19 +224,19 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
         style={{
           backgroundImage: `url(/header.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
           opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-1rem'
+          marginLeft: "calc(-50vw + 50%)",
+          width: "100vw",
+          marginTop: "-1rem",
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
           <h1
             className="text-2xl font-bodoni font-light text-center text-white"
             style={{
-              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+              textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
             }}
           >
             CREATE NEW POST
@@ -221,11 +255,10 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         <div className="p-6 border border-gray-200 rounded-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <span className="block font-bold text-center text-gray-700" style={{ fontSize: '18px' }}>
+              <span className="block font-bold text-center text-gray-700" style={{ fontSize: "18px" }}>
                 Add Photo
               </span>
               <div className="flex flex-col items-center space-y-4">
-
                 <div className="flex gap-4">
                   <label className="cursor-pointer">
                     <input
@@ -248,9 +281,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                     Take Photo
                   </button>
                 </div>
-                {error && (
-                  <p className="text-red-500 text-sm">{error}</p>
-                )}
+                {error && <p className="text-red-500 text-sm">{error}</p>}
                 {(uploadedImage || image) && (
                   <div className="w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black">
                     <img
@@ -265,20 +296,20 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 
             <div className="flex gap-2 space-y-0">
               <div className="w-3/4 space-y-2">
-                <label htmlFor="location" className="block text-sm font-bold text-gray-700" style={{ fontSize: '18px' }}>
+                <label htmlFor="location" className="block text-sm font-bold text-gray-700" style={{ fontSize: "18px" }}>
                   Location
                 </label>
                 <input
                   id="location"
                   type="text"
-                  placeholder="Enter your location "
-                  value={location || ""}
-                  onChange={(e) => setLocation(e.target.value || null)}
+                  placeholder="Enter your location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   className="w-full p-2 border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div className="w-1/4 space-y-2 relative">
-                <label htmlFor="weather" className="block text-sm font-bold text-gray-700" style={{ fontSize: '18px' }}>
+                <label htmlFor="weather" className="block text-sm font-bold text-gray-700" style={{ fontSize: "18px" }}>
                   Weather
                 </label>
                 <div className="relative">
@@ -289,7 +320,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                   >
                     <span className="flex items-center">
                       {weather ? (
-                        weatherOptions.find(opt => opt.value === weather)?.icon
+                        weatherOptions.find((opt) => opt.value === weather.condition)?.icon
                       ) : (
                         <span className="text-gray-400">Select weather</span>
                       )}
@@ -305,7 +336,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                       >
                         Select weather
                       </button>
-                      {weatherOptions.map(option => (
+                      {weatherOptions.map((option) => (
                         <button
                           key={option.value}
                           type="button"
@@ -323,7 +354,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="content" className="block text-sm text-center font-bold text-gray-700" style={{ fontSize: '18px' }}>
+              <label htmlFor="content" className="block text-sm text-center font-bold text-gray-700" style={{ fontSize: "18px" }}>
                 Caption your Outfit
               </label>
               <textarea
