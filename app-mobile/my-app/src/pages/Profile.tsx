@@ -295,7 +295,7 @@ const Profile = () => {
 
           {/* Top 6 Outfits Section */}
           <div className="w-full lg:w-1/2">
-            <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4 sm:-mt-32 -mt-48">
+            <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4 sm:-mt-32 -mt-8">
               Top Outfits
             </h3>
             {loadingOutfits ? (

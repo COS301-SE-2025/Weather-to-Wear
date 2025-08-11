@@ -41,4 +41,7 @@ router.get('/:userId/followers', authenticateToken, asyncHandler(socialControlle
 router.post('/:userId/follow', authenticateToken, asyncHandler(socialController.followUser));
 router.delete('/:userId/unfollow', authenticateToken, asyncHandler(socialController.unfollowUser));
 
+router.get('/users/search', authenticateToken, socialController.searchUsers);
+router.post('/users/search', authenticateToken, socialController.searchUsers);
+
 export default router;
