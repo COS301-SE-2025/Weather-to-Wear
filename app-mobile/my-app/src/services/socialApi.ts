@@ -173,3 +173,14 @@ export async function getFollowers(userId: string, limit = 20, offset = 0) {
 
   return response.json(); // Returns { followers: [...] }
 }
+
+export async function searchUsers(q: string, limit = 10, offset = 0) {
+  const url = `${API_URL}/users/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`;
+  const response = await fetchWithAuth(url, { method: "GET" });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to search users");
+  }
+  // { message, results: [...], pagination: {...} }
+  return response.json();
+}

@@ -1,4 +1,4 @@
-import { Heart, Loader2 } from "lucide-react";
+import { Heart, Loader2, Search } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   getPosts,
@@ -9,6 +9,7 @@ import {
   unfollowUser,
   getFollowing,
   getFollowers,
+  searchUsers,
 } from "../services/socialApi";
 
 interface Post {
@@ -33,6 +34,16 @@ interface Account {
   profilePhoto?: string;
 }
 
+type UserResult = {
+  id: string;
+  name: string;
+  profilePhoto?: string | null;
+  location?: string | null;
+  isFollowing: boolean;
+  followersCount: number;
+  followingCount: number;
+};
+
 const API_URL = "http://localhost:5001";
 
 const FeedPage: React.FC = () => {
@@ -46,6 +57,13 @@ const FeedPage: React.FC = () => {
   const [followers, setFollowers] = useState<Account[]>([]);
   const [activeTab, setActiveTab] = useState<"following" | "followers">("following");
   const currentUserId = "current-user-id"; // TODO: Replace with auth context
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<UserResult[]>([]);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const pageSize = 10;
 
   const fetchPosts = useCallback(
     async (reset: boolean = false) => {
@@ -117,6 +135,52 @@ const FeedPage: React.FC = () => {
     fetchFollowData();
   }, [fetchPosts, fetchFollowData]);
 
+  useEffect(() => {
+    let timer: number | undefined;
+
+    async function run() {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        setSearchHasMore(false);
+        setSearchError(null);
+        return;
+      }
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const data = await searchUsers(searchQuery, pageSize, 0);
+        setSearchResults(data.results || []);
+        setSearchOffset(pageSize);
+        setSearchHasMore((data.results || []).length === pageSize);
+      } catch (e: any) {
+        setSearchError(e.message || "Failed to search");
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    // debounce 400ms
+    timer = window.setTimeout(run, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadMoreSearch = async () => {
+    if (!searchHasMore || !searchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const data = await searchUsers(searchQuery, pageSize, searchOffset);
+      const newResults: UserResult[] = data.results || [];
+      setSearchResults(prev => [...prev, ...newResults]);
+      setSearchOffset(prev => prev + pageSize);
+      setSearchHasMore(newResults.length === pageSize);
+    } catch (e: any) {
+      setSearchError(e.message || "Failed to load more");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+
   const toggleLike = async (id: string) => {
     const post = posts.find((p) => p.id === id);
     if (!post) return;
@@ -160,9 +224,122 @@ const FeedPage: React.FC = () => {
     }
   };
 
+  const toggleFollowFromSearch = async (userId: string, isFollowing: boolean) => {
+    try {
+      if (isFollowing) {
+        await unfollowUser(userId);
+      } else {
+        await followUser(userId);
+      }
+      setSearchResults(prev =>
+        prev.map(u => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
+      );
+      // also gently sync the side lists if you use them later
+      if (isFollowing) {
+        setFollowing(prev => prev.filter(f => f.id !== userId));
+      } else {
+        setFollowing(prev => [...prev, { id: userId, username: "New User", profilePhoto: "U" }]);
+      }
+    } catch (err: any) {
+      setError(err.message || "Follow action failed");
+    }
+  };
+
+  const SearchUsersCard: React.FC = () => (
+    <div>
+      {/* Search bar styled like ClosetPage */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search..."
+          className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+        />
+      </div>
+
+      {/* Errors */}
+      {searchError && (
+        <div className="mt-3 text-xs text-red-500">{searchError}</div>
+      )}
+
+      {/* Results list (kept simple) */}
+      <div className="space-y-3">
+        {searchLoading && searchResults.length === 0 && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+          </div>
+        )}
+
+        {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+        )}
+
+        {searchResults.map((u) => (
+          <div
+            key={u.id}
+            className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+          >
+            <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+              {u.profilePhoto ? (
+                <img
+                  src={`${API_URL}${u.profilePhoto}`}
+                  alt={u.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+                  }}
+                />
+              ) : null}
+              <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+            </div>
+
+            <div className="flex flex-col">
+              <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {u.location || "—"} • {u.followersCount} followers
+              </span>
+            </div>
+
+            <button
+              onClick={() => toggleFollowFromSearch(u.id, u.isFollowing)}
+              className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
+                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                  : "bg-[#3F978F] text-white"
+                }`}
+            >
+              {u.isFollowing ? "Following" : "Follow"}
+            </button>
+          </div>
+        ))}
+
+        {searchHasMore && (
+          <button
+            onClick={loadMoreSearch}
+            className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+            disabled={searchLoading}
+          >
+            {searchLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin inline" />
+            ) : (
+              "Load more"
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full max-w-screen-xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-10">
       <div className="hidden md:block w-4" />
+
+      <div className="md:hidden mb-6">
+        <SearchUsersCard />
+      </div>
+
 
       <div className="w-full md:w-[58%] space-y-6">
         {error && <div className="text-red-500 text-sm">{error}</div>}
@@ -175,7 +352,7 @@ const FeedPage: React.FC = () => {
             {posts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-black dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
@@ -227,9 +404,8 @@ const FeedPage: React.FC = () => {
                     aria-label={post.liked ? "Unlike post" : "Like post"}
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        post.liked ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-gray-400"
-                      }`}
+                      className={`h-5 w-5 transition-colors ${post.liked ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-gray-400"
+                        }`}
                     />
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {post.likes} likes
@@ -257,7 +433,7 @@ const FeedPage: React.FC = () => {
                   />
                   <button
                     onClick={() => addCommentHandler(post.id)}
-                    className="text-blue-500 text-sm font-semibold"
+                    className="text-[#3F978F] text-sm font-semibold"
                     disabled={!newComment[post.id]?.trim()}
                   >
                     Post
@@ -268,7 +444,7 @@ const FeedPage: React.FC = () => {
             {hasMore && (
               <button
                 onClick={() => fetchPosts()}
-                className="mt-4 bg-blue-500 text-white px-4 py-2 rounded text-sm"
+                className="mt-4 bg-[#3F978F] text-white px-4 py-2 rounded text-sm"
                 disabled={loadingPosts}
               >
                 {loadingPosts ? <Loader2 className="h-5 w-5 animate-spin inline" /> : "Load More"}
@@ -278,56 +454,16 @@ const FeedPage: React.FC = () => {
         )}
       </div>
 
-      {/* <div className="w-full md:w-[32%]">
-        <div className="flex gap-4 mb-4">
-          <button
-            onClick={() => setActiveTab("following")}
-            className={`text-xl font-livvic ${activeTab === "following" ? "text-blue-500" : "text-gray-500"} dark:text-gray-100`}
-          >
-            Following
-          </button>
-          <button
-            onClick={() => setActiveTab("followers")}
-            className={`text-xl font-livvic ${activeTab === "followers" ? "text-blue-500" : "text-gray-500"} dark:text-gray-100`}
-          >
-            Followers
-          </button>
+
+
+
+      <div className="w-full md:w-[32%]">
+
+        <div className="hidden md:block">
+          <SearchUsersCard />
         </div>
-        <div className="space-y-5">
-          {(activeTab === "following" ? following : followers).map((account) => (
-            <div
-              key={account.id}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-4 shadow-md border border-black dark:border-gray-700 flex items-center gap-4"
-            >
-              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold relative overflow-hidden">
-                {account.profilePhoto && (
-                  <>
-                    <img
-                      src={`${API_URL}${account.profilePhoto}`}
-                      alt={`${account.username}'s profile photo`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        e.currentTarget.nextSibling!.textContent = account.profilePhoto || "U";
-                      }}
-                    />
-                    <span className="absolute">{account.profilePhoto}</span>
-                  </>
-                )}
-              </div>
-              <div className="text-sm font-medium dark:text-gray-100">
-                @{account.username}
-              </div>
-              <button
-                onClick={() => toggleFollow(account.id, activeTab === "following")}
-                className="ml-auto bg-blue-500 text-white px-2 py-1 rounded text-sm"
-              >
-                {activeTab === "following" ? "Unfollow" : "Follow"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div> */}
+
+      </div>
     </div>
   );
 };
