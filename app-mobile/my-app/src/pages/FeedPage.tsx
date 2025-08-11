@@ -45,10 +45,31 @@ const FeedPage: React.FC = () => {
   const [following, setFollowing] = useState<Account[]>([]);
   const [followers, setFollowers] = useState<Account[]>([]);
   const [activeTab, setActiveTab] = useState<"following" | "followers">("following");
-  const currentUserId = "current-user-id"; // TODO: Replace with auth context
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token'); // Replace 'token' with the actual key used in your app (e.g., 'authToken' or 'jwt')
+    if (token) {
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+          throw new Error('Invalid token format');
+        }
+        const encodedPayload = tokenParts[1];
+        const rawPayload = atob(encodedPayload);
+        const user = JSON.parse(rawPayload);
+        setCurrentUserId(user.id); // Assume the payload has an 'id' field; adjust if it's 'sub', 'userId', etc.
+      } catch (err) {
+        setError('Failed to decode authentication token. Please log in again.');
+      }
+    } else {
+      setError('No authentication token found. Please log in.');
+    }
+  }, []);
 
   const fetchPosts = useCallback(
     async (reset: boolean = false) => {
+      if (!currentUserId) return;
       if (!hasMore && !reset) return;
       setLoadingPosts(true);
       try {
@@ -57,7 +78,7 @@ const FeedPage: React.FC = () => {
           id: post.id,
           userId: post.userId,
           username: post.user?.name || "Unknown",
-          profilePhoto: post.user?.profilePhoto || post.user?.name?.[0] || "U",
+          profilePhoto: post.user?.profilePhoto,
           content: post.caption || "",
           likes: post.likes?.length || 0,
           liked: post.likes?.some((like: any) => like.userId === currentUserId) || false,
@@ -88,6 +109,7 @@ const FeedPage: React.FC = () => {
   );
 
   const fetchFollowData = useCallback(async () => {
+    if (!currentUserId) return;
     try {
       const [followingRes, followersRes] = await Promise.all([
         getFollowing(currentUserId, 20, 0),
@@ -97,14 +119,14 @@ const FeedPage: React.FC = () => {
         followingRes.following.map((f: any) => ({
           id: f.following.id,
           username: f.following.name,
-          profilePhoto: f.following.profilePhoto || f.following.name?.[0] || "U",
+          profilePhoto: f.following.profilePhoto,
         }))
       );
       setFollowers(
         followersRes.followers.map((f: any) => ({
           id: f.follower.id,
           username: f.follower.name,
-          profilePhoto: f.follower.profilePhoto || f.follower.name?.[0] || "U",
+          profilePhoto: f.follower.profilePhoto,
         }))
       );
     } catch (err: any) {
@@ -113,9 +135,11 @@ const FeedPage: React.FC = () => {
   }, [currentUserId]);
 
   useEffect(() => {
-    fetchPosts(true);
-    fetchFollowData();
-  }, [fetchPosts, fetchFollowData]);
+    if (currentUserId) {
+      fetchPosts(true);
+      fetchFollowData();
+    }
+  }, [currentUserId, fetchPosts, fetchFollowData]);
 
   const toggleLike = async (id: string) => {
     const post = posts.find((p) => p.id === id);
@@ -138,7 +162,7 @@ const FeedPage: React.FC = () => {
     if (!comment) return;
     try {
       const response = await addComment(id, comment);
-      const newComm = { id: response.comment.id, content: comment, userId: currentUserId, username: "You" };
+      const newComm = { id: response.comment.id, content: comment, userId: currentUserId || "", username: "You" };
       setPosts(posts.map((p) => (p.id === id ? { ...p, comments: [...p.comments, newComm] } : p)));
       setNewComment({ ...newComment, [id]: "" });
     } catch (err: any) {
@@ -146,19 +170,27 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  const toggleFollow = async (accountId: string, isFollowing: boolean) => {
+  const toggleFollow = async (account: Account, isFollowing: boolean) => {
     try {
       if (isFollowing) {
-        await unfollowUser(accountId);
-        setFollowing(following.filter((f) => f.id !== accountId));
+        await unfollowUser(account.id);
+        setFollowing(following.filter((f) => f.id !== account.id));
       } else {
-        await followUser(accountId);
-        setFollowing([...following, { id: accountId, username: "New User", profilePhoto: "U" }]);
+        await followUser(account.id);
+        setFollowing([...following, account]);
       }
     } catch (err: any) {
       setError(err.message);
     }
   };
+
+  if (currentUserId === null && !error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-screen-xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-10">
@@ -179,19 +211,18 @@ const FeedPage: React.FC = () => {
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      {post.username?.[0].toUpperCase() || "U"}
+                    </span>
                     {post.profilePhoto && (
-                      <>
-                        <img
-                          src={`${API_URL}${post.profilePhoto}`}
-                          alt={`${post.username}'s profile photo`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            e.currentTarget.nextSibling!.textContent = post.profilePhoto || "U";
-                          }}
-                        />
-                        <span className="absolute">{post.profilePhoto}</span>
-                      </>
+                      <img
+                        src={`${API_URL}${post.profilePhoto}`}
+                        alt={`${post.username}'s profile photo`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget).style.display = "none";
+                        }}
+                      />
                     )}
                   </div>
                   <div>
@@ -209,6 +240,7 @@ const FeedPage: React.FC = () => {
                       className="w-full h-auto"
                     />
                   </div>
+
                 )}
                 {(post.location || post.weather || post.closetItem) && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -278,56 +310,6 @@ const FeedPage: React.FC = () => {
         )}
       </div>
 
-      {/* <div className="w-full md:w-[32%]">
-        <div className="flex gap-4 mb-4">
-          <button
-            onClick={() => setActiveTab("following")}
-            className={`text-xl font-livvic ${activeTab === "following" ? "text-blue-500" : "text-gray-500"} dark:text-gray-100`}
-          >
-            Following
-          </button>
-          <button
-            onClick={() => setActiveTab("followers")}
-            className={`text-xl font-livvic ${activeTab === "followers" ? "text-blue-500" : "text-gray-500"} dark:text-gray-100`}
-          >
-            Followers
-          </button>
-        </div>
-        <div className="space-y-5">
-          {(activeTab === "following" ? following : followers).map((account) => (
-            <div
-              key={account.id}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-4 shadow-md border border-black dark:border-gray-700 flex items-center gap-4"
-            >
-              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold relative overflow-hidden">
-                {account.profilePhoto && (
-                  <>
-                    <img
-                      src={`${API_URL}${account.profilePhoto}`}
-                      alt={`${account.username}'s profile photo`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        e.currentTarget.nextSibling!.textContent = account.profilePhoto || "U";
-                      }}
-                    />
-                    <span className="absolute">{account.profilePhoto}</span>
-                  </>
-                )}
-              </div>
-              <div className="text-sm font-medium dark:text-gray-100">
-                @{account.username}
-              </div>
-              <button
-                onClick={() => toggleFollow(account.id, activeTab === "following")}
-                className="ml-auto bg-blue-500 text-white px-2 py-1 rounded text-sm"
-              >
-                {activeTab === "following" ? "Unfollow" : "Follow"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div> */}
     </div>
   );
 };

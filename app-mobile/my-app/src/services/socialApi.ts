@@ -7,7 +7,7 @@ export async function createPost(data: {
   image?: File;
   caption?: string;
   location?: string;
-  weather?: { temp: number; condition: string };
+  weather?: any;
   closetItemId?: string;
 }) {
   const formData = new FormData();
