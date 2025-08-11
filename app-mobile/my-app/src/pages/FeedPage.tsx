@@ -278,7 +278,7 @@ const FeedPage: React.FC = () => {
         )}
       </div>
 
-      <div className="w-full md:w-[32%]">
+      {/* <div className="w-full md:w-[32%]">
         <div className="flex gap-4 mb-4">
           <button
             onClick={() => setActiveTab("following")}
@@ -327,7 +327,7 @@ const FeedPage: React.FC = () => {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
