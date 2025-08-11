@@ -3,6 +3,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import socialService from './social.service';
+import prisma from "../../prisma";
+
+
 
 class SocialController {
   createPost = async (
@@ -17,13 +20,16 @@ class SocialController {
         return;
       }
 
-      const { imageUrl, caption, location, weather, closetItemId } = req.body;
+      const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+
+      const { caption, location, closetItemId, weather } = req.body;
+      const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
 
       const post = await socialService.createPost(user.id, {
         imageUrl,
         caption,
         location,
-        weather,
+        weather: weatherData,
         closetItemId,
       });
 
@@ -33,16 +39,23 @@ class SocialController {
     }
   };
 
+
   getPosts = async (
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { userId, limit = 20, offset = 0, include } = req.query;
+      const { user } = req as AuthenticatedRequest;
+      const { limit = 20, offset = 0, include } = req.query;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+      const currentUserId = user.id;
 
       const posts = await socialService.getPosts({
-        userId: userId as string | undefined,
+        currentUserId: user.id,
         limit: Number(limit),
         offset: Number(offset),
         include: (include as string | undefined)?.split(',') ?? [],
@@ -119,6 +132,222 @@ class SocialController {
       next(err);
     }
   };
+  addComment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { postId } = req.params;
+      const { content } = req.body;
+
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+      if (!content) {
+        res.status(400).json({ message: 'Content is required' });
+        return;
+      }
+
+      const comment = await socialService.addComment(postId, user.id, content);
+      res.status(201).json({ message: 'Comment added successfully', comment });
+    } catch (err: any) {
+      if (err.message === 'Post not found') {
+        res.status(404).json({ message: err.message });
+        return;
+      }
+      if (err.message === 'Content is required') {
+        res.status(400).json({ message: err.message });
+        return;
+      }
+      next(err);
+    }
+  };
+
+  getCommentsForPost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { postId } = req.params;
+      const { limit = 20, offset = 0, include = '' } = req.query;
+      const includeArr = typeof include === 'string' ? include.split(',') : [];
+
+      const comments = await socialService.getCommentsForPost(
+        postId,
+        Number(limit),
+        Number(offset),
+        includeArr
+      );
+      res.status(200).json({ message: 'Comments retrieved successfully', comments });
+    } catch (err: any) {
+      if (err.message === 'Post not found') {
+        res.status(404).json({ message: err.message });
+        return;
+      }
+      next(err);
+    }
+  };
+
+  updateComment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { id } = req.params;
+      const { content } = req.body;
+
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const comment = await socialService.updateComment(id, user.id, content);
+      res.status(200).json({ message: 'Comment updated successfully', comment });
+    } catch (err: any) {
+      if (err.message === 'Comment not found') {
+        res.status(404).json({ message: err.message });
+        return;
+      }
+      if (err.message === 'Forbidden') {
+        res.status(403).json({ message: err.message });
+        return;
+      }
+      if (err.message === 'Content is required') {
+        res.status(400).json({ message: err.message });
+        return;
+      }
+      next(err);
+    }
+  };
+
+  deleteComment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { id } = req.params;
+
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      await socialService.deleteComment(id, user.id);
+      res.status(200).json({ message: 'Comment deleted successfully' });
+    } catch (err: any) {
+      if (err.message === 'Comment not found') {
+        res.status(404).json({ message: err.message });
+        return;
+      }
+      if (err.message === 'Forbidden') {
+        res.status(403).json({ message: err.message });
+        return;
+      }
+      next(err);
+    }
+  };
+
+  likePost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { postId } = req.params;
+      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+
+      const like = await socialService.likePost(postId, user.id);
+      res.status(201).json({ message: "Post liked successfully", like });
+    } catch (err: any) {
+      if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
+      if (err.message === 'User already liked this post') return res.status(400).json({ message: err.message });
+      next(err);
+    }
+  };
+
+  unlikePost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { postId } = req.params;
+      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+
+      await socialService.unlikePost(postId, user.id);
+      res.status(200).json({ message: "Post unliked successfully" });
+    } catch (err: any) {
+      if (err.message === 'Like not found') return res.status(404).json({ message: err.message });
+      next(err);
+    }
+  };
+
+  getLikesForPost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { postId } = req.params;
+      const { limit = 20, offset = 0, include } = req.query;
+      const includeUser = (include as string)?.split(',').includes('user');
+      const likes = await socialService.getLikesForPost(postId, Number(limit), Number(offset), includeUser);
+      res.status(200).json({ message: "Likes retrieved successfully", likes });
+    } catch (err: any) {
+      if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
+      next(err);
+    }
+  };
+
+  followUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { userId } = req.params;
+      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+
+      const follow = await socialService.followUser(user.id, userId);
+      res.status(200).json({ message: 'User followed successfully', follow });
+    } catch (err: any) {
+      if (err.message === 'You cannot follow yourself' || err.message === 'Already following this user') {
+        return res.status(400).json({ message: err.message });
+      }
+      if (err.message === 'User not found') {
+        return res.status(404).json({ message: err.message });
+      }
+      next(err);
+    }
+  };
+
+  unfollowUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      const { userId } = req.params;
+      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+
+      await socialService.unfollowUser(user.id, userId);
+      res.status(200).json({ message: 'User unfollowed successfully' });
+    } catch (err: any) {
+      if (err.message === 'Follow relationship not found') {
+        return res.status(404).json({ message: err.message });
+      }
+      next(err);
+    }
+  };
+
+  getFollowers = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const { limit = 20, offset = 0 } = req.query;
+
+      const followers = await socialService.getFollowers(userId, Number(limit), Number(offset));
+      res.status(200).json({ message: 'Followers retrieved successfully', followers });
+    } catch (err: any) {
+      if (err.message === 'User not found') {
+        return res.status(404).json({ message: err.message });
+      }
+      next(err);
+    }
+  };
+
+  getFollowing = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const { limit = 20, offset = 0 } = req.query;
+
+      const following = await socialService.getFollowing(userId, Number(limit), Number(offset));
+      res.status(200).json({ message: 'Following users retrieved successfully', following });
+    } catch (err: any) {
+      if (err.message === 'User not found') {
+        return res.status(404).json({ message: err.message });
+      }
+      next(err);
+    }
+  };
+
+
+
 }
 
 export default new SocialController();
