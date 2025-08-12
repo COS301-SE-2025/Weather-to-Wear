@@ -63,7 +63,7 @@ const PostsPage: React.FC = () => {
             const storedUser = localStorage.getItem("user");
             if (storedUser) {
                 const parsed = JSON.parse(storedUser);
-                return { ...fromToken, ...parsed }; // stored user overrides token fields
+                return { ...fromToken, ...parsed };
             }
         } catch { }
         return fromToken;
@@ -74,11 +74,10 @@ const PostsPage: React.FC = () => {
     const currentUserAvatar: string | null = me?.profilePhoto ?? null;
 
 
-    // ----- profile counts -----
     const [followersCount, setFollowersCount] = useState<number | null>(null);
     const [followingCount, setFollowingCount] = useState<number | null>(null);
 
-    // ----- posts (only mine) -----
+
     const pageSize = 12;
     const [posts, setPosts] = useState<Post[]>([]);
     const [offset, setOffset] = useState(0);
@@ -87,27 +86,59 @@ const PostsPage: React.FC = () => {
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const inFlightRef = useRef(false);
 
-    // ----- lightbox / modal -----
     const [activePost, setActivePost] = useState<Post | null>(null);
     const [newComment, setNewComment] = useState<string>("");
 
-    // ----- initial load: followers/following counts -----
+    async function countFollowers(userId: string): Promise<number> {
+        const page = 50;           // tune as you like
+        let offset = 0;
+        let total = 0;
+
+        // loop through all pages
+        // getFollowers(userId, limit, offset) -> { followers: [...] }
+        while (true) {
+            const res = await getFollowers(userId, page, offset);
+            const chunk = res?.followers ?? [];
+            total += chunk.length;
+            if (chunk.length < page) break; // last page
+            offset += page;
+        }
+        return total;
+    }
+
+    async function countFollowing(userId: string): Promise<number> {
+        const page = 50;
+        let offset = 0;
+        let total = 0;
+
+        while (true) {
+            const res = await getFollowing(userId, page, offset);
+            const chunk = res?.following ?? [];
+            total += chunk.length;
+            if (chunk.length < page) break;
+            offset += page;
+        }
+        return total;
+    }
+
+
     useEffect(() => {
         if (!currentUserId) return;
         (async () => {
             try {
-                const [followersRes, followingRes] = await Promise.all([
-                    getFollowers(currentUserId, 1, 0), // we just need counts
-                    getFollowing(currentUserId, 1, 0),
+                const [fCount, gCount] = await Promise.all([
+                    countFollowers(currentUserId),
+                    countFollowing(currentUserId),
                 ]);
-                setFollowersCount((followersRes.followers ?? []).length ?? 0);
-                setFollowingCount((followingRes.following ?? []).length ?? 0);
+                setFollowersCount(fCount);
+                setFollowingCount(gCount);
             } catch {
                 setFollowersCount(null);
                 setFollowingCount(null);
             }
         })();
     }, [currentUserId]);
+
 
     // ----- fetch my posts (paged) -----
     const fetchNext = useCallback(async () => {
