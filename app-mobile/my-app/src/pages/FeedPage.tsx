@@ -46,6 +46,107 @@ type UserResult = {
 
 const API_URL = "http://localhost:5001";
 
+type SearchUsersCardProps = {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  searchLoading: boolean;
+  searchError: string | null;
+  searchResults: UserResult[];
+  searchHasMore: boolean;
+  onLoadMore: () => void;
+  onToggleFollow: (id: string, isFollowing: boolean) => void;
+};
+
+const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(({
+  searchQuery,
+  setSearchQuery,
+  searchLoading,
+  searchError,
+  searchResults,
+  searchHasMore,
+  onLoadMore,
+  onToggleFollow,
+}) => {
+  return (
+    <div>
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search..."
+          className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+        />
+      </div>
+
+      {searchError && <div className="mt-3 text-xs text-red-500">{searchError}</div>}
+
+      <div className="space-y-3">
+        {searchLoading && searchResults.length === 0 && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+          </div>
+        )}
+
+        {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+        )}
+
+        {searchResults.map((u) => (
+          <div
+            key={u.id}
+            className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+          >
+            <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+              {u.profilePhoto ? (
+                <img
+                  src={`${API_URL}${u.profilePhoto}`}
+                  alt={u.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+                  }}
+                />
+              ) : null}
+              <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+            </div>
+
+            <div className="flex flex-col">
+              <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {u.location || "—"} • {u.followersCount} followers
+              </span>
+            </div>
+
+            <button
+              onClick={() => onToggleFollow(u.id, u.isFollowing)}
+              className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
+                ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                : "bg-[#3F978F] text-white"
+                }`}
+            >
+              {u.isFollowing ? "Following" : "Follow"}
+            </button>
+          </div>
+        ))}
+
+        {searchHasMore && (
+          <button
+            onClick={onLoadMore}
+            className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+            disabled={searchLoading}
+          >
+            {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
+
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -56,7 +157,7 @@ const FeedPage: React.FC = () => {
   const [following, setFollowing] = useState<Account[]>([]);
   const [followers, setFollowers] = useState<Account[]>([]);
   const [activeTab, setActiveTab] = useState<"following" | "followers">("following");
-  const currentUserId = "current-user-id"; // TODO: Replace with auth context
+  const currentUserId = "current-user-id";
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -234,7 +335,6 @@ const FeedPage: React.FC = () => {
       setSearchResults(prev =>
         prev.map(u => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
       );
-      // also gently sync the side lists if you use them later
       if (isFollowing) {
         setFollowing(prev => prev.filter(f => f.id !== userId));
       } else {
@@ -245,103 +345,111 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  const SearchUsersCard: React.FC = () => (
-    <div>
-      {/* Search bar styled like ClosetPage */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search..."
-          className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-        />
-      </div>
+  // const SearchUsersCard: React.FC = () => (
+  //   <div>
+  //     {/* Search bar styled like ClosetPage */}
+  //     <div className="relative mb-6">
+  //       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+  //       <input
+  //         type="text"
+  //         value={searchQuery}
+  //         onChange={(e) => setSearchQuery(e.target.value)}
+  //         placeholder="Search..."
+  //         className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+  //       />
+  //     </div>
 
-      {/* Errors */}
-      {searchError && (
-        <div className="mt-3 text-xs text-red-500">{searchError}</div>
-      )}
+  //     {/* Errors */}
+  //     {searchError && (
+  //       <div className="mt-3 text-xs text-red-500">{searchError}</div>
+  //     )}
 
-      {/* Results list (kept simple) */}
-      <div className="space-y-3">
-        {searchLoading && searchResults.length === 0 && (
-          <div className="flex justify-center py-2">
-            <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-          </div>
-        )}
+  //     {/* Results list (kept simple) */}
+  //     <div className="space-y-3">
+  //       {searchLoading && searchResults.length === 0 && (
+  //         <div className="flex justify-center py-2">
+  //           <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+  //         </div>
+  //       )}
 
-        {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
-          <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
-        )}
+  //       {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+  //         <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+  //       )}
 
-        {searchResults.map((u) => (
-          <div
-            key={u.id}
-            className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
-          >
-            <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
-              {u.profilePhoto ? (
-                <img
-                  src={`${API_URL}${u.profilePhoto}`}
-                  alt={u.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                    (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
-                  }}
-                />
-              ) : null}
-              <span className="absolute hidden">{u.name?.[0] || "U"}</span>
-            </div>
+  // {searchResults.map((u) => (
+  //   <div
+  //     key={u.id}
+  //     className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+  //   >
+  //     <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+  //       {u.profilePhoto ? (
+  //         <img
+  //           src={`${API_URL}${u.profilePhoto}`}
+  //           alt={u.name}
+  //           className="w-full h-full object-cover"
+  //           onError={(e) => {
+  //             e.currentTarget.style.display = "none";
+  //             (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+  //           }}
+  //         />
+  //       ) : null}
+  //       <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+  //     </div>
 
-            <div className="flex flex-col">
-              <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                {u.location || "—"} • {u.followersCount} followers
-              </span>
-            </div>
+  //     <div className="flex flex-col">
+  //       <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+  //       <span className="text-[11px] text-gray-500 dark:text-gray-400">
+  //         {u.location || "—"} • {u.followersCount} followers
+  //       </span>
+  //     </div>
 
-            <button
-              onClick={() => toggleFollowFromSearch(u.id, u.isFollowing)}
-              className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
-                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                  : "bg-[#3F978F] text-white"
-                }`}
-            >
-              {u.isFollowing ? "Following" : "Follow"}
-            </button>
-          </div>
-        ))}
+  //     <button
+  //       onClick={() => toggleFollowFromSearch(u.id, u.isFollowing)}
+  //       className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
+  //         ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+  //         : "bg-[#3F978F] text-white"
+  //         }`}
+  //     >
+  //       {u.isFollowing ? "Following" : "Follow"}
+  //     </button>
+  //   </div>
+  // ))}
 
-        {searchHasMore && (
-          <button
-            onClick={loadMoreSearch}
-            className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
-            disabled={searchLoading}
-          >
-            {searchLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin inline" />
-            ) : (
-              "Load more"
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  //       {searchHasMore && (
+  //         <button
+  //           onClick={loadMoreSearch}
+  //           className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+  //           disabled={searchLoading}
+  //         >
+  //           {searchLoading ? (
+  //             <Loader2 className="h-4 w-4 animate-spin inline" />
+  //           ) : (
+  //             "Load more"
+  //           )}
+  //         </button>
+  //       )}
+  //     </div>
+  //   </div>
+  // );
 
   return (
     <div className="w-full max-w-screen-xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-10">
-      <div className="hidden md:block w-4" />
 
-      <div className="md:hidden mb-6">
-        <SearchUsersCard />
+
+      <div className="w-full md:w-[32%] order-1 md:order-2">
+        <SearchUsersCard
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchLoading={searchLoading}
+          searchError={searchError}
+          searchResults={searchResults}
+          searchHasMore={searchHasMore}
+          onLoadMore={loadMoreSearch}
+          onToggleFollow={toggleFollowFromSearch}
+        />
       </div>
 
-
-      <div className="w-full md:w-[58%] space-y-6">
+      <div className="w-full md:w-[58%] space-y-6 order-2 md:order-1">
         {error && <div className="text-red-500 text-sm">{error}</div>}
         {loadingPosts && posts.length === 0 ? (
           <div className="flex justify-center">
@@ -454,16 +562,6 @@ const FeedPage: React.FC = () => {
         )}
       </div>
 
-
-
-
-      <div className="w-full md:w-[32%]">
-
-        <div className="hidden md:block">
-          <SearchUsersCard />
-        </div>
-
-      </div>
     </div>
   );
 };
