@@ -20,6 +20,11 @@ function isUIOutfit(obj: any): obj is UIOutfit {
 function isItem(obj: any): obj is Item {
   return obj && (!obj.tab || obj.tab === 'items');
 }
+function getSortedOutfits(list: UIOutfit[]) {
+  return [...list].sort(
+    (a, b) => (b.userRating || 0) - (a.userRating || 0)
+  );
+}
 
 
 const LAYER_OPTIONS = [
@@ -117,16 +122,17 @@ type Item = {
   image: string;
   favourite: boolean;
   category: string;
-  // newly‐editable fields:
   colorHex?: string;
+  dominantColors?: string[];
   warmthFactor?: number;
   waterproof?: boolean;
   style?: string;
   material?: string;
   layerCategory?: string;
-  // which tab it came from:
+  createdAt?: string;
   tab?: 'items' | 'outfits' | 'favourites';
 };
+
 
 type TabType = 'items' | 'outfits' | 'favourites';
 
@@ -182,6 +188,13 @@ export default function ClosetPage() {
           favourite: !!item.favourite,
           category: item.category,
           layerCategory: item.layerCategory,
+          colorHex: item.colorHex,
+          dominantColors: item.dominantColors,
+          warmthFactor: item.warmthFactor,
+          waterproof: item.waterproof,
+          style: item.style,
+          material: item.material,
+          createdAt: item.createdAt,
           tab: 'items',
         }));
 
@@ -588,6 +601,7 @@ export default function ClosetPage() {
                           </div>
                           <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
                             <button
+
                               onClick={() => toggleFavourite(entry, 'items')}
                             >
                               <Heart
@@ -676,7 +690,10 @@ export default function ClosetPage() {
                         </div>
 
                         <button
-                          onClick={() => toggleFavourite(entry, 'outfits')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavourite(entry, 'outfits');
+                          }}
                           aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
                           className="absolute bottom-2 left-2 z-10"
                         >
@@ -723,12 +740,15 @@ export default function ClosetPage() {
                           <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
                         <button
-                          onClick={() => handleRemoveClick(entry.id, entry.tab === 'outfits' ? 'outfits' : 'items', entry.name)
-                          }
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleRemoveClick(entry.id, 'items', entry.name);
+                          }}
                           className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                         >
                           <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
+
                       </div>
                       <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
                         <button
@@ -748,12 +768,17 @@ export default function ClosetPage() {
                     key={entry.id}
                     className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
                     onClick={() => setActiveDetailsOutfit(entry)}
-                  >                    <button
-                    onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
-                    className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                   >
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleRemoveClick(entry.id, 'outfits', 'Outfit');
+                      }}
+                      className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                    >
                       <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                     </button>
+
                     <div className="space-y-1">
                       {/* headwear + accessory */}
                       <div
@@ -812,7 +837,10 @@ export default function ClosetPage() {
 
 
                     <button
-                      onClick={() => toggleFavourite(entry, 'outfits')}
+                      onClick={(e) => {
+                        e.stopPropagation(); 
+                        toggleFavourite(entry, 'outfits');
+                      }}
                       aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
                       className="absolute bottom-2 left-2 z-10"
                     >
@@ -1214,6 +1242,11 @@ export default function ClosetPage() {
                 >
                   <X className="w-5 h-5" />
                 </button>
+                {/* Favourite */}
+                <Heart
+                  className={`absolute top-3 left-3 w-6 h-6 cursor-pointer transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                  onClick={() => toggleFavourite(activeDetailsItem, 'items')}
+                />
                 {/* Image */}
                 <div className="w-full flex justify-center">
                   <img
@@ -1222,42 +1255,29 @@ export default function ClosetPage() {
                     className="w-40 h-40 object-contain rounded-lg shadow"
                   />
                 </div>
+                
                 {/* Item details */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold">{activeDetailsItem.name}</span>
-                    <Heart
-                      className={`w-6 h-6 transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                      onClick={() => toggleFavourite(activeDetailsItem, 'items')}
-                      style={{ cursor: 'pointer' }}
-                    />
+                <div className="space-y-2 text-gray-700 text-base">
+                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category}</div>
+                  <div><span className="font-semibold">Style:</span> {activeDetailsItem.style}</div>
+                  <div><span className="font-semibold">Material:</span> {activeDetailsItem.material}</div>
+
+                  <div>
+                    <span className="font-semibold">Dominant Colors:</span>
+                    {activeDetailsItem.dominantColors?.length
+                      ? activeDetailsItem.dominantColors.map((c, i) => (
+                        <span key={i}
+                          className="inline-block w-4 h-4 rounded-full mx-1 border"
+                          style={{ background: c }} />
+                      ))
+                      : "—"}
                   </div>
-                  <div className="text-sm text-gray-600">
-                    <div>Category: <span className="font-medium">{activeDetailsItem.category}</span></div>
-                    {activeDetailsItem.style && <div>Style: {activeDetailsItem.style}</div>}
-                    {activeDetailsItem.material && <div>Material: {activeDetailsItem.material}</div>}
-                    {activeDetailsItem.colorHex && (
-                      <div className="flex items-center gap-2">
-                        Color:
-                        <span
-                          className="w-4 h-4 rounded-full border"
-                          style={{ background: activeDetailsItem.colorHex, display: 'inline-block' }}
-                        />
-                        <span>{activeDetailsItem.colorHex}</span>
-                      </div>
-                    )}
-                    {typeof activeDetailsItem.warmthFactor === 'number' && (
-                      <div>Warmth: {activeDetailsItem.warmthFactor}/10</div>
-                    )}
-                    {typeof activeDetailsItem.waterproof === 'boolean' && (
-                      <div>Waterproof: {activeDetailsItem.waterproof ? 'Yes' : 'No'}</div>
-                    )}
-                    {activeDetailsItem.layerCategory && (
-                      <div>Layer: {activeDetailsItem.layerCategory}</div>
-                    )}
-                  </div>
+                  <div><span className="font-semibold">Warmth Factor:</span> {activeDetailsItem.warmthFactor}/10</div>
+                  <div><span className="font-semibold">Waterproof:</span> {activeDetailsItem.waterproof ? "Yes" : "No"}</div>
+                  {/* <pre>{JSON.stringify(activeDetailsItem, null, 2)}</pre> */}
                 </div>
-                {/* Optionally: Edit or Delete buttons here */}
+
+                {/* Edit/Delete actions */}
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     onClick={() => {
@@ -1279,7 +1299,7 @@ export default function ClosetPage() {
                     onClick={() => {
                       setItemToRemove({ id: activeDetailsItem.id, tab: 'items', name: activeDetailsItem.name });
                       setShowModal(true);
-                      setActiveDetailsItem(null); // Close details modal
+                      setActiveDetailsItem(null);
                     }}
                     className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
                   >
@@ -1290,6 +1310,7 @@ export default function ClosetPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
 
 
         {showEditSuccess && (

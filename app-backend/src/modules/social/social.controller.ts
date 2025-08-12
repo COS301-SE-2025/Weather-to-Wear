@@ -346,6 +346,37 @@ class SocialController {
     }
   };
 
+  searchUsers = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const { q, limit = 20, offset = 0 } = req.query;
+      if (typeof q !== 'string' || q.trim() === '') {
+        res.status(400).json({ message: 'Query parameter "q" is required' });
+        return;
+      }
+
+      const results = await socialService.searchUsers(
+        user.id,
+        q,
+        Number(limit),
+        Number(offset)
+      );
+
+      res.status(200).json({
+        message: 'Users retrieved successfully',
+        results,
+        pagination: { limit: Number(limit), offset: Number(offset) },
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
 
 
 }

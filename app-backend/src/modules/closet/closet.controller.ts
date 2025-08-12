@@ -238,6 +238,7 @@ class ClosetController {
         items.map(i => ({
           id: i.id,
           category: i.category,
+          layerCategory: i.layerCategory,
           imageUrl: `/uploads/${i.filename}`,
           createdAt: i.createdAt,
           colorHex: i.colorHex,

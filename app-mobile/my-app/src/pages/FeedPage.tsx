@@ -1,4 +1,4 @@
-import { Heart, Loader2 } from "lucide-react";
+import { Heart, Loader2, Search } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   getPosts,
@@ -9,6 +9,7 @@ import {
   unfollowUser,
   getFollowing,
   getFollowers,
+  searchUsers,
 } from "../services/socialApi";
 
 interface Post {
@@ -33,7 +34,118 @@ interface Account {
   profilePhoto?: string;
 }
 
+type UserResult = {
+  id: string;
+  name: string;
+  profilePhoto?: string | null;
+  location?: string | null;
+  isFollowing: boolean;
+  followersCount: number;
+  followingCount: number;
+};
+
 const API_URL = "http://localhost:5001";
+
+type SearchUsersCardProps = {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  searchLoading: boolean;
+  searchError: string | null;
+  searchResults: UserResult[];
+  searchHasMore: boolean;
+  onLoadMore: () => void;
+  onToggleFollow: (id: string, isFollowing: boolean) => void;
+};
+
+const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(({
+  searchQuery,
+  setSearchQuery,
+  searchLoading,
+  searchError,
+  searchResults,
+  searchHasMore,
+  onLoadMore,
+  onToggleFollow,
+}) => {
+  return (
+    <div>
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search..."
+          className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+        />
+      </div>
+
+      {searchError && <div className="mt-3 text-xs text-red-500">{searchError}</div>}
+
+      <div className="space-y-3">
+        {searchLoading && searchResults.length === 0 && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+          </div>
+        )}
+
+        {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+        )}
+
+        {searchResults.map((u) => (
+          <div
+            key={u.id}
+            className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+          >
+            <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+              {u.profilePhoto ? (
+                <img
+                  src={`${API_URL}${u.profilePhoto}`}
+                  alt={u.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+                  }}
+                />
+              ) : null}
+              <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+            </div>
+
+            <div className="flex flex-col">
+              <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {u.location || "—"} • {u.followersCount} followers
+              </span>
+            </div>
+
+            <button
+              onClick={() => onToggleFollow(u.id, u.isFollowing)}
+              className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
+                ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                : "bg-[#3F978F] text-white"
+                }`}
+            >
+              {u.isFollowing ? "Following" : "Follow"}
+            </button>
+          </div>
+        ))}
+
+        {searchHasMore && (
+          <button
+            onClick={onLoadMore}
+            className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+            disabled={searchLoading}
+          >
+            {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
 
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -45,27 +157,14 @@ const FeedPage: React.FC = () => {
   const [following, setFollowing] = useState<Account[]>([]);
   const [followers, setFollowers] = useState<Account[]>([]);
   const [activeTab, setActiveTab] = useState<"following" | "followers">("following");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token'); // Replace 'token' with the actual key used in your app (e.g., 'authToken' or 'jwt')
-    if (token) {
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length !== 3) {
-          throw new Error('Invalid token format');
-        }
-        const encodedPayload = tokenParts[1];
-        const rawPayload = atob(encodedPayload);
-        const user = JSON.parse(rawPayload);
-        setCurrentUserId(user.id); // Assume the payload has an 'id' field; adjust if it's 'sub', 'userId', etc.
-      } catch (err) {
-        setError('Failed to decode authentication token. Please log in again.');
-      }
-    } else {
-      setError('No authentication token found. Please log in.');
-    }
-  }, []);
+  const currentUserId = "current-user-id";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<UserResult[]>([]);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const pageSize = 10;
 
   const fetchPosts = useCallback(
     async (reset: boolean = false) => {
@@ -73,7 +172,11 @@ const FeedPage: React.FC = () => {
       if (!hasMore && !reset) return;
       setLoadingPosts(true);
       try {
-        const response = await getPosts(20, reset ? 0 : offset, ["user", "comments", "likes", "closetItem"]);
+        const response = await getPosts(
+          20,
+          reset ? 0 : offset,
+          ["user", "comments", "comments.user", "likes", "closetItem"]
+        );
         const formattedPosts: Post[] = response.posts.map((post: any) => ({
           id: post.id,
           userId: post.userId,
@@ -141,6 +244,52 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId, fetchPosts, fetchFollowData]);
 
+  useEffect(() => {
+    let timer: number | undefined;
+
+    async function run() {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        setSearchHasMore(false);
+        setSearchError(null);
+        return;
+      }
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const data = await searchUsers(searchQuery, pageSize, 0);
+        setSearchResults(data.results || []);
+        setSearchOffset(pageSize);
+        setSearchHasMore((data.results || []).length === pageSize);
+      } catch (e: any) {
+        setSearchError(e.message || "Failed to search");
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    // debounce 400ms
+    timer = window.setTimeout(run, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadMoreSearch = async () => {
+    if (!searchHasMore || !searchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const data = await searchUsers(searchQuery, pageSize, searchOffset);
+      const newResults: UserResult[] = data.results || [];
+      setSearchResults(prev => [...prev, ...newResults]);
+      setSearchOffset(prev => prev + pageSize);
+      setSearchHasMore(newResults.length === pageSize);
+    } catch (e: any) {
+      setSearchError(e.message || "Failed to load more");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+
   const toggleLike = async (id: string) => {
     const post = posts.find((p) => p.id === id);
     if (!post) return;
@@ -157,20 +306,37 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  const addCommentHandler = async (id: string) => {
-    const comment = newComment[id]?.trim();
-    if (!comment) return;
+  const addCommentHandler = async (postId: string) => {
+    const content = (newComment[postId] || "").trim();
+    if (!content) return; // bail early
+
     try {
-      const response = await addComment(id, comment);
-      const newComm = { id: response.comment.id, content: comment, userId: currentUserId || "", username: "You" };
-      setPosts(posts.map((p) => (p.id === id ? { ...p, comments: [...p.comments, newComm] } : p)));
-      setNewComment({ ...newComment, [id]: "" });
+
+      const { comment: c } = await addComment(postId, content); // one call, inside try
+
+      const newComm = {
+        id: c.id,
+        content: c.content,
+        userId: c.userId,
+        username: c.user?.name || "You",
+        // profilePhoto: c.user?.profilePhoto,
+      };
+
+      setPosts(prev =>
+        prev.map(p =>
+          p.id === postId ? { ...p, comments: [...p.comments, newComm] } : p
+        )
+      );
+      setNewComment(prev => ({ ...prev, [postId]: "" }));
+
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to add comment");
     }
   };
 
-  const toggleFollow = async (account: Account, isFollowing: boolean) => {
+
+
+  const toggleFollow = async (accountId: string, isFollowing: boolean) => {
     try {
       if (isFollowing) {
         await unfollowUser(account.id);
@@ -184,19 +350,132 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  if (currentUserId === null && !error) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
+
+  const toggleFollowFromSearch = async (userId: string, isFollowing: boolean) => {
+    try {
+      if (isFollowing) {
+        await unfollowUser(userId);
+      } else {
+        await followUser(userId);
+      }
+      setSearchResults(prev =>
+        prev.map(u => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
+      );
+      if (isFollowing) {
+        setFollowing(prev => prev.filter(f => f.id !== userId));
+      } else {
+        setFollowing(prev => [...prev, { id: userId, username: "New User", profilePhoto: "U" }]);
+      }
+    } catch (err: any) {
+      setError(err.message || "Follow action failed");
+    }
+  };
+
+  // const SearchUsersCard: React.FC = () => (
+  //   <div>
+  //     {/* Search bar styled like ClosetPage */}
+  //     <div className="relative mb-6">
+  //       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+  //       <input
+  //         type="text"
+  //         value={searchQuery}
+  //         onChange={(e) => setSearchQuery(e.target.value)}
+  //         placeholder="Search..."
+  //         className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+  //       />
+  //     </div>
+
+  //     {/* Errors */}
+  //     {searchError && (
+  //       <div className="mt-3 text-xs text-red-500">{searchError}</div>
+  //     )}
+
+  //     {/* Results list (kept simple) */}
+  //     <div className="space-y-3">
+  //       {searchLoading && searchResults.length === 0 && (
+  //         <div className="flex justify-center py-2">
+  //           <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+  //         </div>
+  //       )}
+
+  //       {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+  //         <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+  //       )}
+
+  // {searchResults.map((u) => (
+  //   <div
+  //     key={u.id}
+  //     className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+  //   >
+  //     <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+  //       {u.profilePhoto ? (
+  //         <img
+  //           src={`${API_URL}${u.profilePhoto}`}
+  //           alt={u.name}
+  //           className="w-full h-full object-cover"
+  //           onError={(e) => {
+  //             e.currentTarget.style.display = "none";
+  //             (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+  //           }}
+  //         />
+  //       ) : null}
+  //       <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+  //     </div>
+
+  //     <div className="flex flex-col">
+  //       <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+  //       <span className="text-[11px] text-gray-500 dark:text-gray-400">
+  //         {u.location || "—"} • {u.followersCount} followers
+  //       </span>
+  //     </div>
+
+  //     <button
+  //       onClick={() => toggleFollowFromSearch(u.id, u.isFollowing)}
+  //       className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
+  //         ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+  //         : "bg-[#3F978F] text-white"
+  //         }`}
+  //     >
+  //       {u.isFollowing ? "Following" : "Follow"}
+  //     </button>
+  //   </div>
+  // ))}
+
+  //       {searchHasMore && (
+  //         <button
+  //           onClick={loadMoreSearch}
+  //           className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+  //           disabled={searchLoading}
+  //         >
+  //           {searchLoading ? (
+  //             <Loader2 className="h-4 w-4 animate-spin inline" />
+  //           ) : (
+  //             "Load more"
+  //           )}
+  //         </button>
+  //       )}
+  //     </div>
+  //   </div>
+  // );
 
   return (
     <div className="w-full max-w-screen-xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-10">
-      <div className="hidden md:block w-4" />
 
-      <div className="w-full md:w-[58%] space-y-6">
+
+      <div className="w-full md:w-[32%] order-1 md:order-2">
+        <SearchUsersCard
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchLoading={searchLoading}
+          searchError={searchError}
+          searchResults={searchResults}
+          searchHasMore={searchHasMore}
+          onLoadMore={loadMoreSearch}
+          onToggleFollow={toggleFollowFromSearch}
+        />
+      </div>
+
+      <div className="w-full md:w-[58%] space-y-6 order-2 md:order-1">
         {error && <div className="text-red-500 text-sm">{error}</div>}
         {loadingPosts && posts.length === 0 ? (
           <div className="flex justify-center">
@@ -207,7 +486,7 @@ const FeedPage: React.FC = () => {
             {posts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-black dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
@@ -259,9 +538,8 @@ const FeedPage: React.FC = () => {
                     aria-label={post.liked ? "Unlike post" : "Like post"}
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        post.liked ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-gray-400"
-                      }`}
+                      className={`h-5 w-5 transition-colors ${post.liked ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-gray-400"
+                        }`}
                     />
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {post.likes} likes
@@ -289,7 +567,7 @@ const FeedPage: React.FC = () => {
                   />
                   <button
                     onClick={() => addCommentHandler(post.id)}
-                    className="text-blue-500 text-sm font-semibold"
+                    className="text-[#3F978F] text-sm font-semibold"
                     disabled={!newComment[post.id]?.trim()}
                   >
                     Post
@@ -300,7 +578,7 @@ const FeedPage: React.FC = () => {
             {hasMore && (
               <button
                 onClick={() => fetchPosts()}
-                className="mt-4 bg-blue-500 text-white px-4 py-2 rounded text-sm"
+                className="mt-4 bg-[#3F978F] text-white px-4 py-2 rounded text-sm"
                 disabled={loadingPosts}
               >
                 {loadingPosts ? <Loader2 className="h-5 w-5 animate-spin inline" /> : "Load More"}
