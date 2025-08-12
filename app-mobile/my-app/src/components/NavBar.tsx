@@ -80,9 +80,10 @@ const NavBar: React.FC = () => {
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
               <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
-              <h1 className="text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
+              <h1 className="hidden lg:block text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
                 WeatherToWear
               </h1>
+
             </div>
 
             {/* on mobile only: Help, Profile & Logout */}
