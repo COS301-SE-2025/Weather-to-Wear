@@ -1,37 +1,80 @@
+// src/pages/CalendarPage.tsx
 import React, { useEffect, useState, ReactElement } from 'react';
 import { ChevronLeft, ChevronRight, CalendarPlus, Luggage } from 'lucide-react';
-import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
+import { useNavigate } from 'react-router-dom';
+import {
+  fetchAllEvents,
+  createEvent,
+  deleteEvent,
+  updateEvent,
+  type EventDto,
+} from '../services/eventsApi';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
+/**
+ * Local, frontend-safe Event type used by this component.
+ * We make sure `name` is always a string and `type` is present.
+ */
 type Event = {
   id: string;
   name: string;
   location: string;
-  dateFrom: string;    
-  dateTo: string;      
+  dateFrom: string;
+  dateTo: string;
   style?: Style;
   weather?: string;
-  type?: 'event' | 'trip';
+  type: 'event' | 'trip';
 };
+
+// Map API shape (EventDto) → local Event (safe defaults)
+function toEvent(dto: EventDto): Event {
+  return {
+    id: dto.id,
+    name: dto.name ?? 'Untitled',
+    location: dto.location ?? '',
+    dateFrom: dto.dateFrom,
+    dateTo: dto.dateTo,
+    style: (dto.style as Style) ?? 'Casual',
+    weather: dto.weather ?? undefined,
+    // if backend doesn’t send it, treat as a normal event
+    type: (dto as any).type === 'trip' ? 'trip' : 'event',
+  };
+}
 
 const parseISO = (s: string) => new Date(s);
 const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 const isToday = (d: Date) => isSameDay(d, new Date());
-const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
-const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', o).format(d);
+const isSameMonth = (a: Date, b: Date) =>
+  a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+const fmt = (d: Date, o: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat('en-US', o).format(d);
 const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
-const monthEnd   = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+const monthEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
 export default function CalendarPage() {
+  const navigate = useNavigate();
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' as Style });
-  const [newTrip, setNewTrip] = useState({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' as Style });
+  const [newEvent, setNewEvent] = useState({
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'Casual' as Style,
+  });
+  const [newTrip, setNewTrip] = useState({
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'Casual' as Style,
+  });
 
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -42,14 +85,14 @@ export default function CalendarPage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: 'Casual' as Style
+    style: 'Casual' as Style,
   });
 
   useEffect(() => {
     const load = async () => {
       try {
         const list = await fetchAllEvents();
-        setEvents(list);
+        setEvents(list.map(toEvent));
       } catch (e) {
         console.error('load events failed', e);
       }
@@ -65,22 +108,24 @@ export default function CalendarPage() {
     setIsEditing(false);
     setEditEventData({
       id: selectedEvent.id,
-      name: selectedEvent.name,
+      name: selectedEvent.name ?? '',
       location: selectedEvent.location,
       dateFrom: selectedEvent.dateFrom.slice(0, 16),
       dateTo: selectedEvent.dateTo.slice(0, 16),
-      style: selectedEvent.style || 'Casual'
+      style: selectedEvent.style || 'Casual',
     });
   }, [selectedEvent]);
 
   useEffect(() => {
     const tick = async () => {
       const now = new Date();
-      const expired = events.filter(e => new Date(e.dateTo) < now).map(e => e.id);
+      const expired = events
+        .filter((e) => new Date(e.dateTo) < now)
+        .map((e) => e.id);
       if (!expired.length) return;
       try {
-        await Promise.all(expired.map(id => deleteEvent(id)));
-        setEvents(prev => prev.filter(e => !expired.includes(e.id)));
+        await Promise.all(expired.map((id) => deleteEvent(id)));
+        setEvents((prev) => prev.filter((e) => !expired.includes(e.id)));
       } catch (e) {
         console.error('delete expired failed', e);
       }
@@ -90,8 +135,10 @@ export default function CalendarPage() {
     return () => clearInterval(id);
   }, [events]);
 
-  const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  const prevMonth = () =>
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  const nextMonth = () =>
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   const onDayClick = (d: Date) => setSelectedDate(d);
 
   async function handleCreate(kind: 'event' | 'trip') {
@@ -101,15 +148,17 @@ export default function CalendarPage() {
       return;
     }
     try {
-      const created = await createEvent({
+      const createdDto = await createEvent({
         name: src.name,
         location: src.location,
         style: src.style,
         dateFrom: new Date(src.dateFrom).toISOString(),
         dateTo: new Date(src.dateTo).toISOString(),
-        type: kind
+        type: kind, // tell backend if available; safe if ignored
       } as any);
-      setEvents(e => [...e, created]);
+      const created = toEvent(createdDto);
+      setEvents((e) => [...e, created]);
+
       if (kind === 'event') {
         setShowCreateModal(false);
         setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
@@ -126,15 +175,16 @@ export default function CalendarPage() {
 
   const handleUpdateEvent = async () => {
     try {
-      const updated = await updateEvent({
+      const updatedDto = await updateEvent({
         id: editEventData.id,
         name: editEventData.name,
         location: editEventData.location,
         dateFrom: new Date(editEventData.dateFrom).toISOString(),
         dateTo: new Date(editEventData.dateTo).toISOString(),
-        style: editEventData.style
+        style: editEventData.style,
       });
-      setEvents(list => list.map(e => (e.id === updated.id ? updated : e)));
+      const updated = toEvent(updatedDto);
+      setEvents((list) => list.map((e) => (e.id === updated.id ? updated : e)));
       setSelectedEvent(updated);
       setIsEditing(false);
       window.dispatchEvent(new Event('eventUpdated'));
@@ -148,7 +198,7 @@ export default function CalendarPage() {
     if (!selectedEvent || !window.confirm('Delete this event?')) return;
     try {
       await deleteEvent(selectedEvent.id);
-      setEvents(list => list.filter(e => e.id !== selectedEvent.id));
+      setEvents((list) => list.filter((e) => e.id !== selectedEvent.id));
       setShowEventModal(false);
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (e) {
@@ -156,7 +206,6 @@ export default function CalendarPage() {
       alert('Failed to delete event');
     }
   };
-
 
   function getCalendarBounds(month: Date) {
     const start = monthStart(month);
@@ -185,9 +234,9 @@ export default function CalendarPage() {
 
   type Segment = {
     event: Event;
-    colStart: number; 
-    colEnd: number;   
-    lane: number;     
+    colStart: number; // 1..7 (grid col start)
+    colEnd: number; // end + 1
+    lane: number; // row index within overlay
     weekKey: string;
   };
 
@@ -204,13 +253,13 @@ export default function CalendarPage() {
       const segEnd = e < end ? e : end;
       if (segStart > segEnd) continue;
 
-      const cs = segStart.getDay() + 1;      
-      const ce = segEnd.getDay() + 2;         
+      const cs = segStart.getDay() + 1; // grid col start (1-based)
+      const ce = segEnd.getDay() + 2; // grid col end (exclusive)
       segs.push({ event: ev, colStart: cs, colEnd: ce });
     }
 
     const byStart = segs.sort((a, b) => a.colStart - b.colStart || a.colEnd - b.colEnd);
-    const lanes: number[] = []; 
+    const lanes: number[] = []; // last end used per lane
     const out: Segment[] = [];
 
     for (const s of byStart) {
@@ -232,7 +281,6 @@ export default function CalendarPage() {
     return out;
   }
 
-
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
       <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
@@ -249,8 +297,10 @@ export default function CalendarPage() {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return (
       <div className="grid grid-cols-7 gap-1 mb-2">
-        {days.map(d => (
-          <div key={d} className="text-center font-medium text-sm py-1">{d}</div>
+        {days.map((d) => (
+          <div key={d} className="text-center font-medium text-sm py-1">
+            {d}
+          </div>
         ))}
       </div>
     );
@@ -280,7 +330,7 @@ export default function CalendarPage() {
           });
 
           const segs = getWeekSegments(week, events);
-          const lanes = segs.length ? Math.max(...segs.map(s => s.lane)) + 1 : 0;
+          const lanes = segs.length ? Math.max(...segs.map((s) => s.lane)) + 1 : 0;
 
           return (
             <div key={week[0].toDateString()} className="relative">
@@ -289,18 +339,22 @@ export default function CalendarPage() {
               {/* Overlay that spans the entire row, aligned to the 7 columns */}
               <div
                 className="absolute inset-x-0 top-6 bottom-1 grid grid-cols-7 gap-1 pointer-events-none"
-                style={{ gridAutoRows: '22px' }}  
+                style={{ gridAutoRows: '22px' }}
               >
-                {segs.map(seg => {
+                {segs.map((seg) => {
                   const ev = seg.event;
                   const isTrip = ev.type === 'trip';
                   const bg = isTrip ? 'bg-emerald-600' : 'bg-[#3F978F]';
 
                   const evStart = parseISO(ev.dateFrom);
-                  const evEnd   = parseISO(ev.dateTo);
+                  const evEnd = parseISO(ev.dateTo);
 
-                  const isStart = evStart >= week[0] && evStart <= week[6] && (evStart.getDay() + 1) === seg.colStart;
-                  const isEnd   = evEnd   >= week[0] && evEnd   <= week[6] && (evEnd.getDay() + 2) === seg.colEnd;
+                  const isStart =
+                    evStart >= week[0] &&
+                    evStart <= week[6] &&
+                    evStart.getDay() + 1 === seg.colStart;
+                  const isEnd =
+                    evEnd >= week[0] && evEnd <= week[6] && evEnd.getDay() + 2 === seg.colEnd;
 
                   return (
                     <div
@@ -326,9 +380,15 @@ export default function CalendarPage() {
                   );
                 })}
                 {/* reserve rows so overlay doesn't collapse */}
-                {lanes > 0 && Array.from({ length: lanes }).map((_, i) => (
-                  <div key={`lane-spacer-${i}`} style={{ gridColumn: '1 / 8', gridRow: String(i + 1), visibility: 'hidden' }}>.</div>
-                ))}
+                {lanes > 0 &&
+                  Array.from({ length: lanes }).map((_, i) => (
+                    <div
+                      key={`lane-spacer-${i}`}
+                      style={{ gridColumn: '1 / 8', gridRow: String(i + 1), visibility: 'hidden' }}
+                    >
+                      .
+                    </div>
+                  ))}
               </div>
             </div>
           );
@@ -338,7 +398,7 @@ export default function CalendarPage() {
   }
 
   function renderSelectedDateEvents() {
-    const dateEvents = events.filter(event => {
+    const dateEvents = events.filter((event) => {
       const s = parseISO(event.dateFrom);
       const e = parseISO(event.dateTo);
       return isSameDay(s, selectedDate) || isSameDay(e, selectedDate) || (s <= selectedDate && e >= selectedDate);
@@ -346,22 +406,24 @@ export default function CalendarPage() {
 
     return (
       <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">
-          Today's Events
-        </h3>
+        <h3 className="text-lg font-semibold mb-2">Today's Events</h3>
         {dateEvents.length === 0 ? (
           <p className="text-gray-500">No events scheduled</p>
         ) : (
           <div className="space-y-2">
-            {dateEvents.map(ev => (
+            {dateEvents.map((ev) => (
               <div
                 key={ev.id}
                 className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
+                onClick={() => {
+                  setSelectedEvent(ev);
+                  setShowEventModal(true);
+                }}
               >
                 <div className="font-medium">{ev.name}</div>
                 <div className="text-sm text-gray-600">
-                  {fmt(parseISO(ev.dateFrom), { hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { hour: 'numeric', minute: '2-digit' })}
+                  {fmt(parseISO(ev.dateFrom), { hour: 'numeric', minute: '2-digit' })} –{' '}
+                  {fmt(parseISO(ev.dateTo), { hour: 'numeric', minute: '2-digit' })}
                 </div>
                 {ev.location && <div className="text-sm text-gray-600">Location: {ev.location}</div>}
                 <div className="text-xs mt-1 px-2 py-1 bg-gray-100 rounded-full inline-block">{ev.style}</div>
@@ -373,14 +435,13 @@ export default function CalendarPage() {
     );
   }
 
-  
   function renderUpcomingEvents() {
     const now = new Date();
     const in14 = new Date();
     in14.setDate(now.getDate() + 14);
 
     const upcoming = events
-      .filter(ev => {
+      .filter((ev) => {
         const start = parseISO(ev.dateFrom);
         return start >= now && start <= in14;
       })
@@ -393,17 +454,30 @@ export default function CalendarPage() {
           <p className="text-gray-500">Nothing coming up in the next two weeks.</p>
         ) : (
           <div className="space-y-2">
-            {upcoming.map(ev => (
+            {upcoming.map((ev) => (
               <div
                 key={`up-${ev.id}`}
                 className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
+                onClick={() => {
+                  setSelectedEvent(ev);
+                  setShowEventModal(true);
+                }}
               >
                 <div className="font-medium">{ev.name}</div>
                 <div className="text-sm text-gray-600">
-                  {fmt(parseISO(ev.dateFrom), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  {fmt(parseISO(ev.dateFrom), {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
                   {' – '}
-                  {fmt(parseISO(ev.dateTo), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  {fmt(parseISO(ev.dateTo), {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
                 </div>
                 {ev.location && <div className="text-sm text-gray-600">Location: {ev.location}</div>}
                 <div className="text-xs mt-1 px-2 py-1 bg-gray-100 rounded-full inline-block">{ev.style}</div>
@@ -414,7 +488,6 @@ export default function CalendarPage() {
       </div>
     );
   }
-
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
@@ -448,21 +521,55 @@ export default function CalendarPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative">
-            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowCreateModal(false)}>×</button>
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowCreateModal(false)}>
+              ×
+            </button>
             <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
             <div className="space-y-3">
-              <input className="w-full p-2 border rounded" placeholder="Event name" value={newEvent.name} onChange={e => setNewEvent({ ...newEvent, name: e.target.value })} />
-              <input className="w-full p-2 border rounded" placeholder="Location" value={newEvent.location} onChange={e => setNewEvent({ ...newEvent, location: e.target.value })} />
-              <input type="datetime-local" className="w-full p-2 border rounded" value={newEvent.dateFrom} onChange={e => setNewEvent({ ...newEvent, dateFrom: e.target.value })} />
-              <input type="datetime-local" className="w-full p-2 border rounded" value={newEvent.dateTo} onChange={e => setNewEvent({ ...newEvent, dateTo: e.target.value })} />
-              <select className="w-full p-2 border rounded" value={newEvent.style} onChange={e => setNewEvent({ ...newEvent, style: e.target.value as Style })}>
-                <option value="Casual">Casual</option><option value="Formal">Formal</option><option value="Athletic">Athletic</option>
-                <option value="Party">Party</option><option value="Business">Business</option><option value="Outdoor">Outdoor</option>
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Event name"
+                value={newEvent.name}
+                onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Location"
+                value={newEvent.location}
+                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateFrom}
+                onChange={(e) => setNewEvent({ ...newEvent, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newEvent.dateTo}
+                onChange={(e) => setNewEvent({ ...newEvent, dateTo: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newEvent.style}
+                onChange={(e) => setNewEvent({ ...newEvent, style: e.target.value as Style })}
+              >
+                <option value="Casual">Casual</option>
+                <option value="Formal">Formal</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
               </select>
             </div>
             <div className="mt-4 flex justify-end space-x-2">
-              <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowCreateModal(false)}>Cancel</button>
-              <button className="px-4 py-2 rounded-full bg-[#3F978F] text-white" onClick={() => handleCreate('event')}>Save</button>
+              <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </button>
+              <button className="px-4 py-2 rounded-full bg-[#3F978F] text-white" onClick={() => handleCreate('event')}>
+                Save
+              </button>
             </div>
           </div>
         </div>
@@ -472,21 +579,55 @@ export default function CalendarPage() {
       {showTripModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative">
-            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowTripModal(false)}>×</button>
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowTripModal(false)}>
+              ×
+            </button>
             <h2 className="text-2xl mb-4 font-livvic">Plan a new trip</h2>
             <div className="space-y-3">
-              <input className="w-full p-2 border rounded" placeholder="Trip name" value={newTrip.name} onChange={e => setNewTrip({ ...newTrip, name: e.target.value })} />
-              <input className="w-full p-2 border rounded" placeholder="Destination" value={newTrip.location} onChange={e => setNewTrip({ ...newTrip, location: e.target.value })} />
-              <input type="datetime-local" className="w-full p-2 border rounded" value={newTrip.dateFrom} onChange={e => setNewTrip({ ...newTrip, dateFrom: e.target.value })} />
-              <input type="datetime-local" className="w-full p-2 border rounded" value={newTrip.dateTo} onChange={e => setNewTrip({ ...newTrip, dateTo: e.target.value })} />
-              <select className="w-full p-2 border rounded" value={newTrip.style} onChange={e => setNewTrip({ ...newTrip, style: e.target.value as Style })}>
-                <option value="Casual">Casual</option><option value="Formal">Formal</option><option value="Athletic">Athletic</option>
-                <option value="Party">Party</option><option value="Business">Business</option><option value="Outdoor">Outdoor</option>
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Trip name"
+                value={newTrip.name}
+                onChange={(e) => setNewTrip({ ...newTrip, name: e.target.value })}
+              />
+              <input
+                className="w-full p-2 border rounded"
+                placeholder="Destination"
+                value={newTrip.location}
+                onChange={(e) => setNewTrip({ ...newTrip, location: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newTrip.dateFrom}
+                onChange={(e) => setNewTrip({ ...newTrip, dateFrom: e.target.value })}
+              />
+              <input
+                type="datetime-local"
+                className="w-full p-2 border rounded"
+                value={newTrip.dateTo}
+                onChange={(e) => setNewTrip({ ...newTrip, dateTo: e.target.value })}
+              />
+              <select
+                className="w-full p-2 border rounded"
+                value={newTrip.style}
+                onChange={(e) => setNewTrip({ ...newTrip, style: e.target.value as Style })}
+              >
+                <option value="Casual">Casual</option>
+                <option value="Formal">Formal</option>
+                <option value="Athletic">Athletic</option>
+                <option value="Party">Party</option>
+                <option value="Business">Business</option>
+                <option value="Outdoor">Outdoor</option>
               </select>
             </div>
             <div className="mt-4 flex justify-end space-x-2">
-              <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowTripModal(false)}>Cancel</button>
-              <button className="px-4 py-2 rounded-full bg-[#3F978F] text-white" onClick={() => handleCreate('trip')}>Save</button>
+              <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowTripModal(false)}>
+                Cancel
+              </button>
+              <button className="px-4 py-2 rounded-full bg-[#3F978F] text-white" onClick={() => handleCreate('trip')}>
+                Save
+              </button>
             </div>
           </div>
         </div>
@@ -496,33 +637,63 @@ export default function CalendarPage() {
       {showEventModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative">
-            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowEventModal(false)}>×</button>
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowEventModal(false)}>
+              ×
+            </button>
 
             <h2 className="text-xl font-bold mb-4">
               {isEditing ? (
-                <input className="w-full p-2 border rounded" value={editEventData.name} onChange={e => setEditEventData({ ...editEventData, name: e.target.value })} />
-              ) : (selectedEvent.name)}
+                <input
+                  className="w-full p-2 border rounded"
+                  value={editEventData.name}
+                  onChange={(e) => setEditEventData({ ...editEventData, name: e.target.value })}
+                />
+              ) : (
+                selectedEvent.name
+              )}
             </h2>
 
             {isEditing ? (
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Location</label>
-                  <input className="w-full p-2 border rounded" value={editEventData.location} onChange={e => setEditEventData({ ...editEventData, location: e.target.value })} />
+                  <input
+                    className="w-full p-2 border rounded"
+                    value={editEventData.location}
+                    onChange={(e) => setEditEventData({ ...editEventData, location: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Start</label>
-                  <input type="datetime-local" className="w-full p-2 border rounded" value={editEventData.dateFrom} onChange={e => setEditEventData({ ...editEventData, dateFrom: e.target.value })} />
+                  <input
+                    type="datetime-local"
+                    className="w-full p-2 border rounded"
+                    value={editEventData.dateFrom}
+                    onChange={(e) => setEditEventData({ ...editEventData, dateFrom: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">End</label>
-                  <input type="datetime-local" className="w-full p-2 border rounded" value={editEventData.dateTo} onChange={e => setEditEventData({ ...editEventData, dateTo: e.target.value })} />
+                  <input
+                    type="datetime-local"
+                    className="w-full p-2 border rounded"
+                    value={editEventData.dateTo}
+                    onChange={(e) => setEditEventData({ ...editEventData, dateTo: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Style</label>
-                  <select className="w-full p-2 border rounded" value={editEventData.style} onChange={e => setEditEventData({ ...editEventData, style: e.target.value as Style })}>
-                    <option value="Casual">Casual</option><option value="Formal">Formal</option><option value="Athletic">Athletic</option>
-                    <option value="Party">Party</option><option value="Business">Business</option><option value="Outdoor">Outdoor</option>
+                  <select
+                    className="w-full p-2 border rounded"
+                    value={editEventData.style}
+                    onChange={(e) => setEditEventData({ ...editEventData, style: e.target.value as Style })}
+                  >
+                    <option value="Casual">Casual</option>
+                    <option value="Formal">Formal</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
                   </select>
                 </div>
               </div>
@@ -530,16 +701,46 @@ export default function CalendarPage() {
               <div className="space-y-2">
                 <div>
                   <span className="font-medium">When:</span>{' '}
-                  {fmt(parseISO(selectedEvent.dateFrom), { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} -{' '}
-                  {fmt(parseISO(selectedEvent.dateTo),   { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  {fmt(parseISO(selectedEvent.dateFrom), {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}{' '}
+                  -{' '}
+                  {fmt(parseISO(selectedEvent.dateTo), {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
                 </div>
-                {selectedEvent.location && <div><span className="font-medium">Where:</span> {selectedEvent.location}</div>}
-                {selectedEvent.style && <div><span className="font-medium">Style:</span> {selectedEvent.style}</div>}
+                {selectedEvent.location && (
+                  <div>
+                    <span className="font-medium">Where:</span> {selectedEvent.location}
+                  </div>
+                )}
+                {selectedEvent.style && (
+                  <div>
+                    <span className="font-medium">Style:</span> {selectedEvent.style}
+                  </div>
+                )}
                 {selectedEvent.weather && (
                   <div className="mt-2">
                     <span className="font-medium">Weather:</span>
                     <div className="text-sm text-gray-600">
-                      {JSON.parse(selectedEvent.weather)[0]?.summary?.mainCondition} - {Math.round(JSON.parse(selectedEvent.weather)[0]?.summary?.avgTemp)}°C
+                      {(() => {
+                        try {
+                          const arr = JSON.parse(String(selectedEvent.weather));
+                          return `${arr[0]?.summary?.mainCondition ?? ''} - ${Math.round(
+                            arr[0]?.summary?.avgTemp ?? 0
+                          )}°C`;
+                        } catch {
+                          return 'Unavailable';
+                        }
+                      })()}
                     </div>
                   </div>
                 )}
@@ -549,13 +750,30 @@ export default function CalendarPage() {
             <div className="mt-6 flex justify-end space-x-2">
               {isEditing ? (
                 <>
-                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded border">Cancel</button>
-                  <button onClick={handleUpdateEvent} className="px-4 py-2 rounded bg-[#3F978F] text-white">Save</button>
+                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded border">
+                    Cancel
+                  </button>
+                  <button onClick={handleUpdateEvent} className="px-4 py-2 rounded bg-[#3F978F] text-white">
+                    Save
+                  </button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => setIsEditing(true)} className="px-4 py-2 rounded bg-[#3F978F] text-white">Edit</button>
-                  <button onClick={handleDeleteEvent} className="px-4 py-2 rounded bg-red-500 text-white">Delete</button>
+                  {/* Pack button appears for trips */}
+                  {selectedEvent.type === 'trip' && (
+                    <button
+                      onClick={() => navigate(`/packing/${selectedEvent.id}`)}
+                      className="px-4 py-2 rounded bg-emerald-600 text-white"
+                    >
+                      Pack
+                    </button>
+                  )}
+                  <button onClick={() => setIsEditing(true)} className="px-4 py-2 rounded bg-[#3F978F] text-white">
+                    Edit
+                  </button>
+                  <button onClick={handleDeleteEvent} className="px-4 py-2 rounded bg-red-500 text-white">
+                    Delete
+                  </button>
                 </>
               )}
             </div>
