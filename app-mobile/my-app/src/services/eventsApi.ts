@@ -4,7 +4,19 @@ import exp from 'constants';
 
 const API_URL = 'http://localhost:5001/api/events';
 
-export const fetchAllEvents = async () => {
+type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
+
+export type Event = {
+  id: string;
+  name: string;
+  location: string;
+  dateFrom: string;
+  dateTo: string;
+  style?: Style;
+  weather?: string;
+};
+
+export const fetchAllEvents = async (): Promise<Event[]> => {
   try {
     const response = await axios.get(API_URL + '/getEvents', {
       headers: {
@@ -24,7 +36,7 @@ export const createEvent = async (eventData: {
   dateFrom: string;
   dateTo: string;
   style: string;
-}) => {
+}): Promise<Event> => {
   const token = localStorage.getItem('token');
   const res = await axios.post(`${API_URL}/createEvent`, eventData, {
     headers: {
