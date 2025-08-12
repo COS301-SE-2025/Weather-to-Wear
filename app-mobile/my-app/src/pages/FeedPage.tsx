@@ -171,7 +171,11 @@ const FeedPage: React.FC = () => {
       if (!hasMore && !reset) return;
       setLoadingPosts(true);
       try {
-        const response = await getPosts(20, reset ? 0 : offset, ["user", "comments", "likes", "closetItem"]);
+        const response = await getPosts(
+          20,
+          reset ? 0 : offset,
+          ["user", "comments", "comments.user", "likes", "closetItem"]
+        );
         const formattedPosts: Post[] = response.posts.map((post: any) => ({
           id: post.id,
           userId: post.userId,
@@ -298,18 +302,32 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  const addCommentHandler = async (id: string) => {
-    const comment = newComment[id]?.trim();
-    if (!comment) return;
+  const addCommentHandler = async (postId: string) => {
+    const content = (newComment[postId] || "").trim();
+    if (!content) return; // bail early
+
     try {
-      const response = await addComment(id, comment);
-      const newComm = { id: response.comment.id, content: comment, userId: currentUserId, username: "You" };
-      setPosts(posts.map((p) => (p.id === id ? { ...p, comments: [...p.comments, newComm] } : p)));
-      setNewComment({ ...newComment, [id]: "" });
+      const { comment: c } = await addComment(postId, content); // one call, inside try
+
+      const newComm = {
+        id: c.id,
+        content: c.content,
+        userId: c.userId,
+        username: c.user?.name || "You",
+        // profilePhoto: c.user?.profilePhoto,
+      };
+
+      setPosts(prev =>
+        prev.map(p =>
+          p.id === postId ? { ...p, comments: [...p.comments, newComm] } : p
+        )
+      );
+      setNewComment(prev => ({ ...prev, [postId]: "" }));
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to add comment");
     }
   };
+
 
   const toggleFollow = async (accountId: string, isFollowing: boolean) => {
     try {

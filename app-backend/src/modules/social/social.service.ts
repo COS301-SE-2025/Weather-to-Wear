@@ -28,45 +28,70 @@ class SocialService {
     });
   }
 
-  async getPosts(options: {
-    currentUserId: string;
-    limit: number;
-    offset: number;
-    include: string[];
-  }) {
+  async getPosts(options: { currentUserId: string; limit: number; offset: number; include: string[]; }) {
     const { currentUserId, limit, offset, include } = options;
+    const inc = (include ?? []).map(s => s.toLowerCase());
+    const incUser = inc.includes('user');
+    const incComments = inc.includes('comments');
+    const incCommentUser = inc.includes('comments.user');   // NEW
+    const incLikes = inc.includes('likes');
+    const incClosetItem = inc.includes('closetitem');
+
     const following = await this.prisma.follow.findMany({
       where: { followerId: currentUserId },
       select: { followingId: true },
     });
-    const followingIds = following.map(f => f.followingId);
-    followingIds.push(currentUserId);
+    const followingIds = [...following.map(f => f.followingId), currentUserId];
+
     return this.prisma.post.findMany({
-      where: {
-        userId: { in: followingIds }
-      },
-      take: limit,
-      skip: offset,
+      where: { userId: { in: followingIds } },
+      take: Number(limit),
+      skip: Number(offset),
       orderBy: { createdAt: 'desc' },
       include: {
-        user: include.includes('user'),
-        comments: include.includes('comments'),
-        likes: include.includes('likes'),
+        user: incUser ? { select: { id: true, name: true, profilePhoto: true } } : undefined,
+        comments: incComments
+          ? {
+            orderBy: { createdAt: 'asc' },
+            include: incCommentUser
+              ? { user: { select: { id: true, name: true, profilePhoto: true } } }
+              : undefined,
+          }
+          : undefined,
+        likes: incLikes ? true : undefined,
+        closetItem: incClosetItem ? true : undefined,
       },
     });
   }
+
 
 
   async getPostById(id: string, include: string[]) {
+    const inc = (include ?? []).map(s => s.toLowerCase());
+    const incUser = inc.includes('user');
+    const incComments = inc.includes('comments');
+    const incCommentUser = inc.includes('comments.user');   // NEW
+    const incLikes = inc.includes('likes');
+    const incClosetItem = inc.includes('closetitem');
+
     return this.prisma.post.findUnique({
       where: { id },
       include: {
-        user: include.includes('user'),
-        comments: include.includes('comments'),
-        likes: include.includes('likes'),
+        user: incUser ? { select: { id: true, name: true, profilePhoto: true } } : undefined,
+        comments: incComments
+          ? {
+            orderBy: { createdAt: 'asc' },
+            include: incCommentUser
+              ? { user: { select: { id: true, name: true, profilePhoto: true } } }
+              : undefined,
+          }
+          : undefined,
+        likes: incLikes ? true : undefined,
+        closetItem: incClosetItem ? true : undefined,
       },
     });
   }
+
 
   async updatePost(
     id: string,
@@ -107,38 +132,34 @@ class SocialService {
   }
 
   async addComment(postId: string, userId: string, content: string) {
-    // Check post exists
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post) throw new Error('Post not found');
     if (!content || content.trim() === '') throw new Error('Content is required');
 
     return this.prisma.comment.create({
-      data: {
-        postId,
-        userId,
-        content,
-      },
-      include: {
-        user: true, // Optional: include user info in response
-      }
+      data: { postId, userId, content },
+      include: { user: { select: { id: true, name: true, profilePhoto: true } } },
     });
   }
 
+
   async getCommentsForPost(postId: string, limit = 20, offset = 0, include: string[] = []) {
-    // Confirm post exists
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post) throw new Error('Post not found');
+
+    const wantUser = include.includes('user');
 
     return this.prisma.comment.findMany({
       where: { postId },
       take: limit,
       skip: offset,
       orderBy: { createdAt: 'asc' },
-      include: {
-        user: include.includes('user'), // Prisma will join user via "UserComments"
-      },
+      include: wantUser
+        ? { user: { select: { id: true, name: true, profilePhoto: true } } }
+        : undefined,
     });
   }
+
 
   async updateComment(id: string, userId: string, content: string) {
     const comment = await this.prisma.comment.findUnique({ where: { id } });
