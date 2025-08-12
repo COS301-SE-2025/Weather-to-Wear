@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -12,6 +12,8 @@ import {
 import { fetchAllOutfits } from "../services/outfitApi";
 import { getItemCount } from "../services/closetApi";
 import { getOutfitCount } from "../services/outfitApi";
+import { uploadProfilePhoto } from "../services/usersApi";
+
 
 interface OutfitItem {
   closetItemId: string;
@@ -40,22 +42,26 @@ const Profile = () => {
   const [loadingOutfits, setLoadingOutfits] = useState(true);
   const [closetCount, setClosetCount] = useState<number>(0);
   const [outfitCount, setOutfitCount] = useState<number>(0);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   // Helper to prefix image URLs
   const prefixed = (url: string) =>
     url.startsWith("http") ? url : `http://localhost:5001${url}`;
 
   useEffect(() => {
-    // Fetch user data from localStorage
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        setUserInfo((prev) => ({
+        setUserInfo(prev => ({
           ...prev,
           name: parsedUser.name || prev.name,
           email: parsedUser.email || prev.email,
         }));
+        setProfilePhoto(parsedUser.profilePhoto);
       } catch (error) {
         console.error("Failed to parse user data", error);
       }
@@ -109,6 +115,32 @@ const Profile = () => {
     }));
   };
 
+  const handleSelectPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPhoto(true);
+    try {
+      const { user } = await uploadProfilePhoto(file);
+      setProfilePhoto(user.profilePhoto);
+      setUserInfo(prev => ({ ...prev, name: user.name ?? prev.name, email: user.email ?? prev.email }));
+
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ ...parsed, profilePhoto: user.profilePhoto, name: user.name ?? parsed.name })
+        );
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = "";
+    }
+  };
+
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -147,22 +179,52 @@ const Profile = () => {
     "
         >
           <div className="relative">
-            <motion.div
-              whileHover={{ scale: 1.1 }}
+            <div
               className="
-          w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40
-          rounded-full bg-[#3F978F] text-white
-          flex items-center justify-center
-          text-2xl sm:text-3xl md:text-4xl lg:text-5xl
-          font-bodoni
-        "
+      w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40
+      rounded-full bg-[#3F978F] text-white
+      flex items-center justify-center
+      text-2xl sm:text-3xl md:text-4xl lg:text-5xl
+      font-bodoni overflow-hidden
+    "
             >
-              {getInitials(userInfo.name).charAt(0)}
-            </motion.div>
-            <button className="absolute bottom-0 right-0 rounded-full bg-black hover:bg-[#2F6F6A] p-1 sm:p-1.5 md:p-2 text-white transition">
+              {profilePhoto ? (
+                <img
+                  src={prefixed(profilePhoto)}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={() => setProfilePhoto(undefined)}
+                />
+              ) : (
+                <span>{getInitials(userInfo.name).charAt(0)}</span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 rounded-full bg-black hover:bg-[#2F6F6A] p-1 sm:p-1.5 md:p-2 text-white transition disabled:opacity-60"
+              disabled={uploadingPhoto}
+              title="Change profile photo"
+            >
               <Camera className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
             </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleSelectPhoto}
+            />
+
+            {uploadingPhoto && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs">
+                Uploading...
+              </div>
+            )}
           </div>
+
 
           <h2 className="-mt-2 sm:mt-14 text-black text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold font-livvic">
             {userInfo.name}
