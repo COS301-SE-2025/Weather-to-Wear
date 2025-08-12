@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { fetchAllOutfits } from './outfitApi';
 
 const BASE_URL = 'http://localhost:5001/api/closet';
 
@@ -78,3 +79,9 @@ export const deleteItem = (id: string) =>
       ...getAuthHeader(),
     },
   });
+
+  export const getItemCount = (): Promise<number> => {
+  return fetchAllItems()
+    .then(res => Array.isArray(res.data) ? res.data.length : 0);
+};
+
