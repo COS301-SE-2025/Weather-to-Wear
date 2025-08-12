@@ -28,33 +28,36 @@
       });
     }
 
-    async getPosts(options: {
-      currentUserId: string;
-      limit: number;
-      offset: number;
-      include: string[];
-    }) {
-      const { currentUserId, limit, offset, include } = options;
-      const following = await this.prisma.follow.findMany({
-        where: { followerId: currentUserId },
-        select: { followingId: true },
-      });
-      const followingIds = following.map(f => f.followingId);
-      followingIds.push(currentUserId);
-      return this.prisma.post.findMany({
-        where: {
-          userId: { in: followingIds }
-        },
-        take: limit,
-        skip: offset,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: include.includes('user'),
-          comments: include.includes('comments'),
-          likes: include.includes('likes'),
-        },
-      });
-    }
+  async getPosts(options: {
+  currentUserId: string;
+  limit: number;
+  offset: number;
+  include: string[];
+}) {
+  const { currentUserId, limit, offset, include } = options;
+  const following = await this.prisma.follow.findMany({
+    where: { followerId: currentUserId },
+    select: { followingId: true },
+  });
+  const followingIds = following.map(f => f.followingId);
+  followingIds.push(currentUserId);
+
+  return this.prisma.post.findMany({
+    where: {
+      userId: { in: followingIds }
+    },
+    take: limit,
+    skip: offset,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: include.includes('user'),
+      comments: include.includes('comments') ? {
+        include: { user: { select: { name: true, profilePhoto: true } } } 
+      } : false,
+      likes: include.includes('likes'),
+    },
+  });
+}
 
 
     async getPostById(id: string, include: string[]) {

@@ -46,9 +46,10 @@ const FeedPage: React.FC = () => {
   const [followers, setFollowers] = useState<Account[]>([]);
   const [activeTab, setActiveTab] = useState<"following" | "followers">("following");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null); // New state for username
 
   useEffect(() => {
-    const token = localStorage.getItem('token'); // Replace 'token' with the actual key used in your app (e.g., 'authToken' or 'jwt')
+    const token = localStorage.getItem('token');
     if (token) {
       try {
         const tokenParts = token.split('.');
@@ -58,7 +59,8 @@ const FeedPage: React.FC = () => {
         const encodedPayload = tokenParts[1];
         const rawPayload = atob(encodedPayload);
         const user = JSON.parse(rawPayload);
-        setCurrentUserId(user.id); // Assume the payload has an 'id' field; adjust if it's 'sub', 'userId', etc.
+        setCurrentUserId(user.id);
+        setUsername(user.name || user.username || "Unknown"); // Adjust based on your token field
       } catch (err) {
         setError('Failed to decode authentication token. Please log in again.');
       }
@@ -162,7 +164,7 @@ const FeedPage: React.FC = () => {
     if (!comment) return;
     try {
       const response = await addComment(id, comment);
-      const newComm = { id: response.comment.id, content: comment, userId: currentUserId || "", username: "You" };
+      const newComm = { id: response.comment.id, content: comment, userId: currentUserId || "", username: username || "Unknown" };
       setPosts(posts.map((p) => (p.id === id ? { ...p, comments: [...p.comments, newComm] } : p)));
       setNewComment({ ...newComment, [id]: "" });
     } catch (err: any) {
@@ -240,7 +242,6 @@ const FeedPage: React.FC = () => {
                       className="w-full h-auto"
                     />
                   </div>
-
                 )}
                 {(post.location || post.weather || post.closetItem) && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -309,7 +310,6 @@ const FeedPage: React.FC = () => {
           </>
         )}
       </div>
-
     </div>
   );
 };
