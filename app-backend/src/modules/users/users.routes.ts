@@ -1,19 +1,19 @@
 // src/modules/users/users.routes.ts
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import multer from "multer";
-import { updateProfilePhoto } from "./users.controller";
+import { updateProfilePhoto, getMe } from "./users.controller";
 import { authenticateToken } from "../auth/auth.middleware";
 
 const router = Router();
-
-// ensure an uploads dir exists at project root (see note below)
 const upload = multer({ dest: "uploads/" });
+
+router.get("/me", authenticateToken as RequestHandler, getMe as unknown as RequestHandler);
 
 router.patch(
   "/me/profile-photo",
-  authenticateToken,
-  upload.single("image"),   // field name must match frontend
-  updateProfilePhoto
+  authenticateToken as RequestHandler,
+  upload.single("image"),
+  updateProfilePhoto as unknown as RequestHandler
 );
 
 export default router;

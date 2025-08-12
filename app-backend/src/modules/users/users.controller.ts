@@ -1,12 +1,36 @@
 // src/modules/users/users.controller.ts
-import { Request, Response, NextFunction, RequestHandler } from "express";
+import type { Request, Response, NextFunction } from "express";
 import usersService from "./users.service";
-// If you see "Cannot find namespace 'Express'" for Multer types, uncomment the next line:
+// If Multer types complain, uncomment the next line:
 // import "multer";
 
 type AuthedFileRequest = Request & {
   user?: { id: string };
   file?: Express.Multer.File;
+};
+
+export const getMe = async (
+  req: AuthedFileRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user = await usersService.getById(userId);
+    if (!user) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const updateProfilePhoto = async (
@@ -17,7 +41,7 @@ export const updateProfilePhoto = async (
   try {
     if (!req.file) {
       res.status(400).json({ message: "No file uploaded" });
-      return; // <- return void, not Response
+      return;
     }
 
     const userId = req.user?.id;
