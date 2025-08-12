@@ -10,8 +10,12 @@ import {
     addComment,
 } from "../services/socialApi";
 
+import { getMe } from "../services/usersApi";
+
 // Adjust to your backend origin
 const API_URL = "http://localhost:5001";
+const prefixed = (url: string) =>
+    url.startsWith("http") ? url : `${API_URL}${url}`;
 
 type Comment = {
     id: string;
@@ -70,10 +74,6 @@ const PostsPage: React.FC = () => {
     }, []);
 
     const currentUserId: string | null = me?.id ?? null;
-    const currentUserName: string = me?.name ?? "You";
-    const currentUserAvatar: string | null = me?.profilePhoto ?? null;
-
-
     const [followersCount, setFollowersCount] = useState<number | null>(null);
     const [followingCount, setFollowingCount] = useState<number | null>(null);
 
@@ -88,6 +88,8 @@ const PostsPage: React.FC = () => {
 
     const [activePost, setActivePost] = useState<Post | null>(null);
     const [newComment, setNewComment] = useState<string>("");
+    const [currentUserName, setCurrentUserName] = useState<string>(me?.name ?? "You");
+    const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(me?.profilePhoto ?? null);
 
     async function countFollowers(userId: string): Promise<number> {
         const page = 50;           // tune as you like
@@ -120,6 +122,22 @@ const PostsPage: React.FC = () => {
         }
         return total;
     }
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const { user } = await getMe(); // { id, name, email, profilePhoto, ... }
+                setCurrentUserName(user.name ?? "You");
+                setCurrentUserAvatar(user.profilePhoto ?? null);
+
+                // optional: keep localStorage in sync for other pages
+                localStorage.setItem("user", JSON.stringify(user));
+            } catch {
+                // if it fails, we just keep whatever we had (token/localStorage fallback)
+            }
+        })();
+    }, []);
+
 
 
     useEffect(() => {
@@ -304,15 +322,21 @@ const PostsPage: React.FC = () => {
                     <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                         {currentUserAvatar ? (
                             <img
-                                src={`${API_URL}${currentUserAvatar}`}
+                                src={prefixed(currentUserAvatar)}
                                 alt={currentUserName}
                                 className="w-full h-full object-cover"
-                                onError={(e) => ((e.currentTarget.style.display = "none"))}
+                                onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                                    setCurrentUserAvatar(null); // fall back to initial
+                                }}
                             />
                         ) : (
-                            <span className="text-xl">{currentUserName?.[0]?.toUpperCase() ?? "U"}</span>
+                            <span className="text-xl">
+                                {currentUserName?.trim()?.charAt(0)?.toUpperCase() ?? "U"}
+                            </span>
                         )}
                     </div>
+
 
                     <div className="flex-1">
                         {/* Name like the Profile page */}
