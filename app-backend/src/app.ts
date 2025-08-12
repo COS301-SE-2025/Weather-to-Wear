@@ -1,3 +1,4 @@
+// src/app.ts
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -10,15 +11,15 @@ import userPrefRoutes from './modules/userPreference/userPref.routes';
 import eventsRoutes from './modules/events/events.route';
 import outfitRoutes from './modules/outfit/outfit.routes';
 import socialRoutes from './modules/social/social.route';
-
+import usersRoutes from './modules/users/users.routes';
 
 dotenv.config();
 const app = express();
 
 app.use(cors());
-
 app.use(express.json());
 
+// serve uploaded images
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(UPLOADS_DIR));
 
@@ -29,6 +30,6 @@ app.use('/api/preferences', userPrefRoutes);
 app.use('/api/events', eventsRoutes); 
 app.use('/api/outfits', outfitRoutes);
 app.use('/api/social', socialRoutes);
-
+app.use('/api/users', usersRoutes);
 
 export default app;

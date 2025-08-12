@@ -69,7 +69,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(({
 }) => {
   return (
     <div>
-      <div className="relative mb-6">
+      <div className="relative mb-3 md:mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
         <input
           type="text"
@@ -151,8 +151,6 @@ const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
   const [following, setFollowing] = useState<Account[]>([]);
   const [followers, setFollowers] = useState<Account[]>([]);
@@ -165,7 +163,16 @@ const FeedPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<UserResult[]>([]);
   const [searchOffset, setSearchOffset] = useState(0);
   const [searchHasMore, setSearchHasMore] = useState(false);
-  const pageSize = 10;
+  // paging
+  const pageSize = 2;
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = React.useRef<HTMLDivElement | null>(null);
+
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+
+
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -188,50 +195,42 @@ const FeedPage: React.FC = () => {
     }
   }, []);
 
-  const fetchPosts = useCallback(
-    async (reset: boolean = false) => {
-      if (!currentUserId) return;
-      if (!hasMore && !reset) return;
-      setLoadingPosts(true);
-      try {
-        const response = await getPosts(
-          20,
-          reset ? 0 : offset,
-          ["user", "comments", "comments.user", "likes", "closetItem"]
-        );
-        const formattedPosts: Post[] = response.posts.map((post: any) => ({
-          id: post.id,
-          userId: post.userId,
-          username: post.user?.name || "Unknown",
-          profilePhoto: post.user?.profilePhoto,
-          content: post.caption || "",
-          likes: post.likes?.length || 0,
-          liked: post.likes?.some((like: any) => like.userId === currentUserId) || false,
-          date: new Date(post.createdAt).toLocaleString(),
-          comments: post.comments?.map((comment: any) => ({
-            id: comment.id,
-            content: comment.content,
-            userId: comment.userId,
-            username: comment.user?.name || "Unknown",
-          })) || [],
-          imageUrl: post.imageUrl,
-          location: post.location,
-          weather: post.weather,
-          closetItem: post.closetItem
-            ? { id: post.closetItem.id, filename: post.closetItem.filename, category: post.closetItem.category }
-            : undefined,
-        }));
-        setPosts((prev) => (reset ? formattedPosts : [...prev, ...formattedPosts]));
-        setOffset((prev) => (reset ? 20 : prev + 20));
-        setHasMore(formattedPosts.length === 20);
-      } catch (err: any) {
-        setError(err.message || "Failed to load posts");
-      } finally {
-        setLoadingPosts(false);
-      }
-    },
-    [offset, hasMore, currentUserId]
-  );
+
+  const fetchNext = useCallback(async () => {
+    if (!currentUserId || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const resp = await getPosts(pageSize, offset, ["user", "comments", "comments.user", "likes"]);
+      const batch = (resp.posts ?? []).map((post: any) => ({
+        id: post.id,
+        userId: post.userId,
+        username: post.user?.name || "Unknown",
+        profilePhoto: post.user?.profilePhoto,
+        content: post.caption || "",
+        likes: post.likes?.length || 0,
+        liked: post.likes?.some((l: any) => l.userId === currentUserId) || false,
+        date: new Date(post.createdAt).toLocaleString(),
+        comments: (post.comments ?? []).map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          userId: c.userId,
+          username: c.user?.name || "Unknown",
+        })),
+        imageUrl: post.imageUrl,
+        location: post.location,
+        weather: post.weather,
+        // closetItem only if your API includes it
+      }));
+
+      setPosts(prev => [...prev, ...batch]);
+      setOffset(prev => prev + pageSize);
+      setHasMore(batch.length === pageSize);
+    } catch (e: any) {
+      setError(e.message || "Failed to load posts");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentUserId, offset, hasMore, loadingMore]);
 
   const fetchFollowData = useCallback(async () => {
     if (!currentUserId) return;
@@ -259,12 +258,35 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId]);
 
+
+  // reset when we know the user
   useEffect(() => {
-    if (currentUserId) {
-      fetchPosts(true);
-      fetchFollowData();
-    }
-  }, [currentUserId, fetchPosts, fetchFollowData]);
+    if (!currentUserId) return;
+    setPosts([]);
+    setOffset(0);
+    setHasMore(true);
+  }, [currentUserId]);
+
+  // kick off the first page
+  useEffect(() => {
+    if (!currentUserId) return;
+    fetchNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      const first = entries[0];
+      if (first.isIntersecting) {
+        fetchNext();
+      }
+    }, { rootMargin: "600px" }); // prefetch before the very bottom
+    io.observe(el);
+    return () => io.disconnect();
+  }, [fetchNext]);
+
 
   useEffect(() => {
     let timer: number | undefined;
@@ -351,6 +373,8 @@ const FeedPage: React.FC = () => {
       );
       setNewComment(prev => ({ ...prev, [postId]: "" }));
 
+      setExpandedComments(prev => ({ ...prev, [postId]: true }));
+
     } catch (err: any) {
       setError(err.message || "Failed to add comment");
     }
@@ -393,113 +417,22 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  // const SearchUsersCard: React.FC = () => (
-  //   <div>
-  //     {/* Search bar styled like ClosetPage */}
-  //     <div className="relative mb-6">
-  //       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-  //       <input
-  //         type="text"
-  //         value={searchQuery}
-  //         onChange={(e) => setSearchQuery(e.target.value)}
-  //         placeholder="Search..."
-  //         className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-  //       />
-  //     </div>
-
-  //     {/* Errors */}
-  //     {searchError && (
-  //       <div className="mt-3 text-xs text-red-500">{searchError}</div>
-  //     )}
-
-  //     {/* Results list (kept simple) */}
-  //     <div className="space-y-3">
-  //       {searchLoading && searchResults.length === 0 && (
-  //         <div className="flex justify-center py-2">
-  //           <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-  //         </div>
-  //       )}
-
-  //       {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
-  //         <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
-  //       )}
-
-  // {searchResults.map((u) => (
-  //   <div
-  //     key={u.id}
-  //     className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
-  //   >
-  //     <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
-  //       {u.profilePhoto ? (
-  //         <img
-  //           src={`${API_URL}${u.profilePhoto}`}
-  //           alt={u.name}
-  //           className="w-full h-full object-cover"
-  //           onError={(e) => {
-  //             e.currentTarget.style.display = "none";
-  //             (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
-  //           }}
-  //         />
-  //       ) : null}
-  //       <span className="absolute hidden">{u.name?.[0] || "U"}</span>
-  //     </div>
-
-  //     <div className="flex flex-col">
-  //       <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
-  //       <span className="text-[11px] text-gray-500 dark:text-gray-400">
-  //         {u.location || "—"} • {u.followersCount} followers
-  //       </span>
-  //     </div>
-
-  //     <button
-  //       onClick={() => toggleFollowFromSearch(u.id, u.isFollowing)}
-  //       className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing
-  //         ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-  //         : "bg-[#3F978F] text-white"
-  //         }`}
-  //     >
-  //       {u.isFollowing ? "Following" : "Follow"}
-  //     </button>
-  //   </div>
-  // ))}
-
-  //       {searchHasMore && (
-  //         <button
-  //           onClick={loadMoreSearch}
-  //           className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
-  //           disabled={searchLoading}
-  //         >
-  //           {searchLoading ? (
-  //             <Loader2 className="h-4 w-4 animate-spin inline" />
-  //           ) : (
-  //             "Load more"
-  //           )}
-  //         </button>
-  //       )}
-  //     </div>
-  //   </div>
-  // );
-
   return (
-    <div className="w-full max-w-screen-xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-10">
+    <div className="w-full max-w-screen-xl mx-auto px-0 md:px-4 py-3 md:py-6 flex flex-col md:flex-row gap-4 md:gap-10">      <div className="w-full md:w-[32%] order-1 md:order-2">
+      <SearchUsersCard
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchLoading={searchLoading}
+        searchError={searchError}
+        searchResults={searchResults}
+        searchHasMore={searchHasMore}
+        onLoadMore={loadMoreSearch}
+        onToggleFollow={toggleFollowFromSearch}
+      />
+    </div>
 
-
-      <div className="w-full md:w-[32%] order-1 md:order-2">
-        <SearchUsersCard
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
-          searchError={searchError}
-          searchResults={searchResults}
-          searchHasMore={searchHasMore}
-          onLoadMore={loadMoreSearch}
-          onToggleFollow={toggleFollowFromSearch}
-        />
-      </div>
-
-      <div className="w-full md:w-[58%] space-y-6 order-2 md:order-1">
-        {error && <div className="text-red-500 text-sm">{error}</div>}
-        {loadingPosts && posts.length === 0 ? (
+      <div className="w-full md:w-[58%] space-y-4 md:space-y-6 order-2 md:order-1 -mx-0 md:mx-0">        {error && <div className="text-red-500 text-sm">{error}</div>}
+        {posts.length === 0 && loadingMore ? (
           <div className="flex justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
           </div>
@@ -508,7 +441,7 @@ const FeedPage: React.FC = () => {
             {posts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-gray-200 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-none p-5 shadow-md border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
@@ -534,14 +467,15 @@ const FeedPage: React.FC = () => {
 
                 <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{post.content}</p>
                 {post.imageUrl && (
-                  <div className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  <div className="-mx-5 md:-mx-5 bg-gray-100 dark:bg-gray-700">
                     <img
                       src={`${API_URL}${post.imageUrl}`}
                       alt="Outfit"
-                      className="w-full h-auto"
+                      className="w-full h-auto object-cover"
                     />
                   </div>
                 )}
+
                 {(post.location || post.weather || post.closetItem) && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                     {post.weather && `Weather: ${post.weather.condition} (${post.weather.temp}°C)`}
@@ -568,14 +502,39 @@ const FeedPage: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Comments */}
                 <div className="mt-4 space-y-1">
-                  {post.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm text-gray-700 dark:text-gray-300">
-                      <span className="font-semibold">{comment.username}: </span>
-                      {comment.content}
-                    </div>
-                  ))}
+                  {(() => {
+                    const isExpanded = !!expandedComments[post.id];
+                    const commentsToShow = isExpanded ? post.comments : post.comments.slice(0, 3);
+
+                    return (
+                      <>
+                        {commentsToShow.map((comment) => (
+                          <div key={comment.id} className="text-sm text-gray-700 dark:text-gray-300">
+                            <span className="font-semibold">{comment.username}: </span>
+                            {comment.content}
+                          </div>
+                        ))}
+
+                        {post.comments.length > 3 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedComments((m) => ({ ...m, [post.id]: !isExpanded }))
+                            }
+                            className="mt-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          >
+                            {isExpanded
+                              ? "Hide comments"
+                              : `View all ${post.comments.length} comments`}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
+
 
                 <div className="mt-3 flex items-center border-t border-gray-200 dark:border-gray-700 pt-2">
                   <input
@@ -596,15 +555,21 @@ const FeedPage: React.FC = () => {
                 </div>
               </div>
             ))}
-            {hasMore && (
-              <button
-                onClick={() => fetchPosts()}
-                className="mt-4 bg-[#3F978F] text-white px-4 py-2 rounded text-sm"
-                disabled={loadingPosts}
-              >
-                {loadingPosts ? <Loader2 className="h-5 w-5 animate-spin inline" /> : "Load More"}
-              </button>
+            {/* Sentinel only when there is more to load */}
+            {hasMore && <div ref={sentinelRef} className="h-12" />}
+
+            {/* Show loading-more indicator independently */}
+            {loadingMore && (
+              <div className="flex justify-center py-3 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
+              </div>
             )}
+
+            {/* Caught up message */}
+            {!hasMore && posts.length > 0 && (
+              <div className="text-center text-xs text-gray-400">You’re all caught up ✨</div>
+            )}
+
           </>
         )}
       </div>

@@ -12,7 +12,7 @@ import {
 import { fetchAllOutfits } from "../services/outfitApi";
 import { getItemCount } from "../services/closetApi";
 import { getOutfitCount } from "../services/outfitApi";
-import { uploadProfilePhoto } from "../services/usersApi";
+import { uploadProfilePhoto, getMe } from "../services/usersApi";
 
 
 interface OutfitItem {
@@ -50,6 +50,50 @@ const Profile = () => {
   // Helper to prefix image URLs
   const prefixed = (url: string) =>
     url.startsWith("http") ? url : `http://localhost:5001${url}`;
+
+  useEffect(() => {
+    // 1) Load from server (source of truth)
+    (async () => {
+      try {
+        const { user } = await getMe();
+        setUserInfo(prev => ({
+          ...prev,
+          name: user.name || prev.name,
+          email: user.email || prev.email,
+        }));
+        setProfilePhoto(user.profilePhoto ?? undefined);
+
+        // keep localStorage updated for other parts of the app if you want
+        localStorage.setItem("user", JSON.stringify(user));
+      } catch (err) {
+        // optional: fall back to localStorage if server call fails
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUserInfo(prev => ({
+              ...prev,
+              name: parsedUser.name || prev.name,
+              email: parsedUser.email || prev.email,
+            }));
+            setProfilePhoto(parsedUser.profilePhoto ?? undefined);
+          } catch { }
+        }
+      } finally {
+        // (unrelated) the rest of your initial loads
+        fetchAllOutfits()
+          .then(raw => {
+            const uiList = raw.map(o => ({ ...o, favourite: !!o.favourite, tab: "outfits" }));
+            setTopOutfits(uiList.slice(0, 3));
+          })
+          .catch(err => console.error("Error fetching outfits", err))
+          .finally(() => setLoadingOutfits(false));
+
+        getItemCount().then(setClosetCount).catch(console.error);
+        getOutfitCount().then(setOutfitCount).catch(console.error);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -122,17 +166,15 @@ const Profile = () => {
     setUploadingPhoto(true);
     try {
       const { user } = await uploadProfilePhoto(file);
-      setProfilePhoto(user.profilePhoto);
+
+      // cache-bust the new image (if you want immediate refresh)
+      const busted = user.profilePhoto ? `${user.profilePhoto}?v=${Date.now()}` : undefined;
+
+      setProfilePhoto(busted);
       setUserInfo(prev => ({ ...prev, name: user.name ?? prev.name, email: user.email ?? prev.email }));
 
-      const stored = localStorage.getItem("user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        localStorage.setItem(
-          "user",
-          JSON.stringify({ ...parsed, profilePhoto: user.profilePhoto, name: user.name ?? parsed.name })
-        );
-      }
+      // keep localStorage in sync so other pages see it, too
+      localStorage.setItem("user", JSON.stringify({ ...user, profilePhoto: user.profilePhoto }));
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -140,6 +182,7 @@ const Profile = () => {
       e.target.value = "";
     }
   };
+
 
   const getInitials = (name: string) =>
     name
@@ -179,26 +222,28 @@ const Profile = () => {
     "
         >
           <div className="relative">
-            <div
-              className="
-      w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40
-      rounded-full bg-[#3F978F] text-white
-      flex items-center justify-center
-      text-2xl sm:text-3xl md:text-4xl lg:text-5xl
-      font-bodoni overflow-hidden
-    "
-            >
+            <div className="
+  w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40
+  rounded-full bg-[#3F978F] text-white
+  flex items-center justify-center
+  text-2xl sm:text-3xl md:text-4xl lg:text-5xl
+  font-bodoni overflow-hidden
+">
               {profilePhoto ? (
                 <img
                   src={prefixed(profilePhoto)}
                   alt="Profile"
                   className="w-full h-full object-cover"
-                  onError={() => setProfilePhoto(undefined)}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                    setProfilePhoto(undefined);
+                  }}
                 />
               ) : (
-                <span>{getInitials(userInfo.name).charAt(0)}</span>
+                <span>{(userInfo.name || "U").trim().charAt(0).toUpperCase()}</span>
               )}
             </div>
+
 
             <button
               type="button"
