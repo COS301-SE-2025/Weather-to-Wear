@@ -170,6 +170,9 @@ const FeedPage: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+
+
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -370,6 +373,8 @@ const FeedPage: React.FC = () => {
       );
       setNewComment(prev => ({ ...prev, [postId]: "" }));
 
+      setExpandedComments(prev => ({ ...prev, [postId]: true }));
+
     } catch (err: any) {
       setError(err.message || "Failed to add comment");
     }
@@ -497,14 +502,39 @@ const FeedPage: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Comments */}
                 <div className="mt-4 space-y-1">
-                  {post.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm text-gray-700 dark:text-gray-300">
-                      <span className="font-semibold">{comment.username}: </span>
-                      {comment.content}
-                    </div>
-                  ))}
+                  {(() => {
+                    const isExpanded = !!expandedComments[post.id];
+                    const commentsToShow = isExpanded ? post.comments : post.comments.slice(0, 3);
+
+                    return (
+                      <>
+                        {commentsToShow.map((comment) => (
+                          <div key={comment.id} className="text-sm text-gray-700 dark:text-gray-300">
+                            <span className="font-semibold">{comment.username}: </span>
+                            {comment.content}
+                          </div>
+                        ))}
+
+                        {post.comments.length > 3 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedComments((m) => ({ ...m, [post.id]: !isExpanded }))
+                            }
+                            className="mt-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          >
+                            {isExpanded
+                              ? "Hide comments"
+                              : `View all ${post.comments.length} comments`}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
+
 
                 <div className="mt-3 flex items-center border-t border-gray-200 dark:border-gray-700 pt-2">
                   <input
