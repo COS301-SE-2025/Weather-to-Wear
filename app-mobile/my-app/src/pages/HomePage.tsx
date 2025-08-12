@@ -1,43 +1,39 @@
-import { useState, useEffect, useRef } from 'react';
+// src/pages/HomePage.tsx
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
-import { fetchRecommendedOutfits, RecommendedOutfit, SaveOutfitPayload, createOutfit } from '../services/outfitApi';
-import { fetchAllEvents, createEvent, updateEvent, deleteEvent, type Event } from '../services/eventsApi';
 import StarRating from '../components/StarRating';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// Weather types (copied from useWeather.ts for standalone use)
-interface ForecastItem {
-  time: string;
-  temperature: number;
-  description: string;
-  icon?: string;
-}
+import {
+  fetchRecommendedOutfits,
+  RecommendedOutfit,
+  SaveOutfitPayload,
+  createOutfit,
+  updateOutfit,
+} from '../services/outfitApi';
 
-interface WeatherSummary {
-  avgTemp: number;
-  minTemp: number;
-  maxTemp: number;
-  willRain: boolean;
-  mainCondition: string;
-}
+import {
+  fetchAllEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  type Event,
+} from '../services/eventsApi';
 
-interface WeatherData {
-  location: string;
-  forecast: ForecastItem[];
-  source: string;
-  summary: WeatherSummary;
-}
+import { useWeatherQuery, type WeatherData, type WeatherSummary } from '../hooks/useWeatherQuery';
+import { useOutfitsQuery } from '../hooks/useOutfitsQuery';
+import { queryClient } from '../queryClient';
+import { useQuery } from '@tanstack/react-query';
 
-// Utility function to generate outfit key
+// ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
-  return outfit.outfitItems.map(i => i.closetItemId).sort().join("-");
+  return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
-// TypingSlogan component (unchanged)
+// ---------- TypingSlogan (unchanged) ----------
 const TypingSlogan = () => {
   const slogan = 'Style Made Simple.';
   const tealWord = 'Simple.';
@@ -62,12 +58,10 @@ const TypingSlogan = () => {
         setIsDeleting(false);
       }
     };
-
     const speed = isDeleting ? 60 : 120;
     const timer = setTimeout(handleTyping, speed);
-
     return () => clearTimeout(timer);
-  }, [index, isDeleting]);
+  }, [index, isDeleting, slogan]);
 
   const beforeTeal = displayText.slice(0, Math.min(tealStart, displayText.length));
   let tealVisibleLength = 0;
@@ -85,196 +79,84 @@ const TypingSlogan = () => {
   );
 };
 
+// ---------- HomePage ----------
 export default function HomePage() {
-  // Initialize city state from cache if available
-  const getInitialCity = () => {
-    const cached = localStorage.getItem('weatherCache');
-    if (cached) {
-      const { city, timestamp } = JSON.parse(cached);
-      const now = Date.now();
-      if (now - timestamp < 15 * 60 * 1000 && city) {
-        console.log('Initializing city from cache:', city);
-        return city;
-      }
-    }
-    console.log('No valid cached city, using empty string');
-    return '';
-  };
-
-  // State for weather and outfits with caching
-  const [city, setCity] = useState<string>(getInitialCity());
-  const [cityInput, setCityInput] = useState<string>(''); // Controlled input for city
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
-  const [loadingWeather, setLoadingWeather] = useState(true);
-  const [loadingOutfits, setLoadingOutfits] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Persist user-selected city as a small piece of UI state (not part of query cache)
+  const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
+  const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
-  const isInitialMount = useRef(true); // Track initial mount
 
-  // Other existing state
+  // Other UI state (unchanged)
   const [username, setUsername] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+  const [newEvent, setNewEvent] = useState({
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'CASUAL',
+  });
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
   const [outfitIdMap, setOutfitIdMap] = useState<Record<string, string>>({});
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editEventData, setEditEventData] = useState({
-    id: '', name: '', location: '', dateFrom: '', dateTo: '', style: ''
+    id: '',
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: '',
   });
 
-  // Cache utility functions
-  const getCacheKey = (weatherSummary: WeatherSummary, style: string) => {
-    return JSON.stringify(weatherSummary) + '|' + style;
+  // ---------- Weather (React Query) ----------
+  const weatherQuery = useWeatherQuery(city);
+  const weather: WeatherData | null = weatherQuery.data ?? null;
+  const loadingWeather = weatherQuery.isLoading || weatherQuery.isFetching;
+
+  // ---------- Outfits (React Query) ----------
+  const outfitsQuery = useOutfitsQuery(weather?.summary, selectedStyle);
+  // const outfits = outfitsQuery.data ?? [];
+  const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
+  const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
+
+  // One combined error message (optional)
+  const error =
+    (weatherQuery.isError && 'Failed to fetch weather data.') ||
+    (outfitsQuery.isError && 'Could not load outfit recommendations.') ||
+    null;
+
+  // ---------- City enter/refresh handlers ----------
+  const handleEnterCity = () => {
+    const next = cityInput.trim();
+    setCity(next);
+    localStorage.setItem('selectedCity', next);
+    setCityInput('');
+    // Explicitly refresh both queries for the new city
+    queryClient.invalidateQueries({ queryKey: ['weather'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
   };
-
-  const loadWeatherCache = () => {
-    console.log('Checking weather cache for city:', city);
-    const cached = localStorage.getItem('weatherCache');
-    if (cached) {
-      const { city: cachedCity, weather, timestamp } = JSON.parse(cached);
-      const now = Date.now();
-      if (now - timestamp < 15 * 60 * 1000 && cachedCity === city) {
-        console.log('Using cached weather data:', weather);
-        setWeather(weather);
-        setLoadingWeather(false);
-        return true;
-      } else {
-        console.log('Weather cache invalid: timestamp=', timestamp, 'cached city=', cachedCity, 'current city=', city);
-      }
-    } else {
-      console.log('No weather cache found');
-    }
-    return false;
-  };
-
-  const loadOutfitCache = (weatherSummary: WeatherSummary, style: string) => {
-    console.log('Checking outfit cache for style:', style);
-    const outfitCache = localStorage.getItem('outfitCache');
-    if (outfitCache) {
-      const cache = JSON.parse(outfitCache);
-      const key = getCacheKey(weatherSummary, style);
-      if (cache[key] && Date.now() - cache[key].timestamp < 15 * 60 * 1000) {
-        console.log('Using cached outfits:', cache[key].outfits);
-        setOutfits(cache[key].outfits);
-        setLoadingOutfits(false);
-        return true;
-      } else {
-        console.log('Outfit cache invalid or missing for key:', key);
-      }
-    } else {
-      console.log('No outfit cache found');
-    }
-    return false;
-  };
-
-  // Fetch functions
-  const fetchWeather = async (forceFetch: boolean = false) => {
-    console.log('Fetching weather for city:', city);
-    setLoadingWeather(true);
-    setError(null);
-    try {
-      const url = city
-        ? `http://localhost:5001/api/weather?location=${encodeURIComponent(city)}&t=${Date.now()}`
-        : `http://localhost:5001/api/weather?t=${Date.now()}`;
-      console.log('Fetching from URL:', url);
-      const res = await axios.get<WeatherData>(url);
-      console.log('Weather data received:', res.data);
-      const weatherData = res.data;
-      setWeather(weatherData);
-      if (forceFetch) {
-        console.log('Force fetch, clearing weatherCache');
-        localStorage.removeItem('weatherCache');
-      }
-      const cache = { city: weatherData.location, weather: weatherData, timestamp: Date.now() };
-      localStorage.setItem('weatherCache', JSON.stringify(cache));
-    } catch (err) {
-      console.error('Weather fetch failed:', err);
-      setError('Failed to fetch weather data.');
-    } finally {
-      setLoadingWeather(false);
-    }
-  };
-
-  const fetchOutfits = async (weatherSummary: WeatherSummary, style: string) => {
-    console.log('Fetching outfits for style:', style);
-    setLoadingOutfits(true);
-    try {
-      const outfitRes = await fetchRecommendedOutfits(weatherSummary, style);
-      console.log('Outfits received:', outfitRes);
-      setOutfits(outfitRes);
-      const key = getCacheKey(weatherSummary, style);
-      const outfitCache = localStorage.getItem('outfitCache')
-        ? JSON.parse(localStorage.getItem('outfitCache')!)
-        : {};
-      outfitCache[key] = { outfits: outfitRes, timestamp: Date.now() };
-      localStorage.setItem('outfitCache', JSON.stringify(outfitCache));
-    } catch (err) {
-      console.error('Outfit fetch failed:', err);
-      setError('Could not load outfit recommendations.');
-    } finally {
-      setLoadingOutfits(false);
-    }
-  };
-
-  // Effects for caching and fetching
-  useEffect(() => {
-    console.log('Initial weather fetch, city:', city);
-    if (!loadWeatherCache()) {
-      console.log('No valid weather cache, fetching weather');
-      fetchWeather();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (weather) {
-      console.log('Weather updated, checking outfit cache:', weather.summary);
-      const { summary } = weather;
-      if (!loadOutfitCache(summary, selectedStyle)) {
-        console.log('No valid outfit cache, fetching outfits');
-        fetchOutfits(summary, selectedStyle);
-      }
-    }
-  }, [weather, selectedStyle]);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      console.log('Skipping city change effect on initial mount, city:', city);
-      isInitialMount.current = false;
-      return;
-    }
-    if (city) {
-      console.log('City changed to non-empty:', city);
-      localStorage.removeItem('weatherCache');
-      localStorage.removeItem('outfitCache');
-      fetchWeather(true);
-    } else {
-      console.log('City changed to empty, skipping fetch');
-    }
-  }, [city]);
 
   const handleRefresh = () => {
-    console.log('Refresh button clicked');
-    localStorage.removeItem('weatherCache');
-    localStorage.removeItem('outfitCache');
-    fetchWeather(true);
+    // Manual refresh only (no auto refetch on navigation)
+    queryClient.invalidateQueries({ queryKey: ['weather'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
   };
 
-  // Existing effects (unchanged)
+  // ---------- Boot-up effects (unchanged-ish) ----------
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
       try {
         setUsername(JSON.parse(stored).name);
-      } catch {}
+      } catch {
+        /* noop */
+      }
     }
   }, []);
 
@@ -284,35 +166,59 @@ export default function HomePage() {
       .catch(err => console.error('Error loading events on mount:', err));
   }, []);
 
-  useEffect(() => {
-    if (!selectedEvent) return;
-    let days: { date: string; summary: any }[] = [];
+  // ---------- Event modal: outfit recommendation with caching ----------
+  // Build the "today" summary from selectedEvent.weather if available
+  const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
+    if (!selectedEvent?.weather) return undefined;
     try {
-      days = selectedEvent.weather ? JSON.parse(selectedEvent.weather) : [];
-    } catch { days = []; }
-    const today = days[0]?.summary;
-    if (!today) return;
-
-    setDetailLoading(true);
-    fetchRecommendedOutfits(
-      {
-        avgTemp: today.avgTemp,
-        minTemp: today.minTemp,
-        maxTemp: today.maxTemp,
-        willRain: today.willRain,
-        mainCondition: today.mainCondition,
-      },
-      selectedEvent.style!,
-      selectedEvent.id
-    )
-      .then(recs => {
-        setDetailOutfit(recs[0] ?? null);
-        setDetailError(null);
-      })
-      .catch(() => setDetailError('Could not load outfit recommendation.'))
-      .finally(() => setDetailLoading(false));
+      const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
+      return days[0]?.summary
+        ? {
+            avgTemp: days[0].summary.avgTemp,
+            minTemp: days[0].summary.minTemp,
+            maxTemp: days[0].summary.maxTemp,
+            willRain: days[0].summary.willRain,
+            mainCondition: days[0].summary.mainCondition,
+          }
+        : undefined;
+    } catch {
+      return undefined;
+    }
   }, [selectedEvent]);
 
+  const eventOutfitQuery = useQuery({
+    queryKey: [
+      'event-outfit',
+      selectedEvent?.id || 'no-event',
+      selectedEvent?.style || 'Casual',
+      selectedEventTodaySummary
+        ? JSON.stringify({
+            a: Math.round(selectedEventTodaySummary.avgTemp),
+            i: Math.round(selectedEventTodaySummary.minTemp),
+            x: Math.round(selectedEventTodaySummary.maxTemp),
+            r: selectedEventTodaySummary.willRain,
+            m: selectedEventTodaySummary.mainCondition,
+          })
+        : 'no-summary',
+    ],
+    enabled: Boolean(selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
+    queryFn: async () => {
+      const recs = await fetchRecommendedOutfits(
+        selectedEventTodaySummary!,
+        selectedEvent!.style!,
+        selectedEvent!.id,
+      );
+      return recs[0] ?? null;
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const detailOutfit = eventOutfitQuery.data ?? null;
+  const detailLoading = eventOutfitQuery.isLoading || eventOutfitQuery.isFetching;
+  const detailError = eventOutfitQuery.isError ? 'Could not load outfit recommendation.' : null;
+
+  // Keep edit form in sync when event changes
   useEffect(() => {
     if (!selectedEvent) return;
     setIsEditing(false);
@@ -322,11 +228,11 @@ export default function HomePage() {
       location: selectedEvent.location,
       dateFrom: selectedEvent.dateFrom.slice(0, 16),
       dateTo: selectedEvent.dateTo.slice(0, 16),
-      style: selectedEvent.style || ''
+      style: selectedEvent.style || '',
     });
   }, [selectedEvent]);
 
-  // Save rating handler (unchanged)
+  // ---------- Rating save ----------
   const handleSaveRating = async (rating: number) => {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
@@ -338,7 +244,7 @@ export default function HomePage() {
         await updateOutfit(outfitIdMap[key], { userRating: rating });
       } else {
         const payload: SaveOutfitPayload = {
-          outfitItems: outfit.outfitItems.map((i) => ({
+          outfitItems: outfit.outfitItems.map(i => ({
             closetItemId: i.closetItemId,
             layerCategory: i.layerCategory,
             sortOrder: 0,
@@ -353,10 +259,7 @@ export default function HomePage() {
           userRating: rating,
         };
         const created = await createOutfit(payload);
-        setOutfitIdMap(prev => ({
-          ...prev,
-          [key]: created.id
-        }));
+        setOutfitIdMap(prev => ({ ...prev, [key]: created.id }));
       }
       setRatings(prev => ({ ...prev, [key]: rating }));
     } catch (err) {
@@ -367,7 +270,7 @@ export default function HomePage() {
     }
   };
 
-  // Render
+  // ---------- Render ----------
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
       {/* Hero Background */}
@@ -380,7 +283,7 @@ export default function HomePage() {
           opacity: 1,
           marginLeft: 'calc(-50vw + 50%)',
           width: '100vw',
-          marginTop: '-4rem'
+          marginTop: '-4rem',
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
@@ -403,9 +306,7 @@ export default function HomePage() {
           <div className="flex-1 flex flex-col items-center">
             <div className="w-full max-w-[350px]">
               <div className="flex justify-center mb-4">
-                <h1 className="text-xl border-2 border-black px-3 py-1">
-                  OUTFIT OF THE DAY
-                </h1>
+                <h1 className="text-xl border-2 border-black px-3 py-1">OUTFIT OF THE DAY</h1>
               </div>
 
               {loadingOutfits && <p>Loading outfits…</p>}
@@ -427,7 +328,11 @@ export default function HomePage() {
                 <select
                   id="style-select"
                   value={selectedStyle}
-                  onChange={e => setSelectedStyle(e.target.value)}
+                  onChange={e => {
+                    setSelectedStyle(e.target.value);
+                    // Recompute outfits for new style
+                    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                  }}
                   className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
                 >
                   <option value="Formal">Formal</option>
@@ -448,7 +353,9 @@ export default function HomePage() {
                     >
                       <ChevronLeft className="w-5 h-5 text-white" />
                     </button>
-                    <span className="text-sm">{currentIndex + 1} / {outfits.length}</span>
+                    <span className="text-sm">
+                      {currentIndex + 1} / {outfits.length}
+                    </span>
                     <button
                       onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
                       className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
@@ -459,52 +366,80 @@ export default function HomePage() {
 
                   <div className="mb-4 space-y-2">
                     <div
-                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
-                        i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
-                      ) ? 'h-auto' : 'h-0 overflow-hidden'}`}
+                      className={`flex justify-center space-x-2 transition-all ${
+                        outfits[currentIndex].outfitItems.some(
+                          i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
+                        )
+                          ? 'h-auto'
+                          : 'h-0 overflow-hidden'
+                      }`}
                     >
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
                         .map(item => (
                           <img
                             key={item.closetItemId}
-                            src={item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
                           />
                         ))}
                     </div>
+
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'base_top' || i.layerCategory === 'mid_top' || i.layerCategory === 'outerwear')
+                        .filter(
+                          i =>
+                            i.layerCategory === 'base_top' ||
+                            i.layerCategory === 'mid_top' ||
+                            i.layerCategory === 'outerwear',
+                        )
                         .map(item => (
                           <img
                             key={item.closetItemId}
-                            src={item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
                           />
                         ))}
                     </div>
+
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'base_bottom')
                         .map(item => (
                           <img
                             key={item.closetItemId}
-                            src={item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
                           />
                         ))}
                     </div>
+
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'footwear')
                         .map(item => (
                           <img
                             key={item.closetItemId}
-                            src={item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
                             alt={item.category}
                             className="w-28 h-28 object-contain rounded-2xl"
                           />
@@ -531,13 +466,9 @@ export default function HomePage() {
                     type="text"
                     placeholder="Select City"
                     value={cityInput}
-                    onChange={(e) => setCityInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        console.log('Enter pressed, setting city to:', cityInput);
-                        setCity(cityInput.trim());
-                        setCityInput('');
-                      }
+                    onChange={e => setCityInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleEnterCity();
                     }}
                     className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
                   />
@@ -610,9 +541,15 @@ export default function HomePage() {
                       {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {new Date(ev.dateFrom).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
                       &nbsp;–&nbsp;
-                      {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {new Date(ev.dateTo).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
                     </div>
                     <div className="mt-1 text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
                       {ev.style}
@@ -653,10 +590,7 @@ export default function HomePage() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative flex flex-col max-h-[90vh] overflow-y-auto">
-            <button
-              className="absolute top-4 right-4 text-xl"
-              onClick={() => setShowModal(false)}
-            >
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowModal(false)}>
               ×
             </button>
             <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
@@ -700,10 +634,7 @@ export default function HomePage() {
               </select>
             </div>
             <div className="mt-4 flex justify-end space-x-2">
-              <button
-                className="px-4 py-2 rounded-full border border-black"
-                onClick={() => setShowModal(false)}
-              >
+              <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowModal(false)}>
                 Cancel
               </button>
               <button
@@ -721,17 +652,24 @@ export default function HomePage() {
                       dateFrom: new Date(newEvent.dateFrom).toISOString(),
                       dateTo: new Date(newEvent.dateTo).toISOString(),
                     });
+
+                    // Pre-warm event outfit recs for each day if weather exists
                     if (created.weather) {
-                      let days: { date: string; summary: any }[] = [];
-                      try { days = JSON.parse(created.weather); } catch { days = []; }
-                      for (const { date, summary } of days) {
+                      let days: { date: string; summary: WeatherSummary }[] = [];
+                      try {
+                        days = JSON.parse(created.weather);
+                      } catch {
+                        days = [];
+                      }
+                      for (const { summary } of days) {
                         try {
                           await fetchRecommendedOutfits(summary, created.style, created.id);
                         } catch (err) {
-                          console.error(`Failed to fetch outfits for ${date}:`, err);
+                          console.error(`Failed to fetch outfits for event day:`, err);
                         }
                       }
                     }
+
                     setEvents((evt: Event[]) => [...evt, created]);
                     setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
                     setShowModal(false);
@@ -752,15 +690,13 @@ export default function HomePage() {
       {showDetailModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
-            <button
-              className="absolute top-4 right-4 text-xl"
-              onClick={() => setShowDetailModal(false)}
-            >
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowDetailModal(false)}>
               ×
             </button>
             <h2 className="text-2xl mb-4 font-livvic">
               {selectedEvent.name.charAt(0).toUpperCase() + selectedEvent.name.slice(1).toLowerCase()}
             </h2>
+
             {isEditing ? (
               <div className="space-y-3 flex-grow">
                 <input
@@ -810,14 +746,11 @@ export default function HomePage() {
                       <strong>When:</strong>{' '}
                       {sameDay ? (
                         <>
-                          {from.toLocaleDateString()} {' '}
-                          {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {from.toLocaleDateString()} {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </>
                       ) : (
-                        <>
-                          {from.toLocaleString()} – {to.toLocaleString()}
-                        </>
+                        <>{from.toLocaleString()} – {to.toLocaleString()}</>
                       )}
                     </p>
                   );
@@ -825,26 +758,33 @@ export default function HomePage() {
                 <p className="text-sm mb-4">
                   <strong>Where:</strong> {selectedEvent.location}
                 </p>
-                {selectedEvent.weather && (() => {
-                  let sums: { date: string; summary: any }[] = [];
-                  try { sums = JSON.parse(selectedEvent.weather); } catch { sums = []; }
-                  if (!sums.length) return null;
-                  return (
-                    <div className="text-sm mb-4 space-y-1">
-                      {sums.map(({ date, summary }) => summary ? (
-                        <div key={date}>
-                          <span className="font-medium">{date}:</span>{' '}
-                          {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
-                        </div>
-                      ) : (
-                        <div key={date}>
-                          <span className="font-medium">{date}:</span>{' '}
-                          <span className="text-red-400">No data</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {selectedEvent.weather &&
+                  (() => {
+                    let sums: { date: string; summary: any }[] = [];
+                    try {
+                      sums = JSON.parse(selectedEvent.weather);
+                    } catch {
+                      sums = [];
+                    }
+                    if (!sums.length) return null;
+                    return (
+                      <div className="text-sm mb-4 space-y-1">
+                        {sums.map(({ date, summary }) =>
+                          summary ? (
+                            <div key={date}>
+                              <span className="font-medium">{date}:</span> {summary.mainCondition} —{' '}
+                              {Math.round(summary.avgTemp)}°C
+                            </div>
+                          ) : (
+                            <div key={date}>
+                              <span className="font-medium">{date}:</span>{' '}
+                              <span className="text-red-400">No data</span>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    );
+                  })()}
                 <div className="mt-4">
                   <h3 className="font-medium mb-2">Recommended Outfit</h3>
                   {detailLoading && <p>Loading outfit…</p>}
@@ -855,7 +795,11 @@ export default function HomePage() {
                         {detailOutfit.outfitItems.map(item => (
                           <img
                             key={item.closetItemId}
-                            src={item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`}
+                            src={
+                              item.imageUrl.startsWith('http')
+                                ? item.imageUrl
+                                : `http://localhost:5001${item.imageUrl}`
+                            }
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"
                           />
@@ -869,13 +813,11 @@ export default function HomePage() {
                 </div>
               </div>
             )}
+
             <div className="mt-4 flex flex-wrap justify-end space-x-2">
               {isEditing ? (
                 <>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 rounded-full border border-black"
-                  >
+                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-full border border-black">
                     Cancel
                   </button>
                   <button
@@ -899,10 +841,7 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
-                  >
+                  <button onClick={() => setIsEditing(true)} className="px-4 py-2 rounded-full bg-[#3F978F] text-white">
                     Edit
                   </button>
                   <button
@@ -926,10 +865,4 @@ export default function HomePage() {
       <Footer />
     </div>
   );
-}
-
-// Existing updateOutfit function (unchanged)
-export async function updateOutfit(outfitId: string, data: any) {
-  const response = await axios.put(`/api/outfits/${outfitId}`, data);
-  return response.data;
 }
