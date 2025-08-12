@@ -35,15 +35,25 @@ export interface RecommendedOutfit {
         willRain: boolean;
         mainCondition: string;
     };
-    favourite?: boolean; // indicates if the outfit is a favorite
+    favourite?: boolean; 
 }
 
-export interface OutfitItemPayload {
+export type OutfitItemPayload = {
     closetItemId: string;
-    layerCategory: string;
-    sortOrder: number;
-}
+    layerCategory: string;    
+    sortOrder: number;         
+};
 
+export async function saveOutfitEdits(
+    id: string,
+    payload: {
+        userRating?: number;
+        overallStyle?: string;           
+        outfitItems?: OutfitItemPayload[];
+    }
+) {
+    return updateOutfit(id, payload);  
+}
 
 export interface SaveOutfitPayload {
     outfitItems: OutfitItemPayload[];

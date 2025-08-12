@@ -14,6 +14,8 @@ import StarRating from '../components/StarRating';
 
 import { toggleOutfitFavourite } from '../services/outfitApi';
 
+import EditOutfitModal from "../components/EditOutfitModal";
+
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
 }
@@ -175,6 +177,7 @@ export default function ClosetPage() {
   const [activeDetailsItem, setActiveDetailsItem] = useState<Item | null>(null);
   const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
 
+  const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
 
   useEffect(() => {
@@ -838,7 +841,7 @@ export default function ClosetPage() {
 
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         toggleFavourite(entry, 'outfits');
                       }}
                       aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
@@ -981,10 +984,20 @@ export default function ClosetPage() {
                 </div>
 
                 {/* Delete button */}
-                <div className="flex justify-end pt-6">
+                <div className="flex justify-end gap-2 pt-6">
                   <button
                     onClick={() => {
-                      setItemToRemove({ id: activeDetailsOutfit.id, tab: 'outfits', name: 'Outfit' });
+                      if (!activeDetailsOutfit) return;
+                      setEditingOutfit(activeDetailsOutfit);
+                      setActiveDetailsOutfit(null);
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
                       setShowModal(true);
                       setActiveDetailsOutfit(null);
                     }}
@@ -993,6 +1006,7 @@ export default function ClosetPage() {
                     Delete
                   </button>
                 </div>
+
               </motion.div>
             </motion.div>
           )}
@@ -1255,7 +1269,7 @@ export default function ClosetPage() {
                     className="w-40 h-40 object-contain rounded-lg shadow"
                   />
                 </div>
-                
+
                 {/* Item details */}
                 <div className="space-y-2 text-gray-700 text-base">
                   <div><span className="font-semibold">Category:</span> {activeDetailsItem.category}</div>
@@ -1331,6 +1345,43 @@ export default function ClosetPage() {
             </div>
           </div>
         )}
+
+        {editingOutfit && (
+          <EditOutfitModal
+            outfitId={editingOutfit.id}
+            initialStyle={editingOutfit.overallStyle}
+            initialRating={editingOutfit.userRating}
+            initialItems={editingOutfit.outfitItems.map(it => ({
+              closetItemId: it.closetItemId,
+              layerCategory: it.layerCategory,
+              imageUrl: it.imageUrl,
+              category: it.category,
+            }))}
+            onClose={() => setEditingOutfit(null)}
+            onSaved={(updated) => {
+              // Merge server response back into local state
+              setOutfits(prev =>
+                prev.map(o => (o.id === updated.id
+                  ? {
+                    ...o,
+                    overallStyle: updated.overallStyle,
+                    userRating: updated.userRating ?? o.userRating,
+                    // normalize imageUrl (same as fetchAllOutfits normalization)
+                    outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                      closetItemId: it.closetItemId,
+                      layerCategory: it.layerCategory,
+                      imageUrl: it.imageUrl && it.imageUrl.length > 0
+                        ? it.imageUrl
+                        : `/uploads/${it?.closetItem?.filename ?? ""}`,
+                      category: it?.closetItem?.category ?? it.category,
+                    })),
+                  }
+                  : o))
+              );
+            }}
+          />
+        )}
+
 
       </div>
     </div>
