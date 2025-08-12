@@ -1,10 +1,11 @@
+// src/services/usersApi.ts
 import { fetchWithAuth } from "./fetchWithAuth";
 
 const API_URL = "http://localhost:5001/api/users";
 
 export async function uploadProfilePhoto(file: File) {
   const form = new FormData();
-  form.append("image", file);
+  form.append("image", file); // must match upload.single("image")
 
   const res = await fetchWithAuth(`${API_URL}/me/profile-photo`, {
     method: "PATCH",
@@ -16,5 +17,5 @@ export async function uploadProfilePhoto(file: File) {
     throw new Error(err.message || "Failed to update profile photo");
   }
 
-  return res.json();
+  return res.json(); 
 }
