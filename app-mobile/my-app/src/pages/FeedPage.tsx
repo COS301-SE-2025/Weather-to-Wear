@@ -159,6 +159,13 @@ const FeedPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"following" | "followers">("following");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null); // New state for username
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<UserResult[]>([]);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const pageSize = 10;
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -354,11 +361,11 @@ const FeedPage: React.FC = () => {
   const toggleFollow = async (accountId: string, isFollowing: boolean) => {
     try {
       if (isFollowing) {
-        await unfollowUser(account.id);
-        setFollowing(following.filter((f) => f.id !== account.id));
+        await unfollowUser(accountId);
+        setFollowing(following.filter((f) => f.id !== accountId));
       } else {
-        await followUser(account.id);
-        setFollowing([...following, account]);
+        await followUser(accountId);
+        setFollowing([...following, { id: accountId, username: "New User", profilePhoto: "U" }]);
       }
     } catch (err: any) {
       setError(err.message);
