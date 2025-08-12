@@ -125,7 +125,7 @@ const AddPage: React.FC = () => {
   const [batchItems, setBatchItems] = useState<BatchUploadItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  
+
 
 
   const { addToQueue, queueLength, isProcessing, progressPercent } = useUploadQueue();
@@ -631,7 +631,7 @@ const AddPage: React.FC = () => {
                   <label className="text-sm text-black dark:text-gray-200 font-semibold">
                     Waterproof
                   </label>
-                </div>     
+                </div>
               </div>
 
               <button
@@ -821,47 +821,38 @@ const AddPage: React.FC = () => {
               <button
                 className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
                 onClick={async () => {
-                  const formData = new FormData();
-                  const itemsMeta = batchItems.map(item => ({
-                    filename: item.id,
-                    category: item.category,
-                    layerCategory: item.layerCategory,
-                    style: item.style,
-                    material: item.material,
-                    warmthFactor: item.warmthFactor,
-                    waterproof: item.waterproof,
-                    colorHex: item.colorHex,
-                  }));
-                  formData.append("items", JSON.stringify(itemsMeta));
+                  if (batchItems.length === 0) return;
+
+                  // Optional: basic validation
+                  const invalid = batchItems.find(i => !i.layerCategory || !i.category);
+                  if (invalid) {
+                    alert("Please select a layer and category for every image before submitting.");
+                    return;
+                  }
+
+                  // Add each item to the queue individually
                   batchItems.forEach(item => {
-                    formData.append(item.id, item.file);
+                    const fd = new FormData();
+                    fd.append("image", item.file, item.file.name || `${item.id}.png`);
+                    fd.append("layerCategory", item.layerCategory);
+                    fd.append("category", item.category);
+                    if (item.style) fd.append("style", item.style);
+                    if (item.material) fd.append("material", item.material);
+                    if (typeof item.warmthFactor === "number") {
+                      fd.append("warmthFactor", String(item.warmthFactor));
+                    }
+                    fd.append("waterproof", String(item.waterproof));
+                    if (item.colorHex) fd.append("colorHex", item.colorHex);
+
+                    addToQueue(fd);
                   });
 
-                  const token = localStorage.getItem("token");
-                  try {
-                    console.log("Uploading batch items:", batchItems);
-                    console.log("Sending metadata:", JSON.stringify(itemsMeta));
+                  // UI feedback + cleanup
+                  setShowQueueToast(true);
+                  setBatchItems([]);
+                  localStorage.removeItem("batchDraft");
 
-                    const res = await fetchWithAuth("http://localhost:5001/api/closet/upload/batch", {
-                      method: "POST",
-                      body: formData,
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                      },
-                    });
-
-                    if (!res.ok) {
-                      const errorText = await res.text();
-                      console.error("Upload failed. Server responded with:", res.status, errorText);
-                      throw new Error(`Upload failed: ${res.status} ${errorText}`);
-                    }
-
-                    setShowSuccessBatch(true);
-                    setBatchItems([]);
-                  } catch (err) {
-                    console.error(err);
-                    alert("Upload failed");
-                  }
+                  setTimeout(() => setShowQueueToast(false), 3000);
                 }}
               >
                 Submit All
@@ -883,7 +874,7 @@ const AddPage: React.FC = () => {
 
       </div>
 
-      {queueLength > 0 && (
+      {(queueLength > 0 || isProcessing) && (
         <div className="fixed bottom-6 left-6 z-50 flex flex-col items-center">
           <div className="relative w-16 h-16">
             <svg className="w-16 h-16" viewBox="0 0 36 36">
