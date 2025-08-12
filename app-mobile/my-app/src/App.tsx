@@ -17,6 +17,7 @@ import AddPage from "./pages/AddPage";
 import HelpPage from "./pages/HelpPage";
 import LandingPage from "./pages/LandingPage";
 import { ImageProvider } from "./components/ImageContext";
+import PostsPage from "./pages/PostsPage";
 
 import Footer from "./components/Footer";
 import { UploadQueueProvider } from "./context/UploadQueueContext";
@@ -48,13 +49,15 @@ function App() {
                   <Route path="create-outfit" element={<CreateAnOutfit />} />
                   <Route path="post-to-feed" element={<PostToFeed />} /> {/* Ensure this route renders PostToFeed */}
                   <Route path="help" element={<HelpPage />} />
+                  <Route path="my-posts" element={<PostsPage />} />
                   <Route path="*" element={<UnderConstruction />} /> {/* Catch-all for unmatched routes */}
+
                 </Routes>
               </UploadQueueProvider>
             }
           />
         </Routes>
-  </Router>
+      </Router>
     </ImageProvider>
   );
 }
