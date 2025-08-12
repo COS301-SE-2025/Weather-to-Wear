@@ -192,56 +192,11 @@ const FeedPage: React.FC = () => {
     }
   }, []);
 
-  // const fetchPosts = useCallback(
-  //   async (reset: boolean = false) => {
-  //     if (!currentUserId) return;
-  //     if (!hasMore && !reset) return;
-  //     setLoadingPosts(true);
-  //     try {
-  //       const response = await getPosts(
-  //         20,
-  //         reset ? 0 : offset,
-  //         ["user", "comments", "comments.user", "likes", "closetItem"]
-  //       );
-  //       const formattedPosts: Post[] = response.posts.map((post: any) => ({
-  //         id: post.id,
-  //         userId: post.userId,
-  //         username: post.user?.name || "Unknown",
-  //         profilePhoto: post.user?.profilePhoto,
-  //         content: post.caption || "",
-  //         likes: post.likes?.length || 0,
-  //         liked: post.likes?.some((like: any) => like.userId === currentUserId) || false,
-  //         date: new Date(post.createdAt).toLocaleString(),
-  //         comments: post.comments?.map((comment: any) => ({
-  //           id: comment.id,
-  //           content: comment.content,
-  //           userId: comment.userId,
-  //           username: comment.user?.name || "Unknown",
-  //         })) || [],
-  //         imageUrl: post.imageUrl,
-  //         location: post.location,
-  //         weather: post.weather,
-  //         closetItem: post.closetItem
-  //           ? { id: post.closetItem.id, filename: post.closetItem.filename, category: post.closetItem.category }
-  //           : undefined,
-  //       }));
-  //       setPosts((prev) => (reset ? formattedPosts : [...prev, ...formattedPosts]));
-  //       setOffset((prev) => (reset ? 20 : prev + 20));
-  //       setHasMore(formattedPosts.length === 20);
-  //     } catch (err: any) {
-  //       setError(err.message || "Failed to load posts");
-  //     } finally {
-  //       setLoadingPosts(false);
-  //     }
-  //   },
-  //   [offset, hasMore, currentUserId]
-  // );
 
   const fetchNext = useCallback(async () => {
     if (!currentUserId || loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      // your backend supports: user, comments, likes (not nested "comments.user" or "closetItem" unless you added it)
       const resp = await getPosts(pageSize, offset, ["user", "comments", "comments.user", "likes"]);
       const batch = (resp.posts ?? []).map((post: any) => ({
         id: post.id,
@@ -300,12 +255,6 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId]);
 
-  // useEffect(() => {
-  //   if (currentUserId) {
-  //     fetchPosts(true);
-  //     fetchFollowData();
-  //   }
-  // }, [currentUserId, fetchPosts, fetchFollowData]);
 
   // reset when we know the user
   useEffect(() => {
@@ -464,22 +413,20 @@ const FeedPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-screen-xl mx-auto px-4 py-3 md:py-6 flex flex-col md:flex-row gap-4 md:gap-10">
-      <div className="w-full md:w-[32%] order-1 md:order-2">
-        <SearchUsersCard
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
-          searchError={searchError}
-          searchResults={searchResults}
-          searchHasMore={searchHasMore}
-          onLoadMore={loadMoreSearch}
-          onToggleFollow={toggleFollowFromSearch}
-        />
-      </div>
+    <div className="w-full max-w-screen-xl mx-auto px-0 md:px-4 py-3 md:py-6 flex flex-col md:flex-row gap-4 md:gap-10">      <div className="w-full md:w-[32%] order-1 md:order-2">
+      <SearchUsersCard
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchLoading={searchLoading}
+        searchError={searchError}
+        searchResults={searchResults}
+        searchHasMore={searchHasMore}
+        onLoadMore={loadMoreSearch}
+        onToggleFollow={toggleFollowFromSearch}
+      />
+    </div>
 
-      <div className="w-full md:w-[58%] space-y-4 md:space-y-6 order-2 md:order-1">
-        {error && <div className="text-red-500 text-sm">{error}</div>}
+      <div className="w-full md:w-[58%] space-y-4 md:space-y-6 order-2 md:order-1 -mx-0 md:mx-0">        {error && <div className="text-red-500 text-sm">{error}</div>}
         {posts.length === 0 && loadingMore ? (
           <div className="flex justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
@@ -489,7 +436,7 @@ const FeedPage: React.FC = () => {
             {posts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-md border border-gray-200 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-none p-5 shadow-md border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
@@ -515,14 +462,15 @@ const FeedPage: React.FC = () => {
 
                 <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{post.content}</p>
                 {post.imageUrl && (
-                  <div className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  <div className="-mx-5 md:-mx-5 bg-gray-100 dark:bg-gray-700">
                     <img
                       src={`${API_URL}${post.imageUrl}`}
                       alt="Outfit"
-                      className="w-full h-auto"
+                      className="w-full h-auto object-cover"
                     />
                   </div>
                 )}
+
                 {(post.location || post.weather || post.closetItem) && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                     {post.weather && `Weather: ${post.weather.condition} (${post.weather.temp}°C)`}
