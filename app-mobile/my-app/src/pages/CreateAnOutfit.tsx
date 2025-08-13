@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { fetchAllItems } from '../services/closetApi';
-import { createOutfitManual } from '../services/outfitApi';
-import ClosetPickerModal from '../components/ClosetPickerModal';
+import { fetchAllItems } from "../services/closetApi";
+import { createOutfitManual } from "../services/outfitApi";
+import ClosetPickerModal from "../components/ClosetPickerModal";
 
-// Types
 export interface ClosetItem {
   id: string;
   name: string;
@@ -15,35 +14,35 @@ export interface ClosetItem {
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
-    { value: 'TSHIRT', label: 'T-shirt' },
-    { value: 'LONGSLEEVE', label: 'Long Sleeve' },
-    { value: 'SHIRT', label: 'Shirt' },
+    { value: "TSHIRT", label: "T-shirt" },
+    { value: "LONGSLEEVE", label: "Long Sleeve" },
+    { value: "SHIRT", label: "Shirt" },
   ],
   base_bottom: [
-    { value: 'PANTS', label: 'Pants' },
-    { value: 'SHORTS', label: 'Shorts' },
-    { value: 'JEANS', label: 'Jeans' },
+    { value: "PANTS", label: "Pants" },
+    { value: "SHORTS", label: "Shorts" },
+    { value: "JEANS", label: "Jeans" },
   ],
   mid_top: [
-    { value: 'SWEATER', label: 'Sweater' },
-    { value: 'HOODIE', label: 'Hoodie' },
+    { value: "SWEATER", label: "Sweater" },
+    { value: "HOODIE", label: "Hoodie" },
   ],
   outerwear: [
-    { value: 'JACKET', label: 'Jacket' },
-    { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: "JACKET", label: "Jacket" },
+    { value: "RAINCOAT", label: "Raincoat" },
   ],
   footwear: [
-    { value: 'SHOES', label: 'Shoes' },
-    { value: 'BOOTS', label: 'Boots' },
+    { value: "SHOES", label: "Shoes" },
+    { value: "BOOTS", label: "Boots" },
   ],
   headwear: [
-    { value: 'BEANIE', label: 'Beanie' },
-    { value: 'HAT', label: 'Hat' },
+    { value: "BEANIE", label: "Beanie" },
+    { value: "HAT", label: "Hat" },
   ],
   accessory: [
-    { value: 'SCARF', label: 'Scarf' },
-    { value: 'GLOVES', label: 'Gloves' },
-    { value: 'UMBRELLA', label: 'Umbrella' },
+    { value: "SCARF", label: "Scarf" },
+    { value: "GLOVES", label: "Gloves" },
+    { value: "UMBRELLA", label: "Umbrella" },
   ],
 };
 
@@ -54,15 +53,13 @@ type OutfitItemInput = {
 };
 
 export default function CreateAnOutfit() {
-  // State
   const [allItems, setAllItems] = useState<ClosetItem[]>([]);
   const [baseTop, setBaseTop] = useState<ClosetItem | null>(null);
   const [baseBottom, setBaseBottom] = useState<ClosetItem | null>(null);
   const [footwear, setFootwear] = useState<ClosetItem | null>(null);
   const [additional, setAdditional] = useState<ClosetItem[]>([]);
-  const [modal, setModal] = useState<null | "base_top" | "base_bottom" | "footwear">(null);
+  const [modal, setModal] = useState<null | "base_top" | "base_bottom" | "footwear" | "additional">(null);
 
-  // Submission
   const [creating, setCreating] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -77,7 +74,7 @@ export default function CreateAnOutfit() {
           category: item.category,
           layerCategory: item.layerCategory,
           imageUrl: item.imageUrl
-            ? item.imageUrl.startsWith('http')
+            ? item.imageUrl.startsWith("http")
               ? item.imageUrl
               : `http://localhost:5001${item.imageUrl}`
             : undefined,
@@ -90,7 +87,6 @@ export default function CreateAnOutfit() {
     getItems();
   }, []);
 
-  // Helpers
   const selectedIds = [
     baseTop?.id,
     baseBottom?.id,
@@ -144,179 +140,159 @@ export default function CreateAnOutfit() {
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans">
-      {/* Header */}
-      <div className="w-full relative flex items-center justify-center h-48 mb-8">
-        <div
-          className="absolute inset-0 z-0"
-          style={{
-            backgroundImage: `url(/header2.jpg)`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            filter: 'brightness(0.7)'
-          }}
-        ></div>
-         <div className="px-6 py-2 border-2 border-white z-10">
-          <h1 className="text-2xl font-bodoni font-light text-center text-white">
-            CREATE AN OUTFIT
-          </h1>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 -mt-12 md:mt-0">
+      {/* Hero header (matches other pages) */}
 
-      {/* Main content */}
-      <div className="max-w-3xl mx-auto flex flex-col md:flex-row gap-10 pb-10 px-3">
-        {/* --- FORM --- */}
-        <div className="flex-1 bg-white rounded-2xl shadow-lg px-7 py-7">
-          <form className="space-y-7" onSubmit={handleSubmit}>
+
+      {/* Main grid */}
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_360px] gap-5 sm:gap-8 px-3 sm:px-4 md:px-0 pb-10">
+        {/* FORM CARD */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md px-5 sm:px-7 py-6 sm:py-7">
+          {/* Section title pill */}
+          <div className="flex justify-center mb-5">
+            <h2 className="text-lg md:text-xl font-livvic border-2 border-black dark:border-gray-100 px-4 py-1 text-black dark:text-gray-100">
+              Create an Outfit
+            </h2>
+          </div>
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Base Top */}
             <div>
-              <label className="text-base font-medium text-black mb-3 block font-sans">Base Top</label>
+              <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 block">
+                Base Top
+              </label>
               <button
                 type="button"
-                className="w-full border font-normal text-base rounded-full px-5 py-3 bg-white flex items-center justify-between shadow transition outline-none focus:ring-2"
-                style={{
-                  borderColor: 'black',
-                  color: baseTop ? "#222" : "#aaa"
-                }}
                 onClick={() => setModal("base_top")}
+                className="w-full rounded-full border border-black px-5 py-3 bg-white dark:bg-gray-800 text-left shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
               >
-                <span>
-                  {baseTop ? baseTop.name : <span className="text-gray-400">Pick a base top...</span>}
-                </span>
-                <span className="text-gray-400 text-sm">{baseTop ? "Change" : "Pick"}</span>
+                <div className="flex items-center justify-between">
+                  <span className={baseTop ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
+                    {baseTop ? baseTop.name : "Pick a base top..."}
+                  </span>
+                  <span className="text-gray-400 text-sm">{baseTop ? "Change" : "Pick"}</span>
+                </div>
               </button>
             </div>
+
             {/* Base Bottom */}
             <div>
-              <label className="text-base font-medium text-black mb-3 block font-sans">Base Bottom</label>
+              <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 block">
+                Base Bottom
+              </label>
               <button
                 type="button"
-                className="w-full border font-normal text-base rounded-full px-5 py-3 bg-white flex items-center justify-between shadow transition outline-none focus:ring-2"
-                style={{
-                  borderColor: 'black',
-                  color: baseBottom ? "#222" : "#aaa"
-                }}
                 onClick={() => setModal("base_bottom")}
+                className="w-full rounded-full border border-black px-5 py-3 bg-white dark:bg-gray-800 text-left shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
               >
-                <span>
-                  {baseBottom ? baseBottom.name : <span className="text-gray-400">Pick a base bottom...</span>}
-                </span>
-                <span className="text-gray-400 text-sm">{baseBottom ? "Change" : "Pick"}</span>
+                <div className="flex items-center justify-between">
+                  <span className={baseBottom ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
+                    {baseBottom ? baseBottom.name : "Pick a base bottom..."}
+                  </span>
+                  <span className="text-gray-400 text-sm">{baseBottom ? "Change" : "Pick"}</span>
+                </div>
               </button>
             </div>
+
             {/* Footwear */}
             <div>
-              <label className="text-base font-medium text-black mb-3 block font-sans">Footwear</label>
+              <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 block">
+                Footwear
+              </label>
               <button
                 type="button"
-                className="w-full border font-normal text-base rounded-full px-5 py-3 bg-white flex items-center justify-between shadow transition outline-none focus:ring-2"
-                style={{
-                  borderColor: 'black',
-                  color: footwear ? "#222" : "#aaa"
-                }}
                 onClick={() => setModal("footwear")}
+                className="w-full rounded-full border border-black px-5 py-3 bg-white dark:bg-gray-800 text-left shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
               >
-                <span>
-                  {footwear ? footwear.name : <span className="text-gray-400">Pick footwear...</span>}
-                </span>
-                <span className="text-gray-400 text-sm">{footwear ? "Change" : "Pick"}</span>
+                <div className="flex items-center justify-between">
+                  <span className={footwear ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
+                    {footwear ? footwear.name : "Pick footwear..."}
+                  </span>
+                  <span className="text-gray-400 text-sm">{footwear ? "Change" : "Pick"}</span>
+                </div>
               </button>
             </div>
+
             {/* Additional Items */}
             <div>
-              <label className="text-base font-medium text-black mb-3 block font-sans">Additional Items</label>
-              <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 block">
+                Additional Items
+              </label>
+
+              {/* Chips */}
+              <div className="flex flex-wrap gap-2 mb-2">
                 {additional.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2 bg-[#e5f6f4] rounded-full px-4 py-2 shadow-sm font-sans">
-                    <span>{item.name}</span>
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2 bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 rounded-full px-3 py-1.5 shadow-sm"
+                  >
+                    <span className="text-sm">{item.name}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveAdditional(item.id)}
-                      className="text-xs text-red-600 hover:underline"
+                      className="text-xs text-red-600 dark:text-red-400 hover:underline"
                     >
                       Remove
                     </button>
                   </div>
                 ))}
-                <select
-                  className="w-full border font-normal text-base rounded-full px-5 py-3 mt-1 bg-white shadow-sm outline-none focus:ring-2"
-                  style={{ borderColor: 'black' }}
-                  value=""
-                  onChange={e => {
-                    const id = e.target.value;
-                    const item = allItems.find(
-                      i =>
-                        i.id === id &&
-                        !selectedIds.includes(i.id) &&
-                        !["base_top", "base_bottom", "footwear"].includes(i.layerCategory)
-                    );
-                    if (item) handleAddAdditional(item);
-                  }}
-                >
-                  <option value="">Add another item...</option>
-                  {allItems
-                    .filter(
-                      i =>
-                        !selectedIds.includes(i.id) &&
-                        !["base_top", "base_bottom", "footwear"].includes(i.layerCategory)
-                    )
-                    .map(i => (
-                      <option value={i.id} key={i.id}>
-                        {i.name} (
-                        {
-                          CATEGORY_BY_LAYER[i.layerCategory]?.find(c => c.value === i.category)?.label || i.category || i.layerCategory
-                        }
-                        )
-                      </option>
-                    ))}
-                </select>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setModal("additional")}
+                className="w-full rounded-full border border-black px-5 py-3 bg-white dark:bg-gray-800 text-left shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className={additional.length ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
+                    {additional.length ? `Add more items (${additional.length} selected)` : "Pick additional items..."}
+                  </span>
+                  <span className="text-gray-400 text-sm">{additional.length ? "Add more" : "Pick"}</span>
+                </div>
+              </button>
+
+
+              {/* Add select */}
+
             </div>
-            {/* --- Error / Success --- */}
+
+            {/* Alerts */}
             {error && (
-              <div className="bg-red-100 border border-red-200 rounded-full px-4 py-2 text-red-700 text-center text-base shadow-sm font-sans">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-full px-4 py-2 text-red-700 dark:text-red-300 text-center text-sm">
                 {error}
               </div>
             )}
             {success && (
-              <div className="bg-green-100 border border-green-200 rounded-full px-4 py-2 text-green-700 text-center text-base shadow-sm font-semibold font-sans">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-full px-4 py-2 text-green-700 dark:text-green-300 text-center text-sm font-semibold">
                 Outfit created successfully!
               </div>
             )}
-            {/* --- Submit --- */}
+
+            {/* Submit */}
             <button
               type="submit"
-              style={{
-                backgroundColor: '#3f978f',
-                borderRadius: '9999px',
-                padding: '0.85rem 1.5rem',
-                fontWeight: 700,
-                fontSize: '1.1rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-              className="w-full text-white shadow-sm transition hover:opacity-90 outline-none font-sans"
               disabled={creating}
+              className="w-full rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] disabled:opacity-60 text-white font-semibold text-base py-3 shadow-sm transition"
             >
               {creating ? "Creating..." : "Create Outfit"}
             </button>
           </form>
         </div>
 
-        {/* --- OUTFIT PREVIEW --- */}
-        <div className="w-full md:w-[340px] mt-8 md:mt-0 flex justify-center">
-          <div className="bg-gradient-to-br from-[#e5f6f4] via-white to-white rounded-2xl shadow-lg px-6 py-8 flex flex-col items-center min-h-[390px]">
-            {/* Preview Images Only, Centered and Large */}
-            <div className="flex flex-wrap justify-center items-center gap-6 w-full">
+        {/* PREVIEW CARD */}
+        <div className="w-full md:w-auto">
+          <div className="bg-gradient-to-br from-[#e5f6f4] via-white to-white dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md px-5 py-6 flex flex-col items-center min-h-[360px]">
+            <div className="flex flex-wrap justify-center items-center gap-5 w-full">
               {baseTop && (
                 <div>
                   {baseTop.imageUrl ? (
                     <img
                       src={baseTop.imageUrl}
                       alt=""
-                      className="w-28 h-28 object-contain rounded-2xl border bg-white mx-auto"
+                      className="w-28 h-28 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                     />
                   ) : (
-                    <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-xl font-sans">
+                    <div className="w-28 h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
                       Top
                     </div>
                   )}
@@ -328,10 +304,10 @@ export default function CreateAnOutfit() {
                     <img
                       src={baseBottom.imageUrl}
                       alt=""
-                      className="w-28 h-28 object-contain rounded-2xl border bg-white mx-auto"
+                      className="w-28 h-28 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                     />
                   ) : (
-                    <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-xl font-sans">
+                    <div className="w-28 h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
                       Bottom
                     </div>
                   )}
@@ -343,78 +319,95 @@ export default function CreateAnOutfit() {
                     <img
                       src={footwear.imageUrl}
                       alt=""
-                      className="w-28 h-28 object-contain rounded-2xl border bg-white mx-auto"
+                      className="w-28 h-28 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                     />
                   ) : (
-                    <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-xl font-sans">
+                    <div className="w-28 h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
                       Shoes
                     </div>
                   )}
                 </div>
               )}
-              {additional.length > 0 && additional.map(item => (
-                <div key={item.id}>
-                  {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
-                      alt=""
-                      className="w-20 h-20 object-contain rounded-2xl border bg-white mx-auto"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-lg font-sans">
-                      +
-                    </div>
-                  )}
-                </div>
-              ))}
+              {additional.length > 0 &&
+                additional.map((item) => (
+                  <div key={item.id}>
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt=""
+                        className="w-20 h-20 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
+                        +
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
-            {/* If nothing picked */}
-            {(!baseTop && !baseBottom && !footwear && additional.length === 0) && (
-              <div className="text-gray-400 text-center mt-20 text-base font-sans">
+
+            {!baseTop && !baseBottom && !footwear && additional.length === 0 && (
+              <div className="text-gray-400 dark:text-gray-500 text-center mt-16 text-sm">
                 Start picking items<br />to build your outfit!
               </div>
             )}
           </div>
         </div>
-      </div>
+      </div >
 
-      {/* --- MODALS --- */}
-      <ClosetPickerModal
-        visible={modal === "base_top"}
+      {/* MODALS */}
+      < ClosetPickerModal
+        visible={modal === "base_top"
+        }
         onClose={() => setModal(null)}
-        items={allItems.filter(
-          i =>
-            i.layerCategory === "base_top" &&
-            CATEGORY_BY_LAYER["base_top"].some(c => c.value === i.category) &&
-            (!selectedIds.includes(i.id) || baseTop?.id === i.id)
-        )}
-        onSelect={item => setBaseTop(item)}
+        items={
+          allItems.filter(
+            (i) =>
+              i.layerCategory === "base_top" &&
+              CATEGORY_BY_LAYER["base_top"].some((c) => c.value === i.category) &&
+              (!selectedIds.includes(i.id) || baseTop?.id === i.id)
+          )
+        }
+        onSelect={(item) => setBaseTop(item)}
         title="Pick a Base Top"
       />
       <ClosetPickerModal
         visible={modal === "base_bottom"}
         onClose={() => setModal(null)}
         items={allItems.filter(
-          i =>
+          (i) =>
             i.layerCategory === "base_bottom" &&
-            CATEGORY_BY_LAYER["base_bottom"].some(c => c.value === i.category) &&
+            CATEGORY_BY_LAYER["base_bottom"].some((c) => c.value === i.category) &&
             (!selectedIds.includes(i.id) || baseBottom?.id === i.id)
         )}
-        onSelect={item => setBaseBottom(item)}
+        onSelect={(item) => setBaseBottom(item)}
         title="Pick a Base Bottom"
       />
       <ClosetPickerModal
         visible={modal === "footwear"}
         onClose={() => setModal(null)}
         items={allItems.filter(
-          i =>
+          (i) =>
             i.layerCategory === "footwear" &&
-            CATEGORY_BY_LAYER["footwear"].some(c => c.value === i.category) &&
+            CATEGORY_BY_LAYER["footwear"].some((c) => c.value === i.category) &&
             (!selectedIds.includes(i.id) || footwear?.id === i.id)
         )}
-        onSelect={item => setFootwear(item)}
+        onSelect={(item) => setFootwear(item)}
         title="Pick Footwear"
       />
-    </div>
+
+      <ClosetPickerModal
+        visible={modal === "additional"}
+        onClose={() => setModal(null)}
+        items={allItems.filter(
+          (i) =>
+            !["base_top", "base_bottom", "footwear"].includes(i.layerCategory) &&
+            !selectedIds.includes(i.id)
+        )}
+        onSelect={(item) => handleAddAdditional(item)}
+        title="Add Additional Items"
+        closeOnSelect={false}
+      />
+    </div >
   );
 }

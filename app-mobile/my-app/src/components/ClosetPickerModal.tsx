@@ -1,3 +1,4 @@
+// ClosetPickerModal.tsx
 import React from "react";
 import { X } from "lucide-react";
 
@@ -16,6 +17,8 @@ interface ClosetPickerModalProps {
   items: ClosetItem[];
   onSelect: (item: ClosetItem) => void;
   title: string;
+  /** NEW: keep modal open after selecting an item (default true = closes) */
+  closeOnSelect?: boolean;
 }
 
 const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
@@ -23,7 +26,8 @@ const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
   onClose,
   items,
   onSelect,
-  title
+  title,
+  closeOnSelect = true, // default behaviour unchanged
 }) => {
   if (!visible) return null;
 
@@ -36,10 +40,7 @@ const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
           mx-2 rounded-2xl shadow-xl relative flex flex-col
           p-5 font-sans
         "
-        style={{
-          maxHeight: "85vh",
-          minHeight: "180px",
-        }}
+        style={{ maxHeight: "85vh", minHeight: "180px" }}
       >
         <button
           onClick={onClose}
@@ -48,24 +49,26 @@ const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
         >
           <X className="w-6 h-6" />
         </button>
+
         <h2
           className="text-lg sm:text-xl font-light text-gray-900 text-center mb-4 mt-2 tracking-wide"
           style={{ letterSpacing: "0.04em" }}
         >
           {title}
         </h2>
+
         <div
           className="
             grid grid-cols-2 gap-4
             overflow-y-auto px-1 pb-2 pt-1
             flex-1
           "
-          style={{
-            maxHeight: "60vh",
-          }}
+          style={{ maxHeight: "60vh" }}
         >
           {items.length === 0 ? (
-            <div className="col-span-2 text-gray-400 italic text-center font-sans py-8">No items found.</div>
+            <div className="col-span-2 text-gray-400 italic text-center font-sans py-8">
+              No items found.
+            </div>
           ) : (
             items.map((item) => (
               <button
@@ -78,7 +81,7 @@ const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
                 "
                 onClick={() => {
                   onSelect(item);
-                  onClose();
+                  if (closeOnSelect) onClose();
                 }}
                 type="button"
               >
@@ -89,7 +92,9 @@ const ClosetPickerModal: React.FC<ClosetPickerModalProps> = ({
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <span className="text-xs font-normal text-gray-800 text-center break-words font-sans">{item.name}</span>
+                <span className="text-xs font-normal text-gray-800 text-center break-words font-sans">
+                  {item.name}
+                </span>
               </button>
             ))
           )}

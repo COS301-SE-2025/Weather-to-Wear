@@ -327,7 +327,7 @@ const AddPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12 -mt-10">
       {/* Header */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 mb-6"
