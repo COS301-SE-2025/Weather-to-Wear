@@ -7,11 +7,11 @@ export interface EventDto {
   id: string;
   name: string | null;
   location: string;
-  dateFrom: string;          // ISO string from backend
-  dateTo: string;            // ISO string from backend
+  dateFrom: string;
+  dateTo: string;
   style: Style;
-  weather?: string | null;   // may be null or a JSON string
-  isTrip?: boolean;          // trips only when true (backend field `isTrip`)
+  weather?: string | null;
+  isTrip?: boolean;
 }
 
 const BASE = 'http://localhost:5001/api/events';
@@ -25,8 +25,8 @@ export async function fetchAllEvents(): Promise<EventDto[]> {
 export async function createEvent(input: {
   name: string;
   location: string;
-  dateFrom: string;  // ISO
-  dateTo: string;    // ISO
+  dateFrom: string;
+  dateTo: string;
   style: Style;
   isTrip?: boolean;
 }): Promise<EventDto> {
@@ -43,8 +43,8 @@ export async function updateEvent(input: {
   id: string;
   name: string;
   location: string;
-  dateFrom: string;  // ISO
-  dateTo: string;    // ISO
+  dateFrom: string;
+  dateTo: string;
   style: Style | string;
 }): Promise<EventDto> {
   const res = await fetchWithAuth(`${BASE}/updateEvent`, {
@@ -57,8 +57,10 @@ export async function updateEvent(input: {
 }
 
 export async function deleteEvent(id: string): Promise<void> {
-  const res = await fetchWithAuth(`${BASE}/deleteEvent?id=${encodeURIComponent(id)}`, {
+  const res = await fetchWithAuth(`${BASE}/deleteEvent`, {
     method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
   });
   if (!res.ok) throw new Error(`Failed to delete event (${res.status})`);
 }
