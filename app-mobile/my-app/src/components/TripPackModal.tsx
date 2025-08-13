@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPackingList, savePackingList } from '../services/packingApi';
+import { getPackingList, createPackingList, deletePackingList } from '../services/packingApi';
 
 type ItemRow = { closetItemId: string; checked?: boolean };
 type OutfitRow = { outfitId: string; checked?: boolean };
@@ -13,14 +13,29 @@ export default function TripPackModal({
   const [outfits, setOutfits] = useState<OutfitRow[]>([]);
   const [others, setOthers] = useState<OtherRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [packingListId, setPackingListId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
         const data = await getPackingList(eventId);
-        setItems(data?.itemsJson ?? []);
-        setOutfits(data?.outfitsJson ?? []);
-        setOthers(data?.othersJson ?? []);
+        setPackingListId(data?.id ?? null);
+
+        setItems((data?.items ?? []).map((r: any) => ({
+          closetItemId: String(r.closetItemId),
+          checked: !!r.packed,
+        })));
+
+        setOutfits((data?.outfits ?? []).map((r: any) => ({
+          outfitId: String(r.outfitId),
+          checked: !!r.packed,
+        })));
+
+        setOthers((data?.others ?? []).map((r: any) => ({
+          id: String(r.id),
+          text: r.label,
+          checked: !!r.packed,
+        })));
       } finally {
         setLoading(false);
       }
@@ -31,22 +46,33 @@ export default function TripPackModal({
     const id = prompt('Enter closetItemId');
     if (id) setItems(prev => [...prev, { closetItemId: id }]);
   };
+
   const addOutfit = () => {
     const id = prompt('Enter outfitId');
     if (id) setOutfits(prev => [...prev, { outfitId: id }]);
   };
+
   const addOther = () => {
     const text = prompt('Add (e.g., Toothbrush)');
     if (text) setOthers(prev => [...prev, { id: crypto.randomUUID(), text }]);
   };
 
   const save = async () => {
-    await savePackingList(eventId, {
-      itemsJson: items,
-      outfitsJson: outfits,
-      othersJson: others,
-    });
-    onClose();
+    try {
+      if (packingListId) {
+        await deletePackingList(packingListId);
+      }
+      await createPackingList({
+        tripId: eventId,
+        items: items.map(i => i.closetItemId),
+        outfits: outfits.map(o => o.outfitId),
+        others: others.map(o => o.text),
+      });
+      onClose();
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save packing list');
+    }
   };
 
   if (loading) return null;
@@ -60,7 +86,6 @@ export default function TripPackModal({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Items */}
           <section className="border rounded p-3">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Items</h4>
@@ -68,7 +93,7 @@ export default function TripPackModal({
             </div>
             <ul className="text-sm space-y-1 max-h-48 overflow-auto">
               {items.map((r, i) => (
-                <li key={i} className="flex items-center gap-2">
+                <li key={`${r.closetItemId}-${i}`} className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={!!r.checked}
@@ -79,7 +104,10 @@ export default function TripPackModal({
                     }}
                   />
                   <span>{r.closetItemId}</span>
-                  <button className="ml-auto text-xs underline" onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
+                  <button
+                    className="ml-auto text-xs underline"
+                    onClick={() => setItems(items.filter((_, idx) => idx !== i))}
+                  >
                     remove
                   </button>
                 </li>
@@ -88,7 +116,6 @@ export default function TripPackModal({
             </ul>
           </section>
 
-          {/* Outfits */}
           <section className="border rounded p-3">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Outfits</h4>
@@ -96,7 +123,7 @@ export default function TripPackModal({
             </div>
             <ul className="text-sm space-y-1 max-h-48 overflow-auto">
               {outfits.map((r, i) => (
-                <li key={i} className="flex items-center gap-2">
+                <li key={`${r.outfitId}-${i}`} className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={!!r.checked}
@@ -107,7 +134,10 @@ export default function TripPackModal({
                     }}
                   />
                   <span>{r.outfitId}</span>
-                  <button className="ml-auto text-xs underline" onClick={() => setOutfits(outfits.filter((_, idx) => idx !== i))}>
+                  <button
+                    className="ml-auto text-xs underline"
+                    onClick={() => setOutfits(outfits.filter((_, idx) => idx !== i))}
+                  >
                     remove
                   </button>
                 </li>
@@ -116,7 +146,6 @@ export default function TripPackModal({
             </ul>
           </section>
 
-          {/* Other */}
           <section className="border rounded p-3">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Other</h4>
@@ -131,7 +160,10 @@ export default function TripPackModal({
                     onChange={e => setOthers(others.map(o => o.id === r.id ? { ...o, checked: e.target.checked } : o))}
                   />
                   <span>{r.text}</span>
-                  <button className="ml-auto text-xs underline" onClick={() => setOthers(others.filter(o => o.id !== r.id))}>
+                  <button
+                    className="ml-auto text-xs underline"
+                    onClick={() => setOthers(others.filter(o => o.id !== r.id))}
+                  >
                     remove
                   </button>
                 </li>
