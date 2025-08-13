@@ -63,6 +63,7 @@ export default function CreateAnOutfit() {
   const [creating, setCreating] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [rating, setRating] = useState<number>(0);
 
   useEffect(() => {
     const getItems = async () => {
@@ -99,16 +100,26 @@ export default function CreateAnOutfit() {
   const handleRemoveAdditional = (id: string) =>
     setAdditional((prev) => prev.filter((i) => i.id !== id));
 
+
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
     setError("");
+
     try {
       if (!baseTop || !baseBottom || !footwear) {
         setError("Please select all three main items.");
         setCreating(false);
         return;
       }
+
+      if (rating <= 0) {
+        setError("Please add a rating before saving (same flow as Home).");
+        setCreating(false);
+        return;
+      }
+
       const outfitItems: OutfitItemInput[] = [
         { closetItemId: baseTop.id, layerCategory: "base_top", sortOrder: 1 },
         { closetItemId: baseBottom.id, layerCategory: "base_bottom", sortOrder: 2 },
@@ -119,25 +130,35 @@ export default function CreateAnOutfit() {
           sortOrder: 4 + i,
         })),
       ];
+
+      // Align with Home: include userRating when creating
       const body = {
         outfitItems,
         warmthRating: 5,
         waterproof: false,
         overallStyle: "Casual",
+        userRating: rating,          // ⭐ important
+        // (Home’s SaveOutfitPayload also has weatherSummary, but manual create
+        // works without it; add if your backend marks it required)
+        // weatherSummary: "",
       };
+
       await createOutfitManual(body);
+
       setSuccess(true);
       setBaseTop(null);
       setBaseBottom(null);
       setFootwear(null);
       setAdditional([]);
+      setRating(0);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e: any) {
-      setError(e.message || "Unknown error");
+      setError(e?.response?.data?.message || e.message || "Unknown error");
     } finally {
       setCreating(false);
     }
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 -mt-12 md:mt-0">
@@ -256,6 +277,41 @@ export default function CreateAnOutfit() {
 
             </div>
 
+            {/* Rating (required, like Home) */}
+            <div>
+              <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 block">
+                Your Rating
+              </label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                    onClick={() => setRating(star)}
+                    className={`text-2xl leading-none transition ${star <= rating ? "text-[#3F978F]" : "text-gray-300 dark:text-gray-600"
+                      } hover:scale-110`}
+                  >
+                    ★
+                  </button>
+                ))}
+                {rating > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRating(0)}
+                    className="ml-2 text-xs text-gray-500 dark:text-gray-400 underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                We’ll save the outfit only after you rate it.
+              </p>
+            </div>
+
+
+
             {/* Alerts */}
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-full px-4 py-2 text-red-700 dark:text-red-300 text-center text-sm">
@@ -272,7 +328,7 @@ export default function CreateAnOutfit() {
             <button
               type="submit"
               disabled={creating}
-              className="w-full rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] disabled:opacity-60 text-white font-semibold text-base py-3 shadow-sm transition"
+              className="w-full rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] disabled:opacity-60 text-white text-base py-3 shadow-sm transition"
             >
               {creating ? "Creating..." : "Create Outfit"}
             </button>

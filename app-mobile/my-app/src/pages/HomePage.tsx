@@ -71,7 +71,8 @@ const TypingSlogan = () => {
   const tealPart = tealWord.slice(0, tealVisibleLength);
 
   return (
-    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-left w-full">
+    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-center lg:text-left w-full">
+
       {beforeTeal}
       <span className="text-[#3F978F]">{tealPart}</span>
       <span className="animate-pulse">|</span>
@@ -174,12 +175,12 @@ export default function HomePage() {
       const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
       return days[0]?.summary
         ? {
-            avgTemp: days[0].summary.avgTemp,
-            minTemp: days[0].summary.minTemp,
-            maxTemp: days[0].summary.maxTemp,
-            willRain: days[0].summary.willRain,
-            mainCondition: days[0].summary.mainCondition,
-          }
+          avgTemp: days[0].summary.avgTemp,
+          minTemp: days[0].summary.minTemp,
+          maxTemp: days[0].summary.maxTemp,
+          willRain: days[0].summary.willRain,
+          mainCondition: days[0].summary.mainCondition,
+        }
         : undefined;
     } catch {
       return undefined;
@@ -193,12 +194,12 @@ export default function HomePage() {
       selectedEvent?.style || 'Casual',
       selectedEventTodaySummary
         ? JSON.stringify({
-            a: Math.round(selectedEventTodaySummary.avgTemp),
-            i: Math.round(selectedEventTodaySummary.minTemp),
-            x: Math.round(selectedEventTodaySummary.maxTemp),
-            r: selectedEventTodaySummary.willRain,
-            m: selectedEventTodaySummary.mainCondition,
-          })
+          a: Math.round(selectedEventTodaySummary.avgTemp),
+          i: Math.round(selectedEventTodaySummary.minTemp),
+          x: Math.round(selectedEventTodaySummary.maxTemp),
+          r: selectedEventTodaySummary.willRain,
+          m: selectedEventTodaySummary.mainCondition,
+        })
         : 'no-summary',
     ],
     enabled: Boolean(selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
@@ -298,7 +299,7 @@ export default function HomePage() {
       <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 justify-between">
           {/* Typing Slogan */}
-          <div className="flex-1 flex flex-col items-start justify-center">
+          <div className="flex-1 flex flex-col items-center lg:items-start justify-center">
             <TypingSlogan />
           </div>
 
@@ -366,13 +367,12 @@ export default function HomePage() {
 
                   <div className="mb-4 space-y-2">
                     <div
-                      className={`flex justify-center space-x-2 transition-all ${
-                        outfits[currentIndex].outfitItems.some(
-                          i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
-                        )
-                          ? 'h-auto'
-                          : 'h-0 overflow-hidden'
-                      }`}
+                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                        i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
+                      )
+                        ? 'h-auto'
+                        : 'h-0 overflow-hidden'
+                        }`}
                     >
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
@@ -806,7 +806,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => {}} />
+                        <StarRating disabled={false} onSelect={() => { }} />
                       </div>
                     </>
                   )}
