@@ -10,7 +10,7 @@ import userPrefRoutes from './modules/userPreference/userPref.routes';
 import eventsRoutes from './modules/events/events.route';
 import outfitRoutes from './modules/outfit/outfit.routes';
 import socialRoutes from './modules/social/social.route';
-
+import packingRoutes from './modules/packing/packing.route';
 
 dotenv.config();
 const app = express();
@@ -29,6 +29,7 @@ app.use('/api/preferences', userPrefRoutes);
 app.use('/api/events', eventsRoutes); 
 app.use('/api/outfits', outfitRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/api/packing', packingRoutes);
 
 
 export default app;
