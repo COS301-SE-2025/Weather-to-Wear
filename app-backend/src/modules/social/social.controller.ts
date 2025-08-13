@@ -5,22 +5,68 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import socialService from './social.service';
 import prisma from "../../prisma";
 
+import { cdnUrlFor, uploadBufferToS3 } from '../../utils/s3';
+import { randomUUID } from 'crypto';
+import path from 'path';
 
+function extFromMime(m: string) {
+  if (m === 'image/png') return '.png';
+  if (m === 'image/jpeg' || m === 'image/jpg') return '.jpg';
+  if (m === 'image/webp') return '.webp';
+  return '.bin';
+}
 
 class SocialController {
-  createPost = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
+  // createPost = async (
+  //   req: Request,
+  //   res: Response,
+  //   next: NextFunction
+  // ): Promise<void> => {
+  //   try {
+  //     const { user } = req as AuthenticatedRequest;
+  //     if (!user?.id) {
+  //       res.status(401).json({ message: 'Unauthorized' });
+  //       return;
+  //     }
+
+  //     const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+
+  //     const { caption, location, closetItemId, weather } = req.body;
+  //     const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
+
+  //     const post = await socialService.createPost(user.id, {
+  //       imageUrl,
+  //       caption,
+  //       location,
+  //       weather: weatherData,
+  //       closetItemId,
+  //     });
+
+  //     res.status(201).json({ message: 'Post created successfully', post });
+  //   } catch (err) {
+  //     next(err);
+  //   }
+  // };
+
+  // Hosted createPost
+  createPost = async (req : Request, res : Response, next : NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
-      if (!user?.id) {
-        res.status(401).json({ message: 'Unauthorized' });
-        return;
-      }
+      if (!user?.id) { res.status(401).json({ message: 'Unauthorized' }); return; }
 
-      const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+      let imageUrl: string | undefined = undefined;
+
+      if (req.file) {
+        const ext = extFromMime(req.file.mimetype);
+        const key = `users/${user.id}/posts/${Date.now()}-${randomUUID()}${ext}`;
+        await uploadBufferToS3({
+          bucket: process.env.S3_BUCKET_NAME!,
+          key,
+          contentType: req.file.mimetype || 'application/octet-stream',
+          body: req.file.buffer,
+        });
+        imageUrl = cdnUrlFor(key); // store URL for social posts
+      }
 
       const { caption, location, closetItemId, weather } = req.body;
       const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;

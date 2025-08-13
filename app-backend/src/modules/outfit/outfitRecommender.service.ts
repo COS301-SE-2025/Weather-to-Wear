@@ -7,6 +7,7 @@ import {
 } from './outfit.types';
 import { getFeatureVector, predictRatingKnn, cosineSimilarity } from './itemItemKnn';
 import tinycolor from 'tinycolor2';
+import { cdnUrlFor } from '../../utils/s3';
 
 const prisma = new PrismaClient();
 
@@ -212,10 +213,13 @@ export async function recommendOutfits(
   const scored = raw.map(outfit => {
     const items = outfit.map(item => ({
       closetItemId: item.id,
-      imageUrl: `/uploads/${item.filename}`,
+      // imageUrl: `/uploads/${item.filename}`,
+      imageUrl: cdnUrlFor(item.filename),
       layerCategory: item.layerCategory,
       category: item.category,
-      style: item.style ?? 'Casual',
+      // ! Potential Problem 
+      // style: item.style ?? 'Casual',
+      style: item.style ?? Style.Casual,
       dominantColors:
         Array.isArray(item.dominantColors) && item.dominantColors.length > 0
           ? (item.dominantColors as string[])
@@ -286,10 +290,13 @@ function buildFakeRec(outfit: any): OutfitRecommendation {
   return {
     outfitItems: outfit.outfitItems.map((oi: any) => ({
       closetItemId: oi.closetItemId,
-      imageUrl: `/uploads/${oi.closetItem.filename}`,
+      // imageUrl: `/uploads/${oi.closetItem.filename}`,
+      imageUrl: cdnUrlFor(oi.closetItem.filename),
       layerCategory: oi.closetItem.layerCategory,
       category: oi.closetItem.category,
-      style: oi.closetItem.style ?? 'Casual',
+      // ! Potential Problem
+      // style: oi.closetItem.style ?? 'Casual',
+      style: oi.closetItem.style ?? Style.Casual,
       dominantColors:
         Array.isArray(oi.closetItem.dominantColors) && oi.closetItem.dominantColors.length > 0
           ? (oi.closetItem.dominantColors as string[])

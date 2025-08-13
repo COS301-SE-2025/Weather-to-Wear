@@ -4,6 +4,7 @@ import { Style, Material, Category, LayerCategory } from '@prisma/client';
 import ClosetService from './closet.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import closetService from './closet.service';
+import { cdnUrlFor } from '../../utils/s3';
 
 class ClosetController {
   uploadImage = async (req: Request, res: Response, next: NextFunction) => {
@@ -37,7 +38,8 @@ class ClosetController {
       res.status(201).json({
         id: item.id,
         category: item.category,
-        imageUrl: `/uploads/${item.filename}`,
+        // imageUrl: `/uploads/${item.filename}`,
+        imageUrl: cdnUrlFor(item.filename),
         createdAt: item.createdAt,
         colorHex: item.colorHex,
         warmthFactor: item.warmthFactor,
@@ -64,7 +66,8 @@ class ClosetController {
         items.map(i => ({
           id: i.id,
           category: i.category,
-          imageUrl: `/uploads/${i.filename}`,
+          // imageUrl: `/uploads/${i.filename}`,
+          imageUrl: cdnUrlFor(i.filename),
           createdAt: i.createdAt,
           colorHex: i.colorHex,
           dominantColors: i.dominantColors ?? [], 
@@ -80,60 +83,6 @@ class ClosetController {
       next(err);
     }
   };
-
-  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction) => { 
-  //   const { user } = req as AuthenticatedRequest;
-  //   if (!user || !user.id) {
-  //     res.status(401).json({ message: 'Unauthorized' });
-  //     return;
-  //   }
-  //   if (!req.files) {
-  //     res.status(400).json({ message: 'No files provided' });
-  //     return;
-  //   }
-  //   try {
-  //     const rawCat = (req.body.category as string || '').toUpperCase();
-  //     if (!Object.values(Category).includes(rawCat as Category)) {
-  //       res.status(400).json({ message: `Invalid category: ${rawCat}` });
-  //       return;
-  //     }
-  //     const category = rawCat as Category;
-  //     const files = req.files as Express.Multer.File[] | undefined;
-
-  //       const extras = {
-  //       colorHex:     req.body.colorHex,
-  //       warmthFactor: req.body.warmthFactor ? Number(req.body.warmthFactor) : undefined,
-  //       waterproof:   req.body.waterproof !== undefined
-  //         ? req.body.waterproof === 'true'
-  //         : undefined,
-  //       style: req.body.style as Style,
-  //       material: req.body.material as Material,
-  //     };
-
-  //     if (!files || files.length === 0) {
-  //       res.status(400).json({ message: 'No files provided' });
-  //       return;
-  //     }
-  //     const layerCategory = req.body.layerCategory as any; // For now, all files get same layerCategory
-  //     const items = await ClosetService.saveImagesBatch(files, category, layerCategory, user.id, extras);
-
-  //     res.status(201).json(
-  //       items.map(item => ({
-  //         id: item.id,
-  //         category: item.category,
-  //         imageUrl: `/uploads/${item.filename}`,
-  //         createdAt: item.createdAt,
-  //         colorHex: item.colorHex,
-  //         warmthFactor:item.warmthFactor,
-  //         waterproof: item.waterproof,
-  //         style: item.style,
-  //         material: item.material,
-  //       }))
-  //     );
-  //   } catch (err) {
-  //     next(err);
-  //   }
-  // };
 
   uploadImagesBatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { user } = req as AuthenticatedRequest;
@@ -175,21 +124,6 @@ class ClosetController {
           return;
         }
 
-        // ! does not make use of background removal service
-        // const saved = await ClosetService.saveImageDirect(
-        //   file,
-        //   category,
-        //   layerCategory,
-        //   user.id,
-        //   {
-        //     colorHex,
-        //     warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-        //     waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
-        //     style,
-        //     material
-        //   }
-        // );
-
         const saved = await ClosetService.saveImage(
           file,
           category as Category,
@@ -209,7 +143,8 @@ class ClosetController {
         results.push({
           id: saved.id,
           category: saved.category,
-          imageUrl: `/uploads/${saved.filename}`,
+          // imageUrl: `/uploads/${saved.filename}`,
+          imageUrl: cdnUrlFor(saved.filename),
           createdAt: saved.createdAt,
           colorHex: saved.colorHex,
           warmthFactor: saved.warmthFactor,
@@ -239,7 +174,8 @@ class ClosetController {
           id: i.id,
           category: i.category,
           layerCategory: i.layerCategory,
-          imageUrl: `/uploads/${i.filename}`,
+          // imageUrl: `/uploads/${i.filename}`,
+          imageUrl: cdnUrlFor(i.filename),
           createdAt: i.createdAt,
           colorHex: i.colorHex,
           dominantColors: i.dominantColors ?? [], 
@@ -311,7 +247,8 @@ class ClosetController {
       res.status(200).json({
         id: updated.id,
         category: updated.category,
-        imageUrl: `/uploads/${updated.filename}`,
+        // imageUrl: `/uploads/${updated.filename}`,
+        imageUrl: cdnUrlFor(updated.filename),
         createdAt: updated.createdAt,
         colorHex: updated.colorHex,
         warmthFactor: updated.warmthFactor,
