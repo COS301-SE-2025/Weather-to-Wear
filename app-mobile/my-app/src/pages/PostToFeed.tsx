@@ -1,66 +1,46 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Upload, Check, Sun, Cloud, CloudRain, CloudSnow, Wind, ChevronDown } from "lucide-react";
+import {
+  Camera,
+  Upload,
+  Check,
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  Wind,
+  ChevronDown,
+} from "lucide-react";
 import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
-import { fetchWithAuth } from "../services/fetchWithAuth";
-
-interface ClosetItem {
-  id: string;
-  filename: string;
-  category: string;
-}
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
   const [content, setContent] = useState("");
-  const [image, setLocalImage] = useState<string | null>(null); // Data URL for preview
+  const [image, setLocalImage] = useState<string | null>(null);
   const [location, setLocation] = useState<string>("");
   const [weather, setWeather] = useState<{ temp: number; condition: string } | null>(null);
-  const [closetItemId, setClosetItemId] = useState<string>("");
-  const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
   const [showWeatherDropdown, setShowWeatherDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
   const [showCameraPopup, setShowCameraPopup] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const navigate = useNavigate();
 
-  // Fetch closet items
-  useEffect(() => {
-    const fetchClosetItems = async () => {
-      try {
-        const response = await fetchWithAuth("http://localhost:5001/api/closet-items", {
-          method: "GET",
-        });
-        const data = await response.json();
-        setClosetItems(data.items || []); // Adjust based on your API response
-      } catch (err) {
-        console.error("Failed to fetch closet items:", err);
-        setError("Failed to load closet items.");
-      }
-    };
-    fetchClosetItems();
-  }, []);
-
+  // Camera stream lifecycle
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
-      console.log("Assigning stream to video element...");
       const video = videoRef.current;
       video.srcObject = stream;
       video.muted = true;
-      video
-        .play()
-        .catch((err) => {
-          console.error("Video play error:", err);
-          setError("Failed to play camera feed.");
-        });
+      video.play().catch(() => setError("Failed to play camera feed."));
     }
     return () => {
       if (stream) {
-        console.log("Cleaning up stream on unmount...");
         stream.getTracks().forEach((t) => t.stop());
         setStream(null);
       }
@@ -69,20 +49,17 @@ const PostToFeed = () => {
 
   const startCamera = async () => {
     try {
-      console.log("Starting camera...");
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       setStream(s);
       setShowCameraPopup(true);
       setError(null);
     } catch (err) {
-      console.error("Camera start error:", err);
       setError("Failed to access camera. Please ensure camera permissions are granted.");
     }
   };
 
   const capturePhoto = () => {
     if (!stream || !videoRef.current || !canvasRef.current) return;
-    console.log("Capturing photo...");
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -104,27 +81,18 @@ const PostToFeed = () => {
   };
 
   const redoPhoto = () => {
-    console.log("Redoing photo...");
     setCameraPreview(null);
     setLocalImage(null);
     setImage(null);
     if (stream) {
-      console.log("Stopping current stream...");
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
     }
-    if (videoRef.current) {
-      console.log("Resetting video source...");
-      videoRef.current.srcObject = null;
-    }
-    setTimeout(() => {
-      console.log("Attempting to restart camera...");
-      startCamera();
-    }, 100);
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setTimeout(() => startCamera(), 100);
   };
 
   const handleDone = () => {
-    console.log("Saving photo and closing popup...");
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -133,14 +101,12 @@ const PostToFeed = () => {
   };
 
   const handleReset = () => {
-    console.log("Resetting form...");
     setContent("");
     setLocalImage(null);
     setCameraPreview(null);
     setImage(null);
     setLocation("");
     setWeather(null);
-    setClosetItemId("");
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -175,9 +141,7 @@ const PostToFeed = () => {
     const bstr = atob(arr[1]);
     let n = bstr.length;
     const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
     return new File([u8arr], filename, { type: mime });
   };
 
@@ -190,14 +154,12 @@ const PostToFeed = () => {
       }
 
       await createPost({
-        caption: content,
+        caption: content.trim() || undefined,
         location: location || undefined,
         image: imageFile,
         weather: weather || undefined,
-        closetItemId: closetItemId || undefined,
       });
 
-      console.log("Post created successfully");
       navigate("/feed");
     } catch (err: any) {
       console.error("Failed to create post:", err);
@@ -218,203 +180,184 @@ const PostToFeed = () => {
     setShowWeatherDropdown(false);
   };
 
+  // Allow caption-only OR photo-only
+  const canSubmit = Boolean(
+    (content && content.trim().length > 0) || uploadedImage || image
+  );
+
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
-        style={{
-          backgroundImage: `url(/header.jpg)`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          opacity: 1,
-          marginLeft: "calc(-50vw + 50%)",
-          width: "100vw",
-          marginTop: "-1rem",
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-bodoni font-light text-center text-white"
-            style={{
-              textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
-            }}
-          >
-            CREATE NEW POST
-          </h1>
-        </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-      </div>
+    <div className="min-h-screen bg-white dark:bg-gray-900 -mt-12 md:mt-0">
+      <div className="px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom)+90px)] md:pb-10 max-w-2xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md">
+          <div className="flex justify-center pt-6">
+            <h2 className="text-lg md:text-xl font-livvic border-2 border-black dark:border-gray-100 px-4 py-1 text-black dark:text-gray-100">
+              Share Your Outfit
+            </h2>
+          </div>
 
-      <div className="bg-white shadow-md rounded-lg">
-        <div className="flex justify-center mb-4">
-          <h1 className="text-xl border-2 border-black px-3 py-1">
-            Share Your Outfit
-          </h1>
-        </div>
+          <div className="p-4 sm:p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <p className="text-center font-livvic text-gray-700 dark:text-gray-200 text-base">
+                  Add Photo
+                </p>
 
-        <div className="p-6 border border-gray-200 rounded-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <span className="block font-bold text-center text-gray-700" style={{ fontSize: "18px" }}>
-                Add Photo
-              </span>
-              <div className="flex flex-col items-center space-y-4">
-                <div className="flex gap-4">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <span className="inline-flex items-center px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors">
-                      <Upload className="h-5 w-5 mr-2" />
-                      Upload Photo
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={startCamera}
-                    className="inline-flex items-center px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-                  >
-                    <Camera className="h-5 w-5 mr-2" />
-                    Take Photo
-                  </button>
-                </div>
-                {error && <p className="text-red-500 text-sm">{error}</p>}
-                {(uploadedImage || image) && (
-                  <div className="w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black">
-                    <img
-                      src={uploadedImage || image || ""}
-                      alt="Selected or captured"
-                      className="w-full h-full object-cover"
-                    />
+                <div className="mt-3 flex flex-col items-center gap-3">
+                  <div className="flex w-full justify-center gap-2">
+                    <label className="cursor-pointer">
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      <span className="inline-flex items-center px-4 py-2 rounded-full bg-black text-white hover:bg-[#2F6F6A] transition-colors font-livvic text-sm">
+                        <Upload className="h-5 w-5 mr-2" />
+                        Upload Photo
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="inline-flex items-center px-4 py-2 rounded-full bg-black text-white hover:bg-[#2F6F6A] transition-colors font-livvic text-sm"
+                    >
+                      <Camera className="h-5 w-5 mr-2" />
+                      Take Photo
+                    </button>
                   </div>
-                )}
-              </div>
-            </div>
 
-            <div className="flex gap-2 space-y-0">
-              <div className="w-3/4 space-y-2">
-                <label htmlFor="location" className="block text-sm font-bold text-gray-700" style={{ fontSize: "18px" }}>
-                  Location
-                </label>
-                <input
-                  id="location"
-                  type="text"
-                  placeholder="Enter your location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full p-2 border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-              <div className="w-1/4 space-y-2 relative">
-                <label htmlFor="weather" className="block text-sm font-bold text-gray-700" style={{ fontSize: "18px" }}>
-                  Weather
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowWeatherDropdown(!showWeatherDropdown)}
-                    className="w-full p-2 border border-teal-300 rounded-md bg-white flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  >
-                    <span className="flex items-center">
-                      {weather ? (
-                        weatherOptions.find((opt) => opt.value === weather.condition)?.icon
-                      ) : (
-                        <span className="text-gray-400">Select weather</span>
-                      )}
-                    </span>
-                    <ChevronDown className="w-5 h-5" />
-                  </button>
-                  {showWeatherDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => handleWeatherSelect("")}
-                        className="w-full p-2 text-left hover:bg-gray-100"
-                      >
-                        Select weather
-                      </button>
-                      {weatherOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => handleWeatherSelect(option.value)}
-                          className="w-full p-2 text-left hover:bg-teal-100 flex items-center"
-                        >
-                          {option.icon}
-                          <span className="ml-2">{option.value}</span>
-                        </button>
-                      ))}
+                  {error && <p className="text-red-500 text-sm">{error}</p>}
+
+                  {(uploadedImage || image) && (
+                    <div className="w-full max-w-sm rounded-xl overflow-hidden border-4 border-black bg-black">
+                      <img
+                        src={uploadedImage || image || ""}
+                        alt="Selected or captured"
+                        className="w-full h-[360px] object-cover"
+                      />
                     </div>
                   )}
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <label htmlFor="content" className="block text-sm text-center font-bold text-gray-700" style={{ fontSize: "18px" }}>
-                Caption your Outfit
-              </label>
-              <textarea
-                id="content"
-                placeholder="Tell everyone about your outfit, the weather, or your style inspiration..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full min-h-[100px] p-2 border border-teal-500 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-700"
-                required
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
+                    Location
+                  </label>
+                  <input
+                    id="location"
+                    type="text"
+                    placeholder="Enter your location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                  />
+                </div>
 
-            <div className="flex gap-4 pt-4">
-              <button
-                type="button"
-                onClick={handleReset}
-                className="flex-1 py-2 px-4 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 px-4 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!content.trim()}
-              >
-                Share Post
-              </button>
-            </div>
-          </form>
+                <div className="sm:col-span-1">
+                  <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
+                    Weather
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowWeatherDropdown((s) => !s)}
+                      className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                    >
+                      <span className="flex items-center">
+                        {weather ? (
+                          <>
+                            {weatherOptions.find((opt) => opt.value === weather.condition)?.icon}
+                            <span className="ml-2">{weather.condition}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Select weather</span>
+                        )}
+                      </span>
+                      <ChevronDown className="w-5 h-5" />
+                    </button>
+
+                    {showWeatherDropdown && (
+                      <div className="absolute right-0 z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => handleWeatherSelect("")}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                        >
+                          Clear
+                        </button>
+                        {weatherOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleWeatherSelect(option.value)}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center text-sm"
+                          >
+                            {option.icon}
+                            <span className="ml-2">{option.value}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-center font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
+                  Caption your Outfit
+                </label>
+                <textarea
+                  id="content"
+                  placeholder="Tell everyone about your outfit, the weather, or your style inspiration..."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="w-full min-h-[110px] p-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="flex-1 py-2 px-4 rounded-full border border-black dark:border-gray-100 text-black dark:text-gray-100 hover:bg-black hover:text-white transition-colors font-livvic"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 px-4 rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] text-white transition-colors font-livvic disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!canSubmit}
+                >
+                  Share Post
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 
+      {/* Camera modal */}
       {showCameraPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-            <div className="w-72 h-96 rounded-xl overflow-hidden border-4 border-black bg-black mb-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 w-full max-w-sm text-center shadow-2xl">
+            <div className="w-full rounded-xl overflow-hidden border-4 border-black bg-black mb-4">
               {stream && !cameraPreview && (
                 <video
                   ref={videoRef}
                   autoPlay
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-[360px] object-cover"
                   style={{ transform: "scaleX(-1)" }}
                 />
               )}
               {cameraPreview && (
-                <img
-                  src={cameraPreview}
-                  alt="Captured"
-                  className="w-full h-full object-cover"
-                />
+                <img src={cameraPreview} alt="Captured" className="w-full h-[360px] object-cover" />
               )}
               <canvas ref={canvasRef} className="hidden" />
             </div>
-            <div className="flex gap-4 justify-center">
+
+            <div className="flex flex-wrap justify-center gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  console.log("Canceling photo...");
                   setCameraPreview(null);
                   setLocalImage(null);
                   setImage(null);
@@ -424,33 +367,35 @@ const PostToFeed = () => {
                   }
                   setShowCameraPopup(false);
                 }}
-                className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                className="px-5 py-2 rounded-full border border-black text-black hover:bg-black hover:text-white transition-colors font-livvic"
               >
                 Cancel
               </button>
+
               {stream && !cameraPreview && (
                 <button
                   type="button"
                   onClick={capturePhoto}
-                  className="flex items-center justify-center px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                  className="px-5 py-2 rounded-full bg-black text-white hover:bg-[#2F6F6A] transition-colors font-livvic inline-flex items-center"
                 >
                   <Camera className="w-5 h-5 mr-2" />
                   Take
                 </button>
               )}
+
               {cameraPreview && (
                 <>
                   <button
                     type="button"
                     onClick={redoPhoto}
-                    className="px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                    className="px-5 py-2 rounded-full border border-black text-black hover:bg-black hover:text-white transition-colors font-livvic"
                   >
                     Redo
                   </button>
                   <button
                     type="button"
                     onClick={handleDone}
-                    className="flex items-center justify-center px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
+                    className="px-5 py-2 rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] text-white transition-colors font-livvic inline-flex items-center"
                   >
                     <Check className="w-5 h-5 mr-2" />
                     Done
