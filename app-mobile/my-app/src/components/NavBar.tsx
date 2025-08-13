@@ -11,6 +11,8 @@ import {
   User,
   HelpCircle,
 } from "lucide-react";
+import { queryClient } from '../queryClient';
+import { clearPersistedCache } from '../persist';
 
 const NavBar: React.FC = () => {
   const location = useLocation();
@@ -40,11 +42,33 @@ const NavBar: React.FC = () => {
     setProfileOpen((o) => !o);
     setMenuOpen(false);
   };
-  const handleLogout = () => {
-    const token = localStorage.getItem("token");
-    if (token) localStorage.removeItem(`closet-favs-${token}`);
-    localStorage.removeItem("token");
-    navigate("/login");
+
+  const handleLogout = async () => {
+    try {
+      // App-specific localStorage cleanup
+      const token = localStorage.getItem("token");
+      if (token) localStorage.removeItem(`closet-favs-${token}`);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("selectedCity"); // optional UI pref
+
+      // Stop any in-flight requests and clear React Query cache
+      await queryClient.cancelQueries();
+      queryClient.clear();
+
+      // Remove the persisted dehydrated cache (localStorage copy)
+      await clearPersistedCache();
+
+      // Close open UI bits
+      setMenuOpen(false);
+      setProfileOpen(false);
+
+      // Go to login on a clean slate
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error("Logout cleanup failed:", err);
+      navigate("/login", { replace: true });
+    }
   };
 
   useEffect(() => {
