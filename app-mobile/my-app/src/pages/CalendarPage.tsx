@@ -41,8 +41,9 @@ const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.get
 const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', o).format(d);
 const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const monthEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
-const MAX_LANES = 2;
-const EVENT_ROW_PX = 16;
+
+const ROW_GAP_PX = 2;
+const isNarrow = () => (typeof window !== 'undefined' ? window.innerWidth < 640 : false);
 
 function isTripEvent(ev: Partial<Event>) {
   if (!ev) return false;
@@ -69,7 +70,7 @@ export default function CalendarPage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: 'Casual' as Style
+    style: 'Casual' as Style,
   });
 
   const [showDayList, setShowDayList] = useState<{ open: boolean; date: Date | null }>({ open: false, date: null });
@@ -83,6 +84,20 @@ export default function CalendarPage() {
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [packingListId, setPackingListId] = useState<string | null>(null);
+
+  const [maxLanes, setMaxLanes] = useState<number>(isNarrow() ? 1 : 2);
+  const [rowPx, setRowPx] = useState<number>(isNarrow() ? 14 : 16);
+
+  useEffect(() => {
+    const onResize = () => {
+      const narrow = isNarrow();
+      setMaxLanes(narrow ? 1 : 2);
+      setRowPx(narrow ? 14 : 16);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
 
   const mapEventDto = (d: any): Event => {
   const isTrip =
@@ -412,90 +427,99 @@ export default function CalendarPage() {
   };
 
   function renderWeeks() {
-    const weeks = buildWeeks(currentMonth);
-    const monthRef = monthStart(currentMonth);
-    return (
-      <div className="space-y-1 mb-4">
-        {weeks.map((week) => {
-          const dayCells: ReactElement[] = week.map((d) => {
-            const inMonth = isSameMonth(d, monthRef);
-            const dayCount = eventsOnDay(d).length;
-            const overflow = Math.max(0, dayCount - MAX_LANES);
-            return (
-              <div
-                key={d.toDateString()}
-                className={`min-h-20 p-1 border relative
-                  ${inMonth ? 'bg-white' : 'bg-gray-100'}
-                  ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-200'}
-                  ${isSameDay(d, selectedDate) ? 'bg-[#3F978F] bg-opacity-10' : ''}`}
-                onClick={() => onDayClick(new Date(d))}
-              >
-                <div className="text-right text-sm">{d.getDate()}</div>
-                {overflow > 0 && (
-                  <button
-                     className="absolute bottom-1 right-1 z-20 text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 border shadow-sm"
-                      onClick={(e) => { e.stopPropagation(); setShowDayList({ open: true, date: new Date(d) }); }}
-                  >
-                    +{overflow} more
-                  </button>
-
-                )}
-              </div>
-            );
-          });
-
-          const segs = getWeekSegments(week, events);
-          const lanes = segs.length ? Math.max(...segs.map(s => s.lane)) + 1 : 0;
-          const segsToRender = segs.filter(s => s.lane < MAX_LANES);
-
+  const weeks = buildWeeks(currentMonth);
+  const monthRef = monthStart(currentMonth);
+  return (
+    <div className="space-y-1 mb-4">
+      {weeks.map((week) => {
+        const dayCells: ReactElement[] = week.map((d) => {
+          const inMonth = isSameMonth(d, monthRef);
+          const dayCount = eventsOnDay(d).length;
+          const overflow = Math.max(0, dayCount - maxLanes);
           return (
-            <div key={week[0].toDateString()} className="relative">
-              <div className="grid grid-cols-7 gap-1">{dayCells}</div>
-              <div
-                className="absolute inset-x-0 top-6 bottom-6 z-0 grid grid-cols-7 gap-1 pointer-events-none"
-                style={{ gridAutoRows: `${EVENT_ROW_PX}px` }}
-              >
-
-                {segsToRender.map(seg => {
-                  const ev = seg.event;
-                  const bg = isTripEvent(ev) ? 'bg-emerald-600' : 'bg-[#3F978F]';
-                  const evStart = parseISO(ev.dateFrom);
-                  const evEnd = parseISO(ev.dateTo);
-                  const isStart = evStart >= week[0] && evStart <= week[6] && (evStart.getDay() + 1) === seg.colStart;
-                  const isEnd = evEnd >= week[0] && evEnd <= week[6] && (evEnd.getDay() + 2) === seg.colEnd;
-                  return (
-                    <div
-                      key={`${ev.id}-${seg.weekKey}-${seg.lane}`}
-                      className={`flex items-center ${bg} text-white text-xs h-[16px] px-2 overflow-hidden truncate pointer-events-auto`}
-                      style={{
-                        gridColumn: `${seg.colStart} / ${seg.colEnd}`,
-                        gridRow: String(seg.lane + 1),
-                        borderTopLeftRadius: isStart ? 8 : 0,
-                        borderBottomLeftRadius: isStart ? 8 : 0,
-                        borderTopRightRadius: isEnd ? 8 : 0,
-                        borderBottomRightRadius: isEnd ? 8 : 0,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedEvent(ev);
-                        setShowEventModal(true);
-                      }}
-                      title={ev.name}
-                    >
-                      <span className="truncate">{ev.name}</span>
-                    </div>
-                  );
-                })}
-                {lanes > 0 && Array.from({ length: Math.min(lanes, MAX_LANES) }).map((_, i) => (
-                  <div key={`lane-spacer-${i}`} style={{ gridColumn: '1 / 8', gridRow: String(i + 1), visibility: 'hidden' }}>.</div>
-                ))}
-              </div>
+            <div
+              key={d.toDateString()}
+              className={`min-h-20 p-1 border relative
+                ${inMonth ? 'bg-white' : 'bg-gray-100'}
+                ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-200'}
+                ${isSameDay(d, selectedDate) ? 'bg-[#3F978F] bg-opacity-10' : ''}`}
+              onClick={() => onDayClick(new Date(d))}
+            >
+              <div className="text-right text-sm">{d.getDate()}</div>
+              {overflow > 0 && (
+                <button
+                  className="absolute bottom-1 left-1 z-20 text-[11px] leading-none px-1.5 py-0.5 rounded-full bg-gray-100 border shadow-sm"
+                  onClick={(e) => { e.stopPropagation(); setShowDayList({ open: true, date: new Date(d) }); }}
+                >
+                  +{overflow} more
+                </button>
+              )}
             </div>
           );
-        })}
-      </div>
-    );
-  }
+        });
+
+        const segs = getWeekSegments(week, events);
+        const lanes = segs.length ? Math.max(...segs.map(s => s.lane)) + 1 : 0;
+        const segsToRender = segs.filter(s => s.lane < maxLanes);
+
+        return (
+          <div key={week[0].toDateString()} className="relative">
+            <div className="grid grid-cols-7 gap-1">{dayCells}</div>
+            <div
+              className="absolute inset-x-0 top-6 bottom-7 sm:bottom-6 z-0 grid grid-cols-7 gap-x-1 pointer-events-none"
+              style={{ gridAutoRows: `${rowPx}px`, rowGap: `${ROW_GAP_PX}px` }}
+            >
+              {segsToRender.map(seg => {
+                const ev = seg.event;
+                const bg = isTripEvent(ev) ? 'bg-emerald-600' : 'bg-[#3F978F]';
+
+                const evStart = parseISO(ev.dateFrom);
+                const evEnd   = parseISO(ev.dateTo);
+
+                const isStart =
+                  evStart >= week[0] &&
+                  evStart <= week[6] &&
+                  (evStart.getDay() + 1) === seg.colStart;
+
+                // 🔧 Final segment if the event ends any time before or on this week's Saturday 23:59:59.999
+                const weekSaturdayEnd = new Date(week[6]);
+                weekSaturdayEnd.setHours(23, 59, 59, 999);
+                const isFinalSegment = evEnd <= weekSaturdayEnd;
+
+                return (
+                  <div
+                    key={`${ev.id}-${seg.weekKey}-${seg.lane}`}
+                    className={`flex items-center ${bg} text-white text-[11px] sm:text-xs h-[14px] sm:h-[16px] px-1.5 sm:px-2 rounded-full overflow-hidden truncate pointer-events-auto`}
+                    style={{
+                      gridColumn: `${seg.colStart} / ${seg.colEnd}`,
+                      gridRow: String(seg.lane + 1),
+                      borderTopLeftRadius: isStart ? 8 : 0,
+                      borderBottomLeftRadius: isStart ? 8 : 0,
+                      borderTopRightRadius: isFinalSegment ? 8 : 0,
+                      borderBottomRightRadius: isFinalSegment ? 8 : 0,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEvent(ev);
+                      setShowEventModal(true);
+                    }}
+                    title={ev.name}
+                  >
+                    <span className="truncate">{ev.name}</span>
+                  </div>
+                );
+              })}
+              {lanes > 0 && Array.from({ length: Math.min(lanes, maxLanes) }).map((_, i) => (
+                <div key={`lane-spacer-${i}`} style={{ gridColumn: '1 / 8', gridRow: String(i + 1), visibility: 'hidden' }}>.</div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 
   function renderSelectedDateEvents() {
     const dateEvents = eventsOnDay(selectedDate);
