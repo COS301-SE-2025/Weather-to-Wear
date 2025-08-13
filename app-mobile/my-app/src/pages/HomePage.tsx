@@ -174,12 +174,12 @@ export default function HomePage() {
       const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
       return days[0]?.summary
         ? {
-            avgTemp: days[0].summary.avgTemp,
-            minTemp: days[0].summary.minTemp,
-            maxTemp: days[0].summary.maxTemp,
-            willRain: days[0].summary.willRain,
-            mainCondition: days[0].summary.mainCondition,
-          }
+          avgTemp: days[0].summary.avgTemp,
+          minTemp: days[0].summary.minTemp,
+          maxTemp: days[0].summary.maxTemp,
+          willRain: days[0].summary.willRain,
+          mainCondition: days[0].summary.mainCondition,
+        }
         : undefined;
     } catch {
       return undefined;
@@ -193,12 +193,12 @@ export default function HomePage() {
       selectedEvent?.style || 'Casual',
       selectedEventTodaySummary
         ? JSON.stringify({
-            a: Math.round(selectedEventTodaySummary.avgTemp),
-            i: Math.round(selectedEventTodaySummary.minTemp),
-            x: Math.round(selectedEventTodaySummary.maxTemp),
-            r: selectedEventTodaySummary.willRain,
-            m: selectedEventTodaySummary.mainCondition,
-          })
+          a: Math.round(selectedEventTodaySummary.avgTemp),
+          i: Math.round(selectedEventTodaySummary.minTemp),
+          x: Math.round(selectedEventTodaySummary.maxTemp),
+          r: selectedEventTodaySummary.willRain,
+          m: selectedEventTodaySummary.mainCondition,
+        })
         : 'no-summary',
     ],
     enabled: Boolean(selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
@@ -366,13 +366,12 @@ export default function HomePage() {
 
                   <div className="mb-4 space-y-2">
                     <div
-                      className={`flex justify-center space-x-2 transition-all ${
-                        outfits[currentIndex].outfitItems.some(
-                          i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
-                        )
+                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                        i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
+                      )
                           ? 'h-auto'
                           : 'h-0 overflow-hidden'
-                      }`}
+                        }`}
                     >
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
@@ -447,11 +446,21 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <StarRating
-                    disabled={saving}
-                    onSelect={handleSaveRating}
-                    value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                  />
+                  <div className="flex items-center justify-center gap-2">
+                    <StarRating
+                      disabled={saving}
+                      onSelect={handleSaveRating}
+                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                    />
+                    <button
+                      onClick={handleRefresh}
+                      className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
+                      aria-label="Refresh recommendations"
+                      title="Refresh recommendations"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -487,13 +496,6 @@ export default function HomePage() {
                     />
                   </svg>
                 </div>
-                <button
-                  onClick={handleRefresh}
-                  className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                  aria-label="Refresh Weather"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </button>
               </div>
 
               {loadingWeather ? (
@@ -806,7 +808,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => {}} />
+                        <StarRating disabled={false} onSelect={() => { }} />
                       </div>
                     </>
                   )}

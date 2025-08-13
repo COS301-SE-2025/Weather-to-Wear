@@ -140,19 +140,19 @@ function getCandidateOutfits(
   style: Style,
   weather: { minTemp: number }
 ): ClosetItem[][] {
-  console.log('Debug: Required Layers:', requiredLayers);
+  // console.log('Debug: Required Layers:', requiredLayers);
   // Limit items per layer to 5 for performance
   const choices = requiredLayers.map(layer => {
     const minWarmth = getMinWarmthForLayer(layer, weather.minTemp);
-    console.log(`Debug: Min warmth for ${layer}: ${minWarmth}`);
+    // console.log(`Debug: Min warmth for ${layer}: ${minWarmth}`);
     const layerItems = (partitioned[layer] || []).filter(item =>
       item.style === style && (item.warmthFactor || 0) >= minWarmth
     );
     return layerItems.length > 5 ? shuffleArray(layerItems).slice(0, 5) : layerItems;
   });
-  console.log('Debug: Choices per layer:', choices.map(arr => arr.length));
+  // console.log('Debug: Choices per layer:', choices.map(arr => arr.length));
   if (choices.some(arr => arr.length === 0)) {
-    console.log('Debug: Empty layer detected, no candidates possible');
+    // console.log('Debug: Empty layer detected, no candidates possible');
     return [];
   }
 
@@ -168,11 +168,11 @@ function getCandidateOutfits(
   }
 
   const minRequiredWarmth = Math.max(3, 30 - weather.minTemp);
-  console.log('Debug: minRequiredWarmth:', minRequiredWarmth);
+  // console.log('Debug: minRequiredWarmth:', minRequiredWarmth);
   const candidates = Array.from(combine()).filter(outfit =>
     outfit.reduce((sum, i) => sum + (i.warmthFactor || 0), 0) >= minRequiredWarmth
   );
-  console.log('Debug: Candidate outfits after warmth filter:', candidates.length);
+  // console.log('Debug: Candidate outfits after warmth filter:', candidates.length);
   return candidates.length > 100 ? shuffleArray(candidates).slice(0, 100) : candidates; // Cap at 100
 }
 
@@ -180,34 +180,34 @@ export async function recommendOutfits(
   userId: string,
   req: RecommendOutfitsRequest
 ): Promise<OutfitRecommendation[]> {
-  console.log('Debug: Starting recommendOutfits for user:', userId);
-  console.log('Debug: WeatherSummary:', req.weatherSummary);
-  console.log('Debug: Requested style:', req.style);
+  // console.log('Debug: Starting recommendOutfits for user:', userId);
+  // console.log('Debug: WeatherSummary:', req.weatherSummary);
+  // console.log('Debug: Requested style:', req.style);
 
   const closetItems = await prisma.closetItem.findMany({ where: { ownerId: userId } });
-  console.log('Debug: Closet items retrieved:', closetItems.length);
-  console.log('Debug: Items with style defined:', closetItems.filter(item => item.style).length);
-  console.log('Debug: Items with warmthFactor defined:', closetItems.filter(item => item.warmthFactor).length);
+  // console.log('Debug: Closet items retrieved:', closetItems.length);
+  // console.log('Debug: Items with style defined:', closetItems.filter(item => item.style).length);
+  // console.log('Debug: Items with warmthFactor defined:', closetItems.filter(item => item.warmthFactor).length);
 
   const userPref = await prisma.userPreference.findUnique({ where: { userId } });
   const style: Style = (req.style as Style) || userPref?.style || Style.Casual;
-  console.log('Debug: Selected style:', style);
+  // console.log('Debug: Selected style:', style);
 
   const partitioned = partitionClosetByLayer(closetItems);
-  console.log('Debug: Partitioned closet:', Object.keys(partitioned).map(layer => ({
-    layer,
-    count: partitioned[layer].length,
-    styles: [...new Set(partitioned[layer].map(item => item.style))],
-  })));
+  // console.log('Debug: Partitioned closet:', Object.keys(partitioned).map(layer => ({
+  //   layer,
+  //   count: partitioned[layer].length,
+  //   styles: [...new Set(partitioned[layer].map(item => item.style))],
+  // })));
 
   const requiredLayers = getRequiredLayers(req.weatherSummary);
   const raw = getCandidateOutfits(partitioned, requiredLayers, style, req.weatherSummary);
-  console.log('Debug: Raw candidate outfits:', raw.length);
+  // console.log('Debug: Raw candidate outfits:', raw.length);
 
   const prefColors = Array.isArray(userPref?.preferredColours)
     ? (userPref.preferredColours as string[])
     : [];
-  console.log('Debug: Preferred colors:', prefColors);
+  // console.log('Debug: Preferred colors:', prefColors);
 
   const scored = raw.map(outfit => {
     const items = outfit.map(item => ({
@@ -233,13 +233,13 @@ export async function recommendOutfits(
       weatherSummary: req.weatherSummary,
     };
   });
-  console.log('Debug: Scored outfits:', scored.length);
+  // console.log('Debug: Scored outfits:', scored.length);
 
   const past = await prisma.outfit.findMany({
     where: { userId, userRating: { not: null } },
     include: { outfitItems: { include: { closetItem: true } } },
   });
-  console.log('Debug: Past rated outfits:', past.length);
+  // console.log('Debug: Past rated outfits:', past.length);
 
   const historyVecs: number[][] = [];
   const historyRatings: number[] = [];
@@ -261,11 +261,11 @@ export async function recommendOutfits(
     const alpha = 0.3;
     return { ...rec, finalScore: alpha * rec.score + (1 - alpha) * knn };
   });
-  console.log('Debug: Augmented outfits:', augmented.length);
+  // console.log('Debug: Augmented outfits:', augmented.length);
 
   const k = Math.min(10, augmented.length);
   const clusters = kMeansCluster(augmented, k);
-  console.log('Debug: Clusters formed:', clusters.map(c => c.length));
+  // console.log('Debug: Clusters formed:', clusters.map(c => c.length));
   const selected: OutfitRecommendation[] = [];
 
   for (const cluster of clusters) {
@@ -277,7 +277,7 @@ export async function recommendOutfits(
     selected.push(bestInCluster);
     if (selected.length >= 5) break;
   }
-  console.log('Debug: Selected outfits:', selected.length);
+  // console.log('Debug: Selected outfits:', selected.length);
 
   return selected;
 }
