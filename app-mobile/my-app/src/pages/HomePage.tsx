@@ -35,8 +35,8 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
 
 // ---------- TypingSlogan (unchanged) ----------
 const TypingSlogan = () => {
-  const slogan = 'Style Made Simple.';
-  const tealWord = 'Simple.';
+  const slogan = 'Simple Style';
+  const tealWord = 'Style';
   const tealStart = slogan.indexOf(tealWord);
   const tealEnd = tealStart + tealWord.length;
 

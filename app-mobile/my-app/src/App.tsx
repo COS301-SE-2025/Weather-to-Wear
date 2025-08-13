@@ -59,22 +59,27 @@ function App() {
                 element={
                   <UploadQueueProvider>
                     <NavBar />
-                    <Routes>
-                      <Route path="dashboard" element={<HomePage />} />
-                  <Route path="closet" element={<ClosetPage />} />
-                  <Route path="add" element={<AddPage />} />
-                  <Route path="add-item" element={<AddItem />} />
-                  <Route path="calendar" element={<CalendarPage />} />
-                  <Route path="feed" element={<FeedPage />} />
-                  <Route path="appearance" element={<Appearance />} />
-                  <Route path="profile" element={<ProfilePage />} />
-                  <Route path="create-outfit" element={<CreateAnOutfit />} />
-                  <Route path="post-to-feed" element={<PostToFeed />} /> {/* Ensure this route renders PostToFeed */}
-                  <Route path="help" element={<HelpPage />} />
-                  <Route path="my-posts" element={<PostsPage />} />
-                  <Route path="*" element={<UnderConstruction />} /> {/* Catch-all for unmatched routes */}
-                    </Routes>
+                    <main className="mx-auto w-full max-w-screen-xl 
+                   pt-[120px] lg:pt-[140px] 
+                   pb-[calc(env(safe-area-inset-bottom)+80px)] lg:pb-0">
+                      <Routes>
+                        <Route path="dashboard" element={<HomePage />} />
+                        <Route path="closet" element={<ClosetPage />} />
+                        <Route path="add" element={<AddPage />} />
+                        <Route path="add-item" element={<AddItem />} />
+                        <Route path="calendar" element={<CalendarPage />} />
+                        <Route path="feed" element={<FeedPage />} />
+                        <Route path="appearance" element={<Appearance />} />
+                        <Route path="profile" element={<ProfilePage />} />
+                        <Route path="create-outfit" element={<CreateAnOutfit />} />
+                        <Route path="post-to-feed" element={<PostToFeed />} />
+                        <Route path="help" element={<HelpPage />} />
+                        <Route path="my-posts" element={<PostsPage />} />
+                        <Route path="*" element={<UnderConstruction />} />
+                      </Routes>
+                    </main>
                   </UploadQueueProvider>
+
                 }
               />
             </Routes>

@@ -446,7 +446,7 @@ export default function ClosetPage() {
 
   return (
 
-    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
+    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4 -mt-16">
       {/* Header Image Section */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"

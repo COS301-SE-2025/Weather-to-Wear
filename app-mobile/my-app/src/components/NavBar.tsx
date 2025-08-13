@@ -367,15 +367,6 @@ const NavBar: React.FC = () => {
         </div>
       )}
 
-
-      {/* Spacer so content sits below fixed header */}
-      {/* Spacer so content sits below fixed header */}
-      <div
-        className={`${isMobile
-          ? "h-[60px] mb-[calc(env(safe-area-inset-bottom)+80px)]"
-          : "h-[140px] lg:mb-0"
-          }`}
-      />
     </>
   );
 };
