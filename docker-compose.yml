@@ -15,7 +15,7 @@ services:
       POSTGRES_DB: weatherdb
       BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
       COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors
-      UPLOAD_DIR: /app/uploads               # ← add this
+      UPLOAD_DIR: /app/uploads               
     env_file:
       - ./app-backend/.env
     depends_on:
@@ -26,7 +26,7 @@ services:
     volumes:
       - ./app-backend:/app
       - /app/node_modules
-      - ./app-backend/uploads:/app/uploads   # ← ensure this exists and matches worker
+      - ./app-backend/uploads:/app/uploads   
       - ./app-backend/prisma:/app/prisma
 
   frontend:
@@ -88,7 +88,7 @@ services:
       WORKER_PROCESSES: 1
       BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
       COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors
-      UPLOAD_DIR: /app/uploads               # ← add this (must match backend)
+      UPLOAD_DIR: /app/uploads             
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
@@ -98,13 +98,13 @@ services:
     depends_on:
       - redis
       - backend
-      - bg-removal                           # optional but nice: ensure available
+      - bg-removal                         
       - color-picker
-      - db                                  # ← add database dependency
+      - db                                
     volumes:
       - ./app-backend:/app
       - /app/node_modules
-      - ./app-backend/uploads:/app/uploads   # ← critical: share the same host dir
+      - ./app-backend/uploads:/app/uploads   
 
   redis:
     image: redis:7
