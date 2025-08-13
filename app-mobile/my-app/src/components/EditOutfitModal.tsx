@@ -30,7 +30,7 @@ type Props = {
   outfitId: string;
   initialStyle?: string;              // OverallStyle from your enum
   initialRating?: number;
-  initialItems: {                     // what you already render in UI
+  initialItems: {                     
     closetItemId: string;
     layerCategory: string;
     imageUrl?: string;
