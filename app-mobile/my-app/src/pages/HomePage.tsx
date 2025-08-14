@@ -370,8 +370,10 @@ export default function HomePage() {
                       className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
                         i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
                       )
-                        ? 'h-auto'
-                        : 'h-0 overflow-hidden'
+
+                          ? 'h-auto'
+                          : 'h-0 overflow-hidden'
+
                         }`}
                     >
                       {outfits[currentIndex].outfitItems
@@ -447,11 +449,21 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <StarRating
-                    disabled={saving}
-                    onSelect={handleSaveRating}
-                    value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                  />
+                  <div className="flex items-center justify-center gap-2">
+                    <StarRating
+                      disabled={saving}
+                      onSelect={handleSaveRating}
+                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                    />
+                    <button
+                      onClick={handleRefresh}
+                      className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
+                      aria-label="Refresh recommendations"
+                      title="Refresh recommendations"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -487,13 +499,6 @@ export default function HomePage() {
                     />
                   </svg>
                 </div>
-                <button
-                  onClick={handleRefresh}
-                  className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                  aria-label="Refresh Weather"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </button>
               </div>
 
               {loadingWeather ? (
