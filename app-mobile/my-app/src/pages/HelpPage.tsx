@@ -84,7 +84,7 @@ const HelpPage = () => {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 -mt-12">
       {/* Header Section */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"

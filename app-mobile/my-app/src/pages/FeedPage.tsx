@@ -69,7 +69,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(({
 }) => {
   return (
     <div>
-      <div className="relative mb-3 md:mb-6">
+      <div className="relative mb-3 md:mb-6 left-3 md:left-0 -right-4 md:right-3 mr-6 md:mr-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
         <input
           type="text"
@@ -418,18 +418,19 @@ const FeedPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-screen-xl mx-auto px-0 md:px-4 py-3 md:py-6 flex flex-col md:flex-row gap-4 md:gap-10">      <div className="w-full md:w-[32%] order-1 md:order-2">
-      <SearchUsersCard
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        searchLoading={searchLoading}
-        searchError={searchError}
-        searchResults={searchResults}
-        searchHasMore={searchHasMore}
-        onLoadMore={loadMoreSearch}
-        onToggleFollow={toggleFollowFromSearch}
-      />
-    </div>
+    <div className="w-full max-w-screen-xl mx-auto px-0 md:px-4 pt-0 md:pt-6 pb-1 md:pb-6 -mt-12 md:mt-0 flex flex-col md:flex-row gap-3 md:gap-10">
+      <div className="w-full md:w-[32%] order-1 md:order-2">
+        <SearchUsersCard
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchLoading={searchLoading}
+          searchError={searchError}
+          searchResults={searchResults}
+          searchHasMore={searchHasMore}
+          onLoadMore={loadMoreSearch}
+          onToggleFollow={toggleFollowFromSearch}
+        />
+      </div>
 
       <div className="w-full md:w-[58%] space-y-4 md:space-y-6 order-2 md:order-1 -mx-0 md:mx-0">        {error && <div className="text-red-500 text-sm">{error}</div>}
         {posts.length === 0 && loadingMore ? (
@@ -441,7 +442,7 @@ const FeedPage: React.FC = () => {
             {posts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white dark:bg-gray-800 rounded-none p-5 shadow-md border border-gray-200 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-none p-4 md:p-5 shadow-md border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">

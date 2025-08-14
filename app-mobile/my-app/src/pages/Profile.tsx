@@ -203,7 +203,7 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out">
       <div
-        className="w-full relative h-40 sm:h-48 md:h-64 -mt-12 mb-16 sm:mb-20 md:mb-24"
+        className="w-full relative h-40 sm:h-48 md:h-64 -mt-16 mb-16 sm:mb-20 md:mb-24"
         style={{
           backgroundImage: `url(/header.jpg)`,
           backgroundSize: "cover",

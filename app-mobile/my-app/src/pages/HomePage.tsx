@@ -35,8 +35,8 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
 
 // ---------- TypingSlogan (unchanged) ----------
 const TypingSlogan = () => {
-  const slogan = 'Style Made Simple.';
-  const tealWord = 'Simple.';
+  const slogan = 'Simple Style';
+  const tealWord = 'Style';
   const tealStart = slogan.indexOf(tealWord);
   const tealEnd = tealStart + tealWord.length;
 
@@ -71,7 +71,8 @@ const TypingSlogan = () => {
   const tealPart = tealWord.slice(0, tealVisibleLength);
 
   return (
-    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-left w-full">
+    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-center lg:text-left w-full">
+
       {beforeTeal}
       <span className="text-[#3F978F]">{tealPart}</span>
       <span className="animate-pulse">|</span>
@@ -298,7 +299,7 @@ export default function HomePage() {
       <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 justify-between">
           {/* Typing Slogan */}
-          <div className="flex-1 flex flex-col items-start justify-center">
+          <div className="flex-1 flex flex-col items-center lg:items-start justify-center">
             <TypingSlogan />
           </div>
 
@@ -369,8 +370,10 @@ export default function HomePage() {
                       className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
                         i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
                       )
+
                           ? 'h-auto'
                           : 'h-0 overflow-hidden'
+
                         }`}
                     >
                       {outfits[currentIndex].outfitItems

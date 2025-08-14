@@ -315,7 +315,7 @@ const PostsPage: React.FC = () => {
 
     // ----- UI -----
     return (
-        <div className="w-full max-w-screen-xl mx-auto md:px-6 -mt-2 md:-mt-4">
+        <div className="w-full max-w-screen-xl mx-auto md:px-6 -mt-16 md:-mt-4">
             {/* Profile header */}
             <div className="px-4 pt-6 md:pt-10">
                 <div className="flex items-center gap-6">

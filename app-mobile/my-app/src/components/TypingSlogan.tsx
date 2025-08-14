@@ -9,8 +9,8 @@ interface TypingSloganProps {
 }
 
 const TypingSlogan: React.FC<TypingSloganProps> = ({
-  words = ['Style', 'Your', 'Everyday.'],
-  highlightWord = 'Everyday.',
+  words = ['Style', 'Simple'],
+  highlightWord = 'Simple',
   typeSpeed = 100,
   deleteSpeed = 50,
   pauseDelay = 2000,

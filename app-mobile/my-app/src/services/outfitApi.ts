@@ -60,7 +60,7 @@ export interface SaveOutfitPayload {
     warmthRating: number;
     waterproof: boolean;
     overallStyle: string;
-    weatherSummary: string;   // stringified JSON
+    weatherSummary: string;  
     userRating: number;
 }
 
