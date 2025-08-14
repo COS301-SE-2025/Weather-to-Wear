@@ -9,11 +9,12 @@ import {
     unlikePost,
     addComment,
 } from "../services/socialApi";
+import { API_BASE } from '../config';
 
 import { getMe } from "../services/usersApi";
 
 // Adjust to your backend origin
-const API_URL = "http://localhost:5001";
+const API_URL = `${API_BASE}`;
 const prefixed = (url: string) =>
     url.startsWith("http") ? url : `${API_URL}${url}`;
 

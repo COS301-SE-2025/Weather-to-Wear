@@ -1,9 +1,10 @@
 // src/services/outfitApi.ts
 import axios from 'axios';
 import { fetchWithAuth } from "./fetchWithAuth";
+import { API_BASE } from '../config';
 
 
-const API_URL = 'http://localhost:5001/api/outfits';
+const API_URL = `${API_BASE}/api/outfits`;
 
 function getAuthHeader() {
     const token = localStorage.getItem('token');
@@ -162,7 +163,7 @@ export function toggleOutfitFavourite(id: string) {
 
 export async function createOutfitManual(data: any) {
     const token = localStorage.getItem("token");
-    const res = await fetchWithAuth("http://localhost:5001/api/outfits", {
+    const res = await fetchWithAuth(`${API_BASE}/api/outfits`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

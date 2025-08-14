@@ -1,7 +1,8 @@
 // src/services/socialApi.ts
 import { fetchWithAuth } from "./fetchWithAuth";
+import { API_BASE } from '../config';
 
-const API_URL = "http://localhost:5001/api/social";
+const API_URL = `${API_BASE}/api/social`;
 
 export async function createPost(data: {
   image?: File;

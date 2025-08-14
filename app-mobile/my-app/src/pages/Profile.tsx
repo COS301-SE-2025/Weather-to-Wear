@@ -13,6 +13,7 @@ import { fetchAllOutfits } from "../services/outfitApi";
 import { getItemCount } from "../services/closetApi";
 import { getOutfitCount } from "../services/outfitApi";
 import { uploadProfilePhoto, getMe } from "../services/usersApi";
+import { API_BASE } from '../config';
 
 
 interface OutfitItem {
@@ -49,7 +50,7 @@ const Profile = () => {
 
   // Helper to prefix image URLs
   const prefixed = (url: string) =>
-    url.startsWith("http") ? url : `http://localhost:5001${url}`;
+    url.startsWith("http") ? url : `${API_BASE}${url}`;
 
   useEffect(() => {
     // 1) Load from server (source of truth)

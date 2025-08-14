@@ -16,6 +16,8 @@ import { toggleOutfitFavourite } from '../services/outfitApi';
 
 import EditOutfitModal from "../components/EditOutfitModal";
 
+import { API_BASE } from '../config';
+
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
 }
@@ -187,7 +189,7 @@ export default function ClosetPage() {
         const formattedItems: Item[] = res.data.map((item: any) => ({
           id: item.id,
           name: item.category,
-          image: `http://localhost:5001${item.imageUrl}`,
+          image: `${API_BASE}${item.imageUrl}`,
           favourite: !!item.favourite,
           category: item.category,
           layerCategory: item.layerCategory,
@@ -218,7 +220,7 @@ export default function ClosetPage() {
 
   // helper to prefix local uploads
   const prefixed = (url: string) =>
-    url.startsWith('http') ? url : `http://localhost:5001${url}`;
+    url.startsWith('http') ? url : `${API_BASE}${url}`;
 
   // Fetch saved outfits
   useEffect(() => {
@@ -279,7 +281,7 @@ export default function ClosetPage() {
     const token = localStorage.getItem('token');
     try {
       const res = await fetchWithAuth(
-        `http://localhost:5001/api/closet/${itemToEdit.id}`,
+        `${API_BASE}/api/closet/${itemToEdit.id}`,
         {
           method: 'PATCH',
           headers: {

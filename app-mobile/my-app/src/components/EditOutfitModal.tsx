@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { saveOutfitEdits } from "../services/outfitApi";
 import { fetchAllItems } from "../services/closetApi";
+import { API_BASE } from '../config';
 
 type ClosetItemLite = {
   id: string;
@@ -53,7 +54,7 @@ const LAYERS: { value: string; label: string }[] = [
 
 const STYLES = ["Formal","Casual","Athletic","Party","Business","Outdoor"];
 
-const API_PREFIX = "http://localhost:5001";
+const API_PREFIX = `${API_BASE}`;
 
 const prefixed = (u?: string) => (u?.startsWith("http") ? u! : `${API_PREFIX}${u ?? ""}`);
 

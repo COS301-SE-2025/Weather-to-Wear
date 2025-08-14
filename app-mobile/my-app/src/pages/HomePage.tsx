@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import StarRating from '../components/StarRating';
+import { API_BASE } from '../config';
 
 import {
   fetchRecommendedOutfits,
@@ -384,7 +385,7 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                : `${API_BASE}${item.imageUrl}`
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -406,7 +407,7 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                : `${API_BASE}${item.imageUrl}`
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -423,7 +424,7 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                : `${API_BASE}${item.imageUrl}`
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -440,7 +441,7 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                : `${API_BASE}${item.imageUrl}`
                             }
                             alt={item.category}
                             className="w-28 h-28 object-contain rounded-2xl"
@@ -803,7 +804,7 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                : `${API_BASE}${item.imageUrl}`
                             }
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"

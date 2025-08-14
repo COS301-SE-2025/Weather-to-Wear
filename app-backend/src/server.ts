@@ -6,7 +6,8 @@ const PORT = process.env.PORT || 5001
 
 // app.use(cors());
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+const allowedOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 
 try {
   app.listen(PORT, () => {

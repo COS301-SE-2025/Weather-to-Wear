@@ -11,6 +11,7 @@ import {
   getFollowers,
   searchUsers,
 } from "../services/socialApi";
+import { API_BASE } from '../config';
 
 interface Post {
   id: string;
@@ -44,7 +45,7 @@ type UserResult = {
   followingCount: number;
 };
 
-const API_URL = "http://localhost:5001";
+const API_URL = `${API_BASE}`;
 
 type SearchUsersCardProps = {
   searchQuery: string;

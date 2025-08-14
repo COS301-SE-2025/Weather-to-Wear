@@ -1,6 +1,7 @@
 // src/hooks/useWeather.ts
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 export interface ForecastItem {
   time: string;         // e.g. "2025-06-23 00:00"
@@ -36,8 +37,8 @@ export const useWeather = () => {
       setError(null);
       try {
         const url = city
-          ? `http://localhost:5001/api/weather?location=${encodeURIComponent(city)}`
-          : `http://localhost:5001/api/weather`;
+          ? `${API_BASE}/api/weather?location=${encodeURIComponent(city)}`
+          : `${API_BASE}/api/weather`;
         const res = await axios.get<WeatherData>(url);
         setWeather(res.data);
       } catch (err) {

@@ -1,8 +1,9 @@
 // src/services/eventsApi.ts
 import axios from 'axios';
 import exp from 'constants';
+import { API_BASE } from '../config';
 
-const API_URL = 'http://localhost:5001/api/events';
+const API_URL = `${API_BASE}/api/events`;
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 

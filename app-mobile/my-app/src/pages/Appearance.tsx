@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE } from '../config';
 
 interface UserPreference {
   style: "Formal" | "Casual" | "Athletic" | "Party" | "Business" | "Outdoor";
@@ -47,7 +48,7 @@ const Appearance: React.FC = () => {
         const token = localStorage.getItem("token");
         if (!token) throw new Error("Please log in to access preferences.");
 
-        const response = await fetch("http://localhost:5001/api/preferences", {
+        const response = await fetch(`${API_BASE}/api/preferences`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -108,7 +109,7 @@ const Appearance: React.FC = () => {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Please log in to save preferences.");
 
-      const response = await fetch("http://localhost:5001/api/preferences", {
+      const response = await fetch(`${API_BASE}/api/preferences`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,

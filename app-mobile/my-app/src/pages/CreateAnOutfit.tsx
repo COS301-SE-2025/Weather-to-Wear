@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchAllItems } from "../services/closetApi";
 import { createOutfitManual } from "../services/outfitApi";
 import ClosetPickerModal from "../components/ClosetPickerModal";
+import { API_BASE } from '../config';
 
 export interface ClosetItem {
   id: string;
@@ -77,7 +78,7 @@ export default function CreateAnOutfit() {
           imageUrl: item.imageUrl
             ? item.imageUrl.startsWith("http")
               ? item.imageUrl
-              : `http://localhost:5001${item.imageUrl}`
+              : `${API_BASE}${item.imageUrl}`
             : undefined,
         }));
         setAllItems(formatted);

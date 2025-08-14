@@ -1,6 +1,7 @@
 import { fetchWithAuth } from "./fetchWithAuth";
+import { API_BASE } from '../config';
 
-const API_URL = "http://localhost:5001/api/users";
+const API_URL = `${API_BASE}/api/users`;
 
 export async function getMe() {
   const res = await fetchWithAuth(`${API_URL}/me`);

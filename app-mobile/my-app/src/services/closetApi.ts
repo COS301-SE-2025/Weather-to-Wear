@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { fetchAllOutfits } from './outfitApi';
+import { API_BASE } from '../config';
 
-const BASE_URL = 'http://localhost:5001/api/closet';
+const BASE_URL = `${API_BASE}/api/closet`;
 
 // Utility to get the JWT from localStorage
 function getAuthHeader() {

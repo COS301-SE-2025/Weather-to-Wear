@@ -4,6 +4,7 @@ import { useImage } from "../components/ImageContext";
 import { Camera, Upload, Loader } from "lucide-react";
 import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from "../context/UploadQueueContext";
+import { API_BASE } from '../config';
 
 
 
@@ -840,7 +841,7 @@ const AddPage: React.FC = () => {
                     console.log("Uploading batch items:", batchItems);
                     console.log("Sending metadata:", JSON.stringify(itemsMeta));
 
-                    const res = await fetchWithAuth("http://localhost:5001/api/closet/upload/batch", {
+                    const res = await fetchWithAuth(`${API_BASE}/api/closet/upload/batch`, {
                       method: "POST",
                       body: formData,
                       headers: {

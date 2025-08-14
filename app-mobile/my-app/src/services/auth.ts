@@ -1,5 +1,5 @@
 // src/services/auth.ts
-const API_BASE = 'http://localhost:5001/api/auth';
+import { API_BASE } from '../config';
 
 export async function loginUser(email: string, password: string) {
   const res = await fetch(`${API_BASE}/login`, {
