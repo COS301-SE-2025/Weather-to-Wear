@@ -250,7 +250,7 @@ class ClosetController {
     }
 
     try {
-      const files = req.files as Express.Multer.File[]; // Multer must be set to multi-file
+      const files = req.files as Express.Multer.File[]; 
       const itemsJson = req.body.items;
 
       if (!itemsJson) {
@@ -277,7 +277,7 @@ class ClosetController {
 
         // Check if this file has already been processed
         if (processedFiles.has(file.path)) {
-          console.log(`⚠️ File ${file.path} already processed, skipping`);
+          console.log(` File ${file.path} already processed, skipping`);
           continue;
         }
         processedFiles.add(file.path);
@@ -289,7 +289,7 @@ class ClosetController {
         const uniqueFilename = `${timestamp}-${randomSuffix}${fileExtension}`;
         const persistentPath = path.join(process.env.UPLOAD_DIR || '/app/uploads', uniqueFilename);
         
-        console.log(`📁 Processing file: ${file.path} -> ${persistentPath}`);
+        console.log(` Processing file: ${file.path} -> ${persistentPath}`);
         
         const fs = require('fs');
         fs.copyFileSync(file.path, persistentPath);
@@ -320,7 +320,7 @@ class ClosetController {
           }
         );
 
-        console.log("📥 Enqueued remove-bg-task for", meta.filename, "->", uniqueFilename);
+        console.log(" Enqueued remove-bg-task for", meta.filename, "->", uniqueFilename);
       }
 
       res.status(202).json({ message: "Batch accepted, processing in background." });

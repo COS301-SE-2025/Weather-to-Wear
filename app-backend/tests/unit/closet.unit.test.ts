@@ -1,3 +1,50 @@
+jest.mock('bcrypt', () => ({
+  __esModule: true,
+  default: {
+    genSalt: jest.fn(async () => 'mock-salt'),
+    hash: jest.fn(async () => 'mock-hash'),
+    compare: jest.fn(async () => true),
+  },
+  genSalt: jest.fn(async () => 'mock-salt'),
+  hash: jest.fn(async () => 'mock-hash'),
+  compare: jest.fn(async () => true),
+}));
+
+jest.mock('bullmq', () => {
+  class Noop {
+    on() { }
+    close() { return Promise.resolve(); }
+  }
+  return {
+    Queue: class extends Noop { add() { return Promise.resolve(); } },
+    Worker: class extends Noop { },
+    QueueEvents: class extends Noop { },
+  };
+});
+
+jest.mock('fs', () => {
+  const api = {
+    existsSync: jest.fn().mockReturnValue(true),
+    mkdirSync: jest.fn(),
+    copyFileSync: jest.fn(),
+    renameSync: jest.fn(),
+    unlinkSync: jest.fn(),
+    readFileSync: jest.fn().mockReturnValue(Buffer.from('')),
+    writeFileSync: jest.fn(),
+  };
+  (api as any).promises = {
+    mkdir: jest.fn().mockResolvedValue(undefined),
+    copyFile: jest.fn().mockResolvedValue(undefined),
+    rename: jest.fn().mockResolvedValue(undefined),
+    unlink: jest.fn().mockResolvedValue(undefined),
+    readFile: jest.fn().mockResolvedValue(Buffer.from('')),
+    writeFile: jest.fn().mockResolvedValue(undefined),
+    stat: jest.fn().mockResolvedValue({}),
+  };
+  return api;
+});
+
+
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import path from 'path';
@@ -7,11 +54,24 @@ import { upload } from '../../src/middleware/upload.middleware';
 import service from '../../src/modules/closet/closet.service';
 import controller from '../../src/modules/closet/closet.controller';
 import closetRoutes from '../../src/modules/closet/closet.route';
+import { removeBgQueue } from "../../src/queues/removeBgQueue";
+
 
 import type { AuthenticatedRequest } from '../../src/modules/auth/auth.middleware';
 
+
 const TEST_USER = { id: 'test-user-id', email: 'test@test.com' };
 const TEST_TOKEN = jwt.sign(TEST_USER, process.env.JWT_SECRET || 'defaultsecret');
+
+let errSpy: jest.SpyInstance, logSpy: jest.SpyInstance;
+beforeAll(() => {
+  errSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+  logSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+});
+afterAll(() => {
+  errSpy.mockRestore();
+  logSpy.mockRestore();
+});
 
 describe('Upload Middleware', () => {
   it('has a `.single("image")` method', () => {
@@ -294,53 +354,22 @@ describe('ClosetController', () => {
       expect(res.json).toHaveBeenCalledWith({ message: 'Missing "items" field in body' });
     });
 
-    // it('calls service.saveImagesBatch and returns 201 + payload', async () => {
-    //   jest.spyOn(service, 'saveImagesBatch').mockResolvedValue([
-    //     { id: '1', filename: 'a.png', category: 'SHOES', layerCategory: 'footwear', createdAt: new Date(), ownerId: 'test-user-id', colorHex: null, warmthFactor: null, waterproof: null, style: null, material: null, favourite: false }
-    //   ]);
-    //   let req: Partial<AuthenticatedRequest> = {
-    //     user: { ...TEST_USER },
-    //     files: [{ filename: 'a.png' }] as any,
-    //     body: { category: 'SHOES', layerCategory: 'footwear' }
-    //   };
-    //   await controller.uploadImagesBatch(req as Request, res as Response, next);
-    //   expect(service.saveImage).toHaveBeenCalledWith(
-    //     expect.anything(),
-    //     'SHOES',
-    //     'footwear',
-    //     'test-user-id',
-    //     expect.objectContaining({
-    //       colorHex: '#ffffff',
-    //       warmthFactor: 5,
-    //       waterproof: false,
-    //       style: 'Casual',
-    //       material: 'Cotton'
-    //     })
-    //   );
-    //   expect(res.status).toHaveBeenCalledWith(201);
-    //   expect(res.json).toHaveBeenCalled();
-    // });
+    it('enqueues jobs for each file and returns 202', async () => {
+      const queueSpy = jest.spyOn(removeBgQueue, 'add').mockResolvedValue({} as any);
 
-    it('calls service.saveImage and returns 201 + payload', async () => {
-      jest.spyOn(service, 'saveImage').mockResolvedValue({
-        id: '1',
-        filename: 'a.png',
-        category: 'SHOES',
-        layerCategory: 'footwear',
-        createdAt: new Date(),
-        ownerId: 'test-user-id',
-        colorHex: '#ffffff',
-        dominantColors: ["#fdfdfd", "#1a253c", "#334363"],
-        warmthFactor: 5,
-        waterproof: false,
-        style: 'Casual',
-        material: 'Cotton',
-        favourite: false
-      });
-
-      let req: Partial<AuthenticatedRequest> = {
+      const req: Partial<AuthenticatedRequest> = {
         user: { ...TEST_USER },
-        files: [{ fieldname: 'a.png', path: 'mock/path/a.png' }] as any,
+        files: [
+          {
+            fieldname: 'a.png', // should match `meta.filename` in body.items
+            originalname: 'a.png',
+            filename: 'a.png',
+            path: 'mock/path/a.png',
+            mimetype: 'image/png',
+            buffer: Buffer.from(''),
+            size: 1234,
+          },
+        ] as any,
         body: {
           items: JSON.stringify([
             {
@@ -351,120 +380,145 @@ describe('ClosetController', () => {
               warmthFactor: 5,
               waterproof: false,
               style: 'Casual',
-              material: 'Cotton'
-            }
-          ])
-        }
+              material: 'Cotton',
+            },
+          ]),
+        },
       };
 
       await controller.uploadImagesBatch(req as Request, res as Response, next);
 
-      expect(service.saveImage).toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith([
+      expect(queueSpy).toHaveBeenCalledTimes(1);
+      expect(queueSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/^remove-bg-/),
         expect.objectContaining({
-          id: '1',
+          userId: TEST_USER.id,
           category: 'SHOES',
-          imageUrl: '/uploads/a.png'
-        })
-      ]);
-    });
+          layerCategory: 'footwear',
+        }),
+        expect.any(Object) // job options
+      );
 
+      expect(res.status).toHaveBeenCalledWith(202);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Batch accepted, processing in background.',
+      });
+    });
   });
 });
 
-describe('Closet Routes Extended', () => {
-  let app: express.Express;
 
-  beforeEach(() => {
-    jest.spyOn(service, 'getAllImages').mockResolvedValue([
-      { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
-    ] as any);
+    describe('Closet Routes Extended', () => {
+      let app: express.Express;
 
-    jest.spyOn(service, 'getImagesByCategory').mockResolvedValue([
-      { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
-    ] as any);
+      beforeEach(() => {
+        jest.spyOn(service, 'getAllImages').mockResolvedValue([
+          { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
+        ] as any);
 
-    jest.spyOn(service, 'updateImage').mockResolvedValue({
-      id: '1',
-      filename: 'shirt.png',
-      category: 'SHIRT',
-      layerCategory: 'base_top',
-      createdAt: new Date(),
-      colorHex: null,
-      dominantColors: null,
-      warmthFactor: null,
-      waterproof: null,
-      style: 'Casual',
-      material: null,
-      ownerId: 'test-user-id',
-      favourite: false
+        jest.spyOn(service, 'getImagesByCategory').mockResolvedValue([
+          { id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }
+        ] as any);
+
+        jest.spyOn(service, 'updateImage').mockResolvedValue({
+          id: '1',
+          filename: 'shirt.png',
+          category: 'SHIRT',
+          layerCategory: 'base_top',
+          createdAt: new Date(),
+          colorHex: null,
+          dominantColors: null,
+          warmthFactor: null,
+          waterproof: null,
+          style: 'Casual',
+          material: null,
+          ownerId: 'test-user-id',
+          favourite: false
+        });
+
+
+        jest.spyOn(service, 'deleteImage').mockResolvedValue(undefined);
+
+        jest.spyOn(service, 'saveImagesBatch').mockResolvedValue([
+          {
+            id: '1',
+            filename: 'a.png',
+            category: 'SHOES',
+            layerCategory: 'footwear',
+            createdAt: new Date(),
+            ownerId: 'test-user-id',
+            colorHex: '#ffffff',
+            dominantColors: ['#fdfdfd', '#1a253c', '#334363'],
+            warmthFactor: 5,
+            waterproof: false,
+            style: 'Casual',
+            material: 'Cotton',
+            favourite: false
+          }
+        ]);
+
+
+        app = express();
+        app.use(express.json());
+        app.use('/uploads', express.static(path.join(__dirname, '../src/uploads')));
+        app.use('/api/closet', closetRoutes);
+      });
+
+      it('GET /api/closet/all → 200 and returns stubbed items', async () => {
+        const res = await request(app)
+          .get('/api/closet/all')
+          .set('Authorization', `Bearer ${TEST_TOKEN}`);
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([
+          expect.objectContaining({
+            id: 1,
+            category: 'SHOES',
+            imageUrl: '/uploads/a.png',
+            createdAt: expect.any(String),
+          })
+        ]);
+      });
+
+      it('GET /api/closet/category/:category → 200 and filters correctly', async () => {
+        const res = await request(app)
+          .get('/api/closet/category/SHOES')
+          .set('Authorization', `Bearer ${TEST_TOKEN}`);
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([
+          expect.objectContaining({
+            id: 1,
+            category: 'SHOES',
+            imageUrl: '/uploads/a.png',
+            createdAt: expect.any(String),
+          })
+        ]);
+      });
+
+      it('PATCH /api/closet/:id → updates item', async () => {
+        const res = await request(app)
+          .patch('/api/closet/1')
+          .set('Authorization', `Bearer ${TEST_TOKEN}`)
+          .send({ category: 'SHIRT', favorite: true });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual(expect.objectContaining({
+          id: '1',
+          category: 'SHIRT',
+          imageUrl: expect.stringContaining('/uploads/'),
+          createdAt: expect.any(String),
+          colorHex: null,
+          warmthFactor: null,
+          waterproof: null,
+          style: 'Casual',
+          material: null
+        }))
+      });
+
+      it('DELETE /api/closet/:id → deletes item', async () => {
+        const res = await request(app)
+          .delete('/api/closet/1')
+          .set('Authorization', `Bearer ${TEST_TOKEN}`);
+
+        expect(res.status).toBe(204);
+      });
     });
-
-
-    jest.spyOn(service, 'deleteImage').mockResolvedValue(undefined);
-
-    app = express();
-    app.use(express.json());
-    app.use('/uploads', express.static(path.join(__dirname, '../src/uploads')));
-    app.use('/api/closet', closetRoutes);
-  });
-
-  it('GET /api/closet/all → 200 and returns stubbed items', async () => {
-    const res = await request(app)
-      .get('/api/closet/all')
-      .set('Authorization', `Bearer ${TEST_TOKEN}`);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([
-      expect.objectContaining({
-        id: 1,
-        category: 'SHOES',
-        imageUrl: '/uploads/a.png',
-        createdAt: expect.any(String),
-      })
-    ]);
-  });
-
-  it('GET /api/closet/category/:category → 200 and filters correctly', async () => {
-    const res = await request(app)
-      .get('/api/closet/category/SHOES')
-      .set('Authorization', `Bearer ${TEST_TOKEN}`);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([
-      expect.objectContaining({
-        id: 1,
-        category: 'SHOES',
-        imageUrl: '/uploads/a.png',
-        createdAt: expect.any(String),
-      })
-    ]);
-  });
-
-  it('PATCH /api/closet/:id → updates item', async () => {
-    const res = await request(app)
-      .patch('/api/closet/1')
-      .set('Authorization', `Bearer ${TEST_TOKEN}`)
-      .send({ category: 'SHIRT', favorite: true });
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual(expect.objectContaining({
-      id: '1',
-      category: 'SHIRT',
-      imageUrl: expect.stringContaining('/uploads/'),
-      createdAt: expect.any(String),
-      colorHex: null,
-      warmthFactor: null,
-      waterproof: null,
-      style: 'Casual',
-      material: null
-    }))
-  });
-
-  it('DELETE /api/closet/:id → deletes item', async () => {
-    const res = await request(app)
-      .delete('/api/closet/1')
-      .set('Authorization', `Bearer ${TEST_TOKEN}`);
-
-    expect(res.status).toBe(204);
-  });
-});
