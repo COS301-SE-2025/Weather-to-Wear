@@ -1,5 +1,5 @@
 // src/app.ts
-import express from 'express';
+import express, { type RequestHandler } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
@@ -31,5 +31,11 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/outfits', outfitRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/users', usersRoutes);
+
+// health check
+const healthz: RequestHandler = (_req, res) => {
+  res.status(200).json({ ok: true });
+};
+app.get('/healthz', healthz);
 
 export default app;
