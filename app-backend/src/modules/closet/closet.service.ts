@@ -1,12 +1,19 @@
-import { Category, LayerCategory, Style, Material, PrismaClient, ClosetItem as PrismaClosetItem } from '@prisma/client';
+import {
+  Category,
+  LayerCategory,
+  Style,
+  Material,
+  PrismaClient,
+  ClosetItem as PrismaClosetItem,
+} from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
 import { Express } from 'express';
 import axios from 'axios';
 import FormData from 'form-data';
-
+import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
-import { uploadBufferToS3, cdnUrlFor, deleteFromS3 } from '../../utils/s3';
+import { uploadBufferToS3 } from '../../utils/s3';
 
 export type ClosetItem = PrismaClosetItem;
 
@@ -27,79 +34,27 @@ type Extras = {
   material?: Material;
 };
 
+function streamFromFileOrBuffer(file: Express.Multer.File): {
+  stream: NodeJS.ReadableStream;
+  filename: string;
+  contentType: string;
+} {
+  const filename = file.originalname || `upload-${Date.now()}`;
+  const contentType = file.mimetype || 'application/octet-stream';
+
+  if (file.buffer && file.buffer.length > 0) {
+    return { stream: Readable.from(file.buffer), filename, contentType };
+  }
+  if (file.path) {
+    return { stream: fs.createReadStream(file.path), filename, contentType };
+  }
+  throw new Error('No file content provided.');
+}
+
 class ClosetService {
   private prisma = new PrismaClient();
 
-  // Save a single image with background removal via microservice
-  //   async saveImage(
-  //   file: Express.Multer.File,
-  //   category: Category,
-  //   layerCategory: LayerCategory,
-  //   userId: string,
-  //   extras?: Extras
-  // ): Promise<ClosetItem> {
-  //   const originalImagePath = file.path;
-  //   const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
-
-  //   // Prepare form for background removal microservice
-  //   const form = new FormData();
-  //   form.append('file', fs.createReadStream(originalImagePath));
-
-  //   try {
-  //     const response = await axios.post(
-  //       process.env.BG_REMOVAL_URL!,
-  //       form,
-  //       {
-  //         headers: form.getHeaders(),
-  //         responseType: 'arraybuffer',
-  //       }
-  //     );
-  //     fs.writeFileSync(outputImagePath, Buffer.from(response.data));
-  //   } catch (err) {
-  //     console.error('Background removal error:', err);
-  //     throw new Error('Failed to remove background from image');
-  //   }
-
-  //   // Clean up original file
-  //   fs.unlinkSync(originalImagePath);
-
-  //  // 🟡 NEW: Extract top 3 colors using microservice
-  //   let dominantColors: string[] = [];
-
-  //   try {
-  //     const colorForm = new FormData();
-  //     colorForm.append('file', fs.createReadStream(outputImagePath));
-
-  //     const colorRes = await axios.post(
-  //       process.env.COLOR_EXTRACT_URL!,
-  //       colorForm,
-  //       {
-  //         headers: colorForm.getHeaders(),
-  //       }
-  //     );
-
-  //     dominantColors = colorRes.data.colors;
-  //   } catch (err) {
-  //     console.error('Color extraction error:', err);
-  //     dominantColors = []; // Graceful fallback
-  //   }
-
-  //   const cleanedFilename = path.basename(outputImagePath);
-
-  //   return this.prisma.closetItem.create({
-  //     data: {
-  //       filename: cleanedFilename,
-  //       category,
-  //       layerCategory,
-  //       ownerId: userId,
-  //       colorHex: dominantColors[0] ?? null,
-  //       dominantColors,
-  //       ...extras,
-  //     }
-  //   });
-  // }
-
-  // upload hosting
+  // Save a single image with background removal via microservice, color extraction, then upload to S3
   async saveImage(
     file: Express.Multer.File,
     category: Category,
@@ -107,41 +62,66 @@ class ClosetService {
     userId: string,
     extras?: Extras
   ): Promise<ClosetItem> {
-    // 1) send original buffer to BG Removal service
+    if (!process.env.BG_REMOVAL_URL || !process.env.COLOR_EXTRACT_URL) {
+      throw new Error('BG_REMOVAL_URL or COLOR_EXTRACT_URL not configured');
+    }
+    if (!process.env.S3_BUCKET_NAME || !process.env.S3_REGION) {
+      throw new Error('S3_BUCKET_NAME or S3_REGION not configured');
+    }
+
+    // 1) Send original to bg-removal microservice
+    const { stream, filename, contentType } = streamFromFileOrBuffer(file);
     const form = new FormData();
-    form.append('file', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+    form.append('file', stream as any, { filename, contentType });
 
-    const bgRes = await axios.post(process.env.BG_REMOVAL_URL!, form, {
-      headers: form.getHeaders(),
-      responseType: 'arraybuffer',
-      maxBodyLength: Infinity,
-    });
-    const noBgBuffer = Buffer.from(bgRes.data);
+    let noBgBuffer: Buffer;
+    try {
+      const resp = await axios.post(process.env.BG_REMOVAL_URL, form, {
+        headers: form.getHeaders(),
+        responseType: 'arraybuffer',
+      });
+      noBgBuffer = Buffer.from(resp.data);
+    } catch (err) {
+      console.error('Background removal error:', err);
+      throw new Error('Failed to remove background from image');
+    } finally {
+      // clean up disk file if used
+      if (file.path) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch {}
+      }
+    }
 
-    // 2) color extraction from the no‑bg buffer
+    // 2) Color extraction on the processed buffer
     let dominantColors: string[] = [];
     try {
       const colorForm = new FormData();
-      colorForm.append('file', noBgBuffer, { filename: 'item.png', contentType: 'image/png' });
-      const colorRes = await axios.post(process.env.COLOR_EXTRACT_URL!, colorForm, {
-        headers: colorForm.getHeaders(),
-        timeout: 30_000,
+      colorForm.append('file', Readable.from(noBgBuffer) as any, {
+        filename: 'image.png',
+        contentType: 'image/png',
       });
-      dominantColors = colorRes.data.colors ?? [];
-    } catch (e) {
-      console.error('Color extraction error:', e);
+      const colorRes = await axios.post(process.env.COLOR_EXTRACT_URL, colorForm, {
+        headers: colorForm.getHeaders(),
+      });
+      const maybe = colorRes.data?.colors;
+      dominantColors = Array.isArray(maybe) ? maybe : [];
+    } catch (err) {
+      console.error('Color extraction error:', err);
+      dominantColors = [];
     }
 
-    // 3) upload processed image to S3 as PNG
-    const key = `users/${userId}/${Date.now()}-${randomUUID()}.png`;
+    // 3) Upload final PNG (no-bg) to S3
+    const key = `users/${userId}/closet/${Date.now()}-${randomUUID()}.png`;
     await uploadBufferToS3({
       bucket: process.env.S3_BUCKET_NAME!,
       key,
       contentType: 'image/png',
       body: noBgBuffer,
+      cacheControl: 'public, max-age=31536000, immutable',
     });
 
-    // 4) store only the S3 key in DB (filename field is key)
+    // 4) Persist record (store S3 key in "filename")
     return this.prisma.closetItem.create({
       data: {
         filename: key,
@@ -155,58 +135,7 @@ class ClosetService {
     });
   }
 
-
-  // Save multiple images with background removal via microservice
-  // async saveImagesBatch(
-  //   files: Express.Multer.File[],
-  //   category: Category,
-  //   layerCategory: LayerCategory,
-  //   userId: string,
-  //   extras?: Extras
-  // ): Promise<ClosetItem[]> {
-  //   const savedItems: ClosetItem[] = [];
-
-  //   for (const file of files) {
-  //     const originalImagePath = file.path;
-  //     const outputImagePath = originalImagePath.replace(/\.(jpg|jpeg|png)$/, '_no_bg.png');
-
-  //     const form = new FormData();
-  //     form.append('file', fs.createReadStream(originalImagePath));
-
-  //     try {
-  //       const response = await axios.post(
-  //         process.env.BG_REMOVAL_URL!,
-  //         form,
-  //         {
-  //           headers: form.getHeaders(),
-  //           responseType: 'arraybuffer',
-  //         }
-  //       );
-  //       fs.writeFileSync(outputImagePath, Buffer.from(response.data));
-  //     } catch (err) {
-  //       console.error('Background removal error for batch item:', err);
-  //       throw new Error('Failed to remove background from one of the images');
-  //     }
-
-  //     fs.unlinkSync(originalImagePath);
-  //     const cleanedFilename = path.basename(outputImagePath);
-
-  //     const item = await this.prisma.closetItem.create({
-  //       data: {
-  //         filename: cleanedFilename,
-  //         category,
-  //         layerCategory,
-  //         ownerId: userId,
-  //         ...extras,
-  //       }
-  //     });
-  //     savedItems.push(item);
-  //   }
-
-  //   return savedItems;
-  // }
-
-  // Hosted saveImagesBatch
+  // Batch -> just call saveImage for each file
   async saveImagesBatch(
     files: Express.Multer.File[],
     category: Category,
@@ -215,8 +144,8 @@ class ClosetService {
     extras?: Extras
   ): Promise<ClosetItem[]> {
     const results: ClosetItem[] = [];
-    for (const file of files) {
-      const item = await this.saveImage(file, category, layerCategory, userId, extras);
+    for (const f of files) {
+      const item = await this.saveImage(f, category, layerCategory, userId, extras);
       results.push(item);
     }
     return results;
@@ -224,47 +153,34 @@ class ClosetService {
 
   async getImagesByCategory(category: Category, userId: string): Promise<ClosetItem[]> {
     return this.prisma.closetItem.findMany({
-      where: { category, ownerId: userId }
+      where: { category, ownerId: userId },
     });
   }
 
   async getAllImages(userId: string): Promise<ClosetItem[]> {
     return this.prisma.closetItem.findMany({
-      where: { ownerId: userId }
+      where: { ownerId: userId },
     });
   }
 
-  // async deleteImage(id: string, ownerId: string): Promise<void> {
-  //   const item = await this.prisma.closetItem.findFirst({
-  //     where: { id, ownerId }
-  //   });
-  //   if (!item) throw new Error('Item not found');
-
-  //   await this.prisma.closetItem.delete({ where: { id } });
-
-  //   const uploadDir = path.join(__dirname, '../../uploads');
-  //   const filePath = path.join(uploadDir, item.filename);
-  //   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  // }
-
-  // hosted delete
   async deleteImage(id: string, ownerId: string): Promise<void> {
-    const item = await this.prisma.closetItem.findFirst({ where: { id, ownerId } });
+    const item = await this.prisma.closetItem.findFirst({
+      where: { id, ownerId },
+    });
     if (!item) throw new Error('Item not found');
 
     await this.prisma.closetItem.delete({ where: { id } });
 
-    // also delete image from S3 (best-effort)
-    try { await deleteFromS3(process.env.S3_BUCKET_NAME!, item.filename); } catch { }
+    // Optional: if you later store S3 keys in `filename`, you might also delete from S3 here.
+    // For now, we leave S3 garbage-collection as a future enhancement.
+    const uploadDir = path.join(__dirname, '../../uploads');
+    const filePath = path.join(uploadDir, item.filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 
-  async updateImage(
-    id: string,
-    ownerId: string,
-    data: UpdateData
-  ): Promise<ClosetItem> {
+  async updateImage(id: string, ownerId: string, data: UpdateData): Promise<ClosetItem> {
     const existing = await this.prisma.closetItem.findFirst({
-      where: { id, ownerId }
+      where: { id, ownerId },
     });
     if (!existing) throw new Error('Item not found');
 

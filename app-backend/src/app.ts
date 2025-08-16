@@ -40,4 +40,13 @@ const healthz: RequestHandler = (_req, res) => {
 };
 app.get('/healthz', healthz);
 
+// global error handler (JSON)
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  const status = typeof err?.status === 'number' ? err.status : 500;
+  res.status(status).json({
+    message: err?.message ?? 'Internal Server Error',
+  });
+});
+
 export default app;

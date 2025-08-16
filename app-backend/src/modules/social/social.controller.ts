@@ -8,12 +8,19 @@ import prisma from "../../prisma";
 import { cdnUrlFor, uploadBufferToS3 } from '../../utils/s3';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import fs from 'fs/promises';
 
 function extFromMime(m: string) {
   if (m === 'image/png') return '.png';
   if (m === 'image/jpeg' || m === 'image/jpg') return '.jpg';
   if (m === 'image/webp') return '.webp';
   return '.bin';
+}
+
+async function fileBuffer(f: Express.Multer.File): Promise<Buffer> {
+  if (f.buffer) return f.buffer;
+  if (f.path) return fs.readFile(f.path);
+  throw new Error('No file buffer or path provided by Multer');
 }
 
 class SocialController {
@@ -48,22 +55,21 @@ class SocialController {
   //   }
   // };
 
-  // Hosted createPost
   createPost = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) { res.status(401).json({ message: 'Unauthorized' }); return; }
 
       let imageUrl: string | undefined;
-
       if (req.file) {
         const ext = extFromMime(req.file.mimetype);
         const key = `users/${user.id}/posts/${Date.now()}-${randomUUID()}${ext}`;
+        const body = await fileBuffer(req.file);
         await uploadBufferToS3({
           bucket: process.env.S3_BUCKET_NAME!,
           key,
           contentType: req.file.mimetype || 'application/octet-stream',
-          body: req.file.buffer,
+          body,
         });
         imageUrl = cdnUrlFor(key);
       }

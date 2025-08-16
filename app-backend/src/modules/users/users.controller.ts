@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import usersService from "./users.service";
 import { cdnUrlFor, uploadBufferToS3 } from '../../utils/s3';
 import { randomUUID } from 'crypto';
+import fs from 'fs/promises';
 
 function extFromMime(m: string) {
   if (m === 'image/png') return '.png';
@@ -30,33 +31,12 @@ export const getMe = async (req: AuthedFileRequest, res: Response, next: NextFun
   }
 };
 
-// export const updateProfilePhoto = async (
-//   req: AuthedFileRequest,
-//   res: Response,
-//   next: NextFunction
-// ): Promise<void> => {
-//   try {
-//     if (!req.file) {
-//       res.status(400).json({ message: "No file uploaded" });
-//       return;
-//     }
+async function fileBuffer(f: Express.Multer.File): Promise<Buffer> {
+  if (f.buffer) return f.buffer;               // memory storage
+  if (f.path) return fs.readFile(f.path);      // disk storage fallback
+  throw new Error('No file buffer or path provided by Multer');
+}
 
-//     const userId = req.user?.id;
-//     if (!userId) {
-//       res.status(401).json({ message: "Unauthorized" });
-//       return;
-//     }
-
-//     const publicPath = `/uploads/${req.file.filename}`;
-//     const user = await usersService.setProfilePhoto(userId, publicPath);
-
-//     res.status(200).json({ message: "Updated", user });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-// hosted update pp
 export const updateProfilePhoto = async (req: AuthedFileRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.file) { res.status(400).json({ message: 'No file uploaded' }); return; }
@@ -65,11 +45,13 @@ export const updateProfilePhoto = async (req: AuthedFileRequest, res: Response, 
 
     const ext = extFromMime(req.file.mimetype);
     const key = `users/${userId}/profile/${Date.now()}-${randomUUID()}${ext}`;
+
+    const body = await fileBuffer(req.file);   // ← robust
     await uploadBufferToS3({
       bucket: process.env.S3_BUCKET_NAME!,
       key,
       contentType: req.file.mimetype || 'application/octet-stream',
-      body: req.file.buffer,
+      body,
     });
 
     const publicUrl = cdnUrlFor(key);
