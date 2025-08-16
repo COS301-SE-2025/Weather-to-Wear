@@ -16,23 +16,13 @@ type AuthedFileRequest = Request & {
   file?: Express.Multer.File;
 };
 
-export const getMe = async (
-  req: AuthedFileRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const getMe = async (req: AuthedFileRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
-    }
+    if (!userId) { res.status(401).json({ message: "Unauthorized" }); return; }
 
     const user = await usersService.getById(userId);
-    if (!user) {
-      res.status(404).json({ message: "Not found" });
-      return;
-    }
+    if (!user) { res.status(404).json({ message: "Not found" }); return; }
 
     res.json({ user });
   } catch (err) {
@@ -81,9 +71,9 @@ export const updateProfilePhoto = async (req: AuthedFileRequest, res: Response, 
       contentType: req.file.mimetype || 'application/octet-stream',
       body: req.file.buffer,
     });
-    const publicUrl = cdnUrlFor(key);
 
-    const user = await usersService.setProfilePhoto(userId, publicUrl); // store URL directly
+    const publicUrl = cdnUrlFor(key);
+    const user = await usersService.setProfilePhoto(userId, publicUrl);
     res.status(200).json({ message: 'Updated', user });
   } catch (err) {
     next(err);

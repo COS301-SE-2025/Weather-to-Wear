@@ -49,12 +49,12 @@ class SocialController {
   // };
 
   // Hosted createPost
-  createPost = async (req : Request, res : Response, next : NextFunction) => {
+  createPost = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) { res.status(401).json({ message: 'Unauthorized' }); return; }
 
-      let imageUrl: string | undefined = undefined;
+      let imageUrl: string | undefined;
 
       if (req.file) {
         const ext = extFromMime(req.file.mimetype);
@@ -65,7 +65,7 @@ class SocialController {
           contentType: req.file.mimetype || 'application/octet-stream',
           body: req.file.buffer,
         });
-        imageUrl = cdnUrlFor(key); // store URL for social posts
+        imageUrl = cdnUrlFor(key);
       }
 
       const { caption, location, closetItemId, weather } = req.body;

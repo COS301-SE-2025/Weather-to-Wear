@@ -12,6 +12,7 @@ import eventsRoutes from './modules/events/events.route';
 import outfitRoutes from './modules/outfit/outfit.routes';
 import socialRoutes from './modules/social/social.route';
 import usersRoutes from './modules/users/users.routes';
+import fs from 'fs';
 
 dotenv.config();
 const app = express();
@@ -21,6 +22,7 @@ app.use(express.json());
 
 // serve uploaded images
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.use('/api/auth', authRoutes);

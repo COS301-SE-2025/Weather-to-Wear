@@ -3,11 +3,11 @@
 import { Router } from 'express';
 import socialController from './social.controller';
 import { authenticateToken } from '../auth/auth.middleware';
-import multer from "multer";
-import { upload } from '../../middleware/upload.middleware';
+import { memoryUpload } from '../../middleware/upload.middleware';
 
 
 // const upload = multer({ dest: "uploads/" });
+
 const router = Router();
 
 // Public endpoints
@@ -16,7 +16,13 @@ router.get('/posts/:id', socialController.getPostById);
 // Authenticated endpoints
 router.get('/posts', authenticateToken, socialController.getPosts);
 // router.post('/posts', authenticateToken, upload.single("image"), socialController.createPost);
-router.post('/posts', authenticateToken, upload.single('image'), socialController.createPost);
+// router.post('/posts', authenticateToken, upload.single('image'), socialController.createPost);
+router.post(
+  "/posts",
+  authenticateToken,
+  memoryUpload.single("image"),
+  socialController.createPost
+);
 router.patch('/posts/:id', authenticateToken, socialController.updatePost);
 router.delete('/posts/:id', authenticateToken, socialController.deletePost);
 

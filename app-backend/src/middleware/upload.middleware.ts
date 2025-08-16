@@ -1,12 +1,10 @@
-
 import multer from 'multer';
 import path from 'path';
 
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
-
 console.log('→ Multer will write to:', UPLOADS_DIR);
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
   filename: (_req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
@@ -14,9 +12,9 @@ const storage = multer.diskStorage({
   }
 });
 
-// export const upload = multer({ storage });
-export const upload = multer({
-  storage: multer.memoryStorage(), // keep files in memory
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB guardrail
-});
+export const upload = multer({ storage: diskStorage });
 
+export const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB cap
+});

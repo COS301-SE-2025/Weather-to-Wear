@@ -2,8 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, Style } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
-import prisma from "../../../src/prisma";
-
+// import prisma from "../../../src/prisma";
+import prisma from '../../prisma';
 
 class EventsController {
   getEvents = async (req: Request, res: Response, next: NextFunction) => {
