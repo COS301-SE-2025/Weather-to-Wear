@@ -1,65 +1,67 @@
 // src/pages/HomePage.tsx
 
 import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import { useWeather } from '../hooks/useWeather';
-import { useNavigate } from 'react-router-dom';
-import { fetchAllEvents, createEvent, updateEvent, deleteEvent, type EventDto } from '../services/eventsApi';
-import { fetchRecommendedOutfits, createOutfit, RecommendedOutfit } from '../services/outfitApi';
+import {
+  fetchAllEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  type EventDto,
+} from '../services/eventsApi';
+import {
+  fetchRecommendedOutfits,
+  createOutfit,
+  type RecommendedOutfit,
+} from '../services/outfitApi';
 import StarRating from '../components/StarRating';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 function getOutfitKey(outfit: RecommendedOutfit): string {
-  return outfit.outfitItems.map(i => i.closetItemId).sort().join("-");
+  return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
-type Item = {
-  id: number;
-  name: string;
-  image: string;
-  favorite: boolean;
-  category: string;
-  tab?: 'items' | 'outfits';
-};
+type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
-/**
- * Local, frontend-safe Event type used by this component.
- * We map the backend EventDto to this so `name` is never null and `type` exists.
- */
 type Event = {
   id: string;
   name: string;
   location: string;
   dateFrom: string;
   dateTo: string;
-  style?: string;
+  style?: Style;
   weather?: string;
   type: 'event' | 'trip';
+  isTrip?: boolean;
 };
 
-// Map API shape (EventDto) → local Event (safe defaults)
+// Normalize API → UI
 function toEvent(dto: EventDto): Event {
+  const trip =
+    !!(dto as any)?.isTrip ||
+    String((dto as any)?.type || '').toLowerCase() === 'trip' ||
+    /(^|\s)trip(\s|$)/i.test(String(dto?.name || ''));
+
   return {
-    id: dto.id,
-    name: dto.name ?? 'Untitled',
+    id: String(dto.id),
+    name: dto.name ?? (trip ? 'Trip' : 'Untitled'),
     location: dto.location ?? '',
     dateFrom: dto.dateFrom,
     dateTo: dto.dateTo,
-    style: (dto.style as string) ?? undefined,
+    style: ((dto as any).style ?? 'Casual') as Style,
     weather: dto.weather ?? undefined,
-    // default to 'event' if backend doesn’t include it
-    type: (dto as any).type === 'trip' ? 'trip' : 'event',
+    type: trip ? 'trip' : 'event',
+    isTrip: trip,
   };
 }
 
 const TypingSlogan = () => {
   const slogan = 'Style Made Simple.';
-  const tealWord = 'Simple.'; // 7 chars with dot
+  const tealWord = 'Simple.';
   const tealStart = slogan.indexOf(tealWord);
-  const tealEnd = tealStart + tealWord.length;
 
   const [displayText, setDisplayText] = useState('');
   const [index, setIndex] = useState(0);
@@ -85,10 +87,8 @@ const TypingSlogan = () => {
   }, [index, isDeleting]);
 
   const beforeTeal = displayText.slice(0, Math.min(tealStart, displayText.length));
-  let tealVisibleLength = 0;
-  if (displayText.length > tealStart) {
-    tealVisibleLength = Math.min(displayText.length - tealStart, tealWord.length);
-  }
+  const tealVisibleLength =
+    displayText.length > tealStart ? Math.min(displayText.length - tealStart, tealWord.length) : 0;
   const tealPart = tealWord.slice(0, tealVisibleLength);
 
   return (
@@ -101,15 +101,21 @@ const TypingSlogan = () => {
 };
 
 export default function HomePage() {
-
   const { weather, setCity } = useWeather();
+
   // user
   const [username, setUsername] = useState<string | null>(null);
 
   // events
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+  const [newEvent, setNewEvent] = useState({
+    name: '',
+    location: '',
+    dateFrom: '',
+    dateTo: '',
+    style: 'Casual' as Style,
+  });
 
   // outfits
   const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
@@ -123,10 +129,11 @@ export default function HomePage() {
   const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
   // Style dropdown state
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
 
-  //store ratings as dictionary
+  // store ratings
   const [ratings, setRatings] = useState<Record<string, number>>({});
 
   const [isEditing, setIsEditing] = useState(false);
@@ -136,28 +143,48 @@ export default function HomePage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: ''
+    style: 'Casual' as Style,
   });
+
+  const handleCreateEvent = async () => {
+    if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+      alert('Please fill in name, style, and both dates.');
+      return;
+    }
+    try {
+      const created = await createEvent({
+        name: newEvent.name,
+        location: newEvent.location,
+        style: newEvent.style,
+        dateFrom: new Date(newEvent.dateFrom).toISOString(),
+        dateTo: new Date(newEvent.dateTo).toISOString(),
+        isTrip: false,
+      });
+
+      setEvents(evt => [...evt, toEvent(created)]);
+      setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
+      setShowModal(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to create event';
+      alert(msg);
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
       try {
         setUsername(JSON.parse(stored).name);
-      } catch { }
+      } catch {}
     }
   }, []);
 
   useEffect(() => {
     if (!weather) return;
-
     const { avgTemp, minTemp, maxTemp, willRain, mainCondition } = weather.summary;
     setLoadingOutfits(true);
 
-    fetchRecommendedOutfits(
-      { avgTemp, minTemp, maxTemp, willRain, mainCondition },
-      selectedStyle
-    )
+    fetchRecommendedOutfits({ avgTemp, minTemp, maxTemp, willRain, mainCondition }, selectedStyle)
       .then(recs => {
         setOutfits(recs);
         setOutfitError(null);
@@ -179,11 +206,25 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!selectedEvent) return;
-    // parse the stored weather array, take the first day
+
+    // seed edit state
+    setIsEditing(false);
+    setEditEventData({
+      id: selectedEvent.id,
+      name: selectedEvent.name,
+      location: selectedEvent.location,
+      dateFrom: selectedEvent.dateFrom.slice(0, 16), // for datetime-local
+      dateTo: selectedEvent.dateTo.slice(0, 16),
+      style: (selectedEvent.style as Style) || 'Casual',
+    });
+
+    // fetch detail outfit for selected event
     let days: { date: string; summary: any }[] = [];
     try {
       days = selectedEvent.weather ? JSON.parse(selectedEvent.weather) : [];
-    } catch { days = []; }
+    } catch {
+      days = [];
+    }
     const today = days[0]?.summary;
     if (!today) return;
 
@@ -203,25 +244,8 @@ export default function HomePage() {
         setDetailOutfit(recs[0] ?? null);
         setDetailError(null);
       })
-      .catch(() => {
-        setDetailError('Could not load outfit recommendation.');
-      })
-      .finally(() => {
-        setDetailLoading(false);
-      });
-  }, [selectedEvent]);
-
-  useEffect(() => {
-    if (!selectedEvent) return;
-    setIsEditing(false);
-    setEditEventData({
-      id: selectedEvent.id,
-      name: selectedEvent.name,
-      location: selectedEvent.location,
-      dateFrom: selectedEvent.dateFrom.slice(0, 16),
-      dateTo: selectedEvent.dateTo.slice(0, 16),
-      style: selectedEvent.style || ''
-    });
+      .catch(() => setDetailError('Could not load outfit recommendation.'))
+      .finally(() => setDetailLoading(false));
   }, [selectedEvent]);
 
   useEffect(() => {
@@ -268,7 +292,7 @@ export default function HomePage() {
     if (!outfit) return;
 
     const payload = {
-      outfitItems: outfit.outfitItems.map((i) => ({
+      outfitItems: outfit.outfitItems.map(i => ({
         closetItemId: i.closetItemId,
         layerCategory: i.layerCategory,
         sortOrder: 0,
@@ -286,13 +310,8 @@ export default function HomePage() {
     setSaving(true);
     try {
       await createOutfit(payload);
-
       const key = getOutfitKey(outfit);
-      setRatings((prev) => ({
-        ...prev,
-        [key]: rating,
-      }));
-
+      setRatings(prev => ({ ...prev, [key]: rating }));
     } catch (err) {
       console.error('Save failed', err);
       alert('Failed to save your rating.');
@@ -303,8 +322,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
-
-      {/* Hero Background */}
+      {/* Hero */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
         style={{
@@ -314,7 +332,7 @@ export default function HomePage() {
           opacity: 1,
           marginLeft: 'calc(-50vw + 50%)',
           width: '100vw',
-          marginTop: '-4rem'
+          marginTop: '-4rem',
         }}
       >
         <div className="px-6 py-2 border-2 border-white z-10">
@@ -325,11 +343,9 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      {/* Main Sections */}
-      {/* Top Content: Typing Slogan + Outfit + Weather */}
+      {/* Main */}
       <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 justify-between">
-
           {/* Typing Slogan */}
           <div className="flex-1 flex flex-col items-start justify-center">
             <TypingSlogan />
@@ -339,9 +355,7 @@ export default function HomePage() {
           <div className="flex-1 flex flex-col items-center">
             <div className="w-full max-w-[350px]">
               <div className="flex justify-center mb-4">
-                <h1 className="text-xl border-2 border-black px-3 py-1">
-                  OUTFIT OF THE DAY
-                </h1>
+                <h1 className="text-xl border-2 border-black px-3 py-1">OUTFIT OF THE DAY</h1>
               </div>
 
               {loadingOutfits && <p>Loading outfits…</p>}
@@ -349,7 +363,7 @@ export default function HomePage() {
 
               {!loadingOutfits && outfits.length === 0 && (
                 <p className="text-center text-gray-500 dark:text-gray-400">
-                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe.
+                  Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
                 </p>
               )}
 
@@ -378,7 +392,7 @@ export default function HomePage() {
 
               {!loadingOutfits && outfits.length > 0 && (
                 <>
-                  {/* ← Prev / Next + counter → */}
+                  {/* carousel controls */}
                   <div className="flex justify-between items-center mb-2 w-full">
                     <button
                       onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
@@ -386,7 +400,9 @@ export default function HomePage() {
                     >
                       <ChevronLeft className="w-5 h-5 text-white" />
                     </button>
-                    <span className="text-sm">{currentIndex + 1} / {outfits.length}</span>
+                    <span className="text-sm">
+                      {currentIndex + 1} / {outfits.length}
+                    </span>
                     <button
                       onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
                       className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
@@ -396,24 +412,18 @@ export default function HomePage() {
                   </div>
 
                   <div className="mb-4 space-y-2">
-                    {/* Row 1: headwear + accessory (collapsed if none) */}
+                    {/* headwear/accessory */}
                     <div
                       className={`flex justify-center space-x-2 transition-all ${
                         outfits[currentIndex].outfitItems.some(
-                          i =>
-                            i.layerCategory === 'headwear' ||
-                            i.layerCategory === 'accessory'
+                          i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
                         )
                           ? 'h-auto'
                           : 'h-0 overflow-hidden'
                       }`}
                     >
                       {outfits[currentIndex].outfitItems
-                        .filter(
-                          i =>
-                            i.layerCategory === 'headwear' ||
-                            i.layerCategory === 'accessory'
-                        )
+                        .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
                         .map(item => (
                           <img
                             key={item.closetItemId}
@@ -427,7 +437,8 @@ export default function HomePage() {
                           />
                         ))}
                     </div>
-                    {/* Row 2: base_top, mid_top, outerwear */}
+
+                    {/* tops */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(
@@ -450,7 +461,7 @@ export default function HomePage() {
                         ))}
                     </div>
 
-                    {/* Row 3: base_bottom */}
+                    {/* bottoms */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'base_bottom')
@@ -468,7 +479,7 @@ export default function HomePage() {
                         ))}
                     </div>
 
-                    {/* Row 4: footwear */}
+                    {/* footwear */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'footwear')
@@ -492,7 +503,6 @@ export default function HomePage() {
                     onSelect={handleSaveRating}
                     value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
                   />
-
                 </>
               )}
             </div>
@@ -510,7 +520,7 @@ export default function HomePage() {
                         type="text"
                         placeholder="Select City"
                         className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
-                        onKeyDown={(e) => {
+                        onKeyDown={e => {
                           if (e.key === 'Enter') {
                             setCity((e.target as HTMLInputElement).value.trim());
                           }
@@ -540,13 +550,11 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* — Events Section — (hide trips) */}
+        {/* Upcoming Events (non-trips) */}
         <div className="w-full mt-6">
           <div className="max-w-4xl mx-auto px-4">
             <div className="flex items-center justify-center mb-4 space-x-4">
-              <h2 className="text-4xl font-livvic font-medium">
-                Upcoming Events
-              </h2>
+              <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
               <button
                 onClick={() => setShowModal(true)}
                 className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
@@ -558,35 +566,33 @@ export default function HomePage() {
 
             {events.filter(e => e.type !== 'trip').length > 0 ? (
               <div className="flex flex-wrap justify-center gap-6 overflow-x-auto py-2">
-                {events.filter(e => e.type !== 'trip').map(ev => (
-                  <div
-                    key={ev.id}
-                    className="
-                      flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
-                      bg-white dark:bg-gray-700 rounded-full shadow-md border 
-                      flex flex-col items-center justify-center text-center p-2
-                      transition-transform hover:scale-105"
-                    onClick={() => {
-                      setSelectedEvent(ev);
-                      setShowDetailModal(true);
-                    }}
-                  >
-                    <div className="font-semibold truncate">
-                      {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                {events
+                  .filter(e => e.type !== 'trip')
+                  .map(ev => (
+                    <div
+                      key={ev.id}
+                      className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
+                                 bg-white dark:bg-gray-700 rounded-full shadow-md border 
+                                 flex flex-col items-center justify-center text-center p-2
+                                 transition-transform hover:scale-105"
+                      onClick={() => {
+                        setSelectedEvent(ev);
+                        setShowDetailModal(true);
+                      }}
+                    >
+                      <div className="font-semibold truncate">
+                        {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        &nbsp;–&nbsp;
+                        {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </div>
+                      <div className="mt-1 text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
+                        {ev.style}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                      &nbsp;–&nbsp;
-                      {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                    </div>
-                    <div className="
-              mt-1 text-[10px] px-2 py-1 rounded-full
-              bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200
-            ">
-                      {ev.style}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -601,11 +607,7 @@ export default function HomePage() {
             )}
           </div>
         </div>
-
-
-
       </div>
-
 
       {/* Bottom Banner */}
       <div
@@ -621,16 +623,11 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-
       {/* Create New Event Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative flex flex-col max-h-[90vh] overflow-y-auto">
-            {/* Close “×” */}
-            <button
-              className="absolute top-4 right-4 text-xl"
-              onClick={() => setShowModal(false)}
-            >
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowModal(false)}>
               ×
             </button>
 
@@ -664,7 +661,7 @@ export default function HomePage() {
               <select
                 className="w-full p-2 border rounded"
                 value={newEvent.style}
-                onChange={e => setNewEvent({ ...newEvent, style: e.target.value })}
+                onChange={e => setNewEvent({ ...newEvent, style: e.target.value as Style })}
               >
                 <option value="">Select style</option>
                 <option value="Formal">Formal</option>
@@ -677,55 +674,12 @@ export default function HomePage() {
             </div>
 
             <div className="mt-4 flex justify-end space-x-2">
-              <button
-                className="px-4 py-2 rounded-full border border-black"
-                onClick={() => setShowModal(false)}
-              >
+              <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowModal(false)}>
                 Cancel
               </button>
               <button
                 className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
-                onClick={async () => {
-                  // Validate
-                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
-                    alert('Please fill in name, style, and both dates.');
-                    return;
-                  }
-                  try {
-                    const createdDto = await createEvent({
-                      name: newEvent.name,
-                      location: newEvent.location,
-                      style: newEvent.style,
-                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
-                      dateTo: new Date(newEvent.dateTo).toISOString(),
-                      type: 'event'
-                    } as any);
-
-                    const created = toEvent(createdDto);
-
-                    if (created.weather) {
-                      let days: { date: string; summary: any }[] = [];
-                      try { days = JSON.parse(created.weather); } catch { days = []; }
-                      for (const { summary } of days) {
-                        try {
-                          if (!summary) continue;
-                          await fetchRecommendedOutfits(summary, created.style, created.id);
-                        } catch (err) {
-                          console.error(`Failed to fetch outfits for event-day`, err);
-                        }
-                      }
-                    }
-                    // update state
-                    setEvents(evt => [...evt, created]);
-                    // reset form
-                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
-                    setShowModal(false);
-                    window.dispatchEvent(new Event('eventUpdated'));
-                  } catch (err: any) {
-                    const msg = err.response?.data?.message || 'Failed to create event';
-                    alert(msg);
-                  }
-                }}
+                onClick={handleCreateEvent}
               >
                 Save
               </button>
@@ -738,60 +692,42 @@ export default function HomePage() {
       {showDetailModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
-            {/* Close “×” */}
-            <button
-              className="absolute top-4 right-4 text-xl"
-              onClick={() => setShowDetailModal(false)}
-            >
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowDetailModal(false)}>
               ×
             </button>
 
-            {/* Title in sentence case, Livvic font */}
             <h2 className="text-2xl mb-4 font-livvic">
-              {selectedEvent.name.charAt(0).toUpperCase() +
-                selectedEvent.name.slice(1).toLowerCase()}
+              {selectedEvent.name.charAt(0).toUpperCase() + selectedEvent.name.slice(1).toLowerCase()}
             </h2>
 
-            {/* Body */}
             {isEditing ? (
-              // EDIT MODE
               <div className="space-y-3 flex-grow">
                 <input
                   className="w-full p-2 border rounded"
                   value={editEventData.name}
-                  onChange={e =>
-                    setEditEventData(d => ({ ...d, name: e.target.value }))
-                  }
+                  onChange={e => setEditEventData(d => ({ ...d, name: e.target.value }))}
                 />
                 <input
                   className="w-full p-2 border rounded"
                   value={editEventData.location}
-                  onChange={e =>
-                    setEditEventData(d => ({ ...d, location: e.target.value }))
-                  }
+                  onChange={e => setEditEventData(d => ({ ...d, location: e.target.value }))}
                 />
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
                   value={editEventData.dateFrom}
-                  onChange={e =>
-                    setEditEventData(d => ({ ...d, dateFrom: e.target.value }))
-                  }
+                  onChange={e => setEditEventData(d => ({ ...d, dateFrom: e.target.value }))}
                 />
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
                   value={editEventData.dateTo}
-                  onChange={e =>
-                    setEditEventData(d => ({ ...d, dateTo: e.target.value }))
-                  }
+                  onChange={e => setEditEventData(d => ({ ...d, dateTo: e.target.value }))}
                 />
                 <select
                   className="w-full p-2 border rounded"
                   value={editEventData.style}
-                  onChange={e =>
-                    setEditEventData(d => ({ ...d, style: e.target.value }))
-                  }
+                  onChange={e => setEditEventData(d => ({ ...d, style: e.target.value as Style }))}
                 >
                   <option value="">Select style</option>
                   <option value="Formal">Formal</option>
@@ -803,64 +739,56 @@ export default function HomePage() {
                 </select>
               </div>
             ) : (
-              // READ-ONLY VIEW
               <div className="flex-grow">
                 {(() => {
-                  const from = new Date(selectedEvent.dateFrom)
-                  const to = new Date(selectedEvent.dateTo)
-                  const sameDay = from.toDateString() === to.toDateString()
-
+                  const from = new Date(selectedEvent.dateFrom);
+                  const to = new Date(selectedEvent.dateTo);
+                  const sameDay = from.toDateString() === to.toDateString();
                   return (
                     <p className="text-sm mb-1">
                       <strong>When:</strong>{' '}
                       {sameDay ? (
                         <>
-                          {from.toLocaleDateString()} {' '}
-                          {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {from.toLocaleDateString()} {from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </>
                       ) : (
-                        <>
-                          {from.toLocaleString()} – {to.toLocaleString()}
-                        </>
+                        <>{from.toLocaleString()} – {to.toLocaleString()}</>
                       )}
                     </p>
-                  )
+                  );
                 })()}
 
                 <p className="text-sm mb-4">
                   <strong>Where:</strong> {selectedEvent.location}
                 </p>
 
-                {/* Weather summary */}
-                {selectedEvent.weather && (() => {
-                  let sums: { date: string; summary: any }[] = [];
-                  try {
-                    sums = JSON.parse(selectedEvent.weather);
-                  } catch {
-                    sums = [];
-                  }
-                  if (!sums.length) return null;
-                  return (
-                    <div className="text-sm mb-4 space-y-1">
-                      {sums.map(({ date, summary }) =>
-                        summary ? (
-                          <div key={date}>
-                            <span className="font-medium">{date}:</span>{' '}
-                            {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
-                          </div>
-                        ) : (
-                          <div key={date}>
-                            <span className="font-medium">{date}:</span>{' '}
-                            <span className="text-red-400">No data</span>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  );
-                })()}
+                {selectedEvent.weather &&
+                  (() => {
+                    let sums: { date: string; summary: any }[] = [];
+                    try {
+                      sums = JSON.parse(selectedEvent.weather);
+                    } catch {
+                      sums = [];
+                    }
+                    if (!sums.length) return null;
+                    return (
+                      <div className="text-sm mb-4 space-y-1">
+                        {sums.map(({ date, summary }) =>
+                          summary ? (
+                            <div key={date}>
+                              <span className="font-medium">{date}:</span> {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                            </div>
+                          ) : (
+                            <div key={date}>
+                              <span className="font-medium">{date}:</span> <span className="text-red-400">No data</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    );
+                  })()}
 
-                {/* Recommended Outfit */}
                 <div className="mt-4">
                   <h3 className="font-medium mb-2">Recommended Outfit</h3>
                   {detailLoading && <p>Loading outfit…</p>}
@@ -881,9 +809,8 @@ export default function HomePage() {
                           />
                         ))}
                       </div>
-                      {/* Smaller stars */}
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => { }} />
+                        <StarRating disabled={false} onSelect={() => {}} />
                       </div>
                     </>
                   )}
@@ -891,32 +818,32 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Footer Actions */}
             <div className="mt-4 flex flex-wrap justify-end space-x-2">
               {isEditing ? (
                 <>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 rounded-full border border-black"
-                  >
+                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-full border border-black">
                     Cancel
                   </button>
                   <button
                     onClick={async () => {
-                      const updatedDto = await updateEvent({
-                        id: editEventData.id,
-                        name: editEventData.name,
-                        location: editEventData.location,
-                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
-                        dateTo: new Date(editEventData.dateTo).toISOString(),
-                        style: editEventData.style,
-                      });
-                      const updated = toEvent(updatedDto);
-                      setEvents(evts =>
-                        evts.map(e => (e.id === updated.id ? updated : e))
-                      );
-                      setSelectedEvent(updated);
-                      setIsEditing(false);
+                      try {
+                        const updatedDto = await updateEvent({
+                          id: editEventData.id,
+                          name: editEventData.name,
+                          location: editEventData.location,
+                          dateFrom: new Date(editEventData.dateFrom).toISOString(),
+                          dateTo: new Date(editEventData.dateTo).toISOString(),
+                          style: editEventData.style as Style,
+                          isTrip: selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip'),
+                        });
+                        const updated = toEvent(updatedDto);
+                        setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
+                        setSelectedEvent(updated);
+                        setIsEditing(false);
+                      } catch (err) {
+                        console.error('update failed', err);
+                        alert('Failed to update event');
+                      }
                     }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
@@ -925,19 +852,14 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
-                  >
+                  <button onClick={() => setIsEditing(true)} className="px-4 py-2 rounded-full bg-[#3F978F] text-white">
                     Edit
                   </button>
                   <button
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
                       await deleteEvent(selectedEvent.id);
-                      setEvents(evts =>
-                        evts.filter(e => e.id !== selectedEvent.id)
-                      );
+                      setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
                       setShowDetailModal(false);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"
@@ -952,6 +874,6 @@ export default function HomePage() {
       )}
 
       <Footer />
-    </div >
+    </div>
   );
 }
