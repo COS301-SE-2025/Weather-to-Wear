@@ -1,43 +1,78 @@
-import { fetchWithAuth } from './fetchWithAuth';
+// src/services/packingApi.ts
+import axios from 'axios';
 
-const BASE = 'http://localhost:5001/api/events/packing';
+const API_URL = 'http://localhost:5001/api/packing';
 
-export async function getPackingList(tripId: string) {
-  const res = await fetchWithAuth(`${BASE}/${tripId}`, { method: 'GET' });
-  if (!res.ok) throw new Error(`Fetch packing failed: ${res.status}`);
-  return res.json(); // { id, tripId, items:[{id,closetItemId,packed,closetItem}], outfits:[...], others:[...] }
-}
-
-export async function createPackingList(payload: {
+export type PackingListDto = {
+  id: string;
   tripId: string;
-  items: string[];    // closetItemIds
-  outfits: string[];  // outfitIds
-  others: string[];   // text labels
-}) {
-  const res = await fetchWithAuth(`${BASE}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Create packing failed: ${res.status}`);
-  return res.json();
+  items: Array<{
+    id: string;
+    packed: boolean;
+    closetItemId: string;
+    closetItem?: { id: string; name: string; imageUrl?: string | null };
+  }>;
+  outfits: Array<{
+    id: string;
+    packed: boolean;
+    outfitId: string;
+    outfit?: { id: string; name: string; coverImageUrl?: string | null };
+  }>;
+  others: Array<{ id: string; label: string; packed: boolean }>;
+};
+
+export type PackingCreateInput = {
+  tripId: string;
+  items: string[];   // closetItemIds
+  outfits: string[]; // outfitIds
+  others: string[];  // free-text labels
+};
+
+export type PackingUpdateInput = {
+  items?: Array<{ id: string; packed: boolean }>;
+  outfits?: Array<{ id: string; packed: boolean }>;
+  others?: Array<{ id: string; packed: boolean }>;
+};
+
+export async function getPackingList(tripId: string): Promise<PackingListDto | null> {
+  try {
+    const response = await axios.get(`${API_URL}/${tripId}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+    throw error;
+  }
 }
 
-export async function updatePackingList(listId: string, payload: {
-  items: { id: string; packed: boolean }[];
-  outfits: { id: string; packed: boolean }[];
-  others: { id: string; packed: boolean }[];
-}) {
-  const res = await fetchWithAuth(`${BASE}/${listId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+export async function createPackingList(input: PackingCreateInput): Promise<PackingListDto> {
+  const response = await axios.post(API_URL, input, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
   });
-  if (!res.ok) throw new Error(`Update packing failed: ${res.status}`);
-  return res.json();
+  return response.data;
 }
 
-export async function deletePackingList(listId: string) {
-  const res = await fetchWithAuth(`${BASE}/${listId}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`Delete packing failed: ${res.status}`);
+export async function updatePackingList(
+  listId: string,
+  input: PackingUpdateInput
+): Promise<PackingListDto> {
+  const response = await axios.put(`${API_URL}/${listId}`, input, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
+  });
+  return response.data;
+}
+
+export async function deletePackingList(listId: string): Promise<void> {
+  await axios.delete(`${API_URL}/${listId}`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
+  });
 }
