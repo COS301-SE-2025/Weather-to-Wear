@@ -1388,9 +1388,8 @@ export default function ClosetPage() {
                       closetItemId: it.closetItemId,
                       layerCategory: it.layerCategory,
                       imageUrl: it.imageUrl && it.imageUrl.length > 0
-                        ? it.imageUrl
-                        // : `/uploads/${it?.closetItem?.filename ?? ""}`,
-                        : absolutize(it.imageUrl, API_BASE),
+                          ? it.imageUrl
+                          : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
                       category: it?.closetItem?.category ?? it.category,
                     })),
                   }

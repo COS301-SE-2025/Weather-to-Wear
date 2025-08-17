@@ -37,24 +37,24 @@ export interface RecommendedOutfit {
         willRain: boolean;
         mainCondition: string;
     };
-    favourite?: boolean; 
+    favourite?: boolean;
 }
 
 export type OutfitItemPayload = {
     closetItemId: string;
-    layerCategory: string;    
-    sortOrder: number;         
+    layerCategory: string;
+    sortOrder: number;
 };
 
 export async function saveOutfitEdits(
     id: string,
     payload: {
         userRating?: number;
-        overallStyle?: string;           
+        overallStyle?: string;
         outfitItems?: OutfitItemPayload[];
     }
 ) {
-    return updateOutfit(id, payload);  
+    return updateOutfit(id, payload);
 }
 
 export interface SaveOutfitPayload {
@@ -62,7 +62,7 @@ export interface SaveOutfitPayload {
     warmthRating: number;
     waterproof: boolean;
     overallStyle: string;
-    weatherSummary: string;  
+    weatherSummary: string;
     userRating: number;
 }
 

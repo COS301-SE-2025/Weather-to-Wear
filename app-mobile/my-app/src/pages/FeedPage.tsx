@@ -103,7 +103,8 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(({
             <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
               {u.profilePhoto ? (
                 <img
-                  src={`${API_URL}${u.profilePhoto}`}
+                  // src={`${API_URL}${u.profilePhoto}`}
+                  src={absolutize(u.profilePhoto, API_BASE)}
                   alt={u.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -454,7 +455,8 @@ const FeedPage: React.FC = () => {
                     </span>
                     {post.profilePhoto && (
                       <img
-                        src={`${API_URL}${post.profilePhoto}`}
+                        // src={`${API_URL}${post.profilePhoto}`}
+                        src={absolutize(post.profilePhoto, API_BASE)}
                         alt={`${post.username}'s profile photo`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -473,7 +475,8 @@ const FeedPage: React.FC = () => {
                 {post.imageUrl && (
                   <div className="-mx-5 md:-mx-5 bg-gray-100 dark:bg-gray-700">
                     <img
-                      src={`${API_URL}${post.imageUrl}`}
+                      // src={`${API_URL}${post.imageUrl}`}
+                      src={absolutize(post.imageUrl, API_BASE)}
                       alt="Outfit"
                       className="w-full h-auto object-cover"
                     />

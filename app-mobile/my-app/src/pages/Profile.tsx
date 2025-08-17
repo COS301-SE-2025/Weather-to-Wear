@@ -14,6 +14,7 @@ import { getItemCount } from "../services/closetApi";
 import { getOutfitCount } from "../services/outfitApi";
 import { uploadProfilePhoto, getMe } from "../services/usersApi";
 import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
 
 interface OutfitItem {
@@ -49,8 +50,8 @@ const Profile = () => {
 
 
   // Helper to prefix image URLs
-  const prefixed = (url: string) =>
-    url.startsWith("http") ? url : `${API_BASE}${url}`;
+  // const prefixed = (url: string) =>
+  //   url.startsWith("http") ? url : `${API_BASE}${url}`;
 
   useEffect(() => {
     // 1) Load from server (source of truth)
@@ -232,7 +233,7 @@ const Profile = () => {
 ">
               {profilePhoto ? (
                 <img
-                  src={prefixed(profilePhoto)}
+                  src={absolutize(profilePhoto, API_BASE)}
                   alt="Profile"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -448,7 +449,8 @@ const Profile = () => {
                           .map((it) => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
                               alt={`Outfit ${outfit.id} ${it.layerCategory}`}
                               className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
                             />
@@ -465,7 +467,8 @@ const Profile = () => {
                           .map((it) => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
                               alt={`Outfit ${outfit.id} ${it.layerCategory}`}
                               className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
                             />
@@ -478,7 +481,8 @@ const Profile = () => {
                           .map((it) => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
                               alt={`Outfit ${outfit.id} ${it.layerCategory}`}
                               className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
                             />
@@ -491,7 +495,8 @@ const Profile = () => {
                           .map((it) => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
                               alt={`Outfit ${outfit.id} ${it.layerCategory}`}
                               className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 object-contain rounded"
                             />
