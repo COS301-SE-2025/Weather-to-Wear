@@ -102,7 +102,7 @@ model ClosetItem {
   waterproof     Boolean?
   style          Style?
   material       Material?
-  favourite      Boolean      @default(false)
+  favourite      Boolean   @default(false)
 
   ownerId     String
   owner       User         @relation(fields: [ownerId], references: [id])
@@ -128,8 +128,8 @@ model Outfit {
   outfitItems    OutfitItem[]
   favourite      Boolean      @default(false)
 
-  eventId        String?
-  event          Event?       @relation(fields: [eventId], references: [id])
+  eventId String?
+  event   Event?  @relation(fields: [eventId], references: [id])
 
   // Packing (back-ref)
   packingOutfits PackingOutfit[]
@@ -146,17 +146,17 @@ model OutfitItem {
 }
 
 model Event {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  location   String
-  weather    String?
-  dateFrom   DateTime
-  dateTo     DateTime
-  style      Style
-  name       String?
-  isTrip     Boolean  @default(false)
-  outfits    Outfit[]
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  location    String
+  weather     String?
+  dateFrom    DateTime
+  dateTo      DateTime
+  style       Style
+  name        String?
+  isTrip      Boolean      @default(false)
+  outfits     Outfit[]
   packingList PackingList? @relation("TripPacking")
 }
 
@@ -232,42 +232,42 @@ model Follow {
 model PackingList {
   id        String   @id @default(uuid())
   userId    String
-  tripId    String   @unique   
+  tripId    String   @unique
   updatedAt DateTime @updatedAt
 
-  user  User  @relation(fields: [userId], references: [id])
-  trip  Event @relation("TripPacking", fields: [tripId], references: [id]) 
+  user User  @relation(fields: [userId], references: [id])
+  trip Event @relation("TripPacking", fields: [tripId], references: [id])
 
-  items    PackingItem[]
-  outfits  PackingOutfit[]
-  others   PackingOther[]
+  items   PackingItem[]
+  outfits PackingOutfit[]
+  others  PackingOther[]
 }
 
 model PackingItem {
-  id            String   @id @default(uuid())
+  id            String  @id @default(uuid())
   packingListId String
   closetItemId  String
-  packed        Boolean  @default(false)
+  packed        Boolean @default(false)
 
   list       PackingList @relation(fields: [packingListId], references: [id])
   closetItem ClosetItem  @relation(fields: [closetItemId], references: [id])
 }
 
 model PackingOutfit {
-  id            String   @id @default(uuid())
+  id            String  @id @default(uuid())
   packingListId String
   outfitId      String
-  packed        Boolean  @default(false)
+  packed        Boolean @default(false)
 
   list   PackingList @relation(fields: [packingListId], references: [id])
   outfit Outfit      @relation(fields: [outfitId], references: [id])
 }
 
 model PackingOther {
-  id            String   @id @default(uuid())
+  id            String  @id @default(uuid())
   packingListId String
   label         String
-  packed        Boolean  @default(false)
+  packed        Boolean @default(false)
 
   list PackingList @relation(fields: [packingListId], references: [id])
 }
