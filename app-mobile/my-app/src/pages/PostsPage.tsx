@@ -12,6 +12,7 @@ import {
 import { API_BASE } from '../config';
 
 import { getMe } from "../services/usersApi";
+import { absolutize } from '../utils/url';
 
 // Adjust to your backend origin
 const API_URL = `${API_BASE}`;
@@ -323,7 +324,8 @@ const PostsPage: React.FC = () => {
                     <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                         {currentUserAvatar ? (
                             <img
-                                src={prefixed(currentUserAvatar)}
+                                // src={prefixed(currentUserAvatar)}
+                                src={absolutize(currentUserAvatar, API_BASE)}
                                 alt={currentUserName}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
@@ -380,7 +382,8 @@ const PostsPage: React.FC = () => {
                                 >
                                     {post.imageUrl ? (
                                         <img
-                                            src={`${API_URL}${post.imageUrl}`}
+                                            // src={`${API_URL}${post.imageUrl}`}
+                                            src={absolutize(post.imageUrl, API_BASE)}
                                             alt={post.caption ?? "Post image"}
                                             className="w-full h-full object-cover"
                                         />
@@ -420,7 +423,8 @@ const PostsPage: React.FC = () => {
                         {/* Image side */}
                         <div className="relative bg-black">
                             <img
-                                src={`${API_URL}${activePost.imageUrl ?? ""}`}
+                                // src={`${API_URL}${activePost.imageUrl ?? ""}`}
+                                src={absolutize(activePost.imageUrl ?? "", API_BASE)}
                                 alt={activePost.caption ?? "Post image"}
                                 className="w-full h-full object-contain md:object-cover bg-black"
                             />
@@ -439,7 +443,8 @@ const PostsPage: React.FC = () => {
                                 <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200">
                                     {activePost.user?.profilePhoto ? (
                                         <img
-                                            src={`${API_URL}${activePost.user.profilePhoto}`}
+                                            // src={`${API_URL}${activePost.user.profilePhoto}`}
+                                            src={absolutize(activePost.user.profilePhoto, API_BASE)}
                                             alt={activePost.user?.name ?? "user"}
                                             className="w-full h-full object-cover"
                                         />
