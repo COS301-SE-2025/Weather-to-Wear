@@ -1,66 +1,113 @@
 // src/services/eventsApi.ts
-import { fetchWithAuth } from './fetchWithAuth';
+import axios from 'axios';
 
-export type Style = 'Formal' | 'Casual' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
+const API_URL = 'http://localhost:5001/api/events';
 
-export interface EventDto {
+type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
+
+export type EventDto = {
   id: string;
-  name: string | null;
+  name: string;
   location: string;
   dateFrom: string;
   dateTo: string;
   style: Style;
+  isTrip?: boolean;
   weather?: string | null;
-  isTrip?: boolean;
-}
+};
 
-const BASE = 'http://localhost:5001/api/events';
+export const fetchAllEvents = async (): Promise<EventDto[]> => {
+  try {
+    const response = await axios.get(API_URL + '/getEvents', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    throw error;
+  }
+};
 
-export async function fetchAllEvents(): Promise<EventDto[]> {
-  const res = await fetchWithAuth(`${BASE}/getEvents`, { method: 'GET' });
-  if (!res.ok) throw new Error(`Failed to fetch events (${res.status})`);
-  return res.json();
-}
+export const fetchAllTrips = async (): Promise<EventDto[]> => {
+  try {
+    const response = await axios.get(API_URL + '/getEvents', {
+      params: { isTrip: true },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching trips:', error);
+    throw error;
+  }
+};
 
-export async function createEvent(input: {
+export const getEventById = async (id: string): Promise<EventDto> => {
+  try {
+    const response = await axios.get(API_URL + '/getEvent', {
+      params: { id },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    throw error;
+  }
+};
+
+export const createEvent = async (eventData: {
   name: string;
   location: string;
   dateFrom: string;
   dateTo: string;
-  style: Style;
+  style: string;
   isTrip?: boolean;
-}): Promise<EventDto> {
-  const res = await fetchWithAuth(`${BASE}/createEvent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+}): Promise<EventDto> => {
+  const token = localStorage.getItem('token');
+  const res = await axios.post(`${API_URL}/createEvent`, eventData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
-  if (!res.ok) throw new Error(`Failed to create event (${res.status})`);
-  return res.json();
-}
+  return res.data;
+};
 
-export async function updateEvent(input: {
+export const createTrip = async (tripData: {
+  name: string;
+  location: string;
+  dateFrom: string;
+  dateTo: string;
+  style: string;
+}): Promise<EventDto> => {
+  return createEvent({ ...tripData, isTrip: true });
+};
+
+export const updateEvent = async (eventData: {
   id: string;
-  name: string;
-  location: string;
-  dateFrom: string;
-  dateTo: string;
-  style: Style | string;
-}): Promise<EventDto> {
-  const res = await fetchWithAuth(`${BASE}/updateEvent`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+  name?: string;
+  location?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  style?: string;
+  isTrip?: boolean;
+}) => {
+  const token = localStorage.getItem('token');
+  const res = await axios.put(`${API_URL}/updateEvent`, eventData, {
+    headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error(`Failed to update event (${res.status})`);
-  return res.json();
-}
+  return res.data;
+};
 
-export async function deleteEvent(id: string): Promise<void> {
-  const res = await fetchWithAuth(`${BASE}/deleteEvent`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id }),
+export const deleteEvent = async (id: string) => {
+  const token = localStorage.getItem('token');
+  const res = await axios.delete(`${API_URL}/deleteEvent`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { id },
   });
-  if (!res.ok) throw new Error(`Failed to delete event (${res.status})`);
-}
+  return res.data;
+};
