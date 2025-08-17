@@ -3,6 +3,7 @@ import { fetchAllItems } from "../services/closetApi";
 import { createOutfitManual } from "../services/outfitApi";
 import ClosetPickerModal from "../components/ClosetPickerModal";
 import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
 export interface ClosetItem {
   id: string;
@@ -78,7 +79,8 @@ export default function CreateAnOutfit() {
           imageUrl: item.imageUrl
             ? item.imageUrl.startsWith("http")
               ? item.imageUrl
-              : `${API_BASE}${item.imageUrl}`
+              // : `${API_BASE}${item.imageUrl}`
+              : absolutize(item.imageUrl, API_BASE)
             : undefined,
         }));
         setAllItems(formatted);

@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { fetchWithAuth } from "./fetchWithAuth";
 import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
 
 const API_URL = `${API_BASE}/api/outfits`;
@@ -114,8 +115,9 @@ export const fetchAllOutfits = async (): Promise<RecommendedOutfit[]> => {
             imageUrl:
                 it.imageUrl && it.imageUrl.length > 0
                     ? it.imageUrl
-                    : // @ts-ignore: if closetItem was included by Prisma
-                    `/uploads/${it.closetItem!.filename}`,
+                    // : // @ts-ignore: if closetItem was included by Prisma
+                    // `/uploads/${it.closetItem!.filename}`,
+                    : absolutize(it.imageUrl, API_BASE),
         })),
     }));
 };

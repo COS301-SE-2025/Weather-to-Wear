@@ -7,6 +7,7 @@ import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import StarRating from '../components/StarRating';
 import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
 import {
   fetchRecommendedOutfits,
@@ -385,7 +386,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `${API_BASE}${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -407,7 +409,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `${API_BASE}${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -424,7 +427,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `${API_BASE}${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -441,7 +445,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `${API_BASE}${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-28 h-28 object-contain rounded-2xl"
@@ -804,7 +809,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `${API_BASE}${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"

@@ -338,7 +338,7 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto -mt-16">
+    <div className="p-4 max-w-4xl mx-auto -mt-16 md:mt-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Calendar</h1>
         <button 

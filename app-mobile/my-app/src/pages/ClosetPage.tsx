@@ -16,7 +16,9 @@ import { toggleOutfitFavourite } from '../services/outfitApi';
 
 import EditOutfitModal from "../components/EditOutfitModal";
 
+
 import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
@@ -189,7 +191,8 @@ export default function ClosetPage() {
         const formattedItems: Item[] = res.data.map((item: any) => ({
           id: item.id,
           name: item.category,
-          image: `${API_BASE}${item.imageUrl}`,
+          // image: `${API_BASE}${item.imageUrl}`,
+          image: absolutize(item.imageUrl, API_BASE),
           favourite: !!item.favourite,
           category: item.category,
           layerCategory: item.layerCategory,
@@ -651,7 +654,8 @@ export default function ClosetPage() {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  src={prefixed(it.imageUrl)}
+                                  // src={prefixed(it.imageUrl)}
+                                  src={absolutize(it.imageUrl, API_BASE)}
                                   className="w-16 h-16 object-contain rounded"
                                 />
                               ))}
@@ -663,7 +667,8 @@ export default function ClosetPage() {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  src={prefixed(it.imageUrl)}
+                                  // src={prefixed(it.imageUrl)}
+                                  src={absolutize(it.imageUrl, API_BASE)}
                                   className="w-16 h-16 object-contain rounded"
                                 />
                               ))}
@@ -675,7 +680,8 @@ export default function ClosetPage() {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  src={prefixed(it.imageUrl)}
+                                  // src={prefixed(it.imageUrl)}
+                                  src={absolutize(it.imageUrl, API_BASE)}
                                   className="w-16 h-16 object-contain rounded"
                                 />
                               ))}
@@ -687,7 +693,8 @@ export default function ClosetPage() {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  src={prefixed(it.imageUrl)}
+                                  // src={prefixed(it.imageUrl)}
+                                  src={absolutize(it.imageUrl, API_BASE)}
                                   className="w-14 h-14 object-contain rounded"
                                 />
                               ))}
@@ -797,7 +804,8 @@ export default function ClosetPage() {
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src={absolutize(it.imageUrl, API_BASE)}
                               className="w-16 h-16 object-contain rounded"
                             />
                           ))}
@@ -809,7 +817,8 @@ export default function ClosetPage() {
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src={absolutize(it.imageUrl, API_BASE)}
                               className="w-16 h-16 object-contain rounded"
                             />
                           ))}
@@ -821,7 +830,8 @@ export default function ClosetPage() {
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src={absolutize(it.imageUrl, API_BASE)}
                               className="w-16 h-16 object-contain rounded"
                             />
                           ))}
@@ -833,7 +843,8 @@ export default function ClosetPage() {
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              src={prefixed(it.imageUrl)}
+                              // src={prefixed(it.imageUrl)}
+                              src={absolutize(it.imageUrl, API_BASE)}
                               className="w-14 h-14 object-contain rounded"
                             />
                           ))}
@@ -905,7 +916,8 @@ export default function ClosetPage() {
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            src={prefixed(it.imageUrl)}
+                            // src={prefixed(it.imageUrl)}
+                            src={absolutize(it.imageUrl, API_BASE)}
                             className="w-16 h-16 object-contain rounded"
                           />
                         ))}
@@ -917,7 +929,8 @@ export default function ClosetPage() {
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            src={prefixed(it.imageUrl)}
+                            // src={prefixed(it.imageUrl)}
+                            src={absolutize(it.imageUrl, API_BASE)}
                             className="w-16 h-16 object-contain rounded"
                           />
                         ))}
@@ -929,7 +942,8 @@ export default function ClosetPage() {
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            src={prefixed(it.imageUrl)}
+                            // src={prefixed(it.imageUrl)}
+                            src={absolutize(it.imageUrl, API_BASE)}
                             className="w-16 h-16 object-contain rounded"
                           />
                         ))}
@@ -941,7 +955,8 @@ export default function ClosetPage() {
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            src={prefixed(it.imageUrl)}
+                            // src={prefixed(it.imageUrl)}
+                            src={absolutize(it.imageUrl, API_BASE)}
                             className="w-14 h-14 object-contain rounded"
                           />
                         ))}
@@ -1374,7 +1389,8 @@ export default function ClosetPage() {
                       layerCategory: it.layerCategory,
                       imageUrl: it.imageUrl && it.imageUrl.length > 0
                         ? it.imageUrl
-                        : `/uploads/${it?.closetItem?.filename ?? ""}`,
+                        // : `/uploads/${it?.closetItem?.filename ?? ""}`,
+                        : absolutize(it.imageUrl, API_BASE),
                       category: it?.closetItem?.category ?? it.category,
                     })),
                   }

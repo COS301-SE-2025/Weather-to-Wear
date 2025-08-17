@@ -12,6 +12,7 @@ import {
   searchUsers,
 } from "../services/socialApi";
 import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
 interface Post {
   id: string;
@@ -217,7 +218,8 @@ const FeedPage: React.FC = () => {
           userId: c.userId,
           username: c.user?.name || "Unknown",
         })),
-        imageUrl: post.imageUrl,
+        // imageUrl: post.imageUrl,
+        imageUrl: absolutize(post.imageUrl, API_BASE),
         location: post.location,
         weather: post.weather,
         // closetItem only if your API includes it
