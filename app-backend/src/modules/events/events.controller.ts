@@ -1,8 +1,10 @@
+// events.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, Style } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
 import prisma from "../../../src/prisma";
+
 
 class EventsController {
   getEvents = async (req: Request, res: Response, next: NextFunction) => {
@@ -23,9 +25,7 @@ class EventsController {
           dateFrom: true,
           dateTo: true,
           style: true,
-          isTrip: true, 
         },
-        orderBy: { dateFrom: 'asc' },
       });
       res.status(200).json(events);
     } catch (err) {
@@ -57,7 +57,6 @@ class EventsController {
           dateTo: true,
           style: true,
           name: true,
-          isTrip: true, 
         },
       });
 
@@ -73,6 +72,7 @@ class EventsController {
   };
 
   createEvent = async (req: Request, res: Response, next: NextFunction) => {
+
     try {
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
@@ -80,14 +80,13 @@ class EventsController {
         return;
       }
 
-      const { name, location, dateFrom, dateTo, style, isTrip } = req.body;
+      const { name, location, dateFrom, dateTo, style , isTrip} = req.body;
       if (!name || !location || !dateFrom || !dateTo || !style) {
         res.status(400).json({ message: 'Missing required fields' });
         return;
       }
 
       const fromDate = new Date(dateFrom);
-      const toDate = new Date(dateTo);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -95,22 +94,19 @@ class EventsController {
         res.status(400).json({ message: 'Event start date cannot be in the past.' });
         return;
       }
-      if (toDate < fromDate) {
-        res.status(400).json({ message: 'End date cannot be before start date.' });
-        return;
-      }
 
-    
+
       const dateFromObj = new Date(dateFrom);
       const dateToObj = new Date(dateTo);
       const allDates = getAllDatesInRange(dateFromObj, dateToObj);
+
 
       const weatherSummaries: { date: string; summary: any }[] = [];
       for (const date of allDates) {
         try {
           const weatherData = await getWeatherByDay(location, date);
           weatherSummaries.push({ date, summary: weatherData.summary });
-        } catch {
+        } catch (err) {
           weatherSummaries.push({ date, summary: null });
         }
       }
@@ -121,20 +117,14 @@ class EventsController {
           name,
           location,
           weather: JSON.stringify(weatherSummaries),
-          dateFrom: fromDate,
-          dateTo: toDate,
+          dateFrom: new Date(dateFrom),
+          dateTo: new Date(dateTo),
           style: style as Style,
-          isTrip: Boolean(isTrip), 
+          isTrip: isTrip === true,
         },
         select: {
-          id: true,
-          name: true,
-          location: true,
-          weather: true,
-          dateFrom: true,
-          dateTo: true,
-          style: true,
-          isTrip: true, 
+          id: true, name: true, location: true, weather: true,
+          dateFrom: true, dateTo: true, style: true, isTrip: true,
         },
       });
 
@@ -158,9 +148,12 @@ class EventsController {
         return;
       }
 
-      const { name, location, dateFrom, dateTo, style, isTrip } = req.body;
+      const { name, location, dateFrom, dateTo, style, isTrip} = req.body;
 
-      const existing = await prisma.event.findUnique({ where: { id: eventId } });
+      const existing = await prisma.event.findUnique({
+        where: { id: eventId },
+      });
+
       if (!existing || existing.userId !== user.id) {
         res.status(404).json({ message: 'Event not found' });
         return;
@@ -172,35 +165,31 @@ class EventsController {
       if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
-      if (isTrip !== undefined) updateData.isTrip = Boolean(isTrip); // NEW
+      if (isTrip !== undefined) updateData.isTrip = Boolean(isTrip); 
 
-      if (location !== undefined || dateFrom !== undefined || dateTo !== undefined) {
+      if (location !== undefined || dateFrom !== undefined) {
         const newLocation = location ?? existing.location;
-        const newFromDate = dateFrom !== undefined ? new Date(dateFrom) : existing.dateFrom;
-        const newToDate = dateTo !== undefined ? new Date(dateTo) : existing.dateTo;
-
+        const newFromDate = dateFrom !== undefined
+          ? new Date(dateFrom)
+          : existing.dateFrom;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+
         if (newFromDate < today) {
           res.status(400).json({ message: 'Event start date cannot be in the past.' });
           return;
         }
-        if (newToDate < newFromDate) {
-          res.status(400).json({ message: 'End date cannot be before start date.' });
+
+        const weatherDate = newFromDate.toISOString().split('T')[0];
+
+        let weatherData;
+        try {
+          weatherData = await getWeatherByDay(newLocation, weatherDate);
+        } catch (err: any) {
+          res.status(400).json({ message: 'Weather forecast unavailable for the selected date/location.' });
           return;
         }
-
-        const allDates = getAllDatesInRange(newFromDate, newToDate);
-        const weatherSummaries: { date: string; summary: any }[] = [];
-        for (const date of allDates) {
-          try {
-            const weatherData = await getWeatherByDay(newLocation, date);
-            weatherSummaries.push({ date, summary: weatherData.summary });
-          } catch {
-            weatherSummaries.push({ date, summary: null });
-          }
-        }
-        updateData.weather = JSON.stringify(weatherSummaries);
+        updateData.weather = JSON.stringify(weatherData.summary);
       }
 
       if (Object.keys(updateData).length === 0) {
@@ -219,7 +208,6 @@ class EventsController {
           dateFrom: true,
           dateTo: true,
           style: true,
-          isTrip: true, 
         },
       });
 
@@ -243,13 +231,19 @@ class EventsController {
         return;
       }
 
-      const existing = await prisma.event.findUnique({ where: { id: eventId } });
+      const existing = await prisma.event.findUnique({
+        where: { id: eventId },
+      });
+
       if (!existing || existing.userId !== user.id) {
         res.status(404).json({ message: 'Event not found' });
         return;
       }
 
-      await prisma.event.delete({ where: { id: eventId } });
+      await prisma.event.delete({
+        where: { id: eventId },
+      });
+
       res.status(204).send();
     } catch (err) {
       next(err);
@@ -258,13 +252,9 @@ class EventsController {
 }
 
 function getAllDatesInRange(start: Date, end: Date): string[] {
-  const dates: string[] = [];
+  const dates = [];
   const curr = new Date(start);
-  curr.setHours(0, 0, 0, 0);
-  const last = new Date(end);
-  last.setHours(0, 0, 0, 0);
-
-  while (curr <= last) {
+  while (curr <= end) {
     dates.push(curr.toISOString().split('T')[0]);
     curr.setDate(curr.getDate() + 1);
   }
