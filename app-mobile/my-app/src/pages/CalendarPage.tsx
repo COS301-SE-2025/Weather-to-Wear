@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, CalendarPlus, Luggage } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 import { fetchAllItems } from '../services/closetApi';
 import { fetchAllOutfits } from '../services/outfitApi';
-import { getPackingList, createPackingList, deletePackingList } from '../services/packingApi';
+import { getPackingList, createPackingList, updatePackingList, deletePackingList } from '../services/packingApi';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
@@ -39,6 +39,20 @@ type Outfit = {
   style?: string | Style;
   coverImageUrl?: string | null;
   outfitItems?: OutfitItemPreview[];
+};
+
+type PopupState = {
+  open: boolean;
+  variant: 'success' | 'error';
+  message: string;
+};
+
+type ConfirmState = {
+  open: boolean;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  resolve?: (ok: boolean) => void;
 };
 
 const parseISO = (s: string) => new Date(s);
@@ -80,22 +94,48 @@ export default function CalendarPage() {
   });
   const [showDayList, setShowDayList] = useState<{ open: boolean; date: Date | null }>({ open: false, date: null });
   const [showPackingModal, setShowPackingModal] = useState(false);
-  const [packItems, setPackItems] = useState<{ closetItemId: string; name: string; imageUrl?: string | null; checked?: boolean }[]>([]);
-  const [packOutfits, setPackOutfits] = useState<{ outfitId: string; name: string; imageUrl?: string | null; checked?: boolean }[]>([]);
+  const [packItems, setPackItems] = useState<{ closetItemId: string; name: string; imageUrl?: string | null; checked?: boolean; _rowId?: string }[]>([]);
+  const [packOutfits, setPackOutfits] = useState<{ outfitId: string; name: string; imageUrl?: string | null; checked?: boolean; _rowId?: string }[]>([]);
   const [packOthers, setPackOthers] = useState<{ id: string; text: string; checked?: boolean }[]>([]);
   const [newOtherItem, setNewOtherItem] = useState('');
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [packingListId, setPackingListId] = useState<string | null>(null);
+  const [baseItemIds, setBaseItemIds] = useState<Set<string>>(new Set());
+  const [baseOutfitIds, setBaseOutfitIds] = useState<Set<string>>(new Set());
+  const [baseOtherLabels, setBaseOtherLabels] = useState<Set<string>>(new Set());
+
   const [maxLanes, setMaxLanes] = useState<number>(isNarrow() ? 1 : 2);
   const [rowPx, setRowPx] = useState<number>(isNarrow() ? 14 : 16);
+
+  // Popup + Confirm (Add page style)
+  const [popup, setPopup] = useState<PopupState>({ open: false, variant: 'success', message: '' });
+  const notify = (variant: PopupState['variant'], message: string) => setPopup({ open: true, variant, message });
+
+  const [confirmState, setConfirmState] = useState<ConfirmState>({ open: false, message: '' });
+  const askConfirm = (message: string, confirmLabel = 'OK', cancelLabel = 'Cancel') =>
+    new Promise<boolean>((resolve) => {
+      setConfirmState({ open: true, message, confirmLabel, cancelLabel, resolve });
+    });
+
+  const pruneOutfitsBasedOnItems = useCallback(
+    (nextItems: { closetItemId: string }[]) => {
+      const selectedIds = new Set(nextItems.map(p => p.closetItemId));
+      setPackOutfits(prev => prev.filter(po => {
+        const o = outfits.find(oo => oo.id === po.outfitId);
+        const hasAny = o?.outfitItems?.some(it => selectedIds.has(it.closetItemId));
+        return !!hasAny;
+      }));
+    },
+    [outfits]
+  );
 
   const addPackItemIfMissing = useCallback(
     (closetItemId: string, fallbackName?: string, fallbackImg?: string | null) => {
       setPackItems(prev => {
         if (prev.some(p => p.closetItemId === closetItemId)) return prev;
         const meta = closetItems.find(ci => ci.id === closetItemId);
-        return [
+        const next = [
           ...prev,
           {
             closetItemId,
@@ -104,9 +144,25 @@ export default function CalendarPage() {
             checked: false,
           },
         ];
+        pruneOutfitsBasedOnItems(next);
+        return next;
       });
     },
-    [closetItems]
+    [closetItems, pruneOutfitsBasedOnItems]
+  );
+
+  // helper sets for styling selections in the Outfit grid
+  const packedItemIds = React.useMemo(
+    () => new Set(packItems.map(p => p.closetItemId)),
+    [packItems]
+  );
+
+  const outfitFullyInList = React.useCallback(
+    (o: Outfit) => {
+      const parts = (o.outfitItems ?? []).map(it => it.closetItemId);
+      return parts.length > 0 && parts.every(id => packedItemIds.has(id));
+    },
+    [packedItemIds]
   );
 
   useEffect(() => {
@@ -141,7 +197,7 @@ export default function CalendarPage() {
         setEvents(list.map(mapEventDto));
       } catch (e) {
         console.error('load events failed', e);
-        alert('Failed to load events. Please try again later.');
+        notify('error', 'Failed to load events. Please try again later.');
       }
     };
     load();
@@ -159,7 +215,7 @@ export default function CalendarPage() {
       location: selectedEvent.location,
       dateFrom: selectedEvent.dateFrom.slice(0, 16),
       dateTo: selectedEvent.dateTo.slice(0, 16),
-      style: selectedEvent.style || 'Casual',
+      style: selectedEvent.style || 'Casual'
     });
   }, [selectedEvent]);
 
@@ -187,12 +243,12 @@ export default function CalendarPage() {
   async function handleCreate(kind: 'event' | 'trip') {
     const src = kind === 'event' ? newEvent : newTrip;
     if ((kind === 'event' && !src.name) || !src.dateFrom || !src.dateTo) {
-      alert('Please fill in all required fields.');
+      notify('error', 'Please fill in all required fields.');
       return;
     }
     try {
       const created = await createEvent({
-        name: kind === 'trip' ? 'Trip' : src.name ?? null,
+        name: kind === 'trip' ? 'Trip' : (src.name ?? null),
         location: src.location,
         style: src.style,
         dateFrom: new Date(src.dateFrom).toISOString(),
@@ -200,7 +256,7 @@ export default function CalendarPage() {
         isTrip: kind === 'trip',
       });
       const mapped = mapEventDto(created);
-      setEvents(e => [...e, mapped]);
+      setEvents((e) => [...e, mapped]);
       if (kind === 'event') {
         setShowCreateModal(false);
         setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
@@ -211,7 +267,7 @@ export default function CalendarPage() {
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (err: any) {
       console.error('create failed', err);
-      alert(err?.response?.data?.message || 'Failed to create');
+      notify('error', err?.response?.data?.message || 'Failed to create');
     }
   }
 
@@ -229,70 +285,60 @@ export default function CalendarPage() {
         isTrip: selectedEvent.isTrip ?? false,
       });
       const mapped = mapEventDto(updated);
-      setEvents(list => list.map(e => (e.id === mapped.id ? mapped : e)));
+      setEvents((list) => list.map((e) => (e.id === mapped.id ? mapped : e)));
       setSelectedEvent(mapped);
       setIsEditing(false);
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (e) {
       console.error('update failed', e);
-      alert('Failed to update event');
+      notify('error', 'Failed to update event');
     }
   };
 
   const handleDeleteEvent = async () => {
-    if (!selectedEvent || !window.confirm('Delete this event?')) return;
+    if (!selectedEvent) return;
+
+    const ok = await askConfirm('Are you sure you want to delete this?', 'Delete', 'Cancel');
+    if (!ok) return;
+
     try {
+      // If it’s a trip, remove its packing list first to satisfy FK
+      if (isTripEvent(selectedEvent)) {
+        try {
+          const existing = await getPackingList(selectedEvent.id);
+          if (existing?.id) {
+            await deletePackingList(existing.id);
+          }
+        } catch {
+          // swallow 404/no-list cases, we only need to ensure nothing remains
+        }
+      }
+
       await deleteEvent(selectedEvent.id);
+
       setEvents(list => list.filter(e => e.id !== selectedEvent.id));
       setShowEventModal(false);
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (e) {
       console.error('delete failed', e);
-      alert('Failed to delete event. Please try again.');
+      notify('error', 'Failed to delete event. Please try again.');
     }
   };
 
+
   async function handleOpenPacking(trip: Event) {
     try {
-      const existing = await getPackingList(trip.id);
-      setPackingListId(existing?.id ?? null);
-      if (existing) {
-        setPackItems((existing.items ?? []).map((r: any) => ({
-          closetItemId: String(r.closetItemId),
-          name: r.closetItem?.name ?? '',
-          imageUrl: r.closetItem?.imageUrl ? normalizeUrl(r.closetItem.imageUrl) : null,
-          checked: !!r.packed,
-          _rowId: r.id,
-        })));
-        setPackOutfits((existing.outfits ?? []).map((r: any) => ({
-          outfitId: String(r.outfitId),
-          name: r.outfit?.name ?? '',
-          imageUrl: r.outfit?.coverImageUrl ? normalizeUrl(r.outfit.coverImageUrl) : null,
-          checked: !!r.packed,
-          _rowId: r.id,
-        })));
-        setPackOthers((existing.others ?? []).map((r: any) => ({
-          id: String(r.id),
-          text: r.label,
-          checked: !!r.packed,
-        })));
-      } else {
-        setPackItems([]);
-        setPackOutfits([]);
-        setPackOthers([]);
-        setPackingListId(null);
-      }
-      const [ciRes, ofRes] = await Promise.all([fetchAllItems(), fetchAllOutfits()]);
-      const ci = Array.isArray((ciRes as any)?.data) ? (ciRes as any).data : ((ciRes as any)?.data?.items ?? (ciRes as any)?.data ?? ciRes);
+      const [ciRes, ofRes, existing] = await Promise.all([fetchAllItems(), fetchAllOutfits(), getPackingList(trip.id)]);
+      const ciRaw = Array.isArray((ciRes as any)?.data) ? (ciRes as any).data : ((ciRes as any)?.data?.items ?? (ciRes as any)?.data ?? ciRes);
       const ofRaw = Array.isArray((ofRes as any)?.data) ? (ofRes as any).data : ((ofRes as any)?.data?.outfits ?? (ofRes as any)?.data ?? ofRes);
-      setClosetItems((ci as any[]).map((it: any) => ({
+      const ciList: ClothingItem[] = (ciRaw as any[]).map((it: any) => ({
         id: String(it.id ?? it.itemId ?? ''),
         name: it.name ?? it.title ?? it.category ?? '',
         category: it.category ?? it.type ?? 'Other',
         imageUrl: it.imageUrl ? normalizeUrl(it.imageUrl) : null,
         style: (it.style ?? it.tag ?? null) as any,
-      })));
-      const normalizedOutfits: Outfit[] = (ofRaw as any[]).map((o: any, idx: number) => ({
+      }));
+      const outfitsList: Outfit[] = (ofRaw as any[]).map((o: any, idx: number) => ({
         id: String(o.id ?? o.outfitId ?? `outfit-${idx}`),
         name: o.name ?? o.title ?? `Outfit ${idx + 1}`,
         style: o.style ?? o.occasion ?? 'Other',
@@ -305,48 +351,89 @@ export default function CalendarPage() {
             }))
           : [],
       }));
-      setOutfits(normalizedOutfits);
-      if (existing && Array.isArray(existing.outfits) && existing.outfits.length) {
-        const byId = new Map(normalizedOutfits.map(o => [o.id, o]));
-        const itemsToAdd: { id: string; imageUrl?: string | null }[] = [];
-        for (const r of existing.outfits) {
-          const o = byId.get(String(r.outfitId));
-          if (o?.outfitItems?.length) {
-            o.outfitItems.forEach(it => itemsToAdd.push({ id: it.closetItemId, imageUrl: it.imageUrl }));
-          }
+      setClosetItems(ciList);
+      setOutfits(outfitsList);
+      setPackingListId(existing?.id ?? null);
+
+      const ciById = new Map(ciList.map(c => [c.id, c]));
+      const initialItems = (existing?.items ?? []).map((r: any) => {
+        const meta = ciById.get(String(r.closetItemId));
+        return {
+          closetItemId: String(r.closetItemId),
+          name: meta?.name || r.closetItem?.name || 'Item',
+          imageUrl: meta?.imageUrl || normalizeUrl(r.closetItem?.imageUrl ?? null),
+          checked: !!r.packed,
+          _rowId: r.id,
+        };
+      });
+
+      const initialOthers = (existing?.others ?? []).map((r: any) => ({
+        id: String(r.id),
+        text: r.label,
+        checked: !!r.packed,
+      }));
+
+      const initialOutfits = (existing?.outfits ?? []).map((r: any) => ({
+        outfitId: String(r.outfitId),
+        name: r.outfit?.name ?? outfitsList.find(o => o.id === String(r.outfitId))?.name ?? 'Outfit',
+        imageUrl:
+          outfitsList.find(o => o.id === String(r.outfitId))?.coverImageUrl ??
+          normalizeUrl(r.outfit?.coverImageUrl ?? null),
+        checked: !!r.packed,
+        _rowId: r.id,
+      }));
+
+      setPackItems(initialItems);
+      setPackOthers(initialOthers);
+      setPackOutfits(initialOutfits);
+
+      setBaseItemIds(new Set((existing?.items ?? []).map((r: any) => String(r.closetItemId))));
+      setBaseOutfitIds(new Set((existing?.outfits ?? []).map((r: any) => String(r.outfitId))));
+      setBaseOtherLabels(new Set((existing?.others ?? []).map((r: any) => String(r.label))));
+
+
+      if (initialOutfits.length) {
+        const toAdd: { id: string; name?: string; img?: string | null }[] = [];
+        for (const oSel of initialOutfits) {
+          const o = outfitsList.find(oo => oo.id === oSel.outfitId);
+          o?.outfitItems?.forEach(it => {
+            toAdd.push({ id: it.closetItemId, name: ciById.get(it.closetItemId)?.name, img: ciById.get(it.closetItemId)?.imageUrl || it.imageUrl });
+          });
         }
         setPackItems(prev => {
           const seen = new Set(prev.map(p => p.closetItemId));
           const next = [...prev];
-          for (const { id, imageUrl } of itemsToAdd) {
-            if (seen.has(id)) continue;
-            seen.add(id);
-            const meta = (ci as any[]).find((x: any) => String(x.id ?? x.itemId ?? '') === id);
-            const name = meta?.name ?? meta?.title ?? meta?.category ?? 'Item';
-            const img = meta?.imageUrl ? normalizeUrl(meta.imageUrl) : imageUrl ?? null;
-            next.push({ closetItemId: id, name, imageUrl: img, checked: false });
+          for (const x of toAdd) {
+            if (seen.has(x.id)) continue;
+            seen.add(x.id);
+            next.push({ closetItemId: x.id, name: x.name || 'Item', imageUrl: x.img || null, checked: false });
           }
           return next;
         });
       }
+
       setShowPackingModal(true);
     } catch (e) {
       console.error('open packing failed', e);
-      alert('Could not open packing list.');
+      notify('error', 'Could not open packing list.');
     }
   }
 
   const addClothingToPack = (item: ClothingItem) => {
-    if (packItems.some(p => p.closetItemId === item.id)) return;
-    setPackItems(prev => [
-      ...prev,
-      {
-        closetItemId: item.id,
-        name: item.name,
-        imageUrl: item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`) : null,
-        checked: false,
-      },
-    ]);
+    setPackItems(prev => {
+      if (prev.some(p => p.closetItemId === item.id)) return prev;
+      const next = [
+        ...prev,
+        {
+          closetItemId: item.id,
+          name: item.name,
+          imageUrl: item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`) : null,
+          checked: false,
+        },
+      ];
+      pruneOutfitsBasedOnItems(next);
+      return next;
+    });
   };
 
   const addOutfitToPack = (o: Outfit) => {
@@ -367,39 +454,119 @@ export default function CalendarPage() {
   };
 
   const removeItemFromPack = (id: string) => {
-    setPackItems(prev => prev.filter(p => p.closetItemId !== id));
-    setPackOutfits(prev => {
-      const outfitsById = new Map(outfits.map(o => [o.id, o]));
-      return prev.filter(po => {
-        const o = outfitsById.get(po.outfitId);
-        if (!o || !o.outfitItems?.length) return true;
-        const contains = o.outfitItems.some(oi => oi.closetItemId === id);
-        return !contains;
-      });
+    setPackItems(prev => {
+      const next = prev.filter(p => p.closetItemId !== id);
+      pruneOutfitsBasedOnItems(next);
+      return next;
     });
   };
 
   const removeOtherFromPack = (id: string) => setPackOthers(prev => prev.filter(p => p.id !== id));
-  const togglePackedItem = (id: string) => setPackItems(prev => prev.map(p => (p.closetItemId === id ? { ...p, checked: !p.checked } : p)));
-  const togglePackedOther = (id: string) => setPackOthers(prev => prev.map(p => (p.id === id ? { ...p, checked: !p.checked } : p)));
+
+  const togglePackedItem = (id: string) =>
+    setPackItems(prev => prev.map(p => (p.closetItemId === id ? { ...p, checked: !p.checked } : p)));
+
+  const togglePackedOther = (id: string) =>
+    setPackOthers(prev => prev.map(p => (p.id === id ? { ...p, checked: !p.checked } : p)));
 
   async function savePacking(tripId: string) {
     try {
-      if (packingListId) {
-        await deletePackingList(packingListId);
-      }
-      await createPackingList({
-        tripId,
-        items: packItems.map(p => p.closetItemId),
-        outfits: packOutfits.map(p => p.outfitId),
-        others: packOthers.map(p => p.text),
+      const have = new Set(packItems.map(p => p.closetItemId));
+
+      const outfitsToPersist = packOutfits.filter(po => {
+        const o = outfits.find(oo => oo.id === po.outfitId);
+        const parts = (o?.outfitItems ?? []).map(i => i.closetItemId);
+        return parts.length > 0 && parts.every(id => have.has(id));
       });
+
+      const currentItemIds = new Set(packItems.map(p => p.closetItemId));
+      const currentOutfitIds = new Set(outfitsToPersist.map(o => o.outfitId));
+      const currentOtherLabels = new Set(
+        packOthers.map(o => o.text.trim()).filter(Boolean)
+      );
+
+      const setsEqual = (a: Set<string>, b: Set<string>) =>
+        a.size === b.size && Array.from(a).every(x => b.has(x));
+
+      const structureChanged =
+        !packingListId ||
+        !setsEqual(baseItemIds, currentItemIds) ||
+        !setsEqual(baseOutfitIds, currentOutfitIds) ||
+        !setsEqual(baseOtherLabels, currentOtherLabels) ||
+        packItems.some(p => !(p as any)._rowId) ||
+        outfitsToPersist.some(o => !(o as any)._rowId) ||
+        packOthers.some(o => o.id.startsWith('other-'));
+
+      let listId = packingListId;
+
+      if (structureChanged) {
+        if (listId) {
+          await deletePackingList(listId);
+        }
+
+        await createPackingList({
+          tripId,
+          items: Array.from(currentItemIds),
+          outfits: Array.from(currentOutfitIds),
+          others: Array.from(currentOtherLabels),
+        });
+
+        const fresh = await getPackingList(tripId);
+        listId = fresh?.id ?? null;
+
+        const itemsUpdate = packItems
+          .filter(p => currentItemIds.has(p.closetItemId))
+          .map(p => {
+            const row = (fresh?.items ?? []).find(
+              (r: any) => String(r.closetItemId) === p.closetItemId
+            );
+            return row ? { id: row.id, packed: !!p.checked } : null;
+          })
+          .filter(Boolean) as Array<{ id: string; packed: boolean }>;
+
+        const outfitsUpdate = outfitsToPersist
+          .map(po => {
+            const row = (fresh?.outfits ?? []).find(
+              (r: any) => String(r.outfitId) === po.outfitId
+            );
+            return row ? { id: row.id, packed: !!po.checked } : null;
+          })
+          .filter(Boolean) as Array<{ id: string; packed: boolean }>;
+
+        const othersUpdate = packOthers
+          .filter(o => currentOtherLabels.has(o.text.trim()))
+          .map(o => {
+            const row = (fresh?.others ?? []).find(
+              (r: any) => String(r.label) === o.text.trim()
+            );
+            return row ? { id: row.id, packed: !!o.checked } : null;
+          })
+          .filter(Boolean) as Array<{ id: string; packed: boolean }>;
+
+        if (listId && (itemsUpdate.length || outfitsUpdate.length || othersUpdate.length)) {
+          await updatePackingList(listId, {
+            items: itemsUpdate as any,
+            outfits: outfitsUpdate as any,
+            others: othersUpdate as any,
+          });
+        }
+      } else {
+        await updatePackingList(listId!, {
+          items: packItems.map(p => ({ id: (p as any)._rowId, packed: !!p.checked })) as any,
+          outfits: outfitsToPersist.map(o => ({ id: (o as any)._rowId, packed: !!o.checked })) as any,
+          others: packOthers
+            .filter(o => !o.id.startsWith('other-'))
+            .map(o => ({ id: o.id, packed: !!o.checked })) as any,
+        });
+      }
+
       setShowPackingModal(false);
     } catch (e) {
       console.error(e);
-      alert('Failed to save packing list');
+      notify('error', 'Failed to save packing list');
     }
   }
+
 
   function getCalendarBounds(month: Date) {
     const start = monthStart(month);
@@ -507,8 +674,8 @@ export default function CalendarPage() {
     const monthRef = monthStart(currentMonth);
     return (
       <div className="space-y-1 mb-4">
-        {weeks.map(week => {
-          const dayCells: ReactElement[] = week.map(d => {
+        {weeks.map((week) => {
+          const dayCells: ReactElement[] = week.map((d) => {
             const inMonth = isSameMonth(d, monthRef);
             const dayEvents = eventsOnDay(d);
             const dayCount = dayEvents.length;
@@ -526,10 +693,7 @@ export default function CalendarPage() {
                 {overflow > 0 && (
                   <button
                     className="absolute bottom-1 left-1 z-20 text-[11px] leading-none px-1.5 py-0.5 rounded-full bg-gray-100 border shadow-sm"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setShowDayList({ open: true, date: new Date(d) });
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setShowDayList({ open: true, date: new Date(d) }); }}
                   >
                     +{overflow} more
                   </button>
@@ -566,7 +730,7 @@ export default function CalendarPage() {
                         borderTopRightRadius: isEnd ? 8 : 0,
                         borderBottomRightRadius: isEnd ? 8 : 0,
                       }}
-                      onClick={e => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         setSelectedEvent(ev);
                         setShowEventModal(true);
@@ -603,10 +767,7 @@ export default function CalendarPage() {
               <div
                 key={ev.id}
                 className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => {
-                  setSelectedEvent(ev);
-                  setShowEventModal(true);
-                }}
+                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
               >
                 <div className="font-medium">{ev.name}</div>
                 <div className="text-sm text-gray-600">
@@ -643,10 +804,7 @@ export default function CalendarPage() {
               <div
                 key={`up-${ev.id}`}
                 className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => {
-                  setSelectedEvent(ev);
-                  setShowEventModal(true);
-                }}
+                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
               >
                 <div className="font-medium">{ev.name}</div>
                 <div className="text-sm text-gray-600">
@@ -685,11 +843,13 @@ export default function CalendarPage() {
           </button>
         </div>
       </div>
+
       {renderHeader()}
       {renderDayNames()}
       {renderWeeks()}
       {renderSelectedDateEvents()}
       {renderUpcomingEvents()}
+
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative">
@@ -712,6 +872,7 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
       {showTripModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative">
@@ -733,6 +894,7 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
       {showEventModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative">
@@ -740,9 +902,7 @@ export default function CalendarPage() {
             <h2 className="text-xl font-bold mb-4">
               {isEditing ? (
                 <input className="w-full p-2 border rounded" value={editEventData.name} onChange={e => setEditEventData({ ...editEventData, name: e.target.value })} />
-              ) : (
-                selectedEvent.name
-              )}
+              ) : (selectedEvent.name)}
             </h2>
             {isEditing ? (
               <div className="space-y-3">
@@ -787,12 +947,13 @@ export default function CalendarPage() {
             )}
             <div className="mt-6 flex justify-between">
               {isTripEvent(selectedEvent) ? (
-                <button onClick={() => handleOpenPacking(selectedEvent)} className="px-4 py-2 rounded bg-[#3F978F] text-white">
+                <button
+                  onClick={() => handleOpenPacking(selectedEvent)}
+                  className="px-4 py-2 rounded bg-[#3F978F] text-white"
+                >
                   Pack
                 </button>
-              ) : (
-                <div />
-              )}
+              ) : <div />}
               {isEditing ? (
                 <div className="flex gap-2">
                   <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded border">Cancel</button>
@@ -808,6 +969,7 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
       {showPackingModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg shadow-lg relative max-h-[90vh] overflow-y-auto">
@@ -816,7 +978,7 @@ export default function CalendarPage() {
             <h3 className="text-lg font-semibold mb-2">Contents</h3>
             <div className="space-y-3">
               <div className="border rounded-lg overflow-hidden">
-                <details className="group" open>
+                <details className="group">
                   <summary className="flex justify-between items-center p-3 cursor-pointer bg-gray-50">
                     <span className="font-medium">Items ({packItems.length})</span>
                     <svg className="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -826,22 +988,26 @@ export default function CalendarPage() {
                       <div key={cat}>
                         <h4 className="font-medium mb-1">{cat}</h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {closetItems.filter(i => i.category === cat).map(i => (
-                            <button
-                              key={i.id}
-                              className="flex items-center justify-center p-2 border rounded hover:bg-gray-50 text-left"
-                              onClick={() => addClothingToPack(i)}
-                              title={i.name}
-                            >
-                              {i.imageUrl && <img src={i.imageUrl} alt="" className="w-12 h-12 rounded object-cover" />}
-                            </button>
-                          ))}
+                          {closetItems.filter(i => i.category === cat).map(i => {
+                            const selected = packItems.some(p => p.closetItemId === i.id);
+                            return (
+                              <button
+                                key={i.id}
+                                className={`flex items-center justify-center p-2 border rounded hover:bg-gray-50 text-left ${selected ? 'border-2 border-[#3F978F]' : ''}`}
+                                onClick={() => addClothingToPack(i)}
+                                title={i.name}
+                              >
+                                {i.imageUrl && <img src={i.imageUrl} alt={i.name} className="w-12 h-12 rounded object-cover" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
                   </div>
                 </details>
               </div>
+
               <div className="border rounded-lg overflow-hidden">
                 <details className="group">
                   <summary className="flex justify-between items-center p-3 cursor-pointer bg-gray-50">
@@ -849,58 +1015,54 @@ export default function CalendarPage() {
                     <svg className="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </summary>
                   <div className="p-3 space-y-3">
-                    {Array.from(new Set(outfits.map(o => o.style ?? 'Other'))).map(style => (
+                    {Array.from(new Set(outfits.map(o => (o.style ?? 'Other')))).map(style => (
                       <div key={String(style)}>
                         <h4 className="font-medium mb-1">{String(style)}</h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {outfits
-                            .filter(o => (o.style ?? 'Other') === style)
-                            .map(o => (
+                          {outfits.filter(o => (o.style ?? 'Other') === style).map(o => {
+                            const anyItemChosen = o.outfitItems?.some(it => packItems.some(pi => pi.closetItemId === it.closetItemId));
+                            const selected = packOutfits.some(p => p.outfitId === o.id) || !!anyItemChosen;
+                            return (
                               <button
                                 key={o.id}
                                 onClick={() => addOutfitToPack(o)}
-                                className="border rounded-lg p-2 bg-white hover:bg-gray-50 text-left"
+                                className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${outfitFullyInList(o) ? 'border-[#3F978F] ring-2 ring-[#3F978F]' : 'border-gray-200'}`}
                                 title={o.name}
                               >
+
                                 <div className="space-y-1">
-                                  <div className={`flex justify-center space-x-1 ${o.outfitItems?.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? '' : 'hidden'}`}>
-                                    {o.outfitItems
-                                      ?.filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                                      .map(it => (
-                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
-                                      ))}
+                                  <div className={`${o.outfitItems?.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                                    {o.outfitItems?.filter(it => ['headwear', 'accessory'].includes(it.layerCategory)).map(it => (
+                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                                    ))}
                                   </div>
                                   <div className="flex justify-center space-x-1">
-                                    {o.outfitItems
-                                      ?.filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                                      .map(it => (
-                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
-                                      ))}
+                                    {o.outfitItems?.filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory)).map(it => (
+                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                                    ))}
                                   </div>
                                   <div className="flex justify-center space-x-1">
-                                    {o.outfitItems
-                                      ?.filter(it => it.layerCategory === 'base_bottom')
-                                      .map(it => (
-                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
-                                      ))}
+                                    {o.outfitItems?.filter(it => it.layerCategory === 'base_bottom').map(it => (
+                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                                    ))}
                                   </div>
                                   <div className="flex justify-center space-x-1">
-                                    {o.outfitItems
-                                      ?.filter(it => it.layerCategory === 'footwear')
-                                      .map(it => (
-                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-10 h-10 object-contain rounded" />
-                                      ))}
+                                    {o.outfitItems?.filter(it => it.layerCategory === 'footwear').map(it => (
+                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-10 h-10 object-contain rounded" />
+                                    ))}
                                   </div>
                                 </div>
                                 <div className="mt-1 text-xs text-center truncate">{o.name}</div>
                               </button>
-                            ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
                   </div>
                 </details>
               </div>
+
               <div className="border rounded-lg overflow-hidden">
                 <details className="group">
                   <summary className="flex justify-between items-center p-3 cursor-pointer bg-gray-50">
@@ -913,7 +1075,7 @@ export default function CalendarPage() {
                         className="flex-1 p-2 border rounded-l"
                         placeholder="Add item (e.g., toothbrush, wallet)"
                         value={newOtherItem}
-                        onChange={e => setNewOtherItem(e.target.value)}
+                        onChange={(e) => setNewOtherItem(e.target.value)}
                       />
                       <button className="px-4 py-2 bg-[#3F978F] text-white rounded-r" onClick={addOtherToPack}>Add</button>
                     </div>
@@ -929,6 +1091,7 @@ export default function CalendarPage() {
                 </details>
               </div>
             </div>
+
             <h3 className="text-lg font-semibold mt-6 mb-2">Packing List</h3>
             <div className="space-y-2">
               {packItems.map(p => (
@@ -950,6 +1113,7 @@ export default function CalendarPage() {
                 {packItems.filter(i => !i.checked).length + packOthers.filter(i => !i.checked).length} items left to pack
               </div>
             </div>
+
             <div className="mt-4 flex justify-end gap-2">
               <button className="px-4 py-2 rounded border" onClick={() => setShowPackingModal(false)}>Cancel</button>
               <button className="px-4 py-2 rounded bg-[#3F978F] text-white" onClick={() => savePacking(selectedEvent.id)}>Save</button>
@@ -957,6 +1121,7 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
       {showDayList.open && showDayList.date && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative">
@@ -967,11 +1132,7 @@ export default function CalendarPage() {
                 <div
                   key={`dl-${ev.id}`}
                   className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                  onClick={() => {
-                    setShowDayList({ open: false, date: null });
-                    setSelectedEvent(ev);
-                    setShowEventModal(true);
-                  }}
+                  onClick={() => { setShowDayList({ open: false, date: null }); setSelectedEvent(ev); setShowEventModal(true); }}
                 >
                   <div className="font-medium">{ev.name}</div>
                   <div className="text-sm text-gray-600">
@@ -979,6 +1140,53 @@ export default function CalendarPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global popup (same look & feel as Add page) */}
+      {popup.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              {popup.variant === 'success' ? '🎉 Success! 🎉' : '⚠️ Error'}
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">{popup.message}</p>
+            <button
+              onClick={() => setPopup(p => ({ ...p, open: false }))}
+              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm dialog (replaces window.confirm) */}
+      {confirmState.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+            <p className="mb-6 text-gray-700 dark:text-gray-300">{confirmState.message}</p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => {
+                  confirmState.resolve?.(false);
+                  setConfirmState(cs => ({ ...cs, open: false, resolve: undefined }));
+                }}
+                className="px-5 py-2 rounded-full border"
+              >
+                {confirmState.cancelLabel ?? 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  confirmState.resolve?.(true);
+                  setConfirmState(cs => ({ ...cs, open: false, resolve: undefined }));
+                }}
+                className="px-5 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                {confirmState.confirmLabel ?? 'OK'}
+              </button>
             </div>
           </div>
         </div>
