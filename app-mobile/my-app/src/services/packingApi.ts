@@ -1,7 +1,8 @@
 // src/services/packingApi.ts
 import axios from 'axios';
+import { API_BASE } from '../config';
 
-const API_URL = 'http://localhost:5001/api/packing';
+const API_URL = `${API_BASE}/api/packing`;
 
 export type PackingListDto = {
   id: string;

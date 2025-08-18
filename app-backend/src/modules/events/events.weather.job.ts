@@ -1,4 +1,5 @@
-import prisma from "../../../src/prisma";
+// import prisma from "../../../src/prisma";
+import prisma from '../../prisma';
 import { getWeatherByDay } from "../weather/weather.service";
 
 function getAllDatesInRange(start: Date, end: Date): string[] {

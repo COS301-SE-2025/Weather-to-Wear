@@ -22,7 +22,7 @@ import {
   createEvent,
   updateEvent,
   deleteEvent,
-  type Event,
+  type EventDto,
 } from '../services/eventsApi';
 
 import { useWeatherQuery, type WeatherData, type WeatherSummary } from '../hooks/useWeatherQuery';
@@ -219,7 +219,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchAllEvents()
-      .then(fetched => setEvents(fetched))
+      .then(fetched => setEvents(fetched.map(toEvent)))
       .catch(err => console.error('Error loading events on mount:', err));
   }, []);
 
@@ -770,8 +770,10 @@ export default function HomePage() {
                       }
                     }
 
-                    setEvents((evt: Event[]) => [...evt, created]);
-                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+                    // setEvents((evt: Event[]) => [...evt, created]);
+                    setEvents(evt => [...evt, toEvent(created)]);
+                    // setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
                     setShowModal(false);
                   } catch (err: any) {
                     const msg = err.response?.data?.message || 'Failed to create event';

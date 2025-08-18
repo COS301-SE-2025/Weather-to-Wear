@@ -4,6 +4,7 @@ import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../servic
 import { fetchAllItems } from '../services/closetApi';
 import { fetchAllOutfits } from '../services/outfitApi';
 import { getPackingList, createPackingList, updatePackingList, deletePackingList } from '../services/packingApi';
+import { API_BASE } from '../config';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
@@ -65,7 +66,10 @@ const monthEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
 const ROW_GAP_PX = 2;
 const isNarrow = () => (typeof window !== 'undefined' ? window.innerWidth < 640 : false);
-const normalizeUrl = (u?: string | null) => (u ? (u.startsWith('http') ? u : `http://localhost:5001${u}`) : null);
+const normalizeUrl = (u?: string | null) => {
+  if (!u) return null;
+  return u.startsWith('http') ? u : `${API_BASE}${u}`;
+};
 
 function isTripEvent(ev: Partial<Event>) {
   if (!ev) return false;
@@ -445,7 +449,8 @@ export default function CalendarPage() {
         {
           closetItemId: item.id,
           name: item.name,
-          imageUrl: item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`) : null,
+          // imageUrl: item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`) : null,
+          imageUrl: normalizeUrl(item.imageUrl),
           checked: false,
         },
       ];

@@ -146,7 +146,7 @@ export default function ClosetPage() {
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
-  //const [favourites, setFavourites] = useState<(Item | UIOutfit)[]>([]);
+  const [favourites, setFavourites] = useState<(Item | UIOutfit)[]>([]);
 
   const [layerFilter, setLayerFilter] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -212,7 +212,7 @@ export default function ClosetPage() {
       }
     };
 
-    fetchItems();
+    fetchItemsOnce();
   }, [justFinished]);  // Refresh after upload finishes
 
   // helper to prefix local uploads
@@ -418,10 +418,10 @@ export default function ClosetPage() {
   // Try to fetch all saved outfits from a few likely endpoints (some apps pluralize, some don't)
 const fetchSavedOutfits = async (): Promise<any[]> => {
   const urls = [
-    'http://localhost:5001/api/outfits',
-    'http://localhost:5001/api/outfit',
-    'http://localhost:5001/api/outfit/saved',
-    'http://localhost:5001/api/outfits/saved',
+    `${API_BASE}/api/outfits`,
+    `${API_BASE}/api/outfit`,
+    `${API_BASE}/api/outfit/saved`,
+    `${API_BASE}/api/outfits/saved`,
   ];
   for (const u of urls) {
     const r = await request(u, { method: 'GET' } as any);
@@ -442,8 +442,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
         o.outfitItems.some((it: any) => String(it.closetItemId) === String(closetItemId));
 
       const patchUrls = (id: string) => [
-        `http://localhost:5001/api/outfits/${id}`,
-        `http://localhost:5001/api/outfit/${id}`,
+        `${API_BASE}/api/outfits/${id}`,
+        `${API_BASE}/api/outfit/${id}`,
       ];
       const deleteUrls = patchUrls;
 
@@ -520,9 +520,9 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
 
       // Extra nuke: try join-row deletes by closetItem if the API supports them
       const joinDeleteCandidates = [
-        `http://localhost:5001/api/outfit-items/by-closet/${closetItemId}`,
-        `http://localhost:5001/api/outfitItems/by-closet/${closetItemId}`,
-        `http://localhost:5001/api/outfitItem/by-closet/${closetItemId}`,
+        `${API_BASE}/api/outfit-items/by-closet/${closetItemId}`,
+        `${API_BASE}/api/outfitItems/by-closet/${closetItemId}`,
+        `${API_BASE}/api/outfitItem/by-closet/${closetItemId}`,
       ];
       for (const u of joinDeleteCandidates) {
         const r = await request(u, { method: 'DELETE' } as any);
@@ -591,9 +591,9 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
 
       // Hard fallback: try direct join-row nukes in case some ref slipped through
       const nukes = [
-        `http://localhost:5001/api/outfit-items/by-closet/${id}`,
-        `http://localhost:5001/api/outfitItems/by-closet/${id}`,
-        `http://localhost:5001/api/outfitItem/by-closet/${id}`,
+        `${API_BASE}/api/outfit-items/by-closet/${id}`,
+        `${API_BASE}/api/outfitItems/by-closet/${id}`,
+        `${API_BASE}/api/outfitItem/by-closet/${id}`,
       ];
       for (const u of nukes) {
         await request(u, { method: 'DELETE' } as any);
