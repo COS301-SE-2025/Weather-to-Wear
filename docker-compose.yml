@@ -8,25 +8,27 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      WORKER_CONCURRENCY: 4
-      WORKER_PROCESSES: 4
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
       BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
       COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors
-      UPLOAD_DIR: /app/uploads               
+      UPLOAD_DIR: /app/uploads
     env_file:
       - ./app-backend/.env
     depends_on:
-      - redis
-      - db
-      - bg-removal
-      - color-picker
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_started
+      bg-removal:
+        condition: service_started
+      color-picker:
+        condition: service_started
     volumes:
       - ./app-backend:/app
       - /app/node_modules
-      - ./app-backend/uploads:/app/uploads   
+      - ./app-backend/uploads:/app/uploads
       - ./app-backend/prisma:/app/prisma
 
   frontend:
@@ -79,16 +81,20 @@ services:
   worker:
     build:
       context: ./app-backend
-    container_name: weather-worker
-    command: node dist/src/workers/cluster.js
+    command: sh -lc "npm run build && node dist/src/workers/cluster.js"
+    restart: always
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      WORKER_CONCURRENCY: 1
-      WORKER_PROCESSES: 1
+      MIN_WORKER_PROCESSES: 1
+      MAX_WORKER_PROCESSES: 10
+      WORKER_CONCURRENCY_PER_PROCESS: 1
+      SCALE_UP_WAITING_THRESHOLD: 3
+      SCALE_DOWN_WAITING_THRESHOLD: 0
+      SCALER_POLL_MS: 3000
       BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
       COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors
-      UPLOAD_DIR: /app/uploads             
+      UPLOAD_DIR: /app/uploads
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
@@ -96,15 +102,20 @@ services:
     env_file:
       - ./app-backend/.env
     depends_on:
-      - redis
-      - backend
-      - bg-removal                         
-      - color-picker
-      - db                                
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      bg-removal:
+        condition: service_started
+      color-picker:
+        condition: service_started
+      db:
+        condition: service_started
     volumes:
       - ./app-backend:/app
       - /app/node_modules
-      - ./app-backend/uploads:/app/uploads   
+      - ./app-backend/uploads:/app/uploads
 
   redis:
     image: redis:7
@@ -112,6 +123,11 @@ services:
     ports:
       - "6379:6379"
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
 
 volumes:
   pgdata:
