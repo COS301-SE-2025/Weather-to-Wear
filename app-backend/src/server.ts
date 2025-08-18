@@ -1,5 +1,6 @@
 import app from './app';
 import cors from 'cors';
+import { backfillWeatherForUpcomingEvents } from './modules/events/events.weather.job';
 
 const PORT = process.env.PORT || 5001
 
@@ -8,6 +9,12 @@ const PORT = process.env.PORT || 5001
 
 const allowedOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
 app.use(cors({ origin: allowedOrigin, credentials: true }));
+
+backfillWeatherForUpcomingEvents().catch(console.error);
+
+setInterval(() => {
+  backfillWeatherForUpcomingEvents().catch(console.error);
+}, 24 * 60 * 60 * 1000);
 
 try {
   app.listen(PORT, () => {

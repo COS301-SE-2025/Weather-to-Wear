@@ -2,13 +2,12 @@
 import { useState, useEffect } from 'react';
 import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-
 import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite, toggleFavourite } from '../services/closetApi';
 import { fetchAllOutfits, RecommendedOutfit, deleteOutfit } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
-
 import { useUploadQueue } from '../context/UploadQueueContext';
+import { fetchAllEvents } from '../services/eventsApi';
+import { getPackingList, createPackingList, deletePackingList } from '../services/packingApi';
 
 import StarRating from '../components/StarRating';
 
@@ -61,7 +60,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   outerwear: [
     { value: 'JACKET', label: 'Jacket' },
     { value: 'RAINCOAT', label: 'Raincoat' },
-    // etc.
   ],
   footwear: [
     { value: 'SHOES', label: 'Shoes' },
@@ -76,7 +74,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: 'GLOVES', label: 'Gloves' },
   ],
 };
-
 
 const STYLE_OPTIONS = [
   { value: "", label: "Select Style" },
@@ -97,6 +94,7 @@ const MATERIAL_OPTIONS = [
   { value: "Nylon", label: "Nylon" },
   { value: "Fleece", label: "Fleece" },
 ];
+
 const COLOR_PALETTE = [
   { hex: "#E53935", label: "Red" },
   { hex: "#8E24AA", label: "Purple" },
@@ -111,9 +109,6 @@ const COLOR_PALETTE = [
   { hex: "#000000", label: "Black" },
   { hex: "#FFFDD0", label: "Cream" },
 ];
-
-
-
 
 interface ClosetApiItem {
   id: string;
@@ -147,12 +142,9 @@ type UIOutfit = RecommendedOutfit & {
   tab: 'outfits';
 };
 
-
-
 export default function ClosetPage() {
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
-  //const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
   //const [favourites, setFavourites] = useState<(Item | UIOutfit)[]>([]);
 
@@ -173,7 +165,6 @@ export default function ClosetPage() {
   const [editedWaterproof, setEditedWaterproof] = useState(false);
   const [editedStyle, setEditedStyle] = useState('');
   const [editedMaterial, setEditedMaterial] = useState('');
-
   const { queueLength, justFinished, resetJustFinished } = useUploadQueue();
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -182,10 +173,17 @@ export default function ClosetPage() {
   const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
-
+    
+  // Global popup (Success/Error)
+  // ! Merge TAYLOR
+  const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    variant: 'success',
+  });
 
   useEffect(() => {
-    const fetchItems = async () => {
+    const fetchItemsOnce = async () => {
       try {
         const res = await fetchAllItems();
         const formattedItems: Item[] = res.data.map((item: any) => ({
@@ -205,21 +203,17 @@ export default function ClosetPage() {
           createdAt: item.createdAt,
           tab: 'items',
         }));
-
-        // Only overwrite if response has items, OR no uploads happening
         if (formattedItems.length > 0 || queueLength === 0) {
           setItems(formattedItems);
         }
       } catch (error) {
         console.error('Error fetching items:', error);
+        setPopup({ open: true, message: 'Failed to load items.', variant: 'error' });
       }
     };
 
     fetchItems();
   }, [justFinished]);  // Refresh after upload finishes
-
-
-
 
   // helper to prefix local uploads
   const prefixed = (url: string) =>
@@ -236,7 +230,34 @@ export default function ClosetPage() {
         }));
         setOutfits(uiList);
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error(err);
+        setPopup({ open: true, message: 'Failed to load outfits.', variant: 'error' });
+      });
+  }, []);
+
+  // Restore favourites from localStorage
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const stored = localStorage.getItem(`closet-favs-${token}`);
+    if (!stored) return;
+    const parsedFavs: Item[] = JSON.parse(stored);
+    setFavourites(parsedFavs);
+
+    setItems(prev =>
+      prev.map(x => ({
+        ...x,
+        favorite: parsedFavs.some(f => f.id === x.id && f.tab === x.tab),
+      }))
+    );
+
+    setOutfits(prev =>
+      prev.map(o => ({
+        ...o,
+        favorite: parsedFavs.some(f => f.id === o.id && f.tab === 'outfits'),
+      }))
+    );
   }, []);
 
   useEffect(() => {
@@ -246,8 +267,6 @@ export default function ClosetPage() {
       document.body.style.overflow = '';
     }
   }, [showModal, showEditModal, previewImage]);
-
-
 
   const toggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
     if (originTab === 'items') {
@@ -277,8 +296,6 @@ export default function ClosetPage() {
     }
   };
 
-
-
   const handleSaveEdit = async () => {
     if (!itemToEdit) return;
     const token = localStorage.getItem('token');
@@ -302,21 +319,18 @@ export default function ClosetPage() {
           }),
         }
       );
-      // if (!res.ok) throw new Error(`Status ${res.status}`);
 
       if (!res.ok) {
-        // try to parse any JSON error message
         let errMsg = `Status ${res.status}`;
         try {
           const body = await res.json();
           errMsg += ` — ${JSON.stringify(body)}`;
-        } catch { }
+        } catch {}
         throw new Error(errMsg);
       }
 
       setShowEditSuccess(true);
 
-      // update local state…
       const updated = {
         ...itemToEdit,
         layerCategory: itemToEdit.layerCategory,
@@ -358,11 +372,9 @@ export default function ClosetPage() {
       } else {
         //setFavourites(itemUpdater(favourites)); // now safe
       }
-
-
     } catch (err) {
-      console.error("Save failed", err);
-      alert("Could not save changes.");
+      console.error('Save failed', err);
+      setPopup({ open: true, message: 'Could not save changes.', variant: 'error' });
     } finally {
       setShowEditModal(false);
       setItemToEdit(null);
@@ -374,31 +386,256 @@ export default function ClosetPage() {
     setShowModal(true);
   };
 
+    // --- Axios-safe request helper (works with either axios or fetch responses) ---
+  type HttpResult<T = any> = { ok: boolean; status: number; data?: T };
+
+  const request = async (url: string, init?: RequestInit): Promise<HttpResult> => {
+    try {
+      const res: any = await fetchWithAuth(url, init);
+
+      // If it's a Fetch Response
+      if (res && typeof res === 'object' && 'ok' in res && 'status' in res) {
+        let data: any = undefined;
+        try {
+          data = typeof res.json === 'function' ? await res.json() : undefined;
+        } catch {}
+        return { ok: !!res.ok, status: Number(res.status) || 0, data };
+      }
+
+      // If it's an AxiosResponse
+      const status = Number(res?.status) || 0;
+      return { ok: status >= 200 && status < 300, status, data: res?.data };
+    } catch (err: any) {
+      const status = Number(err?.response?.status) || 0;
+      return { ok: false, status, data: err?.response?.data };
+    }
+  };
+
+  
+  // --- Helpers to strip from outfits & packing lists before deletion ---
+
+  
+  // Try to fetch all saved outfits from a few likely endpoints (some apps pluralize, some don't)
+const fetchSavedOutfits = async (): Promise<any[]> => {
+  const urls = [
+    'http://localhost:5001/api/outfits',
+    'http://localhost:5001/api/outfit',
+    'http://localhost:5001/api/outfit/saved',
+    'http://localhost:5001/api/outfits/saved',
+  ];
+  for (const u of urls) {
+    const r = await request(u, { method: 'GET' } as any);
+    if (r.ok && Array.isArray(r.data)) return r.data;
+    if (r.ok && Array.isArray((r.data as any)?.data)) return (r.data as any).data;
+  }
+  return [];
+};
+
+    // --- Helpers to strip from outfits & packing lists before deletion ---
+    const stripItemFromAllOutfits = async (closetItemId: string) => {
+      // get a fresh list from the server (covers any local drift)
+      const outfits = await fetchSavedOutfits();
+      if (!outfits.length) return;
+
+      const usesItem = (o: any) =>
+        Array.isArray(o?.outfitItems) &&
+        o.outfitItems.some((it: any) => String(it.closetItemId) === String(closetItemId));
+
+      const patchUrls = (id: string) => [
+        `http://localhost:5001/api/outfits/${id}`,
+        `http://localhost:5001/api/outfit/${id}`,
+      ];
+      const deleteUrls = patchUrls;
+
+      // Track what changed so we can reflect it in local state immediately
+      const removedIds: string[] = [];
+      const updatedOutfitItems: Record<
+        string,
+        { closetItemId: string; layerCategory: string; imageUrl: string | null }[]
+      > = {};
+
+      for (const o of outfits) {
+        if (!usesItem(o)) continue;
+
+        const kept = (o.outfitItems || []).filter(
+          (it: any) => String(it.closetItemId) !== String(closetItemId)
+        );
+
+        // If nothing left -> delete the whole outfit
+        if (kept.length === 0) {
+          for (const u of deleteUrls(o.id)) {
+            const r = await request(u, { method: 'DELETE' } as any);
+            if (r.ok || r.status === 404) break;
+          }
+          removedIds.push(String(o.id));
+          continue;
+        }
+
+        // Try PATCH #1: array of IDs
+        let patched = false;
+        for (const u of patchUrls(o.id)) {
+          const r = await request(u, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' } as any,
+            body: JSON.stringify({ outfitItems: kept.map((it: any) => it.closetItemId) }),
+          } as any);
+          if (r.ok) { patched = true; break; }
+        }
+
+        // Try PATCH #2: array of objects
+        if (!patched) {
+          for (const u of patchUrls(o.id)) {
+            const r = await request(u, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' } as any,
+              body: JSON.stringify({ outfitItems: kept.map((it: any) => ({ closetItemId: it.closetItemId })) }),
+            } as any);
+            if (r.ok) { patched = true; break; }
+          }
+        }
+
+        if (patched) {
+          updatedOutfitItems[String(o.id)] = kept.map((it: any) => ({
+            closetItemId: String(it.closetItemId),
+            layerCategory: String(it.layerCategory),
+            imageUrl: it.imageUrl ?? null,
+          }));
+        } else {
+          // Last resort: delete outfit
+          for (const u of deleteUrls(o.id)) {
+            const r = await request(u, { method: 'DELETE' } as any);
+            if (r.ok || r.status === 404) break;
+          }
+          removedIds.push(String(o.id));
+        }
+      }
+
+      // Local state: drop deleted outfits & update patched ones (prevents blank cards)
+      setOutfits(prev =>
+        prev
+          .filter(o => !removedIds.includes(String(o.id)))
+          .map(o => (updatedOutfitItems[o.id] ? { ...o, outfitItems: updatedOutfitItems[o.id] as any } : o))
+          .filter(o => (o.outfitItems?.length ?? 0) > 0) // guard against any empties that slipped through
+      );
+
+      // Extra nuke: try join-row deletes by closetItem if the API supports them
+      const joinDeleteCandidates = [
+        `http://localhost:5001/api/outfit-items/by-closet/${closetItemId}`,
+        `http://localhost:5001/api/outfitItems/by-closet/${closetItemId}`,
+        `http://localhost:5001/api/outfitItem/by-closet/${closetItemId}`,
+      ];
+      for (const u of joinDeleteCandidates) {
+        const r = await request(u, { method: 'DELETE' } as any);
+        if (r.ok) break;
+      }
+    };
+
+
+
+    const stripItemFromAllPackingLists = async (closetItemId: string) => {
+      try {
+        const evts = await fetchAllEvents();
+        for (const ev of evts) {
+          try {
+            const list = await getPackingList(ev.id).catch(() => null);
+            if (!list?.id) continue;
+
+            const hasItem =
+              Array.isArray(list.items) &&
+              list.items.some((r: any) => String(r.closetItemId) === String(closetItemId));
+            if (!hasItem) continue;
+
+            const items   = (list.items   || []).filter((r: any) => String(r.closetItemId) !== String(closetItemId)).map((r: any) => String(r.closetItemId));
+            const outfits = (list.outfits || []).map((r: any) => String(r.outfitId));
+            const others  = (list.others  || []).map((r: any) => String(r.label));
+
+            await deletePackingList(list.id).catch(() => {});
+            await createPackingList({ tripId: ev.id, items, outfits, others }).catch(() => {});
+          } catch {
+            // ignore & continue
+          }
+        }
+      } catch (err) {
+        console.error('stripItemFromAllPackingLists failed', err);
+      }
+    };
+
+
 
   const confirmRemove = async () => {
     if (!itemToRemove) return;
-    const { id, tab } = itemToRemove;
+    const { id } = itemToRemove;
 
     try {
-      if (tab === 'outfits') {
-        await deleteOutfit(id);
-        setOutfits(prev => prev.filter(o => o.id !== id));
-      } else {
-        await deleteItem(id);
-        setItems(prev => prev.filter(i => i.id !== id));
-      }
-    } catch (err: any) {
-      console.error('Failed to delete item:', err);
-      if (
-        err.response?.status === 400 ||
-        (err.response?.data?.message && err.response.data.message.includes("part of an outfit")) ||
-        (err.message && err.message.includes("part of an outfit"))
-      ) {
-        setDeleteError("You can't delete this item because it's part of an outfit. Remove it from all outfits first!");
-      } else {
-        setDeleteError(err.response?.data?.message || 'Delete failed. Try again.');
+      // Step 1: remove item from all outfits (multi-endpoint + local state sync)
+      await stripItemFromAllOutfits(id);
+
+      // Step 2: remove from all packing lists
+      await stripItemFromAllPackingLists(id);
+
+      // Step 3: delete the closet item
+      await deleteItem(id);
+
+      // Step 4: update local state & prune empty outfits (prevents ghost cards)
+      setItems(prev => prev.filter(i => i.id !== id));
+      setFavourites(prev => prev.filter(f => f.id !== id));
+      setOutfits(prev =>
+        prev
+          .map(o => ({ ...o, outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)) }))
+          .filter(o => (o.outfitItems?.length ?? 0) > 0)
+      );
+
+      setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
+    } catch (err) {
+      console.error('Failed to delete item (first attempt):', err);
+
+      // Hard fallback: try direct join-row nukes in case some ref slipped through
+      const nukes = [
+        `http://localhost:5001/api/outfit-items/by-closet/${id}`,
+        `http://localhost:5001/api/outfitItems/by-closet/${id}`,
+        `http://localhost:5001/api/outfitItem/by-closet/${id}`,
+      ];
+      for (const u of nukes) {
+        await request(u, { method: 'DELETE' } as any);
       }
 
+      // Retry the closet delete once
+      try {
+        await deleteItem(id);
+
+        setItems(prev => prev.filter(i => i.id !== id));
+        setFavourites(prev => prev.filter(f => f.id !== id));
+        setOutfits(prev =>
+          prev
+            .map(o => ({ ...o, outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)) }))
+            .filter(o => (o.outfitItems?.length ?? 0) > 0)
+        );
+
+        setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
+      } catch (err2) {
+        console.error('Failed after final purge:', err2);
+        setPopup({ open: true, message: 'Delete failed. Try again.', variant: 'error' });
+      }
+
+// ! Merge Diya Code
+//      if (tab === 'outfits') {
+//        await deleteOutfit(id);
+//        setOutfits(prev => prev.filter(o => o.id !== id));
+//      } else {
+//        await deleteItem(id);
+//        setItems(prev => prev.filter(i => i.id !== id));
+//      }
+//    } catch (err: any) {
+//      console.error('Failed to delete item:', err);
+//      if (
+//        err.response?.status === 400 ||
+//        (err.response?.data?.message && err.response.data.message.includes("part of an outfit")) ||
+//        (err.message && err.message.includes("part of an outfit"))
+//      ) {
+//        setDeleteError("You can't delete this item because it's part of an outfit. Remove it from all outfits first!");
+//      } else {
+//        setDeleteError(err.response?.data?.message || 'Delete failed. Try again.');
+//      }
     } finally {
       setShowModal(false);
       setItemToRemove(null);
@@ -412,7 +649,6 @@ export default function ClosetPage() {
     setItemToRemove(null);
   };
 
-  // Filter & search
   function getCurrentData() {
     let data: any[] =
       activeTab === 'items'
@@ -424,11 +660,8 @@ export default function ClosetPage() {
     if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
     }
-    // Search by name
     if (searchQuery && activeTab !== 'outfits') {
-      data = data.filter(i =>
-        i.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      data = data.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
     // Sort favourites to the top for "items" and "favourites" tabs
@@ -437,7 +670,6 @@ export default function ClosetPage() {
     }
     return data;
   }
-
 
   // Build list of categories for the active layer
   const categoryOptions = layerFilter
@@ -450,7 +682,6 @@ export default function ClosetPage() {
 
 
   return (
-
     <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4 -mt-16">
       {/* Header Image Section */}
       <div
@@ -468,30 +699,25 @@ export default function ClosetPage() {
         <div className="px-6 py-2 border-2 border-white z-10">
           <h1
             className="text-2xl font-bodoni font-light text-center text-white"
-            style={{
-              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-            }}
+            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
           >
             MY CLOSET
           </h1>
         </div>
-
-
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
       <div className="max-w-screen-sm mx-auto px-4 pb-12">
         {/* Filters & Search */}
-        {/* Layer → Category Filters */}
         <div className="flex flex-wrap justify-center gap-4 my-4">
-          {/* Layer Selector */}
           <select
             value={layerFilter}
             onChange={e => {
               setLayerFilter(e.target.value);
               setActiveCategory(null);
             }}
-            className="px-4 py-2 border border-black text-black rounded-full"          >
+            className="px-4 py-2 border border-black text-black rounded-full"
+          >
             {LAYER_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -499,7 +725,6 @@ export default function ClosetPage() {
             ))}
           </select>
 
-          {/* Category Selector (only if a layer is chosen) */}
           <select
             value={activeCategory || ''}
             onChange={e => setActiveCategory(e.target.value || null)}
@@ -515,8 +740,6 @@ export default function ClosetPage() {
           </select>
         </div>
 
-
-
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" />
           <input
@@ -524,7 +747,6 @@ export default function ClosetPage() {
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search..."
             className="pl-10 pr-4 py-2 w-full border rounded-full"
-
           />
         </div>
 
@@ -536,17 +758,13 @@ export default function ClosetPage() {
               onClick={() => setActiveTab(tab)}
               className={
                 `px-4 py-2 border border-black text-black rounded-full transition ` +
-                (activeTab === tab
-                  ? 'bg-black text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100')
+                (activeTab === tab ? 'bg-black text-white' : 'bg-white text-gray-700 hover:bg-gray-100')
               }
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
-
         </div>
-
 
         {/* Grid */}
         {activeTab === 'favourites' ? (
@@ -1023,12 +1241,10 @@ export default function ClosetPage() {
                     Delete
                   </button>
                 </div>
-
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
-
         {/* Remove Confirmation */}
         <AnimatePresence>
           {showModal && itemToRemove && (
@@ -1062,7 +1278,7 @@ export default function ClosetPage() {
         <AnimatePresence>
           {previewImage && (
             <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
-              <motion.img src={previewImage} className="max-w-3/4 max-h-3/4 object-contain" />
+              <motion.img src={previewImage} alt="" className="max-w-3/4 max-h-3/4 object-contain" />
               <button
                 onClick={() => setPreviewImage(null)}
                 className="absolute top-4 right-4 text-white bg-gray-800 p-2 rounded-full"
@@ -1073,6 +1289,7 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
+        {/* Edit Modal */}
         <AnimatePresence>
           {showEditModal && itemToEdit && (
             <motion.div
@@ -1189,9 +1406,7 @@ export default function ClosetPage() {
                         type="button"
                         onClick={() => setEditedColorHex(c.hex)}
                         className={`w-7 h-7 rounded-full border-2 transition 
-                  ${editedColorHex === c.hex
-                            ? "border-teal-500 scale-110 shadow-lg"
-                            : "border-gray-300"}`}
+                  ${editedColorHex === c.hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}`}
                         style={{ backgroundColor: c.hex }}
                       />
                     ))}
@@ -1210,10 +1425,6 @@ export default function ClosetPage() {
                     Cancel
                   </button>
                   <button
-                    // onClick={async () => {
-                    //   if (!itemToEdit) return;
-                    //   // … your PATCH logic here …
-                    // }}
                     onClick={handleSaveEdit}
                     className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
                   >
@@ -1342,8 +1553,6 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
-
-
         {showEditSuccess && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
@@ -1362,7 +1571,7 @@ export default function ClosetPage() {
             </div>
           </div>
         )}
-
+        
         {editingOutfit && (
           <EditOutfitModal
             outfitId={editingOutfit.id}
@@ -1399,9 +1608,25 @@ export default function ClosetPage() {
           />
         )}
 
-
       </div>
+
+      {/* Global popup (same look & feel as Add/Calendar pages) */}
+      {popup.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              {popup.variant === 'success' ? '🎉 Success! 🎉' : '⚠️ Error'}
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">{popup.message}</p>
+            <button
+              onClick={() => setPopup(p => ({ ...p, open: false }))}
+              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

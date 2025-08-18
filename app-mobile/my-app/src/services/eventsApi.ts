@@ -7,17 +7,26 @@ const API_URL = `${API_BASE}/api/events`;
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
-export type Event = {
+// ! Merge Taylor
+export type EventDto = {
+// ! Merge Diya
+//export type Event = {
+
   id: string;
   name: string;
   location: string;
   dateFrom: string;
   dateTo: string;
-  style?: Style;
-  weather?: string;
+  style: Style;
+  isTrip?: boolean;
+  weather?: string | null;
 };
 
-export const fetchAllEvents = async (): Promise<Event[]> => {
+// ! Merge Taylor
+export const fetchAllEvents = async (): Promise<EventDto[]> => {
+// ! Merge Diya
+//export const fetchAllEvents = async (): Promise<Event[]> => {
+
   try {
     const response = await axios.get(API_URL + '/getEvents', {
       headers: {
@@ -31,13 +40,47 @@ export const fetchAllEvents = async (): Promise<Event[]> => {
   }
 };
 
+export const fetchAllTrips = async (): Promise<EventDto[]> => {
+  try {
+    const response = await axios.get(API_URL + '/getEvents', {
+      params: { isTrip: true },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching trips:', error);
+    throw error;
+  }
+};
+
+export const getEventById = async (id: string): Promise<EventDto> => {
+  try {
+    const response = await axios.get(API_URL + '/getEvent', {
+      params: { id },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    throw error;
+  }
+};
+
 export const createEvent = async (eventData: {
   name: string;
   location: string;
   dateFrom: string;
   dateTo: string;
   style: string;
-}): Promise<Event> => {
+  isTrip?: boolean;
+// ! Merge Taylor
+}): Promise<EventDto> => {
+// ! Merge Diya
+//}): Promise<Event> => {
   const token = localStorage.getItem('token');
   const res = await axios.post(`${API_URL}/createEvent`, eventData, {
     headers: {
@@ -47,6 +90,16 @@ export const createEvent = async (eventData: {
   return res.data;
 };
 
+export const createTrip = async (tripData: {
+  name: string;
+  location: string;
+  dateFrom: string;
+  dateTo: string;
+  style: string;
+}): Promise<EventDto> => {
+  return createEvent({ ...tripData, isTrip: true });
+};
+
 export const updateEvent = async (eventData: {
   id: string;
   name?: string;
@@ -54,6 +107,7 @@ export const updateEvent = async (eventData: {
   dateFrom?: string;
   dateTo?: string;
   style?: string;
+  isTrip?: boolean;
 }) => {
   const token = localStorage.getItem('token');
   const res = await axios.put(`${API_URL}/updateEvent`, eventData, {
@@ -70,6 +124,3 @@ export const deleteEvent = async (id: string) => {
   });
   return res.data;
 };
-
-
-// Add other CRUD operations as needed

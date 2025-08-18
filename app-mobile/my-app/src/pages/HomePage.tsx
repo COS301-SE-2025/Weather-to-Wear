@@ -35,12 +35,44 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
-// ---------- TypingSlogan (unchanged) ----------
+type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
+
+type Event = {
+  id: string;
+  name: string;
+  location: string;
+  dateFrom: string;
+  dateTo: string;
+  style?: Style;
+  weather?: string;
+  type: 'event' | 'trip';
+  isTrip?: boolean;
+};
+
+// Normalize API → UI
+function toEvent(dto: EventDto): Event {
+  const trip =
+    !!(dto as any)?.isTrip ||
+    String((dto as any)?.type || '').toLowerCase() === 'trip' ||
+    /(^|\s)trip(\s|$)/i.test(String(dto?.name || ''));
+
+  return {
+    id: String(dto.id),
+    name: dto.name ?? (trip ? 'Trip' : 'Untitled'),
+    location: dto.location ?? '',
+    dateFrom: dto.dateFrom,
+    dateTo: dto.dateTo,
+    style: ((dto as any).style ?? 'Casual') as Style,
+    weather: dto.weather ?? undefined,
+    type: trip ? 'trip' : 'event',
+    isTrip: trip,
+  };
+}
+
 const TypingSlogan = () => {
-  const slogan = 'Simple Style';
-  const tealWord = 'Style';
+  const slogan = 'Style Made Simple.';
+  const tealWord = 'Simple.';
   const tealStart = slogan.indexOf(tealWord);
-  const tealEnd = tealStart + tealWord.length;
 
   const [displayText, setDisplayText] = useState('');
   const [index, setIndex] = useState(0);
@@ -66,10 +98,8 @@ const TypingSlogan = () => {
   }, [index, isDeleting, slogan]);
 
   const beforeTeal = displayText.slice(0, Math.min(tealStart, displayText.length));
-  let tealVisibleLength = 0;
-  if (displayText.length > tealStart) {
-    tealVisibleLength = Math.min(displayText.length - tealStart, tealWord.length);
-  }
+  const tealVisibleLength =
+    displayText.length > tealStart ? Math.min(displayText.length - tealStart, tealWord.length) : 0;
   const tealPart = tealWord.slice(0, tealVisibleLength);
 
   return (
@@ -89,7 +119,7 @@ export default function HomePage() {
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
 
-  // Other UI state (unchanged)
+  // Other UI state
   const [username, setUsername] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -150,6 +180,30 @@ export default function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
   };
+      
+  const handleCreateEvent = async () => {
+    if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+      alert('Please fill in name, style, and both dates.');
+      return;
+    }
+    try {
+      const created = await createEvent({
+        name: newEvent.name,
+        location: newEvent.location,
+        style: newEvent.style,
+        dateFrom: new Date(newEvent.dateFrom).toISOString(),
+        dateTo: new Date(newEvent.dateTo).toISOString(),
+        isTrip: false,
+      });
+
+      setEvents(evt => [...evt, toEvent(created)]);
+      setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
+      setShowModal(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to create event';
+      alert(msg);
+    }
+   };
 
   // ---------- Boot-up effects (unchanged-ish) ----------
   useEffect(() => {
@@ -223,22 +277,49 @@ export default function HomePage() {
 
   // Keep edit form in sync when event changes
   useEffect(() => {
-    if (!selectedEvent) return;
-    setIsEditing(false);
-    setEditEventData({
-      id: selectedEvent.id,
-      name: selectedEvent.name,
-      location: selectedEvent.location,
-      dateFrom: selectedEvent.dateFrom.slice(0, 16),
-      dateTo: selectedEvent.dateTo.slice(0, 16),
-      style: selectedEvent.style || '',
-    });
-  }, [selectedEvent]);
+    const isWithin3Days = (d: Date) => {
+      const now = new Date();
+      const diffDays = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays <= 3 && diffDays >= -1;
+    };
+
+    const tick = async () => {
+      for (const ev of events) {
+        if (ev.type === 'trip') continue;
+        if (!isWithin3Days(new Date(ev.dateFrom))) continue;
+        if (!ev.weather) continue;
+        try {
+          const days: { date: string; summary: any }[] = JSON.parse(ev.weather);
+          for (const { summary } of days) {
+            if (!summary) continue;
+            await fetchRecommendedOutfits(
+              {
+                avgTemp: summary.avgTemp,
+                minTemp: summary.minTemp,
+                maxTemp: summary.maxTemp,
+                willRain: summary.willRain,
+                mainCondition: summary.mainCondition,
+              },
+              ev.style!,
+              ev.id
+            );
+          }
+        } catch {
+          // ignore bad JSON
+        }
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 6 * 60 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [events]);
 
   // ---------- Rating save ----------
   const handleSaveRating = async (rating: number) => {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
+
 
     const key = getOutfitKey(outfit);
     setSaving(true);
@@ -316,7 +397,7 @@ export default function HomePage() {
               {error && !loadingOutfits && <p className="text-red-500">{error}</p>}
               {!loadingOutfits && outfits.length === 0 && (
                 <p className="text-center text-gray-500 dark:text-gray-400">
-                  Sorry, we couldn’t generate an outfit in that style. Please add more items to your wardrobe.
+                  Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
                 </p>
               )}
 
@@ -349,6 +430,7 @@ export default function HomePage() {
 
               {!loadingOutfits && outfits.length > 0 && (
                 <>
+                  {/* carousel controls */}
                   <div className="flex justify-between items-center mb-2 w-full">
                     <button
                       onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
@@ -368,6 +450,7 @@ export default function HomePage() {
                   </div>
 
                   <div className="mb-4 space-y-2">
+                    {/* headwear/accessory */}
                     <div
                       className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
                         i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
@@ -395,6 +478,7 @@ export default function HomePage() {
                         ))}
                     </div>
 
+                    {/* tops */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(
@@ -418,6 +502,7 @@ export default function HomePage() {
                         ))}
                     </div>
 
+                    {/* bottoms */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'base_bottom')
@@ -436,6 +521,7 @@ export default function HomePage() {
                         ))}
                     </div>
 
+                    {/* footwear */}
                     <div className="flex justify-center space-x-2">
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'footwear')
@@ -537,36 +623,35 @@ export default function HomePage() {
               </button>
             </div>
 
-            {events.length > 0 ? (
+            {events.filter(e => e.type !== 'trip').length > 0 ? (
               <div className="flex flex-wrap justify-center gap-6 overflow-x-auto py-2">
-                {events.map((ev: Event) => (
-                  <div
-                    key={ev.id}
-                    className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44 bg-white dark:bg-gray-700 rounded-full shadow-md border flex flex-col items-center justify-center text-center p-2 transition-transform hover:scale-105"
-                    onClick={() => {
-                      setSelectedEvent(ev);
-                      setShowDetailModal(true);
-                    }}
-                  >
-                    <div className="font-semibold truncate">
-                      {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                {events
+                  .filter(e => e.type !== 'trip')
+                  .map(ev => (
+                    <div
+                      key={ev.id}
+                      className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
+                                 bg-white dark:bg-gray-700 rounded-full shadow-md border 
+                                 flex flex-col items-center justify-center text-center p-2
+                                 transition-transform hover:scale-105"
+                      onClick={() => {
+                        setSelectedEvent(ev);
+                        setShowDetailModal(true);
+                      }}
+                    >
+                      <div className="font-semibold truncate">
+                        {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        &nbsp;–&nbsp;
+                        {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </div>
+                      <div className="mt-1 text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
+                        {ev.style}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(ev.dateFrom).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                      &nbsp;–&nbsp;
-                      {new Date(ev.dateTo).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </div>
-                    <div className="mt-1 text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
-                      {ev.style}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -633,7 +718,7 @@ export default function HomePage() {
               <select
                 className="w-full p-2 border rounded"
                 value={newEvent.style}
-                onChange={e => setNewEvent({ ...newEvent, style: e.target.value })}
+                onChange={e => setNewEvent({ ...newEvent, style: e.target.value as Style })}
               >
                 <option value="">Select style</option>
                 <option value="Formal">Formal</option>
@@ -650,6 +735,10 @@ export default function HomePage() {
               </button>
               <button
                 className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+
+                // ! Merge Potential change 
+                //onClick={handleCreateEvent}
+                // ! Merge start
                 onClick={async () => {
                   if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
                     alert('Please fill in name, style, and both dates.');
@@ -689,6 +778,7 @@ export default function HomePage() {
                     alert(msg);
                   }
                 }}
+                // ! Merge stop
               >
                 Save
               </button>
@@ -735,6 +825,11 @@ export default function HomePage() {
                 <select
                   className="w-full p-2 border rounded"
                   value={editEventData.style}
+
+                  // ! Merge Taylor
+                  //onChange={e => setEditEventData(d => ({ ...d, style: e.target.value as Style }))}
+
+                  // ! Merge Diya
                   onChange={e => setEditEventData(d => ({ ...d, style: e.target.value }))}
                 >
                   <option value="">Select style</option>
@@ -769,6 +864,7 @@ export default function HomePage() {
                 <p className="text-sm mb-4">
                   <strong>Where:</strong> {selectedEvent.location}
                 </p>
+
                 {selectedEvent.weather &&
                   (() => {
                     let sums: { date: string; summary: any }[] = [];
@@ -796,6 +892,7 @@ export default function HomePage() {
                       </div>
                     );
                   })()}
+
                 <div className="mt-4">
                   <h3 className="font-medium mb-2">Recommended Outfit</h3>
                   {detailLoading && <p>Loading outfit…</p>}
@@ -818,7 +915,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => { }} />
+                        <StarRating disabled={false} onSelect={() => {}} />
                       </div>
                     </>
                   )}
@@ -834,17 +931,37 @@ export default function HomePage() {
                   </button>
                   <button
                     onClick={async () => {
-                      const updated = await updateEvent({
-                        id: editEventData.id,
-                        name: editEventData.name,
-                        location: editEventData.location,
-                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
-                        dateTo: new Date(editEventData.dateTo).toISOString(),
-                        style: editEventData.style,
-                      });
-                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
-                      setSelectedEvent(updated);
-                      setIsEditing(false);
+                      // ! Merge Taylor
+                      try {
+                        const updatedDto = await updateEvent({
+                          id: editEventData.id,
+                          name: editEventData.name,
+                          location: editEventData.location,
+                          dateFrom: new Date(editEventData.dateFrom).toISOString(),
+                          dateTo: new Date(editEventData.dateTo).toISOString(),
+                          style: editEventData.style as Style,
+                          isTrip: selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip'),
+                        });
+                        const updated = toEvent(updatedDto);
+                        setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
+                        setSelectedEvent(updated);
+                        setIsEditing(false);
+                      } catch (err) {
+                        console.error('update failed', err);
+                        alert('Failed to update event');
+                      }
+                      // ! Merge Diya
+//                      const updated = await updateEvent({
+//                        id: editEventData.id,
+//                        name: editEventData.name,
+//                        location: editEventData.location,
+//                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
+//                        dateTo: new Date(editEventData.dateTo).toISOString(),
+//                        style: editEventData.style,
+//                      });
+//                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
+//                      setSelectedEvent(updated);
+//                      setIsEditing(false);
                     }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
@@ -860,7 +977,10 @@ export default function HomePage() {
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
                       await deleteEvent(selectedEvent.id);
-                      setEvents((evts: Event[]) => evts.filter((e: Event) => e.id !== selectedEvent.id));
+                      // ! Merge Taylor
+                      setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
+                      // ! Merge Diya
+                      // setEvents((evts: Event[]) => evts.filter((e: Event) => e.id !== selectedEvent.id));
                       setShowDetailModal(false);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"
