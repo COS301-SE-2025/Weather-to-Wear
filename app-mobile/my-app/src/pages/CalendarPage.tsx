@@ -351,8 +351,20 @@ export default function CalendarPage() {
             }))
           : [],
       }));
+
+      // ❗ Remove outfit parts that point to deleted/missing closet items.
+      // Then drop any outfits that are now empty.
+      const ciIds = new Set(ciList.map(c => c.id));
+      const cleanedOutfits: Outfit[] = outfitsList
+        .map(o => ({
+          ...o,
+          outfitItems: (o.outfitItems ?? []).filter(it => ciIds.has(it.closetItemId)),
+        }))
+        .filter(o => (o.outfitItems?.length ?? 0) > 0);
+
+
       setClosetItems(ciList);
-      setOutfits(outfitsList);
+      setOutfits(cleanedOutfits);
       setPackingListId(existing?.id ?? null);
 
       const ciById = new Map(ciList.map(c => [c.id, c]));
@@ -373,15 +385,21 @@ export default function CalendarPage() {
         checked: !!r.packed,
       }));
 
-      const initialOutfits = (existing?.outfits ?? []).map((r: any) => ({
-        outfitId: String(r.outfitId),
-        name: r.outfit?.name ?? outfitsList.find(o => o.id === String(r.outfitId))?.name ?? 'Outfit',
-        imageUrl:
-          outfitsList.find(o => o.id === String(r.outfitId))?.coverImageUrl ??
-          normalizeUrl(r.outfit?.coverImageUrl ?? null),
-        checked: !!r.packed,
-        _rowId: r.id,
-      }));
+      const initialOutfits = (existing?.outfits ?? [])
+        .filter((r: any) => cleanedOutfits.some(o => o.id === String(r.outfitId)))
+        .map((r: any) => ({
+          outfitId: String(r.outfitId),
+          name:
+            r.outfit?.name ??
+            cleanedOutfits.find(o => o.id === String(r.outfitId))?.name ??
+            'Outfit',
+          imageUrl:
+            cleanedOutfits.find(o => o.id === String(r.outfitId))?.coverImageUrl ??
+            normalizeUrl(r.outfit?.coverImageUrl ?? null),
+          checked: !!r.packed,
+          _rowId: r.id,
+        }));
+
 
       setPackItems(initialItems);
       setPackOthers(initialOthers);
@@ -395,7 +413,7 @@ export default function CalendarPage() {
       if (initialOutfits.length) {
         const toAdd: { id: string; name?: string; img?: string | null }[] = [];
         for (const oSel of initialOutfits) {
-          const o = outfitsList.find(oo => oo.id === oSel.outfitId);
+          const o = cleanedOutfits.find(oo => oo.id === oSel.outfitId);
           o?.outfitItems?.forEach(it => {
             toAdd.push({ id: it.closetItemId, name: ciById.get(it.closetItemId)?.name, img: ciById.get(it.closetItemId)?.imageUrl || it.imageUrl });
           });
@@ -437,6 +455,8 @@ export default function CalendarPage() {
   };
 
   const addOutfitToPack = (o: Outfit) => {
+    if (!o.outfitItems || o.outfitItems.length === 0) return; // safety: ignore empty outfits
+
     if (!packOutfits.some(p => p.outfitId === o.id)) {
       const thumb = o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null);
       setPackOutfits(prev => [...prev, { outfitId: o.id, name: o.name, imageUrl: thumb, checked: false }]);
@@ -445,6 +465,7 @@ export default function CalendarPage() {
       addPackItemIfMissing(it.closetItemId, undefined, it.imageUrl);
     });
   };
+
 
   const addOtherToPack = () => {
     const t = newOtherItem.trim();
@@ -1015,11 +1036,19 @@ export default function CalendarPage() {
                     <svg className="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </summary>
                   <div className="p-3 space-y-3">
-                    {Array.from(new Set(outfits.map(o => (o.style ?? 'Other')))).map(style => (
+                    {Array.from(
+                      new Set(
+                        outfits
+                          .filter(o => (o.outfitItems?.length ?? 0) > 0) // only non-empty outfits
+                          .map(o => (o.style ?? 'Other'))
+                      )
+                    ).map(style => (
                       <div key={String(style)}>
                         <h4 className="font-medium mb-1">{String(style)}</h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {outfits.filter(o => (o.style ?? 'Other') === style).map(o => {
+                          {outfits
+                            .filter(o => (o.outfitItems?.length ?? 0) > 0 && (o.style ?? 'Other') === style) // only non-empty outfits
+                            .map(o => {
                             const anyItemChosen = o.outfitItems?.some(it => packItems.some(pi => pi.closetItemId === it.closetItemId));
                             const selected = packOutfits.some(p => p.outfitId === o.id) || !!anyItemChosen;
                             return (
@@ -1052,7 +1081,6 @@ export default function CalendarPage() {
                                     ))}
                                   </div>
                                 </div>
-                                <div className="mt-1 text-xs text-center truncate">{o.name}</div>
                               </button>
                             );
                           })}
