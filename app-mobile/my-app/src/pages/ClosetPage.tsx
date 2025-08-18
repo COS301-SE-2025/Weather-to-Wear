@@ -348,7 +348,7 @@ export default function ClosetPage() {
     }
   };
 
-
+  
   // --- Helpers to strip from outfits & packing lists before deletion ---
 
   
@@ -368,116 +368,143 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
   return [];
 };
 
-  const stripItemFromAllOutfits = async (closetItemId: string) => {
-    const outfits = await fetchSavedOutfits();
-    if (!outfits.length) return; // nothing to do
+    // --- Helpers to strip from outfits & packing lists before deletion ---
+    const stripItemFromAllOutfits = async (closetItemId: string) => {
+      // get a fresh list from the server (covers any local drift)
+      const outfits = await fetchSavedOutfits();
+      if (!outfits.length) return;
 
-    const usesItem = (o: any) =>
-      Array.isArray(o?.outfitItems) &&
-      o.outfitItems.some((it: any) => String(it.closetItemId) === String(closetItemId));
+      const usesItem = (o: any) =>
+        Array.isArray(o?.outfitItems) &&
+        o.outfitItems.some((it: any) => String(it.closetItemId) === String(closetItemId));
 
-    const patchUrls = (id: string) => [
-      `http://localhost:5001/api/outfits/${id}`,
-      `http://localhost:5001/api/outfit/${id}`,
-    ];
-    const deleteUrls = patchUrls; // same shapes
+      const patchUrls = (id: string) => [
+        `http://localhost:5001/api/outfits/${id}`,
+        `http://localhost:5001/api/outfit/${id}`,
+      ];
+      const deleteUrls = patchUrls;
 
-    for (const o of outfits) {
-      if (!usesItem(o)) continue;
+      // Track what changed so we can reflect it in local state immediately
+      const removedIds: string[] = [];
+      const updatedOutfitItems: Record<
+        string,
+        { closetItemId: string; layerCategory: string; imageUrl: string | null }[]
+      > = {};
 
-      const kept = (o.outfitItems || []).filter(
-        (it: any) => String(it.closetItemId) !== String(closetItemId)
-      );
+      for (const o of outfits) {
+        if (!usesItem(o)) continue;
 
-      // 1) Try PATCH with array of ids
-      let patched = false;
-      for (const u of patchUrls(o.id)) {
-        const r = await request(u, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' } as any,
-          body: JSON.stringify({ outfitItems: kept.map((it: any) => it.closetItemId) }),
-        } as any);
-        if (r.ok) {
-          patched = true;
-          break;
+        const kept = (o.outfitItems || []).filter(
+          (it: any) => String(it.closetItemId) !== String(closetItemId)
+        );
+
+        // If nothing left -> delete the whole outfit
+        if (kept.length === 0) {
+          for (const u of deleteUrls(o.id)) {
+            const r = await request(u, { method: 'DELETE' } as any);
+            if (r.ok || r.status === 404) break;
+          }
+          removedIds.push(String(o.id));
+          continue;
         }
-      }
 
-      // 2) If that didn’t work, try PATCH with array of objects
-      if (!patched) {
+        // Try PATCH #1: array of IDs
+        let patched = false;
         for (const u of patchUrls(o.id)) {
           const r = await request(u, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' } as any,
-            body: JSON.stringify({ outfitItems: kept.map((it: any) => ({ closetItemId: it.closetItemId })) }),
+            body: JSON.stringify({ outfitItems: kept.map((it: any) => it.closetItemId) }),
           } as any);
-          if (r.ok) {
-            patched = true;
-            break;
+          if (r.ok) { patched = true; break; }
+        }
+
+        // Try PATCH #2: array of objects
+        if (!patched) {
+          for (const u of patchUrls(o.id)) {
+            const r = await request(u, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' } as any,
+              body: JSON.stringify({ outfitItems: kept.map((it: any) => ({ closetItemId: it.closetItemId })) }),
+            } as any);
+            if (r.ok) { patched = true; break; }
           }
+        }
+
+        if (patched) {
+          updatedOutfitItems[String(o.id)] = kept.map((it: any) => ({
+            closetItemId: String(it.closetItemId),
+            layerCategory: String(it.layerCategory),
+            imageUrl: it.imageUrl ?? null,
+          }));
+        } else {
+          // Last resort: delete outfit
+          for (const u of deleteUrls(o.id)) {
+            const r = await request(u, { method: 'DELETE' } as any);
+            if (r.ok || r.status === 404) break;
+          }
+          removedIds.push(String(o.id));
         }
       }
 
-      // 3) Last resort: delete the outfit entirely
-      if (!patched) {
-        for (const u of deleteUrls(o.id)) {
-          const r = await request(u, { method: 'DELETE' } as any);
-          if (r.ok || r.status === 404) {
-            // 404 = it's already gone; that's fine for our purposes
-            break;
-          }
-        }
-      }
-    }
+      // Local state: drop deleted outfits & update patched ones (prevents blank cards)
+      setOutfits(prev =>
+        prev
+          .filter(o => !removedIds.includes(String(o.id)))
+          .map(o => (updatedOutfitItems[o.id] ? { ...o, outfitItems: updatedOutfitItems[o.id] as any } : o))
+          .filter(o => (o.outfitItems?.length ?? 0) > 0) // guard against any empties that slipped through
+      );
 
-    // Extra nuke (optional): if your API supports directly deleting join rows, try a few common routes
-    const joinDeleteCandidates = [
-      `http://localhost:5001/api/outfit-items/by-closet/${closetItemId}`,
-      `http://localhost:5001/api/outfitItems/by-closet/${closetItemId}`,
-      `http://localhost:5001/api/outfitItem/by-closet/${closetItemId}`,
-    ];
-    for (const u of joinDeleteCandidates) {
-      const r = await request(u, { method: 'DELETE' } as any);
-      if (r.ok) break;
-    }
-  };
+      // Extra nuke: try join-row deletes by closetItem if the API supports them
+      const joinDeleteCandidates = [
+        `http://localhost:5001/api/outfit-items/by-closet/${closetItemId}`,
+        `http://localhost:5001/api/outfitItems/by-closet/${closetItemId}`,
+        `http://localhost:5001/api/outfitItem/by-closet/${closetItemId}`,
+      ];
+      for (const u of joinDeleteCandidates) {
+        const r = await request(u, { method: 'DELETE' } as any);
+        if (r.ok) break;
+      }
+    };
+
 
 
     const stripItemFromAllPackingLists = async (closetItemId: string) => {
-    try {
-      const evts = await fetchAllEvents();
-      for (const ev of evts) {
-        try {
-          const list = await getPackingList(ev.id).catch(() => null);
-          if (!list?.id) continue;
+      try {
+        const evts = await fetchAllEvents();
+        for (const ev of evts) {
+          try {
+            const list = await getPackingList(ev.id).catch(() => null);
+            if (!list?.id) continue;
 
-          const hasItem = Array.isArray(list.items) && list.items.some(
-            (r: any) => String(r.closetItemId) === String(closetItemId)
-          );
-          if (!hasItem) continue;
+            const hasItem =
+              Array.isArray(list.items) &&
+              list.items.some((r: any) => String(r.closetItemId) === String(closetItemId));
+            if (!hasItem) continue;
 
-          const items  = (list.items   || []).filter((r: any) => String(r.closetItemId) !== String(closetItemId)).map((r: any) => String(r.closetItemId));
-          const outfits = (list.outfits || []).map((r: any) => String(r.outfitId));
-          const others  = (list.others  || []).map((r: any) => String(r.label));
+            const items   = (list.items   || []).filter((r: any) => String(r.closetItemId) !== String(closetItemId)).map((r: any) => String(r.closetItemId));
+            const outfits = (list.outfits || []).map((r: any) => String(r.outfitId));
+            const others  = (list.others  || []).map((r: any) => String(r.label));
 
-          await deletePackingList(list.id).catch(() => {});
-          await createPackingList({ tripId: ev.id, items, outfits, others }).catch(() => {});
-        } catch {
-          // ignore and continue
+            await deletePackingList(list.id).catch(() => {});
+            await createPackingList({ tripId: ev.id, items, outfits, others }).catch(() => {});
+          } catch {
+            // ignore & continue
+          }
         }
+      } catch (err) {
+        console.error('stripItemFromAllPackingLists failed', err);
       }
-    } catch (err) {
-      console.error('stripItemFromAllPackingLists failed', err);
-    }
-  };
+    };
 
 
-    const confirmRemove = async () => {
+
+  const confirmRemove = async () => {
     if (!itemToRemove) return;
     const { id } = itemToRemove;
 
     try {
-      // Step 1: remove item from all outfits (robust & Axios-safe)
+      // Step 1: remove item from all outfits (multi-endpoint + local state sync)
       await stripItemFromAllOutfits(id);
 
       // Step 2: remove from all packing lists
@@ -486,21 +513,20 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
       // Step 3: delete the closet item
       await deleteItem(id);
 
-      // Step 4: update local state
+      // Step 4: update local state & prune empty outfits (prevents ghost cards)
       setItems(prev => prev.filter(i => i.id !== id));
       setFavourites(prev => prev.filter(f => f.id !== id));
       setOutfits(prev =>
-        prev.map(o => ({
-          ...o,
-          outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)),
-        }))
+        prev
+          .map(o => ({ ...o, outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)) }))
+          .filter(o => (o.outfitItems?.length ?? 0) > 0)
       );
 
       setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
     } catch (err) {
       console.error('Failed to delete item (first attempt):', err);
 
-      // Hard fallback: try direct join-row nukes (in case some outfit ref slipped through)
+      // Hard fallback: try direct join-row nukes in case some ref slipped through
       const nukes = [
         `http://localhost:5001/api/outfit-items/by-closet/${id}`,
         `http://localhost:5001/api/outfitItems/by-closet/${id}`,
@@ -517,10 +543,9 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
         setItems(prev => prev.filter(i => i.id !== id));
         setFavourites(prev => prev.filter(f => f.id !== id));
         setOutfits(prev =>
-          prev.map(o => ({
-            ...o,
-            outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)),
-          }))
+          prev
+            .map(o => ({ ...o, outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)) }))
+            .filter(o => (o.outfitItems?.length ?? 0) > 0)
         );
 
         setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
@@ -533,6 +558,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
       setItemToRemove(null);
     }
   };
+
 
   const cancelRemove = () => {
     setShowModal(false);
@@ -696,7 +722,9 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                   </div>
                 </div>
               ))
-            : outfits.map(o => (
+            : outfits
+                .filter(o => (o.outfitItems?.length ?? 0) > 0)
+                .map(o => (
                 <div key={o.id} className="border rounded-lg p-2 bg-white">
                   <div className="space-y-1">
                     {/* headwear + accessory */}
