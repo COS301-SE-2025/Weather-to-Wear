@@ -1,4 +1,4 @@
-// src/modules/closet/closet.service.ts
+// app-backend/src/modules/closet/closet.service.ts
 import {  Category,  LayerCategory,Style, Material, PrismaClient, ClosetItem as PrismaClosetItem } from "@prisma/client";
 import path from "path";
 import fs, { promises as fsPromises } from "fs";

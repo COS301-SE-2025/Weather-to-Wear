@@ -1,4 +1,4 @@
-// src/modules/closet/closet.controller.ts
+// app-backend/src/modules/closet/closet.controller.ts
 import { Request, Response, NextFunction } from "express";
 import { Style, Material, Category, LayerCategory } from "@prisma/client";
 import ClosetService from "./closet.service";
@@ -91,149 +91,6 @@ class ClosetController {
     }
   };
 
-  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction) => {
-  //   const { user } = req as AuthenticatedRequest;
-  //   if (!user || !user.id) {
-  //     res.status(401).json({ message: 'Unauthorized' });
-  //     return;
-  //   }
-  //   if (!req.files) {
-  //     res.status(400).json({ message: 'No files provided' });
-  //     return;
-  //   }
-  //   try {
-  //     const rawCat = (req.body.category as string || '').toUpperCase();
-  //     if (!Object.values(Category).includes(rawCat as Category)) {
-  //       res.status(400).json({ message: `Invalid category: ${rawCat}` });
-  //       return;
-  //     }
-  //     const category = rawCat as Category;
-  //     const files = req.files as Express.Multer.File[] | undefined;
-
-  //       const extras = {
-  //       colorHex:     req.body.colorHex,
-  //       warmthFactor: req.body.warmthFactor ? Number(req.body.warmthFactor) : undefined,
-  //       waterproof:   req.body.waterproof !== undefined
-  //         ? req.body.waterproof === 'true'
-  //         : undefined,
-  //       style: req.body.style as Style,
-  //       material: req.body.material as Material,
-  //     };
-
-  //     if (!files || files.length === 0) {
-  //       res.status(400).json({ message: 'No files provided' });
-  //       return;
-  //     }
-  //     const layerCategory = req.body.layerCategory as any; // For now, all files get same layerCategory
-  //     const items = await ClosetService.saveImagesBatch(files, category, layerCategory, user.id, extras);
-
-  //     res.status(201).json(
-  //       items.map(item => ({
-  //         id: item.id,
-  //         category: item.category,
-  //         imageUrl: `/uploads/${item.filename}`,
-  //         createdAt: item.createdAt,
-  //         colorHex: item.colorHex,
-  //         warmthFactor:item.warmthFactor,
-  //         waterproof: item.waterproof,
-  //         style: item.style,
-  //         material: item.material,
-  //       }))
-  //     );
-  //   } catch (err) {
-  //     next(err);
-  //   }
-  // };
-
-  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  //   const { user } = req as AuthenticatedRequest;
-  //   const files = req.files as Express.Multer.File[];
-
-  //   if (!user || !user.id) {
-  //     res.status(401).json({ message: 'Unauthorized' });
-  //     return;
-  //   }
-
-  //   try {
-  //     const itemsJson = req.body.items;
-  //     if (!itemsJson) {
-  //       res.status(400).json({ message: 'Missing "items" field in body' });
-  //     }
-
-  //     const parsed = JSON.parse(itemsJson);
-  //     if (!Array.isArray(parsed)) {
-  //       res.status(400).json({ message: '"items" must be a JSON array' });
-  //     }
-
-  //     const results = [];
-
-  //     for (const item of parsed) {
-  //       const {
-  //         category,
-  //         layerCategory,
-  //         colorHex,
-  //         warmthFactor,
-  //         waterproof,
-  //         style,
-  //         material,
-  //         filename // refers to the key of the file
-  //       } = item;
-
-  //       const file = files.find(f => f.fieldname === filename);
-  //       if (!file) {
-  //         res.status(400).json({ message: `Missing file for ${filename}` });
-  //         return;
-  //       }
-
-  //       // ! does not make use of background removal service
-  //       // const saved = await ClosetService.saveImageDirect(
-  //       //   file,
-  //       //   category,
-  //       //   layerCategory,
-  //       //   user.id,
-  //       //   {
-  //       //     colorHex,
-  //       //     warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-  //       //     waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
-  //       //     style,
-  //       //     material
-  //       //   }
-  //       // );
-
-  //       const saved = await ClosetService.saveImage(
-  //         file,
-  //         category as Category,
-  //         layerCategory as LayerCategory,
-  //         user.id,
-  //         {
-  //           colorHex,
-  //           warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-  //           waterproof: waterproof !== undefined
-  //             ? waterproof === true || waterproof === 'true'
-  //             : undefined,
-  //           style,
-  //           material
-  //         }
-  //       );
-
-  //       results.push({
-  //         id: saved.id,
-  //         category: saved.category,
-  //         imageUrl: `/uploads/${saved.filename}`,
-  //         createdAt: saved.createdAt,
-  //         colorHex: saved.colorHex,
-  //         warmthFactor: saved.warmthFactor,
-  //         waterproof: saved.waterproof,
-  //         style: saved.style,
-  //         material: saved.material,
-  //       });
-  //     }
-
-  //     res.status(201).json(results);
-  //   } catch (err) {
-  //     next(err);
-  //   }
-  // };
 
   // *****************************************
   // Batch images testing if the multithreading will work
@@ -280,6 +137,7 @@ class ClosetController {
           console.log(` File ${file.path} already processed, skipping`);
           continue;
         }
+
         processedFiles.add(file.path);
 
         // Create a unique filename to prevent conflicts
@@ -296,7 +154,7 @@ class ClosetController {
 
         // Send the persistent file path to the worker for processing
         await removeBgQueue.add(
-          `remove-bg-${uniqueFilename}`, // Unique job name
+          `remove-bg-${timestamp}-${randomSuffix}`,
           {
             userId: user.id,
             filePath: persistentPath,  // Use the persistent path
@@ -315,8 +173,7 @@ class ClosetController {
             },
           },
           { 
-            jobId: `remove-bg-${timestamp}-${randomSuffix}`, 
-            delay: 1000 
+            jobId: `remove-bg-${timestamp}-${randomSuffix}`,
           }
         );
 

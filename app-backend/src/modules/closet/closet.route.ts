@@ -1,4 +1,4 @@
-//closet.route.ts
+//app-backend/src/modules/closet/closet.route.ts
 import { Router } from 'express';
 import path from 'path';
 import closetController from './closet.controller';
