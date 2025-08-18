@@ -2,13 +2,12 @@
 import { useState, useEffect } from 'react';
 import { Heart, Search, X, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-
 import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
 import { fetchAllOutfits, RecommendedOutfit } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
-
 import { useUploadQueue } from '../context/UploadQueueContext';
+import { fetchAllEvents } from '../services/eventsApi';
+import { getPackingList, createPackingList, deletePackingList } from '../services/packingApi';
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -38,7 +37,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   outerwear: [
     { value: 'JACKET', label: 'Jacket' },
     { value: 'RAINCOAT', label: 'Raincoat' },
-    // etc.
   ],
   footwear: [
     { value: 'SHOES', label: 'Shoes' },
@@ -53,7 +51,6 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: 'GLOVES', label: 'Gloves' },
   ],
 };
-
 
 const STYLE_OPTIONS = [
   { value: "", label: "Select Style" },
@@ -74,6 +71,7 @@ const MATERIAL_OPTIONS = [
   { value: "Nylon", label: "Nylon" },
   { value: "Fleece", label: "Fleece" },
 ];
+
 const COLOR_PALETTE = [
   { hex: "#E53935", label: "Red" },
   { hex: "#8E24AA", label: "Purple" },
@@ -89,27 +87,18 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
-interface ClosetApiItem {
-  id: string;
-  category: string;
-  layerCategory: string;
-  imageUrl: string;
-}
-
 type Item = {
   id: string;
   name: string;
   image: string;
   favorite: boolean;
   category: string;
-  // newly‐editable fields:
   colorHex?: string;
   warmthFactor?: number;
   waterproof?: boolean;
   style?: string;
   material?: string;
   layerCategory?: string;
-  // which tab it came from:
   tab?: 'items' | 'outfits' | 'favourites';
 };
 
@@ -120,12 +109,9 @@ type UIOutfit = RecommendedOutfit & {
   tab: 'outfits';
 };
 
-
-
 export default function ClosetPage() {
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
-  //const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
   const [favourites, setFavourites] = useState<Item[]>([]);
   const [layerFilter, setLayerFilter] = useState<string>('');
@@ -146,36 +132,19 @@ export default function ClosetPage() {
   const [editedStyle, setEditedStyle] = useState('');
   const [editedMaterial, setEditedMaterial] = useState('');
 
-  const { queueLength, justFinished, resetJustFinished } = useUploadQueue();
+  const { queueLength, justFinished } = useUploadQueue();
 
+  // Global popup (Success/Error)
+  const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    variant: 'success',
+  });
 
-
-
-
-  // useEffect(() => {
-  //   const fetchItems = async () => {
-  //     try {
-  //       const res = await fetchAllItems();
-  //       const formattedItems: Item[] = res.data.map((item: any) => ({
-  //         id: item.id,
-  //         name: item.category,
-  //         image: `http://localhost:5001${item.imageUrl}`,
-  //         favorite: false,
-  //         category: item.category,
-  //       }));
-
-  //       setItems(formattedItems);
-  //     } catch (error) {
-  //       console.error('Error fetching items:', error);
-  //     }
-  //   };
-
-  //   fetchItems();
-  // }, []);
-
+  const prefixed = (url: string) => (url.startsWith('http') ? url : `http://localhost:5001${url}`);
 
   useEffect(() => {
-    const fetchItems = async () => {
+    const fetchItemsOnce = async () => {
       try {
         const res = await fetchAllItems();
         const formattedItems: Item[] = res.data.map((item: any) => ({
@@ -187,44 +156,16 @@ export default function ClosetPage() {
           layerCategory: item.layerCategory,
           tab: 'items',
         }));
-
-        // Only overwrite if response has items, OR no uploads happening
         if (formattedItems.length > 0 || queueLength === 0) {
           setItems(formattedItems);
         }
       } catch (error) {
         console.error('Error fetching items:', error);
+        setPopup({ open: true, message: 'Failed to load items.', variant: 'error' });
       }
     };
-
-    fetchItems();
-  }, [justFinished]);  // Refresh after upload finishes
-
-
-
-
-  // helper to prefix local uploads
-  const prefixed = (url: string) =>
-    url.startsWith('http') ? url : `http://localhost:5001${url}`;
-
-  // Fetch closet items
-  // useEffect(() => {
-  //   fetchAllItems()
-  //     .then(res => {
-  //       setItems(
-  //         res.data.map((i: ClosetApiItem) => ({
-  //           id: i.id,
-  //           name: i.category,
-  //           image: prefixed(i.imageUrl),
-  //           favorite: false,
-  //           category: i.category,
-  //           layerCategory: i.layerCategory,
-  //           tab: 'items',
-  //         }))
-  //       );
-  //     })
-  //     .catch(console.error);
-  // }, []);
+    fetchItemsOnce();
+  }, [justFinished, queueLength]);
 
   // Fetch saved outfits
   useEffect(() => {
@@ -232,14 +173,18 @@ export default function ClosetPage() {
       .then(raw => {
         const uiList: UIOutfit[] = raw.map(o => ({
           ...o,
-          favorite: false,  // start un‐favorited
+          favorite: false,
           tab: 'outfits',
         }));
         setOutfits(uiList);
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error(err);
+        setPopup({ open: true, message: 'Failed to load outfits.', variant: 'error' });
+      });
   }, []);
 
+  // Restore favourites from localStorage
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -248,7 +193,6 @@ export default function ClosetPage() {
     const parsedFavs: Item[] = JSON.parse(stored);
     setFavourites(parsedFavs);
 
-    // mark favourites in items
     setItems(prev =>
       prev.map(x => ({
         ...x,
@@ -256,7 +200,6 @@ export default function ClosetPage() {
       }))
     );
 
-    // mark favourites in outfits
     setOutfits(prev =>
       prev.map(o => ({
         ...o,
@@ -273,41 +216,30 @@ export default function ClosetPage() {
     }
   }, [showModal, showEditModal, previewImage]);
 
-
-
   const toggleFavorite = async (item: Item, originTab: 'items' | 'outfits') => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-
     const isFav = favourites.some(f => f.id === item.id && f.tab === originTab);
-
-
     const nextFavs = isFav
       ? favourites.filter(f => !(f.id === item.id && f.tab === originTab))
       : [...favourites, { ...item, favorite: true, tab: originTab }];
 
-
     setFavourites(nextFavs);
     localStorage.setItem(`closet-favs-${token}`, JSON.stringify(nextFavs));
 
-    setItems(prev =>
-      prev.map(i =>
-        i.id === item.id ? { ...i, favorite: !i.favorite } : i
-      )
-    );
+    setItems(prev => prev.map(i => (i.id === item.id ? { ...i, favorite: !i.favorite } : i)));
 
     try {
       await apiToggleFavourite(Number(item.id));
     } catch (err) {
       console.error('Server toggle failed', err);
-
       setFavourites(favourites);
       setItems(items);
       setOutfits(outfits);
+      setPopup({ open: true, message: 'Could not update favourite.', variant: 'error' });
     }
   };
-
 
   const handleSaveEdit = async () => {
     if (!itemToEdit) return;
@@ -332,21 +264,18 @@ export default function ClosetPage() {
           }),
         }
       );
-      // if (!res.ok) throw new Error(`Status ${res.status}`);
 
       if (!res.ok) {
-        // try to parse any JSON error message
         let errMsg = `Status ${res.status}`;
         try {
           const body = await res.json();
           errMsg += ` — ${JSON.stringify(body)}`;
-        } catch { }
+        } catch {}
         throw new Error(errMsg);
       }
 
       setShowEditSuccess(true);
 
-      // update local state…
       const updated = {
         ...itemToEdit,
         layerCategory: itemToEdit.layerCategory,
@@ -357,22 +286,20 @@ export default function ClosetPage() {
         style: editedStyle,
         material: editedMaterial,
       };
-      // for items & favourites
-      const itemUpdater = (arr: Item[]) => arr.map(i => i.id === updated.id ? updated : i);
 
-      // for outfits
+      const itemUpdater = (arr: Item[]) => arr.map(i => (i.id === updated.id ? updated : i));
       const outfitUpdater = (arr: UIOutfit[]) =>
-        arr.map(o => o.id === updated.id
-          ? {
-            ...o,  // preserve all the RecommendedOutfit fields plus favorite & tab
-            category: updated.category,
-            colorHex: updated.colorHex,
-            warmthRating: updated.warmthFactor,        // adapt field names if needed
-            waterproof: updated.waterproof,
-            overallStyle: updated.style,
-            // …etc…
-          }
-          : o
+        arr.map(o =>
+          o.id === updated.id
+            ? {
+                ...o,
+                category: updated.category,
+                colorHex: updated.colorHex,
+                warmthRating: updated.warmthFactor,
+                waterproof: updated.waterproof,
+                overallStyle: updated.style,
+              }
+            : o
         );
 
       if (itemToEdit.tab === 'items') {
@@ -382,10 +309,9 @@ export default function ClosetPage() {
       } else {
         setFavourites(itemUpdater(favourites));
       }
-
     } catch (err) {
-      console.error("Save failed", err);
-      alert("Could not save changes.");
+      console.error('Save failed', err);
+      setPopup({ open: true, message: 'Could not save changes.', variant: 'error' });
     } finally {
       setShowEditModal(false);
       setItemToEdit(null);
@@ -397,65 +323,236 @@ export default function ClosetPage() {
     setShowModal(true);
   };
 
+    // --- Axios-safe request helper (works with either axios or fetch responses) ---
+  type HttpResult<T = any> = { ok: boolean; status: number; data?: T };
 
-  const confirmRemove = async () => {
+  const request = async (url: string, init?: RequestInit): Promise<HttpResult> => {
+    try {
+      const res: any = await fetchWithAuth(url, init);
+
+      // If it's a Fetch Response
+      if (res && typeof res === 'object' && 'ok' in res && 'status' in res) {
+        let data: any = undefined;
+        try {
+          data = typeof res.json === 'function' ? await res.json() : undefined;
+        } catch {}
+        return { ok: !!res.ok, status: Number(res.status) || 0, data };
+      }
+
+      // If it's an AxiosResponse
+      const status = Number(res?.status) || 0;
+      return { ok: status >= 200 && status < 300, status, data: res?.data };
+    } catch (err: any) {
+      const status = Number(err?.response?.status) || 0;
+      return { ok: false, status, data: err?.response?.data };
+    }
+  };
+
+
+  // --- Helpers to strip from outfits & packing lists before deletion ---
+
+  
+  // Try to fetch all saved outfits from a few likely endpoints (some apps pluralize, some don't)
+const fetchSavedOutfits = async (): Promise<any[]> => {
+  const urls = [
+    'http://localhost:5001/api/outfits',
+    'http://localhost:5001/api/outfit',
+    'http://localhost:5001/api/outfit/saved',
+    'http://localhost:5001/api/outfits/saved',
+  ];
+  for (const u of urls) {
+    const r = await request(u, { method: 'GET' } as any);
+    if (r.ok && Array.isArray(r.data)) return r.data;
+    if (r.ok && Array.isArray((r.data as any)?.data)) return (r.data as any).data;
+  }
+  return [];
+};
+
+  const stripItemFromAllOutfits = async (closetItemId: string) => {
+    const outfits = await fetchSavedOutfits();
+    if (!outfits.length) return; // nothing to do
+
+    const usesItem = (o: any) =>
+      Array.isArray(o?.outfitItems) &&
+      o.outfitItems.some((it: any) => String(it.closetItemId) === String(closetItemId));
+
+    const patchUrls = (id: string) => [
+      `http://localhost:5001/api/outfits/${id}`,
+      `http://localhost:5001/api/outfit/${id}`,
+    ];
+    const deleteUrls = patchUrls; // same shapes
+
+    for (const o of outfits) {
+      if (!usesItem(o)) continue;
+
+      const kept = (o.outfitItems || []).filter(
+        (it: any) => String(it.closetItemId) !== String(closetItemId)
+      );
+
+      // 1) Try PATCH with array of ids
+      let patched = false;
+      for (const u of patchUrls(o.id)) {
+        const r = await request(u, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' } as any,
+          body: JSON.stringify({ outfitItems: kept.map((it: any) => it.closetItemId) }),
+        } as any);
+        if (r.ok) {
+          patched = true;
+          break;
+        }
+      }
+
+      // 2) If that didn’t work, try PATCH with array of objects
+      if (!patched) {
+        for (const u of patchUrls(o.id)) {
+          const r = await request(u, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' } as any,
+            body: JSON.stringify({ outfitItems: kept.map((it: any) => ({ closetItemId: it.closetItemId })) }),
+          } as any);
+          if (r.ok) {
+            patched = true;
+            break;
+          }
+        }
+      }
+
+      // 3) Last resort: delete the outfit entirely
+      if (!patched) {
+        for (const u of deleteUrls(o.id)) {
+          const r = await request(u, { method: 'DELETE' } as any);
+          if (r.ok || r.status === 404) {
+            // 404 = it's already gone; that's fine for our purposes
+            break;
+          }
+        }
+      }
+    }
+
+    // Extra nuke (optional): if your API supports directly deleting join rows, try a few common routes
+    const joinDeleteCandidates = [
+      `http://localhost:5001/api/outfit-items/by-closet/${closetItemId}`,
+      `http://localhost:5001/api/outfitItems/by-closet/${closetItemId}`,
+      `http://localhost:5001/api/outfitItem/by-closet/${closetItemId}`,
+    ];
+    for (const u of joinDeleteCandidates) {
+      const r = await request(u, { method: 'DELETE' } as any);
+      if (r.ok) break;
+    }
+  };
+
+
+    const stripItemFromAllPackingLists = async (closetItemId: string) => {
+    try {
+      const evts = await fetchAllEvents();
+      for (const ev of evts) {
+        try {
+          const list = await getPackingList(ev.id).catch(() => null);
+          if (!list?.id) continue;
+
+          const hasItem = Array.isArray(list.items) && list.items.some(
+            (r: any) => String(r.closetItemId) === String(closetItemId)
+          );
+          if (!hasItem) continue;
+
+          const items  = (list.items   || []).filter((r: any) => String(r.closetItemId) !== String(closetItemId)).map((r: any) => String(r.closetItemId));
+          const outfits = (list.outfits || []).map((r: any) => String(r.outfitId));
+          const others  = (list.others  || []).map((r: any) => String(r.label));
+
+          await deletePackingList(list.id).catch(() => {});
+          await createPackingList({ tripId: ev.id, items, outfits, others }).catch(() => {});
+        } catch {
+          // ignore and continue
+        }
+      }
+    } catch (err) {
+      console.error('stripItemFromAllPackingLists failed', err);
+    }
+  };
+
+
+    const confirmRemove = async () => {
     if (!itemToRemove) return;
-    const { id, tab } = itemToRemove;
+    const { id } = itemToRemove;
 
     try {
+      // Step 1: remove item from all outfits (robust & Axios-safe)
+      await stripItemFromAllOutfits(id);
+
+      // Step 2: remove from all packing lists
+      await stripItemFromAllPackingLists(id);
+
+      // Step 3: delete the closet item
       await deleteItem(id);
+
+      // Step 4: update local state
       setItems(prev => prev.filter(i => i.id !== id));
-      setOutfits(prev => prev.filter(o => o.id !== id));
       setFavourites(prev => prev.filter(f => f.id !== id));
+      setOutfits(prev =>
+        prev.map(o => ({
+          ...o,
+          outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)),
+        }))
+      );
+
+      setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
     } catch (err) {
-      console.error('Failed to delete item:', err);
-      alert('Delete failed. Try again.');
+      console.error('Failed to delete item (first attempt):', err);
+
+      // Hard fallback: try direct join-row nukes (in case some outfit ref slipped through)
+      const nukes = [
+        `http://localhost:5001/api/outfit-items/by-closet/${id}`,
+        `http://localhost:5001/api/outfitItems/by-closet/${id}`,
+        `http://localhost:5001/api/outfitItem/by-closet/${id}`,
+      ];
+      for (const u of nukes) {
+        await request(u, { method: 'DELETE' } as any);
+      }
+
+      // Retry the closet delete once
+      try {
+        await deleteItem(id);
+
+        setItems(prev => prev.filter(i => i.id !== id));
+        setFavourites(prev => prev.filter(f => f.id !== id));
+        setOutfits(prev =>
+          prev.map(o => ({
+            ...o,
+            outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)),
+          }))
+        );
+
+        setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
+      } catch (err2) {
+        console.error('Failed after final purge:', err2);
+        setPopup({ open: true, message: 'Delete failed. Try again.', variant: 'error' });
+      }
     } finally {
       setShowModal(false);
       setItemToRemove(null);
     }
   };
 
-
   const cancelRemove = () => {
     setShowModal(false);
     setItemToRemove(null);
   };
 
-  // Filter & search
   function getCurrentData() {
-    let data: any[] =
-      activeTab === 'items'
-        ? items
-        : activeTab === 'favourites'
-          ? favourites
-          : outfits;
-
-
+    let data: any[] = activeTab === 'items' ? items : activeTab === 'favourites' ? favourites : outfits;
     if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
     }
-    // Search by name
     if (searchQuery && activeTab !== 'outfits') {
-      data = data.filter(i =>
-        i.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      data = data.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
     return data;
   }
 
-  // Build list of categories for the active layer
-  const categoryOptions = layerFilter
-    ? CATEGORY_BY_LAYER[layerFilter] || []
-    : [];
-
-  // Tab bar categories lowercased except first letter
-  const titleCase = (s: string) =>
-    s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-
+  const categoryOptions = layerFilter ? CATEGORY_BY_LAYER[layerFilter] || [] : [];
 
   return (
-
     <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4">
       {/* Header Image Section */}
       <div
@@ -473,30 +570,25 @@ export default function ClosetPage() {
         <div className="px-6 py-2 border-2 border-white z-10">
           <h1
             className="text-2xl font-bodoni font-light text-center text-white"
-            style={{
-              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-            }}
+            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
           >
             MY CLOSET
           </h1>
         </div>
-
-
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
       <div className="max-w-screen-sm mx-auto px-4 pb-12">
         {/* Filters & Search */}
-        {/* Layer → Category Filters */}
         <div className="flex flex-wrap justify-center gap-4 my-4">
-          {/* Layer Selector */}
           <select
             value={layerFilter}
             onChange={e => {
               setLayerFilter(e.target.value);
               setActiveCategory(null);
             }}
-            className="px-4 py-2 border border-black text-black rounded-full"          >
+            className="px-4 py-2 border border-black text-black rounded-full"
+          >
             {LAYER_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -504,7 +596,6 @@ export default function ClosetPage() {
             ))}
           </select>
 
-          {/* Category Selector (only if a layer is chosen) */}
           <select
             value={activeCategory || ''}
             onChange={e => setActiveCategory(e.target.value || null)}
@@ -520,8 +611,6 @@ export default function ClosetPage() {
           </select>
         </div>
 
-
-
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" />
           <input
@@ -529,7 +618,6 @@ export default function ClosetPage() {
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search..."
             className="pl-10 pr-4 py-2 w-full border rounded-full"
-
           />
         </div>
 
@@ -541,146 +629,142 @@ export default function ClosetPage() {
               onClick={() => setActiveTab(tab)}
               className={
                 `px-4 py-2 border border-black text-black rounded-full transition ` +
-                (activeTab === tab
-                  ? 'bg-black text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100')
+                (activeTab === tab ? 'bg-black text-white' : 'bg-white text-gray-700 hover:bg-gray-100')
               }
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
-
         </div>
-
 
         {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
           {activeTab !== 'outfits'
-            ? /* ITEMS & FAVOURITES: one map with edit + heart + remove */
-            getCurrentData().map(item => (
-              <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
-
-                  <div className="flex-grow relative">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      onClick={() => setPreviewImage(item.image)}
-                      className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
-                    />
-
-                    <button
-                      onClick={() => {
-                        setItemToEdit({ ...item, tab: activeTab });
-                        setEditedCategory(item.category);
-                        setEditedColorHex(item.colorHex || '');
-                        setEditedWarmthFactor(item.warmthFactor || 0);
-                        setEditedWaterproof(item.waterproof || false);
-                        setEditedStyle(item.style || '');
-                        setEditedMaterial(item.material || '');
-                        setShowEditModal(true);
-                      }}
-                      className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
-                    >
-                      <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                    </button>
-
-                    <button
-                      onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
-                      className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
-                    >
-                      <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
-                    <button
-                      onClick={() =>
-                        toggleFavorite(
-                          item,
-                          activeTab === 'favourites'
-                            ? (favourites.find(f => f.id === item.id)!.tab as 'items' | 'outfits')
-                            : activeTab
-                        )
-                      }
-                    >
-                      <Heart
-                        className={`h-4 w-4 sm:h-5 sm:w-5 ${favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
-                          }`}
+            ? getCurrentData().map(item => (
+                <div key={item.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
+                  <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                    <div className="flex-grow relative">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        onClick={() => setPreviewImage(item.image)}
+                        className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
                       />
-                    </button>
+
+                      <button
+                        onClick={() => {
+                          setItemToEdit({ ...item, tab: activeTab });
+                          setEditedCategory(item.category);
+                          setEditedColorHex(item.colorHex || '');
+                          setEditedWarmthFactor(item.warmthFactor || 0);
+                          setEditedWaterproof(item.waterproof || false);
+                          setEditedStyle(item.style || '');
+                          setEditedMaterial(item.material || '');
+                          setShowEditModal(true);
+                        }}
+                        className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white rounded-full p-1 shadow z-10"
+                      >
+                        <Pen className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                      </button>
+
+                      <button
+                        onClick={() => handleRemoveClick(item.id, activeTab, item.name)}
+                        className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                      >
+                        <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
+                      <button
+                        onClick={() =>
+                          toggleFavorite(
+                            item,
+                            activeTab === 'favourites'
+                              ? (favourites.find(f => f.id === item.id)!.tab as 'items' | 'outfits')
+                              : activeTab
+                          )
+                        }
+                      >
+                        <Heart
+                          className={`h-4 w-4 sm:h-5 sm:w-5 ${
+                            favourites.some(f => f.id === item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-            : /* OUTFITS: one map over UIOutfit[] */
-            outfits.map(o => (
-              <div key={o.id} className="border rounded-lg p-2 bg-white">
-                <div className="space-y-1">
-                  {/* headwear + accessory */}
-                  <div
-                    className={`flex justify-center space-x-1 ${o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      ? ''
-                      : 'hidden'
+              ))
+            : outfits.map(o => (
+                <div key={o.id} className="border rounded-lg p-2 bg-white">
+                  <div className="space-y-1">
+                    {/* headwear + accessory */}
+                    <div
+                      className={`flex justify-center space-x-1 ${
+                        o.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? '' : 'hidden'
                       }`}
-                  >
-                    {o.outfitItems
-                      .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                    >
+                      {o.outfitItems
+                        .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            alt=""
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
 
-                  {/* tops */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                    {/* tops */}
+                    <div className="flex justify-center space-x-1">
+                      {o.outfitItems
+                        .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            alt=""
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
 
-                  {/* bottoms */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'base_bottom')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                  </div>
+                    {/* bottoms */}
+                    <div className="flex justify-center space-x-1">
+                      {o.outfitItems
+                        .filter(it => it.layerCategory === 'base_bottom')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            alt=""
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
 
-                  {/* footwear */}
-                  <div className="flex justify-center space-x-1">
-                    {o.outfitItems
-                      .filter(it => it.layerCategory === 'footwear')
-                      .map(it => (
-                        <img
-                          key={it.closetItemId}
-                          src={prefixed(it.imageUrl)}
-                          className="w-14 h-14 object-contain rounded"
-                        />
-                      ))}
+                    {/* footwear */}
+                    <div className="flex justify-center space-x-1">
+                      {o.outfitItems
+                        .filter(it => it.layerCategory === 'footwear')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={prefixed(it.imageUrl)}
+                            alt=""
+                            className="w-14 h-14 object-contain rounded"
+                          />
+                        ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
         </div>
 
-
         {/* Remove Confirmation */}
-         <AnimatePresence>
+        <AnimatePresence>
           {showModal && itemToRemove && (
             <motion.div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -712,7 +796,7 @@ export default function ClosetPage() {
         <AnimatePresence>
           {previewImage && (
             <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
-              <motion.img src={previewImage} className="max-w-3/4 max-h-3/4 object-contain" />
+              <motion.img src={previewImage} alt="" className="max-w-3/4 max-h-3/4 object-contain" />
               <button
                 onClick={() => setPreviewImage(null)}
                 className="absolute top-4 right-4 text-white bg-gray-800 p-2 rounded-full"
@@ -723,6 +807,7 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
+        {/* Edit Modal */}
         <AnimatePresence>
           {showEditModal && itemToEdit && (
             <motion.div
@@ -839,9 +924,7 @@ export default function ClosetPage() {
                         type="button"
                         onClick={() => setEditedColorHex(c.hex)}
                         className={`w-7 h-7 rounded-full border-2 transition 
-                  ${editedColorHex === c.hex
-                            ? "border-teal-500 scale-110 shadow-lg"
-                            : "border-gray-300"}`}
+                  ${editedColorHex === c.hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}`}
                         style={{ backgroundColor: c.hex }}
                       />
                     ))}
@@ -860,10 +943,6 @@ export default function ClosetPage() {
                     Cancel
                   </button>
                   <button
-                    // onClick={async () => {
-                    //   if (!itemToEdit) return;
-                    //   // … your PATCH logic here …
-                    // }}
                     onClick={handleSaveEdit}
                     className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
                   >
@@ -874,6 +953,8 @@ export default function ClosetPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* "Saved Successfully" popup (kept) */}
         {showEditSuccess && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
@@ -892,9 +973,25 @@ export default function ClosetPage() {
             </div>
           </div>
         )}
-
       </div>
+
+      {/* Global popup (same look & feel as Add/Calendar pages) */}
+      {popup.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
+            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              {popup.variant === 'success' ? '🎉 Success! 🎉' : '⚠️ Error'}
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">{popup.message}</p>
+            <button
+              onClick={() => setPopup(p => ({ ...p, open: false }))}
+              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
