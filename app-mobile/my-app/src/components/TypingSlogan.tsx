@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 
-const TypingSlogan: React.FC = () => {
-  const fullText = 'Style Your Everyday.';
-  const breakIndex = fullText.indexOf('Everyday.');
-  const typeSpeed = 100;
-  const deleteSpeed = 50;
-  const pauseDelay = 1500;
 
+
+const TypingSlogan: React.FC<TypingSloganProps> = ({
+  words = ['Style', 'Simple'],
+  highlightWord = 'Simple',
+  typeSpeed = 100,
+  deleteSpeed = 50,
+  pauseDelay = 2000,
+}) => {
   const [displayText, setDisplayText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);

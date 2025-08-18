@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/AddItem.css";
-import { useImage } from "../components/ImageContext"; // ⬅️ IMPORT CONTEXT
+import { useImage } from "../components/ImageContext"; 
 
 const AddItem = () => {
-  const { image: uploadedImage } = useImage(); // ⬅️ USE CONTEXT
+  const { image: uploadedImage } = useImage(); 
   const [name, setName] = useState("");
   const [type, setType] = useState("");
   const [color, setColor] = useState("");
@@ -64,7 +64,6 @@ const AddItem = () => {
       <div className="add-item-form">
         <div className="image-upload">
           <label className="upload-box">
-            {/* ✅ Show uploaded image from AddPage, fallback to local upload */}
             {uploadedImage || image ? (
               <img src={uploadedImage || image} alt="Preview" className="preview" />
             ) : (

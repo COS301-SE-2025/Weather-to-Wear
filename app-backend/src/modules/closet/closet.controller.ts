@@ -4,6 +4,7 @@ import { Style, Material, Category, LayerCategory } from '@prisma/client';
 import ClosetService from './closet.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import closetService from './closet.service';
+import { cdnUrlFor } from '../../utils/s3';
 
 class ClosetController {
   uploadImage = async (req: Request, res: Response, next: NextFunction) => {
@@ -15,7 +16,7 @@ class ClosetController {
       const file = req.file!;
       const category = req.body.category as Category;
       const { user } = req as AuthenticatedRequest;
-      if (!user || !user.id) {
+      if (!user?.id) {
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
@@ -30,14 +31,14 @@ class ClosetController {
         material: req.body.material as Material,
       };
 
-      const layerCategory = req.body.layerCategory as any;
+      const layerCategory = req.body.layerCategory as LayerCategory;
 
       const item = await ClosetService.saveImage(file, category, layerCategory, user.id, extras);
 
       res.status(201).json({
         id: item.id,
         category: item.category,
-        imageUrl: `/uploads/${item.filename}`,
+        imageUrl: cdnUrlFor(item.filename),
         createdAt: item.createdAt,
         colorHex: item.colorHex,
         warmthFactor: item.warmthFactor,
@@ -54,7 +55,7 @@ class ClosetController {
     try {
       const category = req.params.category as Category;
       const { user } = req as AuthenticatedRequest;
-      if (!user || !user.id) {
+      if (!user?.id) {
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
@@ -64,10 +65,10 @@ class ClosetController {
         items.map(i => ({
           id: i.id,
           category: i.category,
-          imageUrl: `/uploads/${i.filename}`,
+          imageUrl: cdnUrlFor(i.filename),
           createdAt: i.createdAt,
           colorHex: i.colorHex,
-          dominantColors: i.dominantColors ?? [], 
+          dominantColors: i.dominantColors ?? [],
           warmthFactor: i.warmthFactor,
           waterproof: i.waterproof,
           style: i.style,
@@ -75,71 +76,16 @@ class ClosetController {
           favourite: i.favourite,
         }))
       );
-
     } catch (err) {
       next(err);
     }
   };
 
-  // uploadImagesBatch = async (req: Request, res: Response, next: NextFunction) => { 
-  //   const { user } = req as AuthenticatedRequest;
-  //   if (!user || !user.id) {
-  //     res.status(401).json({ message: 'Unauthorized' });
-  //     return;
-  //   }
-  //   if (!req.files) {
-  //     res.status(400).json({ message: 'No files provided' });
-  //     return;
-  //   }
-  //   try {
-  //     const rawCat = (req.body.category as string || '').toUpperCase();
-  //     if (!Object.values(Category).includes(rawCat as Category)) {
-  //       res.status(400).json({ message: `Invalid category: ${rawCat}` });
-  //       return;
-  //     }
-  //     const category = rawCat as Category;
-  //     const files = req.files as Express.Multer.File[] | undefined;
-
-  //       const extras = {
-  //       colorHex:     req.body.colorHex,
-  //       warmthFactor: req.body.warmthFactor ? Number(req.body.warmthFactor) : undefined,
-  //       waterproof:   req.body.waterproof !== undefined
-  //         ? req.body.waterproof === 'true'
-  //         : undefined,
-  //       style: req.body.style as Style,
-  //       material: req.body.material as Material,
-  //     };
-
-  //     if (!files || files.length === 0) {
-  //       res.status(400).json({ message: 'No files provided' });
-  //       return;
-  //     }
-  //     const layerCategory = req.body.layerCategory as any; // For now, all files get same layerCategory
-  //     const items = await ClosetService.saveImagesBatch(files, category, layerCategory, user.id, extras);
-
-  //     res.status(201).json(
-  //       items.map(item => ({
-  //         id: item.id,
-  //         category: item.category,
-  //         imageUrl: `/uploads/${item.filename}`,
-  //         createdAt: item.createdAt,
-  //         colorHex: item.colorHex,
-  //         warmthFactor:item.warmthFactor,
-  //         waterproof: item.waterproof,
-  //         style: item.style,
-  //         material: item.material,
-  //       }))
-  //     );
-  //   } catch (err) {
-  //     next(err);
-  //   }
-  // };
-
   uploadImagesBatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { user } = req as AuthenticatedRequest;
     const files = req.files as Express.Multer.File[];
 
-    if (!user || !user.id) {
+    if (!user?.id) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
@@ -148,14 +94,16 @@ class ClosetController {
       const itemsJson = req.body.items;
       if (!itemsJson) {
         res.status(400).json({ message: 'Missing "items" field in body' });
+        return;
       }
 
       const parsed = JSON.parse(itemsJson);
       if (!Array.isArray(parsed)) {
         res.status(400).json({ message: '"items" must be a JSON array' });
+        return;
       }
 
-      const results = [];
+      const results: Array<any> = [];
 
       for (const item of parsed) {
         const {
@@ -166,7 +114,7 @@ class ClosetController {
           waterproof,
           style,
           material,
-          filename // refers to the key of the file
+          filename // refers to the key of the file field
         } = item;
 
         const file = files.find(f => f.fieldname === filename);
@@ -174,21 +122,6 @@ class ClosetController {
           res.status(400).json({ message: `Missing file for ${filename}` });
           return;
         }
-
-        // ! does not make use of background removal service
-        // const saved = await ClosetService.saveImageDirect(
-        //   file,
-        //   category,
-        //   layerCategory,
-        //   user.id,
-        //   {
-        //     colorHex,
-        //     warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
-        //     waterproof: waterproof !== undefined ? waterproof === true || waterproof === 'true' : undefined,
-        //     style,
-        //     material
-        //   }
-        // );
 
         const saved = await ClosetService.saveImage(
           file,
@@ -199,7 +132,7 @@ class ClosetController {
             colorHex,
             warmthFactor: warmthFactor !== undefined ? Number(warmthFactor) : undefined,
             waterproof: waterproof !== undefined
-              ? waterproof === true || waterproof === 'true'
+              ? (waterproof === true || waterproof === 'true')
               : undefined,
             style,
             material
@@ -209,7 +142,7 @@ class ClosetController {
         results.push({
           id: saved.id,
           category: saved.category,
-          imageUrl: `/uploads/${saved.filename}`,
+          imageUrl: cdnUrlFor(saved.filename),
           createdAt: saved.createdAt,
           colorHex: saved.colorHex,
           warmthFactor: saved.warmthFactor,
@@ -225,7 +158,6 @@ class ClosetController {
     }
   };
 
-
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     const { user } = req as AuthenticatedRequest;
     if (!user?.id) {
@@ -238,10 +170,11 @@ class ClosetController {
         items.map(i => ({
           id: i.id,
           category: i.category,
-          imageUrl: `/uploads/${i.filename}`,
+          layerCategory: i.layerCategory,
+          imageUrl: cdnUrlFor(i.filename),
           createdAt: i.createdAt,
           colorHex: i.colorHex,
-          dominantColors: i.dominantColors ?? [], 
+          dominantColors: i.dominantColors ?? [],
           warmthFactor: i.warmthFactor,
           waterproof: i.waterproof,
           style: i.style,
@@ -310,7 +243,8 @@ class ClosetController {
       res.status(200).json({
         id: updated.id,
         category: updated.category,
-        imageUrl: `/uploads/${updated.filename}`,
+        // imageUrl: `/uploads/${updated.filename}`,
+        imageUrl: cdnUrlFor(updated.filename),
         createdAt: updated.createdAt,
         colorHex: updated.colorHex,
         warmthFactor: updated.warmthFactor,

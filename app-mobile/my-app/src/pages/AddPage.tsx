@@ -4,6 +4,7 @@ import { useImage } from "../components/ImageContext";
 import { Camera, Upload, Loader } from "lucide-react";
 import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from "../context/UploadQueueContext";
+import { API_BASE } from '../config';
 
 
 
@@ -327,7 +328,7 @@ const AddPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12 -mt-10">
       {/* Header */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 mb-6"
@@ -479,22 +480,6 @@ const AddPage: React.FC = () => {
                   </label>
                 </div>
 
-                {/* Color */}
-                <div className="flex flex-wrap gap-1 w-1/2">
-                  {COLOR_PALETTE.map(({ hex, label }) => (
-                    <button
-                      key={hex}
-                      title={label}
-                      type="button"
-                      className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition
-                      ${color === hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}
-                    `}
-                      style={{ backgroundColor: hex }}
-                      onClick={() => setColor(hex)}
-                    />
-                  ))}
-
-                </div>
               </div>
 
 
@@ -645,23 +630,7 @@ const AddPage: React.FC = () => {
                   <label className="text-sm text-black dark:text-gray-200 font-semibold">
                     Waterproof
                   </label>
-                </div>
-
-                {/* Color */}
-                <div className="flex flex-wrap gap-1 w-1/2">
-                  {COLOR_PALETTE.map(({ hex, label }) => (
-                    <button
-                      key={hex}
-                      title={label}
-                      type="button"
-                      className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition
-                            ${color === hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}
-                          `}
-                      style={{ backgroundColor: hex }}
-                      onClick={() => setColor(hex)}
-                    />
-                  ))}
-                </div>
+                </div>     
               </div>
 
               <button
@@ -809,25 +778,6 @@ const AddPage: React.FC = () => {
                     />
                     <label className="text-sm font-semibold">Waterproof</label>
                   </div>
-
-                  <div className="flex gap-1 flex-wrap">
-                    {COLOR_PALETTE.map(({ hex, label }) => (
-                      <button
-                        key={hex}
-                        title={label}
-                        type="button"
-                        className={`w-6 h-6 rounded-full border-2 ${batchItems[currentIndex].colorHex === hex ? "border-teal-500 scale-110 shadow" : "border-gray-300"}`}
-                        style={{ backgroundColor: hex }}
-                        onClick={() => {
-                          setBatchItems(items => {
-                            const updated = [...items];
-                            updated[currentIndex].colorHex = hex;
-                            return updated;
-                          });
-                        }}
-                      />
-                    ))}
-                  </div>
                 </div>
               </div>
 
@@ -867,43 +817,6 @@ const AddPage: React.FC = () => {
                 </div>
               </div>
 
-              {/*  The folllowing is background removal for batch uploads, keep it for later */}
-
-              {/* <button
-                className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
-                onClick={() => {
-                  const hasMissingFields = batchItems.some(
-                    (item) => !item.layerCategory || !item.category
-                  );
-                  if (hasMissingFields) {
-                    alert("Please select layer and category for all items.");
-                    return;
-                  }
-
-                  batchItems.forEach((item) => {
-                    const formData = new FormData();
-                    formData.append("image", item.file, "upload.png");
-                    formData.append("layerCategory", item.layerCategory);
-                    formData.append("category", item.category);
-                    if (item.style) formData.append("style", item.style);
-                    if (item.material) formData.append("material", item.material);
-                    formData.append("warmthFactor", item.warmthFactor.toString());
-                    formData.append("waterproof", item.waterproof.toString());
-                    if (item.colorHex) formData.append("colorHex", item.colorHex);
-
-                    addToQueue(formData);
-                  });
-
-                  setBatchItems([]);
-                  setCurrentIndex(0);
-                  setShowQueueToast(true);
-                  setTimeout(() => setShowQueueToast(false), 3000);
-                }}
-              >
-                Submit All
-              </button> */}
-
-
               <button
                 className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
                 onClick={async () => {
@@ -928,7 +841,7 @@ const AddPage: React.FC = () => {
                     console.log("Uploading batch items:", batchItems);
                     console.log("Sending metadata:", JSON.stringify(itemsMeta));
 
-                    const res = await fetchWithAuth("http://localhost:5001/api/closet/upload/batch", {
+                    const res = await fetchWithAuth(`${API_BASE}/api/closet/upload/batch`, {
                       method: "POST",
                       body: formData,
                       headers: {

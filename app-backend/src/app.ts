@@ -1,4 +1,5 @@
-import express from 'express';
+// src/app.ts
+import express, { type RequestHandler } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
@@ -11,15 +12,18 @@ import eventsRoutes from './modules/events/events.route';
 import outfitRoutes from './modules/outfit/outfit.routes';
 import socialRoutes from './modules/social/social.route';
 import packingRoutes from './modules/packing/packing.route';
+import usersRoutes from './modules/users/users.routes';
+import fs from 'fs';
 
 dotenv.config();
 const app = express();
 
 app.use(cors());
-
 app.use(express.json());
 
+// serve uploaded images
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.use('/api/auth', authRoutes);
@@ -30,6 +34,22 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/outfits', outfitRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/packing', packingRoutes);
+app.use('/api/users', usersRoutes);
+
+// health check
+const healthz: RequestHandler = (_req, res) => {
+  res.status(200).json({ ok: true });
+};
+app.get('/healthz', healthz);
+
+// global error handler (JSON)
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  const status = typeof err?.status === 'number' ? err.status : 500;
+  res.status(status).json({
+    message: err?.message ?? 'Internal Server Error',
+  });
+});
 
 
 export default app;

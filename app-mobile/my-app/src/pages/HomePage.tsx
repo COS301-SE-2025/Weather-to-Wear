@@ -1,25 +1,36 @@
 // src/pages/HomePage.tsx
-
-import { useState, useEffect } from 'react';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
+import { Plus, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
-import { useWeather } from '../hooks/useWeather';
+import StarRating from '../components/StarRating';
+import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
+
+import {
+  fetchRecommendedOutfits,
+  RecommendedOutfit,
+  SaveOutfitPayload,
+  createOutfit,
+  updateOutfit,
+} from '../services/outfitApi';
+
 import {
   fetchAllEvents,
   createEvent,
   updateEvent,
   deleteEvent,
-  type EventDto,
+  type Event,
 } from '../services/eventsApi';
-import {
-  fetchRecommendedOutfits,
-  createOutfit,
-  type RecommendedOutfit,
-} from '../services/outfitApi';
-import StarRating from '../components/StarRating';
 
+import { useWeatherQuery, type WeatherData, type WeatherSummary } from '../hooks/useWeatherQuery';
+import { useOutfitsQuery } from '../hooks/useOutfitsQuery';
+import { queryClient } from '../queryClient';
+import { useQuery } from '@tanstack/react-query';
+
+// ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
@@ -84,7 +95,7 @@ const TypingSlogan = () => {
     const speed = isDeleting ? 60 : 120;
     const timer = setTimeout(handleTyping, speed);
     return () => clearTimeout(timer);
-  }, [index, isDeleting]);
+  }, [index, isDeleting, slogan]);
 
   const beforeTeal = displayText.slice(0, Math.min(tealStart, displayText.length));
   const tealVisibleLength =
@@ -92,7 +103,8 @@ const TypingSlogan = () => {
   const tealPart = tealWord.slice(0, tealVisibleLength);
 
   return (
-    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-left w-full">
+    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-center lg:text-left w-full">
+
       {beforeTeal}
       <span className="text-[#3F978F]">{tealPart}</span>
       <span className="animate-pulse">|</span>
@@ -100,13 +112,15 @@ const TypingSlogan = () => {
   );
 };
 
+// ---------- HomePage ----------
 export default function HomePage() {
-  const { weather, setCity } = useWeather();
+  // Persist user-selected city as a small piece of UI state (not part of query cache)
+  const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
+  const [cityInput, setCityInput] = useState<string>('');
+  const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
 
-  // user
+  // Other UI state
   const [username, setUsername] = useState<string | null>(null);
-
-  // events
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [newEvent, setNewEvent] = useState({
@@ -114,28 +128,15 @@ export default function HomePage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: 'Casual' as Style,
+    style: 'CASUAL',
   });
 
-  // outfits
-  const [outfits, setOutfits] = useState<RecommendedOutfit[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loadingOutfits, setLoadingOutfits] = useState(false);
-  const [outfitError, setOutfitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [detailOutfit, setDetailOutfit] = useState<RecommendedOutfit | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-
-  // Style dropdown state
-  const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
-
-  // store ratings
+  const [outfitIdMap, setOutfitIdMap] = useState<Record<string, string>>({});
   const [ratings, setRatings] = useState<Record<string, number>>({});
-
   const [isEditing, setIsEditing] = useState(false);
   const [editEventData, setEditEventData] = useState({
     id: '',
@@ -143,9 +144,43 @@ export default function HomePage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: 'Casual' as Style,
+    style: '',
   });
 
+  // ---------- Weather (React Query) ----------
+  const weatherQuery = useWeatherQuery(city);
+  const weather: WeatherData | null = weatherQuery.data ?? null;
+  const loadingWeather = weatherQuery.isLoading || weatherQuery.isFetching;
+
+  // ---------- Outfits (React Query) ----------
+  const outfitsQuery = useOutfitsQuery(weather?.summary, selectedStyle);
+  // const outfits = outfitsQuery.data ?? [];
+  const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
+  const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
+
+  // One combined error message (optional)
+  const error =
+    (weatherQuery.isError && 'Failed to fetch weather data.') ||
+    (outfitsQuery.isError && 'Could not load outfit recommendations.') ||
+    null;
+
+  // ---------- City enter/refresh handlers ----------
+  const handleEnterCity = () => {
+    const next = cityInput.trim();
+    setCity(next);
+    localStorage.setItem('selectedCity', next);
+    setCityInput('');
+    // Explicitly refresh both queries for the new city
+    queryClient.invalidateQueries({ queryKey: ['weather'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  };
+
+  const handleRefresh = () => {
+    // Manual refresh only (no auto refetch on navigation)
+    queryClient.invalidateQueries({ queryKey: ['weather'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  };
+      
   const handleCreateEvent = async () => {
     if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
       alert('Please fill in name, style, and both dates.');
@@ -168,86 +203,79 @@ export default function HomePage() {
       const msg = err?.response?.data?.message || 'Failed to create event';
       alert(msg);
     }
-  };
+   };
 
+  // ---------- Boot-up effects (unchanged-ish) ----------
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
       try {
         setUsername(JSON.parse(stored).name);
-      } catch {}
+      } catch {
+        /* noop */
+      }
     }
   }, []);
-
-  useEffect(() => {
-    if (!weather) return;
-    const { avgTemp, minTemp, maxTemp, willRain, mainCondition } = weather.summary;
-    setLoadingOutfits(true);
-
-    fetchRecommendedOutfits({ avgTemp, minTemp, maxTemp, willRain, mainCondition }, selectedStyle)
-      .then(recs => {
-        setOutfits(recs);
-        setOutfitError(null);
-      })
-      .catch(err => {
-        console.error('Outfit fetch failed', err);
-        setOutfitError('Could not load outfit recommendations.');
-      })
-      .finally(() => setLoadingOutfits(false));
-  }, [weather, selectedStyle]);
 
   useEffect(() => {
     fetchAllEvents()
-      .then(fetched => setEvents(fetched.map(toEvent)))
-      .catch(err => {
-        console.error('Error loading events on mount:', err);
-      });
+      .then(fetched => setEvents(fetched))
+      .catch(err => console.error('Error loading events on mount:', err));
   }, []);
 
-  useEffect(() => {
-    if (!selectedEvent) return;
-
-    // seed edit state
-    setIsEditing(false);
-    setEditEventData({
-      id: selectedEvent.id,
-      name: selectedEvent.name,
-      location: selectedEvent.location,
-      dateFrom: selectedEvent.dateFrom.slice(0, 16), // for datetime-local
-      dateTo: selectedEvent.dateTo.slice(0, 16),
-      style: (selectedEvent.style as Style) || 'Casual',
-    });
-
-    // fetch detail outfit for selected event
-    let days: { date: string; summary: any }[] = [];
+  // ---------- Event modal: outfit recommendation with caching ----------
+  // Build the "today" summary from selectedEvent.weather if available
+  const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
+    if (!selectedEvent?.weather) return undefined;
     try {
-      days = selectedEvent.weather ? JSON.parse(selectedEvent.weather) : [];
+      const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
+      return days[0]?.summary
+        ? {
+          avgTemp: days[0].summary.avgTemp,
+          minTemp: days[0].summary.minTemp,
+          maxTemp: days[0].summary.maxTemp,
+          willRain: days[0].summary.willRain,
+          mainCondition: days[0].summary.mainCondition,
+        }
+        : undefined;
     } catch {
-      days = [];
+      return undefined;
     }
-    const today = days[0]?.summary;
-    if (!today) return;
-
-    setDetailLoading(true);
-    fetchRecommendedOutfits(
-      {
-        avgTemp: today.avgTemp,
-        minTemp: today.minTemp,
-        maxTemp: today.maxTemp,
-        willRain: today.willRain,
-        mainCondition: today.mainCondition,
-      },
-      selectedEvent.style!,
-      selectedEvent.id
-    )
-      .then(recs => {
-        setDetailOutfit(recs[0] ?? null);
-        setDetailError(null);
-      })
-      .catch(() => setDetailError('Could not load outfit recommendation.'))
-      .finally(() => setDetailLoading(false));
   }, [selectedEvent]);
 
+  const eventOutfitQuery = useQuery({
+    queryKey: [
+      'event-outfit',
+      selectedEvent?.id || 'no-event',
+      selectedEvent?.style || 'Casual',
+      selectedEventTodaySummary
+        ? JSON.stringify({
+          a: Math.round(selectedEventTodaySummary.avgTemp),
+          i: Math.round(selectedEventTodaySummary.minTemp),
+          x: Math.round(selectedEventTodaySummary.maxTemp),
+          r: selectedEventTodaySummary.willRain,
+          m: selectedEventTodaySummary.mainCondition,
+        })
+        : 'no-summary',
+    ],
+    enabled: Boolean(selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
+    queryFn: async () => {
+      const recs = await fetchRecommendedOutfits(
+        selectedEventTodaySummary!,
+        selectedEvent!.style!,
+        selectedEvent!.id,
+      );
+      return recs[0] ?? null;
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const detailOutfit = eventOutfitQuery.data ?? null;
+  const detailLoading = eventOutfitQuery.isLoading || eventOutfitQuery.isFetching;
+  const detailError = eventOutfitQuery.isError ? 'Could not load outfit recommendation.' : null;
+
+  // Keep edit form in sync when event changes
   useEffect(() => {
     const isWithin3Days = (d: Date) => {
       const now = new Date();
@@ -287,42 +315,49 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, [events]);
 
+  // ---------- Rating save ----------
   const handleSaveRating = async (rating: number) => {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
 
-    const payload = {
-      outfitItems: outfit.outfitItems.map(i => ({
-        closetItemId: i.closetItemId,
-        layerCategory: i.layerCategory,
-        sortOrder: 0,
-      })),
-      warmthRating: outfit.warmthRating,
-      waterproof: outfit.waterproof,
-      overallStyle: outfit.overallStyle,
-      weatherSummary: JSON.stringify({
-        temperature: outfit.weatherSummary.avgTemp,
-        condition: outfit.weatherSummary.mainCondition,
-      }),
-      userRating: rating,
-    };
 
+    const key = getOutfitKey(outfit);
     setSaving(true);
     try {
-      await createOutfit(payload);
-      const key = getOutfitKey(outfit);
+      if (outfitIdMap[key]) {
+        await updateOutfit(outfitIdMap[key], { userRating: rating });
+      } else {
+        const payload: SaveOutfitPayload = {
+          outfitItems: outfit.outfitItems.map(i => ({
+            closetItemId: i.closetItemId,
+            layerCategory: i.layerCategory,
+            sortOrder: 0,
+          })),
+          warmthRating: outfit.warmthRating,
+          waterproof: outfit.waterproof,
+          overallStyle: outfit.overallStyle,
+          weatherSummary: JSON.stringify({
+            temperature: outfit.weatherSummary.avgTemp,
+            condition: outfit.weatherSummary.mainCondition,
+          }),
+          userRating: rating,
+        };
+        const created = await createOutfit(payload);
+        setOutfitIdMap(prev => ({ ...prev, [key]: created.id }));
+      }
       setRatings(prev => ({ ...prev, [key]: rating }));
     } catch (err) {
-      console.error('Save failed', err);
+      console.error('Save failed:', err);
       alert('Failed to save your rating.');
     } finally {
       setSaving(false);
     }
   };
 
+  // ---------- Render ----------
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
-      {/* Hero */}
+      {/* Hero Background */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
         style={{
@@ -343,11 +378,11 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      {/* Main */}
+      {/* Main Sections */}
       <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 justify-between">
           {/* Typing Slogan */}
-          <div className="flex-1 flex flex-col items-start justify-center">
+          <div className="flex-1 flex flex-col items-center lg:items-start justify-center">
             <TypingSlogan />
           </div>
 
@@ -359,8 +394,7 @@ export default function HomePage() {
               </div>
 
               {loadingOutfits && <p>Loading outfits…</p>}
-              {outfitError && <p className="text-red-500">{outfitError}</p>}
-
+              {error && !loadingOutfits && <p className="text-red-500">{error}</p>}
               {!loadingOutfits && outfits.length === 0 && (
                 <p className="text-center text-gray-500 dark:text-gray-400">
                   Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
@@ -378,7 +412,11 @@ export default function HomePage() {
                 <select
                   id="style-select"
                   value={selectedStyle}
-                  onChange={e => setSelectedStyle(e.target.value)}
+                  onChange={e => {
+                    setSelectedStyle(e.target.value);
+                    // Recompute outfits for new style
+                    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                  }}
                   className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
                 >
                   <option value="Formal">Formal</option>
@@ -414,13 +452,14 @@ export default function HomePage() {
                   <div className="mb-4 space-y-2">
                     {/* headwear/accessory */}
                     <div
-                      className={`flex justify-center space-x-2 transition-all ${
-                        outfits[currentIndex].outfitItems.some(
-                          i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
-                        )
+                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                        i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
+                      )
+
                           ? 'h-auto'
                           : 'h-0 overflow-hidden'
-                      }`}
+
+                        }`}
                     >
                       {outfits[currentIndex].outfitItems
                         .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
@@ -430,7 +469,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -445,7 +485,7 @@ export default function HomePage() {
                           i =>
                             i.layerCategory === 'base_top' ||
                             i.layerCategory === 'mid_top' ||
-                            i.layerCategory === 'outerwear'
+                            i.layerCategory === 'outerwear',
                         )
                         .map(item => (
                           <img
@@ -453,7 +493,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -471,7 +512,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-32 h-32 object-contain rounded-2xl"
@@ -489,7 +531,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
                             className="w-28 h-28 object-contain rounded-2xl"
@@ -498,11 +541,21 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <StarRating
-                    disabled={saving}
-                    onSelect={handleSaveRating}
-                    value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                  />
+                  <div className="flex items-center justify-center gap-2">
+                    <StarRating
+                      disabled={saving}
+                      onSelect={handleSaveRating}
+                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                    />
+                    <button
+                      onClick={handleRefresh}
+                      className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
+                      aria-label="Refresh recommendations"
+                      title="Refresh recommendations"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -511,46 +564,52 @@ export default function HomePage() {
           {/* Weather Section */}
           <div className="flex-1 flex flex-col items-center">
             <div className="w-full max-w-[280px]">
-              <div className="flex flex-col gap-4">
-                {weather && (
-                  <>
-                    <WeatherDisplay weather={weather} setCity={setCity} />
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Select City"
-                        className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            setCity((e.target as HTMLInputElement).value.trim());
-                          }
-                        }}
-                      />
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </div>
-
-                    <HourlyForecast forecast={weather.forecast} />
-                  </>
-                )}
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Select City"
+                    value={cityInput}
+                    onChange={e => setCityInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleEnterCity();
+                    }}
+                    className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
+                  />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
               </div>
+
+              {loadingWeather ? (
+                <p>Loading weather…</p>
+              ) : error && !weather ? (
+                <p className="text-red-500">{error}</p>
+              ) : weather ? (
+                <>
+                  <WeatherDisplay weather={weather} setCity={setCity} />
+                  <HourlyForecast forecast={weather.forecast} />
+                </>
+              ) : (
+                <p>No weather data available.</p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Upcoming Events (non-trips) */}
+        {/* Events Section */}
         <div className="w-full mt-6">
           <div className="max-w-4xl mx-auto px-4">
             <div className="flex items-center justify-center mb-4 space-x-4">
@@ -630,9 +689,7 @@ export default function HomePage() {
             <button className="absolute top-4 right-4 text-xl" onClick={() => setShowModal(false)}>
               ×
             </button>
-
             <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
-
             <div className="space-y-3 flex-grow">
               <input
                 className="w-full p-2 border rounded"
@@ -672,14 +729,56 @@ export default function HomePage() {
                 <option value="Outdoor">Outdoor</option>
               </select>
             </div>
-
             <div className="mt-4 flex justify-end space-x-2">
               <button className="px-4 py-2 rounded-full border border-black" onClick={() => setShowModal(false)}>
                 Cancel
               </button>
               <button
                 className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
-                onClick={handleCreateEvent}
+
+                // ! Merge Potential change 
+                //onClick={handleCreateEvent}
+                // ! Merge start
+                onClick={async () => {
+                  if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
+                    alert('Please fill in name, style, and both dates.');
+                    return;
+                  }
+                  try {
+                    const created = await createEvent({
+                      name: newEvent.name,
+                      location: newEvent.location,
+                      style: newEvent.style,
+                      dateFrom: new Date(newEvent.dateFrom).toISOString(),
+                      dateTo: new Date(newEvent.dateTo).toISOString(),
+                    });
+
+                    // Pre-warm event outfit recs for each day if weather exists
+                    if (created.weather) {
+                      let days: { date: string; summary: WeatherSummary }[] = [];
+                      try {
+                        days = JSON.parse(created.weather);
+                      } catch {
+                        days = [];
+                      }
+                      for (const { summary } of days) {
+                        try {
+                          await fetchRecommendedOutfits(summary, created.style, created.id);
+                        } catch (err) {
+                          console.error(`Failed to fetch outfits for event day:`, err);
+                        }
+                      }
+                    }
+
+                    setEvents((evt: Event[]) => [...evt, created]);
+                    setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
+                    setShowModal(false);
+                  } catch (err: any) {
+                    const msg = err.response?.data?.message || 'Failed to create event';
+                    alert(msg);
+                  }
+                }}
+                // ! Merge stop
               >
                 Save
               </button>
@@ -695,7 +794,6 @@ export default function HomePage() {
             <button className="absolute top-4 right-4 text-xl" onClick={() => setShowDetailModal(false)}>
               ×
             </button>
-
             <h2 className="text-2xl mb-4 font-livvic">
               {selectedEvent.name.charAt(0).toUpperCase() + selectedEvent.name.slice(1).toLowerCase()}
             </h2>
@@ -727,7 +825,12 @@ export default function HomePage() {
                 <select
                   className="w-full p-2 border rounded"
                   value={editEventData.style}
-                  onChange={e => setEditEventData(d => ({ ...d, style: e.target.value as Style }))}
+
+                  // ! Merge Taylor
+                  //onChange={e => setEditEventData(d => ({ ...d, style: e.target.value as Style }))}
+
+                  // ! Merge Diya
+                  onChange={e => setEditEventData(d => ({ ...d, style: e.target.value }))}
                 >
                   <option value="">Select style</option>
                   <option value="Formal">Formal</option>
@@ -758,7 +861,6 @@ export default function HomePage() {
                     </p>
                   );
                 })()}
-
                 <p className="text-sm mb-4">
                   <strong>Where:</strong> {selectedEvent.location}
                 </p>
@@ -777,13 +879,15 @@ export default function HomePage() {
                         {sums.map(({ date, summary }) =>
                           summary ? (
                             <div key={date}>
-                              <span className="font-medium">{date}:</span> {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
+                              <span className="font-medium">{date}:</span> {summary.mainCondition} —{' '}
+                              {Math.round(summary.avgTemp)}°C
                             </div>
                           ) : (
                             <div key={date}>
-                              <span className="font-medium">{date}:</span> <span className="text-red-400">No data</span>
+                              <span className="font-medium">{date}:</span>{' '}
+                              <span className="text-red-400">No data</span>
                             </div>
-                          )
+                          ),
                         )}
                       </div>
                     );
@@ -802,7 +906,8 @@ export default function HomePage() {
                             src={
                               item.imageUrl.startsWith('http')
                                 ? item.imageUrl
-                                : `http://localhost:5001${item.imageUrl}`
+                                // : `${API_BASE}${item.imageUrl}`
+                                : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"
@@ -826,6 +931,7 @@ export default function HomePage() {
                   </button>
                   <button
                     onClick={async () => {
+                      // ! Merge Taylor
                       try {
                         const updatedDto = await updateEvent({
                           id: editEventData.id,
@@ -844,6 +950,18 @@ export default function HomePage() {
                         console.error('update failed', err);
                         alert('Failed to update event');
                       }
+                      // ! Merge Diya
+//                      const updated = await updateEvent({
+//                        id: editEventData.id,
+//                        name: editEventData.name,
+//                        location: editEventData.location,
+//                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
+//                        dateTo: new Date(editEventData.dateTo).toISOString(),
+//                        style: editEventData.style,
+//                      });
+//                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
+//                      setSelectedEvent(updated);
+//                      setIsEditing(false);
                     }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
@@ -859,7 +977,10 @@ export default function HomePage() {
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
                       await deleteEvent(selectedEvent.id);
+                      // ! Merge Taylor
                       setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
+                      // ! Merge Diya
+                      // setEvents((evts: Event[]) => evts.filter((e: Event) => e.id !== selectedEvent.id));
                       setShowDetailModal(false);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"

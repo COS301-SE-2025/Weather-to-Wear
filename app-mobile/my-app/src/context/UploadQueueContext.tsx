@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { fetchWithAuth } from "../services/fetchWithAuth";
+import { API_BASE } from '../config';
 
 interface UploadQueueContextProps {
     addToQueue: (formData: FormData) => void;
@@ -47,7 +48,7 @@ export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const token = localStorage.getItem("token");
 
             try {
-                await fetchWithAuth("http://localhost:5001/api/closet/upload", {
+                await fetchWithAuth(`${API_BASE}/api/closet/upload`, {
                     method: "POST",
                     body: next,
                     headers: { Authorization: `Bearer ${token}` },

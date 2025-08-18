@@ -1,0 +1,66 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "app-mobile/my-app/**"
+      - ".github/workflows/deploy-frontend.yml"
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read    # actions/checkout
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      FRONTEND_BUCKET: ${{ secrets.FRONTEND_BUCKET }}
+      CF_DIST_ID: ${{ secrets.CF_DIST_ID }}
+      # Uncomment when backend is live or set at repo level:
+      # REACT_APP_API_BASE: ${{ secrets.REACT_APP_API_BASE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: app-mobile/my-app/package-lock.json
+
+      - name: Install deps
+        working-directory: app-mobile/my-app
+        run: npm ci
+
+      - name: Build
+        working-directory: app-mobile/my-app
+        env:
+          # This will be empty until you set the secret, which is fine (frontend falls back to localhost)
+          REACT_APP_API_BASE: ${{ secrets.REACT_APP_API_BASE }}
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload static assets (long cache, exclude HTML)
+        run: |
+          aws s3 sync app-mobile/my-app/build "s3://${FRONTEND_BUCKET}" --delete \
+            --exclude "*.html" \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Upload HTML (no-cache so clients pick up new deploy)
+        run: |
+          aws s3 cp app-mobile/my-app/build "s3://${FRONTEND_BUCKET}" --recursive \
+            --exclude "*" --include "*.html" \
+            --cache-control "no-cache" --metadata-directive REPLACE
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation --distribution-id "${CF_DIST_ID}" --paths "/*"

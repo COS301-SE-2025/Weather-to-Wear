@@ -1,6 +1,7 @@
 import { PrismaClient, User } from '@prisma/client';
 import { comparePasswords, hashPassword } from './auth.utils';
-import prisma from "../../../src/prisma";
+// import prisma from "../../../src/prisma";
+import prisma from '../../prisma';
 
 
 export async function registerUser(name: string, email: string, password: string): Promise<User> {
