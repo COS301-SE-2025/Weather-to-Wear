@@ -48,16 +48,17 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification Document](https://drive.google.com/file/d/1U083rgOyIj0SYvtvvNEAVmJ_hiqZszTE/view?usp=sharing)     | Details on project requirements            |
 | [Architectural Requirements Document]()             | System design overview                     |
-| [Architectural Diagram]()             | Architectural diagram overview                    |
-| [Coding Standards Document](https://drive.google.com/file/d/1_yjDHoS6eFgJY8mGr--BF-Pr5BFLPgXY/view?usp=sharing)           |  Guidelines for writing code      |
+| [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
+| [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
 | [User Manual]()           |  Guidelines for using Weather To Wear      |
-| [Use-Case Diagrams](https://drive.google.com/file/d/1J8guwOLnyf0yeS8Seb1SW4_17_MRY2PO/view?usp=sharing)                   | Use Case Diagrams               |
+| [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
+| [Deployment Model]()                   | Description of Deployment Model                |
+| [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
+| [Software Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
+| [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
-| [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
-| [Deployment Diagram]()                   | Plan for project deployment                |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
 
@@ -69,7 +70,8 @@ while expressing their unique fashion sense.
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
 | Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
-| Demo 2 | [Demo 2 Video]() | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
+| Demo 2 | [Demo 2 Video](https://drive.google.com/file/d/1KGmEKBSlrwvg-jyh0UD6E8v92oZqQfoY/view?usp=sharing) | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
+| Demo 3 | [Demo 3 Video]() | [Demo 3 Slides]() |
 
 
 </div>
