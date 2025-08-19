@@ -10,19 +10,20 @@ export interface WeatherSummary {
 
 export interface RecommendOutfitsRequest {
   weatherSummary: WeatherSummary;
-  style?: string;      // Optional (e.g., "Formal", "Casual", etc.)
-  eventId?: string;    // Optional
+  style?: string;      
+  eventId?: string;    // the two are optional
 }
 
 export interface OutfitItemRecommendation {
   closetItemId: string;
-  imageUrl: string; // URL to the item's image
+  imageUrl: string; 
   layerCategory: string;
   category: string;
   style?: string;
   colorHex?: string;
   warmthFactor?: number;
   waterproof?: boolean;
+  dominantColors?: string[];
 }
 
 export interface OutfitRecommendation {

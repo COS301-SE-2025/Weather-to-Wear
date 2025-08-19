@@ -7,16 +7,38 @@ import {
   deleteOutfit,
   getItemsForOutfit,
   addItemToOutfit,
-  removeItemFromOutfit
+  removeItemFromOutfit,
+  toggleFavourite,
 
 } from './outfit.service';
-
 import { recommendOutfits } from './outfitRecommender.service';
 import { RecommendOutfitsRequest } from './outfit.types';
-
 import { AuthenticatedRequest } from '../auth/auth.middleware';
-
 import { OverallStyle, LayerCategory } from '@prisma/client';
+import { cdnUrlFor } from '../../utils/s3';
+
+function mapOutfitForClient(o: any) {
+  return {
+    id: o.id,
+    userId: o.userId,
+    favourite: o.favourite,
+    warmthRating: o.warmthRating,
+    waterproof: o.waterproof,
+    overallStyle: o.overallStyle,
+    userRating: o.userRating,
+    weatherSummary: o.weatherSummary,
+    outfitItems: (o.outfitItems || []).map((oi: any) => ({
+      closetItemId: oi.closetItemId,
+      layerCategory: oi.layerCategory,
+      sortOrder: oi.sortOrder,
+      category: oi.closetItem?.category ?? null,
+      imageUrl:
+        oi.imageUrl && oi.imageUrl.length > 0
+          ? oi.imageUrl
+          : (oi.closetItem?.filename ? cdnUrlFor(oi.closetItem.filename) : ''),
+    })),
+  };
+}
 
 class OutfitController {
 
@@ -27,25 +49,12 @@ class OutfitController {
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { user } = req as AuthenticatedRequest;
-      if (!user || !user.id) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-      const {
-        outfitItems,
-        warmthRating,
-        waterproof,
-        overallStyle,
-        weatherSummary,
-        userRating
-      } = req.body;
+      if (!user?.id) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
-      // Validate enums
-      if (
-        !Array.isArray(outfitItems) ||
-        !Object.values(OverallStyle).includes(overallStyle) ||
-        outfitItems.some((item: any) => !Object.values(LayerCategory).includes(item.layerCategory))
-      ) {
+      const { outfitItems, warmthRating, waterproof, overallStyle, weatherSummary, userRating } = req.body;
+      if (!Array.isArray(outfitItems)
+        || !Object.values(OverallStyle).includes(overallStyle)
+        || outfitItems.some((item: any) => !Object.values(LayerCategory).includes(item.layerCategory))) {
         res.status(400).json({ error: 'Invalid enum values in request' });
         return;
       }
@@ -60,7 +69,7 @@ class OutfitController {
         userRating
       });
 
-      res.status(201).json(outfit);
+      res.status(201).json(mapOutfitForClient(outfit));
     } catch (err) {
       next(err);
     }
@@ -70,12 +79,9 @@ class OutfitController {
   getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { user } = req as AuthenticatedRequest;
-      if (!user || !user.id) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
+      if (!user?.id) { res.status(401).json({ error: 'Unauthorized' }); return; }
       const outfits = await getAllOutfitsForUser(user.id);
-      res.status(200).json(outfits);
+      res.status(200).json(outfits.map(mapOutfitForClient));
     } catch (err) {
       next(err);
     }
@@ -85,13 +91,10 @@ class OutfitController {
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { user } = req as AuthenticatedRequest;
-      if (!user || !user.id) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
+      if (!user?.id) { res.status(401).json({ error: 'Unauthorized' }); return; }
       const { id } = req.params;
       const outfit = await getOutfitById(id, user.id);
-      res.status(200).json(outfit);
+      res.status(200).json(mapOutfitForClient(outfit));
     } catch (err: any) {
       res.status(404).json({ error: err.message });
     }
@@ -101,14 +104,10 @@ class OutfitController {
   update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { user } = req as AuthenticatedRequest;
-      if (!user || !user.id) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
+      if (!user?.id) { res.status(401).json({ error: 'Unauthorized' }); return; }
       const { id } = req.params;
       const { userRating, outfitItems, overallStyle } = req.body;
 
-      // validate enums
       const updated = await updateOutfit({
         userId: user.id,
         outfitId: id,
@@ -117,7 +116,7 @@ class OutfitController {
         overallStyle
       });
 
-      res.status(200).json(updated);
+      res.status(200).json(mapOutfitForClient(updated));
     } catch (err: any) {
       res.status(404).json({ error: err.message });
     }
@@ -146,15 +145,38 @@ class OutfitController {
   // Get items for an outfit
   // GET /api/outfits/:id/items
   getItems = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    // try {
+    //   const { user } = req as AuthenticatedRequest;
+    //   const { id } = req.params;
+    //   if (!user || !user.id) {
+    //     res.status(401).json({ error: 'Unauthorized' });
+    //     return;
+    //   }
+    //   const items = await getItemsForOutfit(id, user.id);
+    //   res.status(200).json(items);
+    // } catch (err: any) {
+    //   res.status(404).json({ error: err.message });
+    // }
     try {
       const { user } = req as AuthenticatedRequest;
       const { id } = req.params;
-      if (!user || !user.id) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
+      if (!user?.id) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
       const items = await getItemsForOutfit(id, user.id);
-      res.status(200).json(items);
+      const mapped = items.map((oi: any) => ({
+        id: oi.id,
+        outfitId: oi.outfitId,
+        closetItemId: oi.closetItemId,
+        layerCategory: oi.layerCategory,
+        sortOrder: oi.sortOrder,
+        category: oi.closetItem?.category ?? null,
+        imageUrl:
+          oi.imageUrl && oi.imageUrl.length > 0
+            ? oi.imageUrl
+            : (oi.closetItem?.filename ? cdnUrlFor(oi.closetItem.filename) : ''),
+      }));
+
+      res.status(200).json(mapped);
     } catch (err: any) {
       res.status(404).json({ error: err.message });
     }
@@ -216,6 +238,24 @@ class OutfitController {
       }
       const recommendations = await recommendOutfits(user.id, req.body);
       res.status(200).json(recommendations);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  toggleFavourite = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params.id;
+      const { user } = req as AuthenticatedRequest;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+      const updated = await toggleFavourite(id, user.id);
+      res.status(200).json({
+        id: updated.id,
+        favourite: updated.favourite,
+      });
     } catch (err) {
       next(err);
     }

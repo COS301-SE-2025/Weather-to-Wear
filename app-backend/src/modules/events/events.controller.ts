@@ -1,13 +1,12 @@
+// events.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, Style } from '@prisma/client';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import { getWeatherByLocation, getWeatherByDay } from '../weather/weather.service';
-import prisma from "../../../src/prisma";
-
-// const prisma = new PrismaClient();
+// import prisma from "../../../src/prisma";
+import prisma from '../../prisma';
 
 class EventsController {
-  // GET all events for authenticated user
   getEvents = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -34,7 +33,6 @@ class EventsController {
     }
   };
 
-  // GET single event by ID
   getEventById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -73,8 +71,8 @@ class EventsController {
     }
   };
 
-  // POST create new event
   createEvent = async (req: Request, res: Response, next: NextFunction) => {
+
     try {
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
@@ -82,39 +80,26 @@ class EventsController {
         return;
       }
 
-      const { name, location, dateFrom, dateTo, style } = req.body;
+      const { name, location, dateFrom, dateTo, style , isTrip} = req.body;
       if (!name || !location || !dateFrom || !dateTo || !style) {
         res.status(400).json({ message: 'Missing required fields' });
         return;
       }
 
-      // Error handling for not looking too far into future or looking into past
       const fromDate = new Date(dateFrom);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // past date
       if (fromDate < today) {
         res.status(400).json({ message: 'Event start date cannot be in the past.' });
         return;
       }
 
-      // FreeWeatherAPI allows 3 days, OWM 5 days
-      const MAX_FORECAST_DAYS = 3;
-      const maxAllowedDate = new Date(today);
-      maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
 
-      if (fromDate > maxAllowedDate) {
-        res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
-        return;
-      }
-
-
-
-      // use weather api to fetch weather summaries
       const dateFromObj = new Date(dateFrom);
       const dateToObj = new Date(dateTo);
       const allDates = getAllDatesInRange(dateFromObj, dateToObj);
+
 
       const weatherSummaries: { date: string; summary: any }[] = [];
       for (const date of allDates) {
@@ -122,7 +107,7 @@ class EventsController {
           const weatherData = await getWeatherByDay(location, date);
           weatherSummaries.push({ date, summary: weatherData.summary });
         } catch (err) {
-          weatherSummaries.push({ date, summary: null }); // ! need an error message per chance
+          weatherSummaries.push({ date, summary: null });
         }
       }
 
@@ -135,15 +120,11 @@ class EventsController {
           dateFrom: new Date(dateFrom),
           dateTo: new Date(dateTo),
           style: style as Style,
+          isTrip: isTrip === true,
         },
         select: {
-          id: true,
-          name: true,
-          location: true,
-          weather: true,
-          dateFrom: true,
-          dateTo: true,
-          style: true,
+          id: true, name: true, location: true, weather: true,
+          dateFrom: true, dateTo: true, style: true, isTrip: true,
         },
       });
 
@@ -153,7 +134,6 @@ class EventsController {
     }
   };
 
-  // PUT update existing event
   updateEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -168,7 +148,7 @@ class EventsController {
         return;
       }
 
-      const { name, location, dateFrom, dateTo, style } = req.body;
+      const { name, location, dateFrom, dateTo, style, isTrip} = req.body;
 
       const existing = await prisma.event.findUnique({
         where: { id: eventId },
@@ -179,15 +159,14 @@ class EventsController {
         return;
       }
 
-      // Prepare update payload
       const updateData: Record<string, any> = {};
       if (name !== undefined) updateData.name = name;
       if (location !== undefined) updateData.location = location;
       if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
       if (dateTo !== undefined) updateData.dateTo = new Date(dateTo);
       if (style !== undefined) updateData.style = style as Style;
+      if (isTrip !== undefined) updateData.isTrip = Boolean(isTrip); 
 
-      // Only check date boundaries if dateFrom is provided (or location is updated, since weather will refresh)
       if (location !== undefined || dateFrom !== undefined) {
         const newLocation = location ?? existing.location;
         const newFromDate = dateFrom !== undefined
@@ -196,18 +175,8 @@ class EventsController {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // past date
         if (newFromDate < today) {
           res.status(400).json({ message: 'Event start date cannot be in the past.' });
-          return;
-        }
-
-        const MAX_FORECAST_DAYS = 3;
-        const maxAllowedDate = new Date(today);
-        maxAllowedDate.setDate(today.getDate() + MAX_FORECAST_DAYS);
-
-        if (newFromDate > maxAllowedDate) {
-          res.status(400).json({ message: `Event start date is too far in the future. Please select a date within the next ${MAX_FORECAST_DAYS} days.` });
           return;
         }
 
@@ -248,7 +217,6 @@ class EventsController {
     }
   };
 
-  // DELETE event
   deleteEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
@@ -283,7 +251,6 @@ class EventsController {
   };
 }
 
-// for events which span multiple days
 function getAllDatesInRange(start: Date, end: Date): string[] {
   const dates = [];
   const curr = new Date(start);

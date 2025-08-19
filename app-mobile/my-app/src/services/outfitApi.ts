@@ -1,7 +1,17 @@
 // src/services/outfitApi.ts
 import axios from 'axios';
+import { fetchWithAuth } from "./fetchWithAuth";
+import { API_BASE } from '../config';
+import { absolutize } from '../utils/url';
 
-const API_URL = 'http://localhost:5001/api/outfits';
+
+const API_URL = `${API_BASE}/api/outfits`;
+
+function getAuthHeader() {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 
 export interface OutfitItem {
     closetItemId: string;
@@ -27,21 +37,32 @@ export interface RecommendedOutfit {
         willRain: boolean;
         mainCondition: string;
     };
+    favourite?: boolean;
 }
 
-export interface OutfitItemPayload {
+export type OutfitItemPayload = {
     closetItemId: string;
     layerCategory: string;
     sortOrder: number;
-}
+};
 
+export async function saveOutfitEdits(
+    id: string,
+    payload: {
+        userRating?: number;
+        overallStyle?: string;
+        outfitItems?: OutfitItemPayload[];
+    }
+) {
+    return updateOutfit(id, payload);
+}
 
 export interface SaveOutfitPayload {
     outfitItems: OutfitItemPayload[];
     warmthRating: number;
     waterproof: boolean;
     overallStyle: string;
-    weatherSummary: string;   // stringified JSON
+    weatherSummary: string;
     userRating: number;
 }
 
@@ -94,8 +115,9 @@ export const fetchAllOutfits = async (): Promise<RecommendedOutfit[]> => {
             imageUrl:
                 it.imageUrl && it.imageUrl.length > 0
                     ? it.imageUrl
-                    : // @ts-ignore: if closetItem was included by Prisma
-                    `/uploads/${it.closetItem!.filename}`,
+                    // : // @ts-ignore: if closetItem was included by Prisma
+                    // `/uploads/${it.closetItem!.filename}`,
+                    : absolutize(it.imageUrl, API_BASE),
         })),
     }));
 };
@@ -131,4 +153,38 @@ export const deleteOutfit = async (id: string): Promise<{ success: boolean }> =>
         }
     );
     return res.data;
+};
+
+export function toggleOutfitFavourite(id: string) {
+    return axios.patch(
+        `${API_URL}/${id}/favourite`,
+        {},
+        { headers: { ...getAuthHeader() } }
+    );
+}
+
+export async function createOutfitManual(data: any) {
+    const token = localStorage.getItem("token");
+    const res = await fetchWithAuth(`${API_BASE}/api/outfits`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        throw new Error("Failed to create outfit");
+    }
+    return res.json();
+}
+
+export const getOutfitCount = async (): Promise<number> => {
+    try {
+        const outfits = await fetchAllOutfits();
+        return Array.isArray(outfits) ? outfits.length : 0;
+    } catch (err) {
+        console.error("Error counting outfits", err);
+        return 0;
+    }
 };

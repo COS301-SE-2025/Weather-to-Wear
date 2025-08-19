@@ -1,6 +1,8 @@
 import axios from 'axios';
+import { fetchAllOutfits } from './outfitApi';
+import { API_BASE } from '../config';
 
-const BASE_URL = 'http://localhost:5001/api/closet';
+const BASE_URL = `${API_BASE}/api/closet`;
 
 // Utility to get the JWT from localStorage
 function getAuthHeader() {
@@ -15,7 +17,7 @@ export const fetchAllItems = () =>
     },
   });
 
-export function toggleFavourite(id: number) {
+export function toggleFavourite(id: string) {
   return axios.patch(
     `${BASE_URL}/${id}/favourite`,
     {}, // no body
@@ -78,3 +80,9 @@ export const deleteItem = (id: string) =>
       ...getAuthHeader(),
     },
   });
+
+  export const getItemCount = (): Promise<number> => {
+  return fetchAllItems()
+    .then(res => Array.isArray(res.data) ? res.data.length : 0);
+};
+

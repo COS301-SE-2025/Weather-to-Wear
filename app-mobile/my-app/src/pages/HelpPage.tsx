@@ -84,7 +84,7 @@ const HelpPage = () => {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 -mt-12">
       {/* Header Section */}
       <div
         className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-64 mb-6"
@@ -121,18 +121,18 @@ const HelpPage = () => {
         </p>
 
         {/* Video Section */}
-  <div className="mb-8">
-    <video
-      className="w-full rounded-lg shadow-md"
-      controls
-      poster="/path/to/poster-image.jpg" 
-    >
-      <source src="DEMO1_VIDEO.mp4" type="video/mp4" />
-      Your browser does not support the video tag.
-    </video>
-  </div>
+        <div className="mb-8">
+          <video
+            className="w-full rounded-lg shadow-md"
+            controls
+            poster="/path/to/poster-image.jpg"
+          >
+            <source src="DEMO1_VIDEO.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
 
-  <p className="text-gray-700 dark:text-gray-300 text-center mb-8">
+        <p className="text-gray-700 dark:text-gray-300 text-center mb-8">
           Below you can find answers to frequently asked questions about the Weather to Wear platform.
         </p>
 

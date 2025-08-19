@@ -11,16 +11,16 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    const res = await loginUser(email, password);
-    localStorage.setItem('token', res.token);
-     localStorage.setItem('user', JSON.stringify(res.user));
-    navigate('/dashboard');
-  } catch (err: any) {
-    alert(err.message);
-  }
-};
+    e.preventDefault();
+    try {
+      const res = await loginUser(email, password);
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      navigate('/dashboard');
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
 
   return (

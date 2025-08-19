@@ -12,7 +12,7 @@ interface Props {
 }
 
 const HourlyForecast: React.FC<Props> = ({ forecast }) => {
-  const upcoming = forecast.slice(1, 5); 
+  const upcoming = forecast.slice(1, 5);
 
   return (
     <div className="divide-y divide-black dark:divide-gray-600">

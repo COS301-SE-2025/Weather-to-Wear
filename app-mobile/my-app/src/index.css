@@ -6,18 +6,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@900&display=swap');
 
 :root.light {
-  --bg:       #ffffff;   
-  --fg:       #000000;   
-  --card:     #ffffff;   
-  --border:   #ffffff;   
-  --accent:   #3F978F;   
+  --bg: #ffffff;
+  --fg: #000000;
+  --card: #ffffff;
+  --border: #ffffff;
+  --accent: #3F978F;
 }
 
 :root.dark {
-  --bg:     #050c2a;  
-  --fg:     #e5e7eb;  
-  --card:   #2c2e33;  
-  --border: #313235;  
+  --bg: #050c2a;
+  --fg: #e5e7eb;
+  --card: #2c2e33;
+  --border: #313235;
   --accent: #3F978F;
 }
 
@@ -26,13 +26,13 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-               'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-               sans-serif;
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
   background-color: var(--bg);
-  color:            var(--fg);
+  color: var(--fg);
 }
 
 code {
@@ -46,4 +46,3 @@ code {
   font-style: normal;
   font-display: swap;
 }
-

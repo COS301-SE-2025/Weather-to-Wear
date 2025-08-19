@@ -8,7 +8,6 @@ interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
-// now runs the password‐check first, then your signup logic
 router.post('/signup', signupPasswordValidation, signup);
 router.delete('/users/:id', authenticateToken, deleteUser);
 router.post('/login', login);

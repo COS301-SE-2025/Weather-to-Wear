@@ -38,10 +38,12 @@ describe("Integration: Outfit Module", () => {
   let closetItem: any;
 
   beforeEach(async () => {
-    await prisma.outfitItem.deleteMany();
-    await prisma.outfit.deleteMany();
     await prisma.closetItem.deleteMany();
-    await prisma.user.deleteMany({ where: { email: "outfituser@example.com" } });
+    await prisma.like.deleteMany();
+    await prisma.comment.deleteMany();
+    await prisma.post.deleteMany();
+    await prisma.follow.deleteMany();
+    await prisma.user.deleteMany();
 
     const { user, token: t } = await createTestUser();
     userId = user.id;
@@ -50,10 +52,12 @@ describe("Integration: Outfit Module", () => {
   });
 
   afterAll(async () => {
-    await prisma.outfitItem.deleteMany();
-    await prisma.outfit.deleteMany();
     await prisma.closetItem.deleteMany();
-    await prisma.user.deleteMany({ where: { email: "outfituser@example.com" } });
+    await prisma.like.deleteMany();
+    await prisma.comment.deleteMany();
+    await prisma.post.deleteMany();
+    await prisma.follow.deleteMany();
+    await prisma.user.deleteMany();
     await prisma.$disconnect();
   });
 

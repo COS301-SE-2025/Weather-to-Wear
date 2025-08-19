@@ -1,4 +1,5 @@
-#docker-compose.yml
+version: "3.8"
+
 services:
   backend:
     build:
@@ -10,11 +11,17 @@ services:
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
+      BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
+      COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors   
     env_file:
       - ./app-backend/.env
     depends_on:
       - db
+      - bg-removal
+      - color-picker
     volumes:
+      - ./app-backend:/app
+      - /app/node_modules
       - ./app-backend/uploads:/app/uploads
       - ./app-backend/prisma:/app/prisma
 
@@ -37,6 +44,7 @@ services:
   db:
     image: postgres:15
     restart: always
+    container_name: weather-db
     environment:
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
@@ -45,6 +53,24 @@ services:
       - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  bg-removal:
+    build:
+      context: ./bg-removal-service
+    container_name: bg-removal
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./bg-removal-service:/app
+
+  color-picker:
+    build:
+      context: ./color-extract-service
+    container_name: color-picker
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./color-extract-service:/app
 
 volumes:
   pgdata:

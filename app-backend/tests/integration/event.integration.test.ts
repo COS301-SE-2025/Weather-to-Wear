@@ -19,15 +19,19 @@ describe("Integration: Events Module", () => {
 
     beforeEach(async () => {
         // Clean database before each test
-        await prisma.event.deleteMany();
-        await prisma.user.deleteMany({ where: { email: "eventuser@example.com" } });
+        await prisma.closetItem.deleteMany();
+        await prisma.like.deleteMany();
+        await prisma.comment.deleteMany();
+        await prisma.post.deleteMany();
+        await prisma.follow.deleteMany();
+        await prisma.user.deleteMany();
 
         // Add user
         const user = await prisma.user.create({
             data: {
                 name: "Event User",
                 email: "eventuser@example.com",
-                password: "Password!1", // Doesn't matter if not hashed for direct DB insert in tests
+                password: "Password!1", 
             },
         });
         userId = user.id;
@@ -35,8 +39,12 @@ describe("Integration: Events Module", () => {
     });
 
     afterAll(async () => {
-        await prisma.event.deleteMany();
-        await prisma.user.deleteMany({ where: { email: "eventuser@example.com" } });
+        await prisma.closetItem.deleteMany();
+        await prisma.like.deleteMany();
+        await prisma.comment.deleteMany();
+        await prisma.post.deleteMany();
+        await prisma.follow.deleteMany();
+        await prisma.user.deleteMany();
         await prisma.$disconnect();
     });
 
