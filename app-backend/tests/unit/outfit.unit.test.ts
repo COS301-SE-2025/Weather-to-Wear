@@ -122,10 +122,16 @@ describe('Outfit Service Unit Tests (Mocked)', () => {
       include: {
         outfitItems: {
           include: {
-            closetItem: true
-          }
-        }
-      }
+            closetItem: {
+              select: {
+                filename: true,
+                category: true,
+                layerCategory: true,
+              },
+            },
+          },
+        },
+      },
     });
   });
 
@@ -141,7 +147,19 @@ describe('Outfit Service Unit Tests (Mocked)', () => {
     expect(result.id).toBe(mockOutfitId);
     expect(prisma.outfit.findUnique).toHaveBeenCalledWith({
       where: { id: mockOutfitId },
-      include: { outfitItems: { include: { closetItem: true } } }
+      include: {
+        outfitItems: {
+          include: {
+            closetItem: {
+              select: {
+                filename: true,
+                category: true,
+                layerCategory: true,
+              },
+            },
+          },
+        },
+      },
     });
   });
 

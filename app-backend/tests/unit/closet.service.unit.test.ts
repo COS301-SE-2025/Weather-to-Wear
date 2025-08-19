@@ -1,7 +1,13 @@
-import closetService from '../../src/modules/closet/closet.service';
+jest.mock('../../src/utils/s3', () => ({
+  uploadBufferToS3: jest.fn().mockResolvedValue({ key: 'mock-key' }),
+  deleteFromS3: jest.fn().mockResolvedValue(undefined),
+  cdnUrlFor: (k: string) => `https://cdn.test/${k}`,
+}));
+
 import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
+import closetService from '../../src/modules/closet/closet.service';
 
 jest.mock('fs');
 jest.mock('axios');
@@ -23,6 +29,12 @@ const prismaMock = {
 };
 
 beforeEach(() => {
+  process.env.BG_REMOVAL_URL = 'http://localhost/remove-bg';
+  process.env.COLOR_EXTRACT_URL = 'http://localhost/colors';
+  process.env.S3_BUCKET_NAME = 'test-bucket';
+  process.env.S3_REGION = 'eu-west-1';
+  process.env.UPLOADS_CDN_DOMAIN = 'https://cdn.test';
+
   (closetService as any).prisma = prismaMock;
   jest.clearAllMocks();
 });
