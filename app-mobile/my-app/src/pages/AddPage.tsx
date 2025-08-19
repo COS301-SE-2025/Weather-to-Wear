@@ -101,7 +101,6 @@ const AddPage: React.FC = () => {
   const { setImage } = useImage();
   const navigate = useNavigate();
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showSuccessBatch, setShowSuccessBatch] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -820,47 +819,32 @@ const AddPage: React.FC = () => {
               <button
                 className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
                 onClick={async () => {
-                  const formData = new FormData();
-                  const itemsMeta = batchItems.map(item => ({
-                    filename: item.id,
-                    category: item.category,
-                    layerCategory: item.layerCategory,
-                    style: item.style,
-                    material: item.material,
-                    warmthFactor: item.warmthFactor,
-                    waterproof: item.waterproof,
-                    colorHex: item.colorHex,
-                  }));
-                  formData.append("items", JSON.stringify(itemsMeta));
-                  batchItems.forEach(item => {
-                    formData.append(item.id, item.file);
-                  });
-
-                  const token = localStorage.getItem("token");
-                  try {
-                    console.log("Uploading batch items:", batchItems);
-                    console.log("Sending metadata:", JSON.stringify(itemsMeta));
-
-                    const res = await fetchWithAuth(`${API_BASE}/api/closet/upload/batch`, {
-                      method: "POST",
-                      body: formData,
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                      },
-                    });
-
-                    if (!res.ok) {
-                      const errorText = await res.text();
-                      console.error("Upload failed. Server responded with:", res.status, errorText);
-                      throw new Error(`Upload failed: ${res.status} ${errorText}`);
+                  // Add each batch item to the queue individually
+                  for (const item of batchItems) {
+                    if (!item.category || !item.layerCategory) {
+                      alert(`Please complete all fields for item ${batchItems.indexOf(item) + 1}.`);
+                      return;
                     }
 
-                    setShowSuccessBatch(true);
-                    setBatchItems([]);
-                  } catch (err) {
-                    console.error(err);
-                    alert("Upload failed");
+                    const formData = new FormData();
+                    formData.append("image", item.file, `${item.id}.png`);
+                    formData.append("layerCategory", item.layerCategory);
+                    formData.append("category", item.category);
+                    if (item.style) formData.append("style", item.style);
+                    if (item.material) formData.append("material", item.material);
+                    formData.append("warmthFactor", item.warmthFactor.toString());
+                    formData.append("waterproof", item.waterproof.toString());
+                    if (item.colorHex) formData.append("colorHex", item.colorHex);
+
+                    addToQueue(formData);
                   }
+
+                  setShowQueueToast(true);
+                  setBatchItems([]);
+                  localStorage.removeItem("addPageDraft");
+                  localStorage.removeItem("batchDraft");
+
+                  setTimeout(() => setShowQueueToast(false), 3000);
                 }}
               >
                 Submit All
@@ -959,29 +943,6 @@ const AddPage: React.FC = () => {
           </div>
         </div>
       )}
-
-
-      {
-        showSuccessBatch && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-                🎉 Success! 🎉
-              </h2>
-              <p className="mb-6 text-gray-700 dark:text-gray-300">
-                Batch Uploaded successfully.
-              </p>
-              <button
-                // onClick={() => navigate("/closet")}
-                onClick={() => { setShowSuccessBatch(false) }}
-                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )
-      }
 
     </div>
   );
