@@ -54,7 +54,7 @@ while expressing their unique fashion sense.
 | [User Manual]()           |  Guidelines for using Weather To Wear      |
 | [Service Contracts](https://drive.google.com/file/d/1KG_b2IHcPWZOfn3m-_Taj5A1m9nEpQVo/view?usp=drive_link)           |  Service contracts for Weather to Wear     |
 | [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
-| [Deployment Model]()                   | Description of Deployment Model                |
+| [Deployment Model](https://drive.google.com/file/d/1eiw_zUMCsmGaZwp1r7FcGcFyeVBZ4Pp4/view?usp=drive_link)                   | Description of Deployment Model                |
 | [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
 | [Software Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
 | [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
