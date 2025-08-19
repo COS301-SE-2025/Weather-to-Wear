@@ -1,3 +1,4 @@
+// events.route.ts
 import { Router } from 'express';
 import eventsController from './events.controller';
 import { authenticateToken } from '../auth/auth.middleware';

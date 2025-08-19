@@ -1,125 +1,359 @@
-import * as recommender from '../../src/modules/outfit/outfitRecommender.service';
-import { Style, LayerCategory, Category } from '@prisma/client';
+// tests/unit/outfitRecommender.service.unit.test.ts
 
-const dummyItem = (id: string, layer: LayerCategory) => ({
-  id,
-  style: Style.Casual,
-  filename: `${id}.png`,
-  category: Category.SHIRT,
-  layerCategory: layer,
-  createdAt: new Date(),
-  colorHex: '#ff0000',
-  warmthFactor: 5,
-  waterproof: false,
-  ownerId: 'user-1',
-  material: null,
-  favourite: false
-});
+const getFeatureVectorMock: jest.Mock = jest.fn(() => [0, 0, 0]);
+const predictRatingKnnMock: jest.Mock = jest.fn(() => 5);
 
-describe('partitionClosetByLayer', () => {
-  it('partitions closet items by layerCategory', () => {
-    const closetItems = [
-      { id: '1', layerCategory: LayerCategory.base_top },
-      { id: '2', layerCategory: LayerCategory.base_top },
-      { id: '3', layerCategory: LayerCategory.outerwear }
-    ] as any[];
-    const partitioned = recommender.partitionClosetByLayer(closetItems);
-    expect(partitioned.base_top).toHaveLength(2);
-    expect(partitioned.outerwear).toHaveLength(1);
-  });
-});
-
-describe('getRequiredLayers', () => {
-  it('returns base, mid, outerwear for cold weather', () => {
-    const layers = recommender.getRequiredLayers({ avgTemp: 10, minTemp: 8 });
-    expect(layers).toContain('base_top');
-    expect(layers).toContain('mid_top');
-    expect(layers).toContain('outerwear');
-  });
-  it('returns less layers for warm weather', () => {
-    const layers = recommender.getRequiredLayers({ avgTemp: 22, minTemp: 18 });
-    expect(layers).toEqual(['base_top', 'base_bottom', 'footwear']);
-  });
-});
-
-describe('getCandidateOutfits', () => {
-  it('returns all combinations of layer choices', () => {
-    const partitioned = {
-      base_top: [dummyItem('a', LayerCategory.base_top)],
-      base_bottom: [dummyItem('b', LayerCategory.base_bottom)],
-      footwear: [dummyItem('c', LayerCategory.footwear)]
-    };
-    const layers = ['base_top', 'base_bottom', 'footwear'];
-    const candidates = recommender.getCandidateOutfits(partitioned, layers, Style.Casual);
-    expect(candidates.length).toBe(1); // 1 possible outfit
-    expect(candidates[0]).toHaveLength(3);
-  });
-  it('returns [] if any layer has zero choices', () => {
-    const partitioned = {
-      base_top: [dummyItem('a', LayerCategory.base_top)],
-      base_bottom: [],
-      footwear: [dummyItem('c', LayerCategory.footwear)]
-    };
-    const layers = ['base_top', 'base_bottom', 'footwear'];
-    const candidates = recommender.getCandidateOutfits(partitioned, layers, Style.Casual);
-    expect(candidates).toEqual([]);
-  });
-});
-
-describe('scoreOutfit', () => {
-  it('rewards harmonious colors', () => {
-    const outfit = [
-      { colorHex: '#ff0000' },
-      { colorHex: '#ff1000' }
-    ] as any[];
-    const score = recommender.scoreOutfit(outfit, []);
-    expect(typeof score).toBe('number');
-  });
-  it('rewards preferred colors', () => {
-    const outfit = [
-      { colorHex: '#00ff00' },
-      { colorHex: '#111111' }
-    ] as any[];
-    const score = recommender.scoreOutfit(outfit, ['#00ff00']);
-    expect(score).toBeGreaterThan(0);
-  });
-});
-
-// mock prisma and tinycolor
-jest.mock('@prisma/client', () => {
-  return {
-    PrismaClient: jest.fn(() => ({
-      closetItem: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: '1', filename: 'a.png', layerCategory: 'base_top', style: 'Casual', colorHex: '#ff0000', warmthFactor: 5, waterproof: true, category: 'SHIRT', material: null, favourite: false, ownerId: 'user-1', createdAt: new Date() },
-          { id: '2', filename: 'b.png', layerCategory: 'base_bottom', style: 'Casual', colorHex: '#00ff00', warmthFactor: 5, waterproof: false, category: 'PANTS', material: null, favourite: false, ownerId: 'user-1', createdAt: new Date() },
-          { id: '3', filename: 'c.png', layerCategory: 'footwear', style: 'Casual', colorHex: '#0000ff', warmthFactor: 5, waterproof: false, category: 'SHOES', material: null, favourite: false, ownerId: 'user-1', createdAt: new Date() }
-        ]),
-      },
-      userPreference: {
-        findUnique: jest.fn().mockResolvedValue({ preferredColours: ['#ff0000'], style: 'Casual' }),
-      }
-    })),
-    Style: { Formal: 'Formal', Casual: 'Casual', Athletic: 'Athletic', Party: 'Party', Business: 'Business', Outdoor: 'Outdoor' },
-    LayerCategory: { base_top: 'base_top', base_bottom: 'base_bottom', mid_top: 'mid_top', mid_bottom: 'mid_bottom', outerwear: 'outerwear', footwear: 'footwear', headwear: 'headwear', accessory: 'accessory' },
-    Category: { SHIRT: 'SHIRT', PANTS: 'PANTS', SHOES: 'SHOES' }
-  };
-});
-jest.mock('tinycolor2', () => () => ({
-  toHsl: () => ({ h: 0, s: 1, l: 0.5 })
+jest.mock('../../src/utils/s3', () => ({
+  cdnUrlFor: (f: string) => `cdn://${f}`,
 }));
 
-describe('recommendOutfits', () => {
-  it('returns sorted scored outfits', async () => {
-    const req = {
-      weatherSummary: { avgTemp: 15, minTemp: 8, maxTemp: 18, willRain: false, mainCondition: 'Cloudy' }
-    };
-    const outfits = await recommender.recommendOutfits('user-123', req as any);
-    expect(Array.isArray(outfits)).toBe(true);
-    expect(outfits).toBeDefined();
-    if (outfits.length > 0) {
-      expect(outfits[0]).toHaveProperty('score');
-      expect(outfits[0]).toHaveProperty('outfitItems');
+jest.mock('../../src/modules/outfit/itemItemKnn', () => ({
+  getFeatureVector: getFeatureVectorMock,
+  predictRatingKnn: predictRatingKnnMock,
+  cosineSimilarity: jest.fn(() => 1),
+}));
+
+const mPrisma = {
+  closetItem: { findMany: jest.fn() },
+  userPreference: { findUnique: jest.fn() },
+  outfit: { findMany: jest.fn() },
+};
+jest.mock('@prisma/client', () => {
+  return {
+    PrismaClient: jest.fn(() => mPrisma),
+    Style: { Casual: 'Casual', Formal: 'Formal', Athletic: 'Athletic' },
+    LayerCategory: {
+      base_top: 'base_top',
+      base_bottom: 'base_bottom',
+      footwear: 'footwear',
+      mid_top: 'mid_top',
+      outerwear: 'outerwear',
+    },
+  };
+});
+
+import {
+  partitionClosetByLayer,
+  getRequiredLayers,
+  getCandidateOutfits,
+  scoreOutfit,
+  recommendOutfits,
+} from '../../src/modules/outfit/outfitRecommender.service';
+import { ClosetItem, LayerCategory, Style, PrismaClient } from '@prisma/client';
+
+describe('outfitRecommender.service (pure helpers)', () => {
+  const dummyItem = (
+    id: string,
+    layer: LayerCategory,
+    overrides: Partial<ClosetItem> = {}
+  ): ClosetItem => ({
+    id,
+    filename: `${id}.png`,
+    layerCategory: layer,
+    style: Style.Casual as any,
+    colorHex: '#ff0000',
+    category: 'SHIRT' as any,
+    warmthFactor: 5,
+    waterproof: false,
+    ownerId: 'user-1',
+    createdAt: new Date(),
+    material: null as any,
+    favourite: false,
+    dominantColors: ['#ff0000'],
+    ...overrides,
+  });
+
+  describe('partitionClosetByLayer', () => {
+    it('groups items by their layerCategory', () => {
+      const closet = [
+        dummyItem('1', LayerCategory.base_top as any),
+        dummyItem('2', LayerCategory.base_top as any),
+        dummyItem('3', LayerCategory.outerwear as any),
+      ];
+      const result = partitionClosetByLayer(closet);
+      expect(result.base_top).toHaveLength(2);
+      expect(result.outerwear).toHaveLength(1);
+    });
+
+    it('returns empty object when closet is empty', () => {
+      const result = partitionClosetByLayer([]);
+      expect(result).toEqual({});
+    });
+  });
+
+  describe('getRequiredLayers', () => {
+    it('includes mid and outerwear layers for cold weather', () => {
+      const result = getRequiredLayers({ avgTemp: 10, minTemp: 8 } as any);
+      expect(result).toEqual(
+        expect.arrayContaining(['base_top', 'mid_top', 'outerwear'])
+      );
+    });
+
+    it('excludes outerwear for mild weather', () => {
+      const result = getRequiredLayers({ avgTemp: 20, minTemp: 15 } as any);
+      expect(result).not.toContain('outerwear');
+    });
+
+    it('only returns base layers for warm weather', () => {
+      const result = getRequiredLayers({ avgTemp: 25, minTemp: 20 } as any);
+      expect(result).toEqual(['base_top', 'base_bottom', 'footwear']);
+    });
+  });
+
+  describe('getCandidateOutfits', () => {
+    it('generates valid outfits when all layers have items', () => {
+      const partitioned = {
+        base_top: [{ ...dummyItem('1', LayerCategory.base_top as any), warmthFactor: 7 }],
+        base_bottom: [{ ...dummyItem('2', LayerCategory.base_bottom as any), warmthFactor: 7 }],
+        footwear: [{ ...dummyItem('3', LayerCategory.footwear as any), warmthFactor: 7 }],
+      } as any;
+
+      const result = getCandidateOutfits(
+        partitioned,
+        ['base_top', 'base_bottom', 'footwear'],
+        Style.Casual as any,
+        { minTemp: 10 } as any
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toHaveLength(3);
+    });
+
+    it('returns empty list if any required layer has no items', () => {
+      const partitioned = {
+        base_top: [dummyItem('1', LayerCategory.base_top as any)],
+        base_bottom: [],
+        footwear: [dummyItem('3', LayerCategory.footwear as any)],
+      } as any;
+
+      const result = getCandidateOutfits(
+        partitioned,
+        ['base_top', 'base_bottom', 'footwear'],
+        Style.Casual as any,
+        { minTemp: 10 } as any
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it('filters out outfits with insufficient warmth', () => {
+      const partitioned = {
+        base_top: [{ ...dummyItem('1', LayerCategory.base_top as any), warmthFactor: 1 }],
+        base_bottom: [{ ...dummyItem('2', LayerCategory.base_bottom as any), warmthFactor: 1 }],
+        footwear: [{ ...dummyItem('3', LayerCategory.footwear as any), warmthFactor: 1 }],
+      } as any;
+
+      const result = getCandidateOutfits(
+        partitioned,
+        ['base_top', 'base_bottom', 'footwear'],
+        Style.Casual as any,
+        { minTemp: 0 } as any
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('scoreOutfit', () => {
+    const baseOutfit = [
+      dummyItem('a', LayerCategory.base_top as any, {
+        colorHex: '#ff0000',
+        dominantColors: ['#ff0000'],
+        warmthFactor: 10,
+        waterproof: true,
+      }),
+      dummyItem('b', LayerCategory.base_bottom as any, {
+        colorHex: '#ff1100',
+        dominantColors: ['#ff1100'],
+        warmthFactor: 10,
+      }),
+    ];
+
+    it('rewards harmonious colors and preferred colors', () => {
+      const score = scoreOutfit(baseOutfit as any, ['#ff0000'], {
+        avgTemp: 15,
+        minTemp: 10,
+        willRain: false,
+      } as any);
+      expect(typeof score).toBe('number');
+      expect(score).toBeGreaterThan(0);
+    });
+
+    it('penalizes white or near-white outfits', () => {
+      const whiteOutfit = [
+        dummyItem('c', LayerCategory.base_top as any, {
+          colorHex: '#ffffff',
+          dominantColors: ['#ffffff'],
+        }),
+      ];
+      const score = scoreOutfit(whiteOutfit as any, [], {
+        avgTemp: 20,
+        minTemp: 15,
+        willRain: false,
+      } as any);
+      expect(score).toBeLessThan(0);
+    });
+
+    it('rewards waterproof items if raining', () => {
+      const rainyScore = scoreOutfit(baseOutfit as any, [], {
+        avgTemp: 10,
+        minTemp: 5,
+        willRain: true,
+      } as any);
+      expect(rainyScore).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('recommendOutfits (integration-ish with mocks)', () => {
+  const prisma = new PrismaClient() as unknown as typeof mPrisma;
+
+  const makeItem = (id: string, layer: keyof typeof LayerCategory, extras: Partial<any> = {}) => ({
+    id,
+    filename: `${id}.png`,
+    layerCategory: layer,
+    style: Style.Casual,
+    colorHex: '#123456',
+    category: 'SHIRT',
+    warmthFactor: 10,
+    waterproof: false,
+    ownerId: 'user-1',
+    createdAt: new Date(),
+    favourite: false,
+    material: null,
+    dominantColors: ['#123456'],
+    ...extras,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns [] when no candidate outfits can be formed', async () => {
+    prisma.closetItem.findMany.mockResolvedValueOnce([
+      makeItem('t', 'base_top' as any),
+      makeItem('sh', 'footwear' as any),
+    ]);
+    prisma.userPreference.findUnique.mockResolvedValueOnce({ userId: 'user-1', style: Style.Formal, preferredColours: [] });
+    prisma.outfit.findMany.mockResolvedValueOnce([]);
+
+    const res = await recommendOutfits('user-1', {
+      style: undefined as any,
+      weatherSummary: { avgTemp: 22, minTemp: 20, willRain: false, maxTemp: 25, mainCondition: 'clear' } as any,
+    });
+
+    expect(res).toEqual([]);
+    expect(prisma.closetItem.findMany).toHaveBeenCalledWith({ where: { ownerId: 'user-1' } });
+  });
+
+  it('builds, scores, and returns at least one outfit; maps image URLs via CDN and defaults item style', async () => {
+    prisma.closetItem.findMany.mockResolvedValueOnce([
+      makeItem('top1', 'base_top' as any, { warmthFactor: 7, waterproof: true }),
+      makeItem('bot1', 'base_bottom' as any, { warmthFactor: 7 }),
+      makeItem('sh1', 'footwear' as any, { warmthFactor: 7 }),
+    ]);
+    prisma.userPreference.findUnique.mockResolvedValueOnce({
+      userId: 'user-1',
+      style: Style.Casual,
+      preferredColours: ['#123456'],
+    });
+    prisma.outfit.findMany.mockResolvedValueOnce([]);
+
+    const res = await recommendOutfits('user-1', {
+      style: undefined as any,
+      weatherSummary: { avgTemp: 18, minTemp: 13, maxTemp: 22, willRain: true, mainCondition: 'rain' } as any,
+    });
+
+    expect(Array.isArray(res)).toBe(true);
+    expect(res).toHaveLength(1);
+
+    const rec = res[0];
+    expect(rec.overallStyle).toBe(Style.Casual);
+    expect(rec.outfitItems).toHaveLength(3);
+    for (const it of rec.outfitItems) {
+      expect(it.imageUrl).toMatch(/^cdn:\/\/.+\.png$/);
+      expect(it.style).toBe(Style.Casual);
+    }
+    expect(typeof rec.score).toBe('number');
+    expect(rec.warmthRating).toBeGreaterThan(0);
+    expect(rec.waterproof).toBe(true);
+  });
+
+  it('uses req.style over user preference and blends with history via KNN', async () => {
+    prisma.closetItem.findMany.mockResolvedValueOnce([
+      makeItem('top2', 'base_top' as any, { warmthFactor: 8 }),
+      makeItem('bot2', 'base_bottom' as any, { warmthFactor: 8 }),
+      makeItem('sh2', 'footwear' as any, { warmthFactor: 8 }),
+    ]);
+    prisma.userPreference.findUnique.mockResolvedValueOnce({
+      userId: 'user-1',
+      style: Style.Formal,
+      preferredColours: [],
+    });
+    prisma.outfit.findMany.mockResolvedValueOnce([
+      {
+        id: 'past-1',
+        userId: 'user-1',
+        userRating: 4,
+        warmthRating: 20,
+        waterproof: false,
+        overallStyle: Style.Casual,
+        weatherSummary: JSON.stringify({ avgTemp: 15, minTemp: 10, maxTemp: 20, willRain: false, mainCondition: 'clouds' }),
+        outfitItems: [
+          {
+            closetItemId: 'x',
+            closetItem: {
+              id: 'x',
+              filename: 'x.png',
+              layerCategory: 'base_top',
+              category: 'SHIRT',
+              style: Style.Casual,
+              dominantColors: ['#111111'],
+              colorHex: '#111111',
+              warmthFactor: 5,
+              waterproof: false,
+            },
+          },
+        ],
+      },
+    ]);
+
+    const res = await recommendOutfits('user-1', {
+      style: Style.Casual as any,
+      weatherSummary: { avgTemp: 18, minTemp: 13, maxTemp: 20, willRain: false, mainCondition: 'clouds' } as any,
+    });
+
+    expect(res).toHaveLength(1);
+    expect(res[0].overallStyle).toBe(Style.Casual);
+    expect(getFeatureVectorMock).toHaveBeenCalled();
+    expect(predictRatingKnnMock).toHaveBeenCalled();
+  });
+
+  it('produces multiple candidates and still caps selection to <= 5 via clustering', async () => {
+    prisma.closetItem.findMany.mockResolvedValueOnce([
+      makeItem('t1', 'base_top' as any, { warmthFactor: 7 }),
+      makeItem('t2', 'base_top' as any, { warmthFactor: 7 }),
+      makeItem('b1', 'base_bottom' as any, { warmthFactor: 7 }),
+      makeItem('b2', 'base_bottom' as any, { warmthFactor: 7 }),
+      makeItem('s1', 'footwear' as any, { warmthFactor: 7 }),
+      makeItem('s2', 'footwear' as any, { warmthFactor: 7 }),
+    ]);
+    prisma.userPreference.findUnique.mockResolvedValueOnce({
+      userId: 'user-1',
+      style: Style.Casual,
+      preferredColours: [],
+    });
+    prisma.outfit.findMany.mockResolvedValueOnce([]);
+
+    const res = await recommendOutfits('user-1', {
+      style: Style.Casual as any,
+      weatherSummary: { avgTemp: 20, minTemp: 15, maxTemp: 25, willRain: false, mainCondition: 'clear' } as any,
+    });
+
+    expect(res.length).toBeGreaterThan(0);
+    expect(res.length).toBeLessThanOrEqual(5);
+    for (const r of res) {
+      expect(r.outfitItems.every(oi => oi.imageUrl.startsWith('cdn://'))).toBe(true);
     }
   });
 });

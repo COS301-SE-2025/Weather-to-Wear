@@ -10,6 +10,8 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
     "autoprefixer": "^10.4.21",
     "dotenv-cli": "^8.0.0",
     "postcss": "^8.5.3",

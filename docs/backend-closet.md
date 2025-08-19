@@ -9,13 +9,14 @@
   - This will return all items in your closet.
 
 ### Adding a new item to your closet:
-- POST http://localhost:5000/api/closet/upload
+- POST http://localhost:5001/api/closet/upload
 - Authorization: Bearer <your-token>
 - Content-Type: multipart/form-data
 
     Form Data:
     - image: [select file]
-    - category: "SHIRT"
+    - category: "TSHIRT"
+    - layerCategory: "base_top"
     - colorHex: "#FF0000"
     - warmthFactor: 3
     - waterproof: true
@@ -23,30 +24,48 @@
     - material: "COTTON"
 
 ### Uploading in batch ( not sure how or when this would be used, but it is available):
-- POST http://localhost:5000/api/closet/upload/batch
+- POST http://localhost:5001/api/closet/upload/batch
 - Authorization: Bearer <your-token>
 - Content-Type: multipart/form-data
 
     Form Data:
-    - images: [select multiple files]
-    - category: "TOPS"
-    - colorHex: "#FF0000"
-    - warmthFactor: 3
-    - waterproof: true
-    - style: "CASUAL"
-    - material: "COTTON"
+
+    - items : json text below
+    - shirt1: [select file]
+    - jeans1: [select file]
+    **In the Items key put the following:**
+        [
+        {
+            "filename": "shirt1",
+            "category": "TSHIRT",
+            "layerCategory": "base_top",
+            "colorHex": "#ff0000",
+            "warmthFactor": 2,
+            "waterproof": true,
+            "style": "Casual"        
+        },
+        {
+            "filename": "jeans1",
+            "category": "JEANS",
+            "layerCategory": "base_bottom",
+            "colorHex": "#0000ff",
+            "warmthFactor": 3,
+            "waterproof": false,
+            "style": "Casual"
+        }
+        ]
 
 ### Fetching items by category:
-- GET http://localhost:5000/api/closet/category/TOPS
+- GET http://localhost:5001/api/closet/category/TOPS
 - Authorization: Bearer <your-token>
 
 ### Deleting an item from your closet:
-- DELETE http://localhost:5000/api/closet/:imageId
+- DELETE http://localhost:5001/api/closet/:imageId
 - Authorization: Bearer <your-token>
 - NOTE: The imageId is the ID you'll recieve when you first upload the image.
 
 ### updating an item in your closet:
-- PATCH http://localhost:5000/api/closet/:id
+- PATCH http://localhost:5001/api/closet/:id
 - Authorization: Bearer <your-token>
 - Content-Type: application/json
 

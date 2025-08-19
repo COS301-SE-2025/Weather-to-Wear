@@ -1,151 +1,273 @@
-  generator client {
-    provider = "prisma-client-js"
-  }
+generator client {
+  provider = "prisma-client-js"
+}
 
-  datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-  }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  enum Category {
-    SHIRT
-    HOODIE
-    PANTS
-    SHORTS
-    SHOES
-    // additional ones - subject to change 
-    TSHIRT
-    LONGSLEEVE
-    SWEATER
-    JACKET
-    JEANS
-    BEANIE
-    HAT
-    SCARF
-    GLOVES
-    RAINCOAT
-    UMBRELLA
-    // etc.
-  }
+enum Category {
+  SHIRT
+  HOODIE
+  PANTS
+  SHORTS
+  SHOES
+  TSHIRT
+  LONGSLEEVE
+  SWEATER
+  JACKET
+  JEANS
+  BEANIE
+  HAT
+  SCARF
+  GLOVES
+  RAINCOAT
+  UMBRELLA
+}
 
-  enum Style {
-    Formal
-    Casual
-    Athletic
-    Party
-    Business
-    Outdoor
-  }
+enum Style {
+  Formal
+  Casual
+  Athletic
+  Party
+  Business
+  Outdoor
+}
 
-  enum Material {
-    Cotton
-    Wool
-    Polyester
-    Leather
-    Nylon
-    Fleece
-  }
+enum Material {
+  Cotton
+  Wool
+  Polyester
+  Leather
+  Nylon
+  Fleece
+}
 
-  enum LayerCategory {
-    base_top
-    base_bottom
-    mid_top
-    mid_bottom
-    outerwear
-    footwear
-    headwear
-    accessory
-  }
+enum LayerCategory {
+  base_top
+  base_bottom
+  mid_top
+  mid_bottom
+  outerwear
+  footwear
+  headwear
+  accessory
+}
 
-  enum OverallStyle {
-    Formal
-    Casual
-    Athletic
-    Party
-    Business
-    Outdoor
-    // Add more as needed
-  }
+enum OverallStyle {
+  Formal
+  Casual
+  Athletic
+  Party
+  Business
+  Outdoor
+}
 
-  model User {
-    id         String      @id @default(uuid())
-    name       String
-    email      String      @unique
-    password   String
-    closetItems ClosetItem[]
-    outfits    Outfit[]
-    preference UserPreference?
-    events     Event[]
-  }
+model User {
+  id           String  @id @default(uuid())
+  name         String
+  email        String  @unique
+  password     String
+  phoneNumber  String?
+  location     String?
+  profilePhoto String?
 
-  model ClosetItem {
-    id         String    @id @default(uuid())
-    filename   String
-    category   Category
-    layerCategory  LayerCategory
-    createdAt  DateTime  @default(now())
+  closetItems ClosetItem[]
+  outfits     Outfit[]
+  preference  UserPreference?
+  events      Event[]
 
-    // New fields (safe to add as nullable if code doesn't expect them yet)
-    colorHex      String?
-    warmthFactor  Int?
-    waterproof    Boolean?
-    style         Style?
-    material      Material?
-    favourite     Boolean  @default(false)
+  // Packing (back-refs)
+  packingLists PackingList[]
 
-    ownerId   String
-    owner     User      @relation(fields: [ownerId], references: [id])
+  // Social media
+  posts     Post[]    @relation("UserPosts")
+  comments  Comment[] @relation("UserComments")
+  likes     Like[]    @relation("UserLikes")
+  followers Follow[]  @relation("Followers")
+  following Follow[]  @relation("Following")
+}
 
-    outfitItems OutfitItem[]
-    @@map("closet_items")
-  }
+model ClosetItem {
+  id            String        @id @default(uuid())
+  filename      String
+  category      Category
+  layerCategory LayerCategory
+  createdAt     DateTime      @default(now())
 
-  model Outfit {
-    id             String         @id @default(uuid())
-    userId         String
-    user           User           @relation(fields: [userId], references: [id])
-    createdAt      DateTime       @default(now())
-    weatherSummary String?        // Store as JSON string (weather snapshot)
-    warmthRating   Int
-    waterproof     Boolean
-    userRating     Int?
-    overallStyle   OverallStyle
-    outfitItems    OutfitItem[]
-    favourite      Boolean        @default(false)
-    eventId        String?
-    event          Event?         @relation(fields: [eventId], references: [id])
+  colorHex       String?
+  dominantColors Json?
+  warmthFactor   Int?
+  waterproof     Boolean?
+  style          Style?
+  material       Material?
+  favourite      Boolean   @default(false)
 
-  }
+  ownerId     String
+  owner       User         @relation(fields: [ownerId], references: [id])
+  outfitItems OutfitItem[]
+  posts       Post[]
 
-  model OutfitItem {
-    id             String         @id @default(uuid())
-    outfitId       String
-    outfit         Outfit         @relation(fields: [outfitId], references: [id])
-    closetItemId   String
-    closetItem     ClosetItem     @relation(fields: [closetItemId], references: [id])
-    layerCategory  LayerCategory
-    sortOrder      Int
-  }
+  // Packing (back-ref)
+  packingItems PackingItem[]
 
-  model Event {
-    id          String         @id @default(uuid())
-    userId      String
-    user        User           @relation(fields: [userId], references: [id])
-    location    String
-    weather     String?        // JSON string, or reference to weather snapshot
-    dateFrom    DateTime
-    dateTo      DateTime
-    style       Style
-    name        String?
-    outfits     Outfit[]
-  }
+  @@map("closet_items")
+}
 
-  model UserPreference {
-    id                    String      @id @default(uuid())
-    userId                String      @unique
-    user                  User        @relation(fields: [userId], references: [id])
-    style                 Style
-    preferredColours      Json        // e.g. [{min:0, max:20}, ...]
-    learningWeight        Float?
-    updatedAt             DateTime    @updatedAt
-  }
+model Outfit {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
+  weatherSummary String?
+  warmthRating   Int
+  waterproof     Boolean
+  userRating     Int?
+  overallStyle   OverallStyle
+  outfitItems    OutfitItem[]
+  favourite      Boolean      @default(false)
+
+  eventId String?
+  event   Event?  @relation(fields: [eventId], references: [id])
+
+  // Packing (back-ref)
+  packingOutfits PackingOutfit[]
+}
+
+model OutfitItem {
+  id            String        @id @default(uuid())
+  outfitId      String
+  outfit        Outfit        @relation(fields: [outfitId], references: [id])
+  closetItemId  String
+  closetItem    ClosetItem    @relation(fields: [closetItemId], references: [id])
+  layerCategory LayerCategory
+  sortOrder     Int
+}
+
+model Event {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  location    String
+  weather     String?
+  dateFrom    DateTime
+  dateTo      DateTime
+  style       Style
+  name        String?
+  isTrip      Boolean      @default(false)
+  outfits     Outfit[]
+  packingList PackingList? @relation("TripPacking")
+}
+
+model UserPreference {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  style            Style
+  preferredColours Json
+  learningWeight   Float?
+  updatedAt        DateTime @updatedAt
+}
+
+//
+// ──────── SOCIAL MEDIA MODELS ────────
+//
+
+model Post {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation("UserPosts", fields: [userId], references: [id])
+
+  imageUrl     String?
+  closetItemId String?
+  location     String?
+  closetItem   ClosetItem? @relation(fields: [closetItemId], references: [id])
+
+  caption   String?
+  weather   Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  comments  Comment[]
+  likes     Like[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String
+  user      User     @relation("UserComments", fields: [userId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String
+  user      User     @relation("UserLikes", fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("Following", fields: [followerId], references: [id])
+  followingId String
+  following   User     @relation("Followers", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+}
+
+//
+// ──────── PACKING (Trips only) ────────
+//
+
+model PackingList {
+  id        String   @id @default(uuid())
+  userId    String
+  tripId    String   @unique
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  trip Event @relation("TripPacking", fields: [tripId], references: [id])
+
+  items   PackingItem[]
+  outfits PackingOutfit[]
+  others  PackingOther[]
+}
+
+model PackingItem {
+  id            String  @id @default(uuid())
+  packingListId String
+  closetItemId  String
+  packed        Boolean @default(false)
+
+  list       PackingList @relation(fields: [packingListId], references: [id])
+  closetItem ClosetItem  @relation(fields: [closetItemId], references: [id])
+}
+
+model PackingOutfit {
+  id            String  @id @default(uuid())
+  packingListId String
+  outfitId      String
+  packed        Boolean @default(false)
+
+  list   PackingList @relation(fields: [packingListId], references: [id])
+  outfit Outfit      @relation(fields: [outfitId], references: [id])
+}
+
+model PackingOther {
+  id            String  @id @default(uuid())
+  packingListId String
+  label         String
+  packed        Boolean @default(false)
+
+  list PackingList @relation(fields: [packingListId], references: [id])
+}

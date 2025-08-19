@@ -28,21 +28,40 @@ describe('OutfitController Unit Tests (Mocked)', () => {
   });
 
   it('should fetch items for an outfit', async () => {
-    const req = {
-      user: mockUser,
-      params: { id: 'outfit-1' }
-    } as Partial<Request> as Request;
+  const req = {
+    user: mockUser,
+    params: { id: 'outfit-1' }
+  } as Partial<Request> as Request;
 
-    const res = mockRes();
-    const items = [{ id: 'item-1', name: 'Jacket' }];
-    (getItemsForOutfit as jest.Mock).mockResolvedValueOnce(items);
+  const res = mockRes();
 
-    await OutfitController.getItems(req, res, next);
+  const serviceItems = [{
+    id: 'item-1',
+    outfitId: 'outfit-1',
+    closetItemId: 'closet-123',
+    layerCategory: LayerCategory.outerwear,
+    sortOrder: 1,
+    imageUrl: 'https://cdn.example.com/closet-123.png',
+    closetItem: { category: 'OUTERWEAR', filename: 'closet-123.png', layerCategory: LayerCategory.outerwear },
+  }];
 
-    expect(getItemsForOutfit).toHaveBeenCalledWith('outfit-1', mockUser.id);
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(items);
-  });
+  (getItemsForOutfit as jest.Mock).mockResolvedValueOnce(serviceItems);
+
+  await OutfitController.getItems(req, res, next);
+
+  expect(getItemsForOutfit).toHaveBeenCalledWith('outfit-1', mockUser.id);
+  expect(res.status).toHaveBeenCalledWith(200);
+  // Expect the mapped payload
+  expect(res.json).toHaveBeenCalledWith([{
+    id: 'item-1',
+    outfitId: 'outfit-1',
+    closetItemId: 'closet-123',
+    layerCategory: LayerCategory.outerwear,
+    sortOrder: 1,
+    category: 'OUTERWEAR',
+    imageUrl: 'https://cdn.example.com/closet-123.png',
+  }]);
+});
 
   it('should add an item to an outfit', async () => {
     const req = {

@@ -1,8 +1,8 @@
 // src/services/auth.ts
-const API_BASE = 'http://localhost:5001/api/auth';
+import { API_BASE } from '../config';
 
 export async function loginUser(email: string, password: string) {
-  const res = await fetch(`${API_BASE}/login`, {
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -13,7 +13,7 @@ export async function loginUser(email: string, password: string) {
 }
 
 export async function signupUser(name: string, email: string, password: string) {
-  const res = await fetch(`${API_BASE}/signup`, {
+  const res = await fetch(`${API_BASE}/api/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password }),

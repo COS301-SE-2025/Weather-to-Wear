@@ -71,7 +71,13 @@ export async function createOutfit(data: CreateOutfitInput): Promise<Outfit & { 
       }
     },
     include: {
-      outfitItems: true
+      outfitItems: {
+        include: {
+          closetItem: {
+            select: { filename: true, category: true, layerCategory: true }
+          }
+        }
+      }
     }
   });
 
@@ -85,7 +91,9 @@ export async function getAllOutfitsForUser(userId: string) {
     include: {
       outfitItems: {
         include: {
-          closetItem: true 
+          closetItem: {
+            select: { filename: true, category: true, layerCategory: true }
+          }
         }
       }
     }
@@ -98,7 +106,11 @@ export async function getOutfitById(id: string, userId: string) {
     where: { id },
     include: {
       outfitItems: {
-        include: { closetItem: true }
+        include: {
+          closetItem: {
+            select: { filename: true, category: true, layerCategory: true }
+          }
+        }
       }
     }
   });
@@ -108,11 +120,9 @@ export async function getOutfitById(id: string, userId: string) {
 
 // Update an outfit
 export async function updateOutfit(data: UpdateOutfitInput) {
-  // confirm outfit belongs to user
   const outfit = await prisma.outfit.findUnique({ where: { id: data.outfitId } });
   if (!outfit || outfit.userId !== data.userId) throw new Error('Outfit not found or forbidden');
 
-  // if outfitItems array provided, remove all current and re-add (simplest for NOW)
   let updatedOutfit;
   if (data.outfitItems) {
     await prisma.outfitItem.deleteMany({ where: { outfitId: data.outfitId } });
@@ -130,7 +140,13 @@ export async function updateOutfit(data: UpdateOutfitInput) {
         }
       },
       include: {
-        outfitItems: { include: { closetItem: true } }
+        outfitItems: {
+          include: {
+            closetItem: {
+              select: { filename: true, category: true, layerCategory: true }
+            }
+          }
+        }
       }
     });
   } else {
@@ -141,7 +157,13 @@ export async function updateOutfit(data: UpdateOutfitInput) {
         overallStyle: data.overallStyle
       },
       include: {
-        outfitItems: { include: { closetItem: true } }
+        outfitItems: {
+          include: {
+            closetItem: {
+              select: { filename: true, category: true, layerCategory: true }
+            }
+          }
+        }
       }
     });
   }
@@ -166,12 +188,15 @@ export async function deleteOutfit(userId: string, outfitId: string) {
 
 // Get items for an outfit
 export async function getItemsForOutfit(outfitId: string, userId: string) {
-  // Check outfit belongs to user
   const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
   if (!outfit || outfit.userId !== userId) throw new Error('Outfit not found or forbidden');
   return prisma.outfitItem.findMany({
     where: { outfitId },
-    include: { closetItem: true }
+    include: {
+      closetItem: {
+        select: { filename: true, category: true, layerCategory: true }
+      }
+    }
   });
 }
 
@@ -208,4 +233,13 @@ export async function removeItemFromOutfit(outfitId: string, itemId: string, use
   if (!item || item.outfitId !== outfitId) throw new Error('OutfitItem not found or forbidden');
   await prisma.outfitItem.delete({ where: { id: itemId } });
   return { success: true };
+}
+
+export async function toggleFavourite(id: string, userId: string) {
+  const outfit = await prisma.outfit.findFirst({ where: { id, userId } });
+  if (!outfit) throw new Error('Outfit not found');
+  return prisma.outfit.update({
+    where: { id },
+    data: { favourite: !outfit.favourite }
+  });
 }
