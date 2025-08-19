@@ -58,7 +58,7 @@ while expressing their unique fashion sense.
 | [Software Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
 | [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
-| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
 
