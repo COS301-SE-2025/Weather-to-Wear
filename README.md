@@ -48,11 +48,11 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Architectural Requirements Document]()             | System design overview                     |
+| [Architectural Requirements Document](https://drive.google.com/file/d/1eFGHK3_sefOQkad6DRKjER63mKK0wnNt/view?usp=drive_link)             | System design overview                     |
 | [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
 | [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
 | [User Manual]()           |  Guidelines for using Weather To Wear      |
-| [Service Contracts]()           |  Service contracts for Weather to Wear     |
+| [Service Contracts](https://drive.google.com/file/d/1KG_b2IHcPWZOfn3m-_Taj5A1m9nEpQVo/view?usp=drive_link)           |  Service contracts for Weather to Wear     |
 | [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
 | [Deployment Model]()                   | Description of Deployment Model                |
 | [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
