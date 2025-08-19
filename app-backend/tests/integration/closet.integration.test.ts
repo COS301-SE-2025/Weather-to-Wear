@@ -13,6 +13,10 @@ describe('Integration: Closet', () => {
 
   beforeEach(async () => {
     await prisma.closetItem.deleteMany();
+    await prisma.like.deleteMany();
+    await prisma.comment.deleteMany();
+    await prisma.post.deleteMany();
+    await prisma.follow.deleteMany();
     await prisma.user.deleteMany();
 
     const user = await prisma.user.create({
@@ -44,6 +48,10 @@ describe('Integration: Closet', () => {
 
   afterAll(async () => {
     await prisma.closetItem.deleteMany();
+    await prisma.like.deleteMany();
+    await prisma.comment.deleteMany();
+    await prisma.post.deleteMany();
+    await prisma.follow.deleteMany();
     await prisma.user.deleteMany();
     await prisma.$disconnect();
   });
