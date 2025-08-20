@@ -48,15 +48,15 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Architectural Requirements Document](https://drive.google.com/file/d/1eFGHK3_sefOQkad6DRKjER63mKK0wnNt/view?usp=drive_link)             | System design overview                     |
+| [SRS - Architectural Requirements Document](https://drive.google.com/file/d/1eFGHK3_sefOQkad6DRKjER63mKK0wnNt/view?usp=drive_link)             | System design overview                     |
 | [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
 | [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
-| [User Manual]()           |  Guidelines for using Weather To Wear      |
+| [User Manual](https://drive.google.com/file/d/1cNthfpx0T-8xEaA-NzAYWVo78XtEZIwc/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
 | [Service Contracts](https://drive.google.com/file/d/1KG_b2IHcPWZOfn3m-_Taj5A1m9nEpQVo/view?usp=drive_link)           |  Service contracts for Weather to Wear     |
 | [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
 | [Deployment Model](https://drive.google.com/file/d/1eiw_zUMCsmGaZwp1r7FcGcFyeVBZ4Pp4/view?usp=drive_link)                   | Description of Deployment Model                |
 | [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
-| [Software Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
+| [Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
 | [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
