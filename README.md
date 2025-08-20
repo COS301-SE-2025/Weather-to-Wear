@@ -52,7 +52,7 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [SRS - Architectural Requirements Document](https://drive.google.com/file/d/1eFGHK3_sefOQkad6DRKjER63mKK0wnNt/view?usp=drive_link)             | System design overview                     |
+| [SRS - Architectural Requirements Document](https://drive.google.com/file/d/1Ks9EmRCO2uaso_XHqwyW_eL1V2MCNxPK/view?usp=sharing)             | System design overview                     |
 | [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
 | [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
 | [User Manual](https://drive.google.com/file/d/1cNthfpx0T-8xEaA-NzAYWVo78XtEZIwc/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
