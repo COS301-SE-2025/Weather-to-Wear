@@ -38,7 +38,8 @@ while expressing their unique fashion sense.
 
 </p>
 
-[Our Website](https://gitgood.netlify.app/)  
+[Our Team Website](https://gitgood.netlify.app/)  [See the Weather to Wear System Here](https://drztvecmdl489.cloudfront.net/)  
+
 
   <h1 align="center"> Documentation and Resources </h1>
 
