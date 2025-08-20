@@ -37,8 +37,9 @@ while expressing their unique fashion sense.
 </h3>
 
 </p>
-
+<p>
 [Our Team Website](https://gitgood.netlify.app/) 
+</p>
 [See the Weather to Wear System Here](https://drztvecmdl489.cloudfront.net/)  
 
 
