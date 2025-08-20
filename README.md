@@ -40,6 +40,7 @@ while expressing their unique fashion sense.
 
 [Our Team Website](https://gitgood.netlify.app/) 
 <p></p>
+
 [See the Weather to Wear System Here](https://drztvecmdl489.cloudfront.net/)  
 
 
