@@ -41,7 +41,6 @@ while expressing their unique fashion sense.
 [Our Team Website](https://gitgood.netlify.app/) 
 <p></p>
 
-[See the Weather to Wear System Here](https://drztvecmdl489.cloudfront.net/)  
 
 
   <h1 align="center"> Documentation and Resources </h1>
