@@ -46,13 +46,13 @@ export const updateProfilePhoto = async (req: AuthedFileRequest, res: Response, 
     const ext = extFromMime(req.file.mimetype);
     const key = `users/${userId}/profile/${Date.now()}-${randomUUID()}${ext}`;
 
-    const body = await fileBuffer(req.file);   // ← robust
-    await uploadBufferToS3({
-      bucket: process.env.S3_BUCKET_NAME!,
-      key,
-      contentType: req.file.mimetype || 'application/octet-stream',
-      body,
-    });
+    const body = await fileBuffer(req.file);
+    // await uploadBufferToS3({
+    //   bucket: process.env.S3_BUCKET_NAME!,
+    //   key,
+    //   contentType: req.file.mimetype || 'application/octet-stream',
+    //   body,
+    // });
 
     const { publicUrl } = await putBufferSmart({
       key,

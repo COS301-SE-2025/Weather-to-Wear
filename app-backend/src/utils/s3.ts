@@ -49,16 +49,33 @@ export async function putBufferSmart(params: {
 }): Promise<{ key: string; publicUrl: string }> {
   const { key, contentType, body, cacheControl } = params;
 
-  if (process.env.S3_BUCKET_NAME && process.env.S3_REGION) {
-    await uploadBufferToS3({
-      bucket: process.env.S3_BUCKET_NAME!,
-      key,
-      contentType,
-      body,
-      cacheControl,
-    });
+  // if (process.env.S3_BUCKET_NAME && process.env.S3_REGION) {
+  //   await uploadBufferToS3({
+  //     bucket: process.env.S3_BUCKET_NAME!,
+  //     key,
+  //     contentType,
+  //     body,
+  //     cacheControl,
+  //   });
+  //   return { key, publicUrl: cdnUrlFor(key) };
+  // }
+
+  const haveS3Config = !!process.env.S3_BUCKET_NAME && !!process.env.S3_REGION;
+const haveAwsCredHint =
+  !!process.env.AWS_ACCESS_KEY_ID ||
+  !!process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
+  !!process.env.AWS_WEB_IDENTITY_TOKEN_FILE;
+
+if (haveS3Config && haveAwsCredHint) {
+  try {
+    await uploadBufferToS3({ bucket: process.env.S3_BUCKET_NAME!, key, contentType, body, cacheControl });
     return { key, publicUrl: cdnUrlFor(key) };
+  } catch (err: any) {
+    // If this is a real S3 outage you may prefer to rethrow.
+    if (err?.name !== 'CredentialsProviderError') throw err;
+    // else fall through to local
   }
+}
 
   // Local dev: write under /uploads/key
   const uploadsRoot = path.join(__dirname, "..", "..", "uploads");
