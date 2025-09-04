@@ -1,7 +1,7 @@
 // src/modules/users/users.controller.ts
 import type { Request, Response, NextFunction } from "express";
 import usersService from "./users.service";
-import { cdnUrlFor, uploadBufferToS3 } from '../../utils/s3';
+import { cdnUrlFor, uploadBufferToS3, putBufferSmart } from '../../utils/s3';
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 
@@ -54,7 +54,11 @@ export const updateProfilePhoto = async (req: AuthedFileRequest, res: Response, 
       body,
     });
 
-    const publicUrl = cdnUrlFor(key);
+    const { publicUrl } = await putBufferSmart({
+      key,
+      contentType: req.file.mimetype || 'application/octet-stream',
+      body,
+    });
     const user = await usersService.setProfilePhoto(userId, publicUrl);
     res.status(200).json({ message: 'Updated', user });
   } catch (err) {

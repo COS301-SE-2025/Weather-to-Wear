@@ -5,7 +5,7 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import socialService from './social.service';
 import prisma from "../../prisma";
 
-import { cdnUrlFor, uploadBufferToS3 } from '../../utils/s3';
+import { cdnUrlFor, uploadBufferToS3, putBufferSmart } from '../../utils/s3';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
@@ -65,13 +65,12 @@ class SocialController {
         const ext = extFromMime(req.file.mimetype);
         const key = `users/${user.id}/posts/${Date.now()}-${randomUUID()}${ext}`;
         const body = await fileBuffer(req.file);
-        await uploadBufferToS3({
-          bucket: process.env.S3_BUCKET_NAME!,
+        const { publicUrl } = await putBufferSmart({
           key,
           contentType: req.file.mimetype || 'application/octet-stream',
           body,
         });
-        imageUrl = cdnUrlFor(key);
+        imageUrl = publicUrl;
       }
 
       const { caption, location, closetItemId, weather } = req.body;
