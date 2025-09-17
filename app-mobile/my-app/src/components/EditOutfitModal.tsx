@@ -1,6 +1,6 @@
 // src/components/EditOutfitModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { X, ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2 } from "lucide-react";
 import { saveOutfitEdits } from "../services/outfitApi";
 import { fetchAllItems } from "../services/closetApi";
 import { API_BASE } from "../config";
@@ -19,7 +19,7 @@ type OutfitItemPayload = {
 };
 
 type OutfitItemView = {
-  uid: string; // NEW: stable identifier for UI ops
+  uid: string; // stable identifier for UI ops
   closetItemId: string;
   layerCategory: string;
   sortOrder: number;
@@ -29,7 +29,7 @@ type OutfitItemView = {
 
 type Props = {
   outfitId: string;
-  initialStyle?: string; // OverallStyle from your enum
+  initialStyle?: string;
   initialRating?: number;
   initialItems: {
     closetItemId: string;
@@ -38,7 +38,7 @@ type Props = {
     category?: string;
   }[];
   onClose: () => void;
-  onSaved: (updated: any) => void; // pass back the updated outfit
+  onSaved: (updated: any) => void;
 };
 
 const LAYERS: { value: string; label: string }[] = [
@@ -52,6 +52,8 @@ const LAYERS: { value: string; label: string }[] = [
   { value: "accessory", label: "Accessory" },
 ];
 
+const REQUIRED_LAYERS = ["base_top", "base_bottom", "footwear"]; // NEW
+
 const STYLES = ["Formal", "Casual", "Athletic", "Party", "Business", "Outdoor"];
 
 const API_PREFIX = `${API_BASE}`;
@@ -62,6 +64,9 @@ const prefixed = (u?: string) =>
 const makeUid = () =>
   (globalThis as any)?.crypto?.randomUUID?.() ??
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+// Helpers (NEW)
+const norm = (s?: string) => (s ?? "").trim().toLowerCase();
 
 export default function EditOutfitModal({
   outfitId,
@@ -75,7 +80,7 @@ export default function EditOutfitModal({
   const [closet, setCloset] = useState<ClosetItemLite[]>([]);
   const [style, setStyle] = useState<string>(initialStyle ?? "Casual");
   const [rating, setRating] = useState<number>(initialRating ?? 0);
-  const [items, setItems] = useState<OutfitItemView[]>([]); // editable list
+  const [items, setItems] = useState<OutfitItemView[]>([]);
 
   // 1) Load closet items (for picker)
   useEffect(() => {
@@ -118,8 +123,54 @@ export default function EditOutfitModal({
     return m;
   }, [closet]);
 
+  // Used categories set (case-insensitive)  (NEW)
+  const usedCategories = useMemo(() => {
+    const s = new Set<string>();
+    for (const it of items) {
+      if (it.category) s.add(norm(it.category));
+    }
+    return s;
+  }, [items]);
+
+  // Validation (NEW): missing required layers + duplicate categories
+  const validationErrors = useMemo(() => {
+    const errs: string[] = [];
+
+    // Required layers
+    for (const req of REQUIRED_LAYERS) {
+      const has = items.some((it) => it.layerCategory === req);
+      if (!has) errs.push(`Add at least one item in ${req.replace("_", " ")}.`);
+    }
+
+    // Duplicate categories
+    const counts: Record<string, number> = {};
+    for (const it of items) {
+      const c = norm(it.category);
+      if (!c) continue; // if category unknown, skip duplicate rule
+      counts[c] = (counts[c] ?? 0) + 1;
+    }
+    const dups = Object.entries(counts)
+      .filter(([, n]) => n > 1)
+      .map(([c]) => c);
+    if (dups.length > 0) {
+      errs.push(
+        `Only one of each category allowed. Remove duplicates: ${dups
+          .map((c) => `"${c}"`)
+          .join(", ")}.`
+      );
+    }
+
+    return errs;
+  }, [items]);
+
   function addItem(layer: string, closetItemId: string) {
     const choice = closet.find((c) => c.id === closetItemId);
+    // Block duplicate categories (NEW)
+    if (choice?.category && usedCategories.has(norm(choice.category))) {
+      // Soft UX: no alert spam; silently ignore add
+      return;
+    }
+
     setItems((prev) => {
       const nextOrder =
         Math.max(
@@ -207,6 +258,14 @@ export default function EditOutfitModal({
   }
 
   async function handleSave() {
+    // Hard recheck before saving (NEW)
+    if (validationErrors.length > 0) {
+      alert(
+        "Please fix the following before saving:\n\n" + validationErrors.join("\n")
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const clean = resequenceAllLayers(items);
@@ -249,6 +308,18 @@ export default function EditOutfitModal({
           {/* Current outfit items (editable) */}
           <div>
             <h3 className="text-sm font-medium mb-2 dark:text-gray-200">Current Items</h3>
+
+            {/* Inline validation block (NEW) */}
+            {validationErrors.length > 0 && (
+              <div className="mb-3 text-xs rounded-lg border border-red-300 bg-red-50 text-red-700 p-2 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+                <ul className="list-disc ml-4 space-y-1">
+                  {validationErrors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {items.length === 0 ? (
               <div className="text-xs text-gray-500 dark:text-gray-400">No items yet.</div>
             ) : (
@@ -279,22 +350,7 @@ export default function EditOutfitModal({
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => move(it.uid, -1)}
-                          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                          title="Move up"
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => move(it.uid, 1)}
-                          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                          title="Move down"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
+                        {/* (Move buttons could go here if you want) */}
                         <button
                           type="button"
                           onClick={() => removeById(it.uid)}
@@ -323,22 +379,33 @@ export default function EditOutfitModal({
                       {L.label}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {options.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => addItem(L.value, c.id)}
-                          title={c.category}
-                          className="relative border rounded-md p-1 bg-white hover:shadow"
-                        >
-                          <img
-                            src={prefixed(c.imageUrl)}
-                            className="w-14 h-14 object-contain"
-                            alt={c.category}
-                          />
-                          <Plus className="w-4 h-4 absolute -top-1 -right-1 bg-teal-600 text-white rounded-full" />
-                        </button>
-                      ))}
+                      {options.map((c) => {
+                        const isDupCategory = !!c.category && usedCategories.has(norm(c.category)); // NEW
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => addItem(L.value, c.id)}
+                            title={isDupCategory ? `${c.category} already added` : c.category}
+                            className={`relative border rounded-md p-1 ${
+                              isDupCategory
+                                ? "opacity-50 cursor-not-allowed"
+                                : "bg-white hover:shadow"
+                            }`}
+                            disabled={isDupCategory} // NEW
+                            aria-disabled={isDupCategory}
+                          >
+                            <img
+                              src={prefixed(c.imageUrl)}
+                              className="w-14 h-14 object-contain"
+                              alt={c.category}
+                            />
+                            {!isDupCategory && (
+                              <Plus className="w-4 h-4 absolute -top-1 -right-1 bg-teal-600 text-white rounded-full" />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -394,7 +461,7 @@ export default function EditOutfitModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || validationErrors.length > 0} // NEW
             className="px-4 py-2 rounded-full bg-teal-600 text-white disabled:opacity-60"
           >
             {loading ? "Saving…" : "Save changes"}
