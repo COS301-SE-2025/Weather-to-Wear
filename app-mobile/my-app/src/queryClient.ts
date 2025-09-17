@@ -12,3 +12,11 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+export async function resetQueryClient() {
+  try {
+    await queryClient.cancelQueries();
+  } finally {
+    queryClient.clear();
+  }
+}

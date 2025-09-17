@@ -30,3 +30,29 @@ export async function clearPersistedCache() {
     });
   }
 }
+
+// small helpers used by auto-logout 
+export function getToken(): string | null {
+  try { return storage?.getItem('token') ?? null; } catch { return null; }
+}
+
+export function setToken(token: string | null) {
+  try {
+    if (!storage) return;
+    if (token) storage.setItem('token', token);
+    else storage.removeItem('token');
+  } catch {}
+}
+
+export function clearAllAppStorage() {
+  try {
+    if (!storage) return;
+    const token = storage.getItem('token');
+    if (token) storage.removeItem(`closet-favs-${token}`);
+    storage.removeItem('token');
+    storage.removeItem('user');
+    storage.removeItem('selectedCity');
+    // Optionally: a one-shot message for the login page
+    // storage.setItem('sessionExpiredNotice', '1');
+  } catch {}
+}
