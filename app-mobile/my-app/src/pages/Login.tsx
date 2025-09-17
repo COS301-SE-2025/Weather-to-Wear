@@ -1,27 +1,39 @@
 // src/pages/Login.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
-import { loginUser } from '../services/auth';
+import { loginUser, applyAuthToken } from '../services/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [expiredMsg, setExpiredMsg] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('sessionExpiredNotice') === '1') {
+        setExpiredMsg('Your session expired. Please sign in again.');
+        localStorage.removeItem('sessionExpiredNotice');
+      }
+    } catch {
+      // no op
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await loginUser(email, password);
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
-      navigate('/dashboard');
+      if (res?.token) applyAuthToken(res.token);
+      if (res?.user) localStorage.setItem('user', JSON.stringify(res.user));
+
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      alert(err.message);
+      alert(err?.message || 'Login failed');
     }
   };
-
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-gray-900">
@@ -34,9 +46,19 @@ export default function Login() {
 
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white dark:bg-gray-800 p-6 sm:p-8">
         <form onSubmit={handleLogin} className="w-full max-w-sm sm:max-w-md">
-          <h2 className="text-3xl font-light mb-6 text-center lg:text-left text-black dark:text-gray-100">
+          <h2 className="text-3xl font-light mb-4 text-center lg:text-left text-black dark:text-gray-100">
             Login
           </h2>
+
+          {expiredMsg && (
+            <div
+              className="mb-4 rounded-md bg-yellow-100 text-yellow-900 px-3 py-2 text-sm"
+              role="status"
+              aria-live="polite"
+            >
+              {expiredMsg}
+            </div>
+          )}
 
           <input
             type="text"
@@ -44,8 +66,6 @@ export default function Login() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             className="w-full mb-4 px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
-            // onChange={e => setEmail(e.target.value)}
-            // className="w-full mb-4 px-4 py-2 rounded-full bg-white border border-black"
             required
           />
 
@@ -56,8 +76,6 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
-              // onChange={e => setPassword(e.target.value)}
-              // className="w-full px-4 py-2 rounded-full bg-white border border-black"
               required
             />
             <img
@@ -76,7 +94,7 @@ export default function Login() {
           </button>
 
           <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
-            Don’t have an account yet?{" "}
+            Don’t have an account yet?{' '}
             <Link to="/signup" className="text-[#3F978F] underline">
               Signup?
             </Link>
