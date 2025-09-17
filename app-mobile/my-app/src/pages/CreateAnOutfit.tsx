@@ -4,6 +4,7 @@ import { createOutfitManual } from "../services/outfitApi";
 import ClosetPickerModal from "../components/ClosetPickerModal";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+import Toast from "../components/Toast";
 
 export interface ClosetItem {
   id: string;
@@ -66,6 +67,8 @@ export default function CreateAnOutfit() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [rating, setRating] = useState<number>(0);
+
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     const getItems = async () => {
@@ -154,6 +157,7 @@ export default function CreateAnOutfit() {
       setFootwear(null);
       setAdditional([]);
       setRating(0);
+      setShowToast(true);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e: any) {
       setError(e?.response?.data?.message || e.message || "Unknown error");
@@ -467,6 +471,8 @@ export default function CreateAnOutfit() {
         title="Add Additional Items"
         closeOnSelect={false}
       />
+
+      {showToast && <Toast message="Outfit created successfully!" />}
     </div >
   );
 }
