@@ -4,3 +4,4 @@ uploads/
 .env
 .env.studio
 *.db
+.env.test
