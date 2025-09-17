@@ -21,7 +21,7 @@ export default function Login() {
 
   useEffect(() => {
     if (loggedOut) {
-      const timer = setTimeout(() => setShowToast(false), 3000);
+      const timer = setTimeout(() => setShowloggedOutToast(false), 3000);
       return () => clearTimeout(timer);
     }
   }, [loggedOut]);

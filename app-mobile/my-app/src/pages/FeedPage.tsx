@@ -600,7 +600,7 @@ useEffect(() => {
         )}
       </div>
       {showSuccessPopup && (
-  <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+  <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#3F978F] text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
     Post created successfully!
   </div>
 )}
