@@ -1,49 +1,57 @@
 // src/pages/Login.tsx
-import React, { useEffect ,useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
-import { loginUser } from '../services/auth';
+import { loginUser, applyAuthToken } from '../services/auth';
 import Toast from '../components/Toast';
-import { useLocation } from "react-router-dom";
-
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const[showToast, setShowToast] = useState(false);
-  const navigate = useNavigate();
 
+  const [expiredMsg, setExpiredMsg] = useState<string | null>(null);
+
+  const [showToast, setShowToast] = useState(false);
   const location = useLocation();
   const loggedOut = location.state?.loggedOut || false;
+  const [showLoggedOutToast, setShowLoggedOutToast] = useState(loggedOut);
 
-  const [showloggedOutToast, setShowloggedOutToast] = useState(loggedOut);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (loggedOut) {
-      const timer = setTimeout(() => setShowloggedOutToast(false), 3000);
-      return () => clearTimeout(timer);
+    try {
+      if (localStorage.getItem('sessionExpiredNotice') === '1') {
+        setExpiredMsg('Your session expired. Please sign in again.');
+        localStorage.removeItem('sessionExpiredNotice');
+      }
+    } catch {
+      /* no-op */
     }
-  }, [loggedOut]);
+  }, []);
+
+  useEffect(() => {
+    if (!showLoggedOutToast) return;
+    const t = setTimeout(() => setShowLoggedOutToast(false), 3000);
+    return () => clearTimeout(t);
+  }, [showLoggedOutToast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await loginUser(email, password);
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
-       // show success toast
-      setShowToast(true);
+      if (res?.token) applyAuthToken(res.token); // persist & schedule auto-logout
+      if (res?.user) localStorage.setItem('user', JSON.stringify(res.user));
 
+      setShowToast(true);
       setTimeout(() => {
         setShowToast(false);
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       }, 3000);
     } catch (err: any) {
-      alert(err.message);
+      alert(err?.message || 'Login failed');
     }
   };
-
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-gray-900">
@@ -56,9 +64,19 @@ export default function Login() {
 
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white dark:bg-gray-800 p-6 sm:p-8">
         <form onSubmit={handleLogin} className="w-full max-w-sm sm:max-w-md">
-          <h2 className="text-3xl font-light mb-6 text-center lg:text-left text-black dark:text-gray-100">
+          <h2 className="text-3xl font-light mb-4 text-center lg:text-left text-black dark:text-gray-100">
             Login
           </h2>
+
+          {expiredMsg && (
+            <div
+              className="mb-4 rounded-md bg-yellow-100 text-yellow-900 px-3 py-2 text-sm"
+              role="status"
+              aria-live="polite"
+            >
+              {expiredMsg}
+            </div>
+          )}
 
           <input
             type="text"
@@ -66,8 +84,6 @@ export default function Login() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             className="w-full mb-4 px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
-            // onChange={e => setEmail(e.target.value)}
-            // className="w-full mb-4 px-4 py-2 rounded-full bg-white border border-black"
             required
           />
 
@@ -78,8 +94,6 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
-              // onChange={e => setPassword(e.target.value)}
-              // className="w-full px-4 py-2 rounded-full bg-white border border-black"
               required
             />
             <img
@@ -98,16 +112,16 @@ export default function Login() {
           </button>
 
           <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
-            Don’t have an account yet?{" "}
+            Don’t have an account yet?{' '}
             <Link to="/signup" className="text-[#3F978F] underline">
               Signup?
             </Link>
           </p>
         </form>
       </div>
-          {showToast && <Toast message="Logged in successfully!" />}
 
-          {showloggedOutToast && <Toast message="Logged out successfully!" />}
+      {showToast && <Toast message="Logged in successfully!" />}
+      {showLoggedOutToast && <Toast message="Logged out successfully!" />}
     </div>
   );
 }
