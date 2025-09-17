@@ -329,7 +329,6 @@ export default function CalendarPage() {
     }
   };
 
-
   async function handleOpenPacking(trip: Event) {
     try {
       const [ciRes, ofRes, existing] = await Promise.all([fetchAllItems(), fetchAllOutfits(), getPackingList(trip.id)]);
@@ -356,8 +355,7 @@ export default function CalendarPage() {
           : [],
       }));
 
-      // ❗ Remove outfit parts that point to deleted/missing closet items.
-      // Then drop any outfits that are now empty.
+      // ❗ Clean and drop empty outfits
       const ciIds = new Set(ciList.map(c => c.id));
       const cleanedOutfits: Outfit[] = outfitsList
         .map(o => ({
@@ -365,7 +363,6 @@ export default function CalendarPage() {
           outfitItems: (o.outfitItems ?? []).filter(it => ciIds.has(it.closetItemId)),
         }))
         .filter(o => (o.outfitItems?.length ?? 0) > 0);
-
 
       setClosetItems(ciList);
       setOutfits(cleanedOutfits);
@@ -404,7 +401,6 @@ export default function CalendarPage() {
           _rowId: r.id,
         }));
 
-
       setPackItems(initialItems);
       setPackOthers(initialOthers);
       setPackOutfits(initialOutfits);
@@ -412,7 +408,6 @@ export default function CalendarPage() {
       setBaseItemIds(new Set((existing?.items ?? []).map((r: any) => String(r.closetItemId))));
       setBaseOutfitIds(new Set((existing?.outfits ?? []).map((r: any) => String(r.outfitId))));
       setBaseOtherLabels(new Set((existing?.others ?? []).map((r: any) => String(r.label))));
-
 
       if (initialOutfits.length) {
         const toAdd: { id: string; name?: string; img?: string | null }[] = [];
@@ -449,7 +444,6 @@ export default function CalendarPage() {
         {
           closetItemId: item.id,
           name: item.name,
-          // imageUrl: item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:5001${item.imageUrl}`) : null,
           imageUrl: normalizeUrl(item.imageUrl),
           checked: false,
         },
@@ -470,7 +464,6 @@ export default function CalendarPage() {
       addPackItemIfMissing(it.closetItemId, undefined, it.imageUrl);
     });
   };
-
 
   const addOtherToPack = () => {
     const t = newOtherItem.trim();
@@ -593,7 +586,6 @@ export default function CalendarPage() {
     }
   }
 
-
   function getCalendarBounds(month: Date) {
     const start = monthStart(month);
     const end = monthEnd(month);
@@ -671,6 +663,43 @@ export default function CalendarPage() {
       return normalizedDate >= eventStart && normalizedDate <= eventEnd;
     });
   }
+
+  // ===== Recommended Outfit state + fetch (Calendar page only) =====
+  const [recOutfit, setRecOutfit] = useState<Outfit | null>(null);
+  const [loadingRec, setLoadingRec] = useState(false);
+
+  useEffect(() => {
+    if (!selectedEvent?.id) {
+      setRecOutfit(null);
+      return;
+    }
+    setLoadingRec(true);
+    const token = localStorage.getItem('token');
+    const base = API_BASE.replace(/\/+$/, '');
+    fetch(`${base}/outfits/recommend?eventId=${encodeURIComponent(selectedEvent.id)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('no rec');
+        const data = await r.json();
+        const mapped: Outfit = {
+          id: String(data?.id ?? 'rec'),
+          name: data?.name ?? 'Recommended Outfit',
+          style: data?.style ?? (selectedEvent.style ?? 'Other'),
+          coverImageUrl: normalizeUrl(data?.coverImageUrl ?? null),
+          outfitItems: Array.isArray(data?.outfitItems)
+            ? data.outfitItems.map((it: any) => ({
+                closetItemId: String(it.closetItemId ?? it.id ?? ''),
+                layerCategory: String(it.layerCategory ?? it.layer ?? ''),
+                imageUrl: normalizeUrl(it.imageUrl ?? null),
+              }))
+            : [],
+        };
+        setRecOutfit((mapped.outfitItems?.length ?? 0) > 0 ? mapped : null);
+      })
+      .catch(() => setRecOutfit(null))
+      .finally(() => setLoadingRec(false));
+  }, [selectedEvent?.id, selectedEvent?.style]);
 
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
@@ -969,6 +998,40 @@ export default function CalendarPage() {
                     </div>
                   </div>
                 )}
+
+                {/* ===== Recommended Outfit (same presentation style as your packing modal) ===== */}
+                <section className="mt-4">
+                  <h4 className="text-sm font-semibold">Recommended outfit</h4>
+                  {loadingRec && <p className="text-xs text-gray-500">Loading…</p>}
+                  {!loadingRec && !recOutfit && (
+                    <p className="text-xs text-gray-500">No recommendation for this event.</p>
+                  )}
+                  {recOutfit && (
+                    <div className="mt-2 space-y-1">
+                      <div className={`${recOutfit.outfitItems?.some(it => ['headwear','accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                        {recOutfit.outfitItems?.filter(it => ['headwear','accessory'].includes(it.layerCategory)).map(it => (
+                          <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                        ))}
+                      </div>
+                      <div className="flex justify-center space-x-1">
+                        {recOutfit.outfitItems?.filter(it => ['base_top','mid_top','outerwear'].includes(it.layerCategory)).map(it => (
+                          <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                        ))}
+                      </div>
+                      <div className="flex justify-center space-x-1">
+                        {recOutfit.outfitItems?.filter(it => it.layerCategory === 'base_bottom').map(it => (
+                          <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                        ))}
+                      </div>
+                      <div className="flex justify-center space-x-1">
+                        {recOutfit.outfitItems?.filter(it => it.layerCategory === 'footwear').map(it => (
+                          <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-10 h-10 object-contain rounded" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+                {/* ===== End Recommended Outfit ===== */}
               </div>
             )}
             <div className="mt-6 flex justify-between">
@@ -1063,7 +1126,6 @@ export default function CalendarPage() {
                                 className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${outfitFullyInList(o) ? 'border-[#3F978F] ring-2 ring-[#3F978F]' : 'border-gray-200'}`}
                                 title={o.name}
                               >
-
                                 <div className="space-y-1">
                                   <div className={`${o.outfitItems?.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
                                     {o.outfitItems?.filter(it => ['headwear', 'accessory'].includes(it.layerCategory)).map(it => (
