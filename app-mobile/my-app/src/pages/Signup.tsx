@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { signupUser } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ export default function Signup() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -50,8 +52,9 @@ export default function Signup() {
         formData.email,
         formData.password
       );
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
+      
+      // Use AuthContext login method instead of direct localStorage
+      login(res.token, res.user);
       navigate('/dashboard');
     } catch (err: any) {
       setErrors([err.message || 'Signup failed.']);

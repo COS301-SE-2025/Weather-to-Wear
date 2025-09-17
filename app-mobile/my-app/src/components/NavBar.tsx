@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import { queryClient } from '../queryClient';
 import { clearPersistedCache } from '../persist';
+import { useAuth } from '../contexts/AuthContext';
 
 const NavBar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const currentPath = location.pathname;
 
   const isAddRoute =
@@ -45,12 +47,21 @@ const NavBar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      const { logoutAndResetApp } = await import('../services/auth');
-      await logoutAndResetApp();
+      // Clear React Query cache
+      await queryClient.cancelQueries();
+      queryClient.clear();
 
+      // Remove the persisted dehydrated cache (localStorage copy)
+      await clearPersistedCache();
+
+      // Use AuthContext logout method to clear all auth state
+      logout();
+
+      // Close open UI bits
       setMenuOpen(false);
       setProfileOpen(false);
 
+      // Go to login on a clean slate
       navigate("/login", { replace: true });
     } catch (err) {
       console.error("Logout cleanup failed:", err);

@@ -1,22 +1,29 @@
 // src/pages/Login.tsx
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { loginUser } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await loginUser(email, password);
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
-      navigate('/dashboard');
+      
+      // Use AuthContext login method instead of direct localStorage
+      login(res.token, res.user);
+      
+      // Redirect to the page they were trying to access, or dashboard by default
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     } catch (err: any) {
       alert(err.message);
     }
