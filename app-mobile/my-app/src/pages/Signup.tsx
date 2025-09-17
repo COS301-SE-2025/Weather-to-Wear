@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { signupUser } from '../services/auth';
+import Toast from '../components/Toast';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -15,6 +16,8 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [showToast, setShowToast] = useState(false);
+
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,7 +55,14 @@ export default function Signup() {
       );
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify(res.user));
-      navigate('/dashboard');
+       // show success toast
+      setShowToast(true);
+
+      // hide after 3s, then navigate
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/dashboard');
+      }, 3000);
     } catch (err: any) {
       setErrors([err.message || 'Signup failed.']);
     }
@@ -175,6 +185,7 @@ export default function Signup() {
           </p>
         </form>
       </div>
+      {showToast && <Toast message="Account created successfully!" />}
     </div>
   );
 }
