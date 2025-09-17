@@ -1,14 +1,22 @@
 // src/pages/Login.tsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { loginUser, applyAuthToken } from '../services/auth';
+import Toast from '../components/Toast';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
   const [expiredMsg, setExpiredMsg] = useState<string | null>(null);
+
+  const [showToast, setShowToast] = useState(false);
+  const location = useLocation();
+  const loggedOut = location.state?.loggedOut || false;
+  const [showLoggedOutToast, setShowLoggedOutToast] = useState(loggedOut);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,18 +26,28 @@ export default function Login() {
         localStorage.removeItem('sessionExpiredNotice');
       }
     } catch {
-      // no op
+      /* no-op */
     }
   }, []);
+
+  useEffect(() => {
+    if (!showLoggedOutToast) return;
+    const t = setTimeout(() => setShowLoggedOutToast(false), 3000);
+    return () => clearTimeout(t);
+  }, [showLoggedOutToast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await loginUser(email, password);
-      if (res?.token) applyAuthToken(res.token);
+      if (res?.token) applyAuthToken(res.token); // persist & schedule auto-logout
       if (res?.user) localStorage.setItem('user', JSON.stringify(res.user));
 
-      navigate('/dashboard', { replace: true });
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/dashboard', { replace: true });
+      }, 3000);
     } catch (err: any) {
       alert(err?.message || 'Login failed');
     }
@@ -101,6 +119,9 @@ export default function Login() {
           </p>
         </form>
       </div>
+
+      {showToast && <Toast message="Logged in successfully!" />}
+      {showLoggedOutToast && <Toast message="Logged out successfully!" />}
     </div>
   );
 }
