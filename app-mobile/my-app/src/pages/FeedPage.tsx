@@ -1,5 +1,7 @@
 import { Heart, Loader2, Search } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+
 import {
   getPosts,
   addComment,
@@ -174,6 +176,22 @@ const FeedPage: React.FC = () => {
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+
+  const location = useLocation();
+const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+useEffect(() => {
+  if (location.state?.postSuccess) {
+    setShowSuccessPopup(true);
+
+    // Auto-hide popup after 3 seconds
+    const timer = setTimeout(() => {
+      setShowSuccessPopup(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }
+}, [location.state]);
 
 
 
@@ -422,6 +440,7 @@ const FeedPage: React.FC = () => {
   };
 
   return (
+    
     <div className="w-full max-w-screen-xl mx-auto px-0 md:px-4 pt-0 md:pt-6 pb-1 md:pb-6 -mt-12 md:mt-0 flex flex-col md:flex-row gap-3 md:gap-10">
       <div className="w-full md:w-[32%] order-1 md:order-2">
         <SearchUsersCard
@@ -580,6 +599,13 @@ const FeedPage: React.FC = () => {
           </>
         )}
       </div>
+      {showSuccessPopup && (
+  <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+    Post created successfully!
+  </div>
+)}
+
+
     </div>
   );
 };
