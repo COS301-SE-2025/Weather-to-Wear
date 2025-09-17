@@ -1,14 +1,30 @@
 // src/pages/Login.tsx
-import React, { useState } from 'react';
+import React, { useEffect ,useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { loginUser } from '../services/auth';
+import Toast from '../components/Toast';
+import { useLocation } from "react-router-dom";
+
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const[showToast, setShowToast] = useState(false);
   const navigate = useNavigate();
+
+  const location = useLocation();
+  const loggedOut = location.state?.loggedOut || false;
+
+  const [showloggedOutToast, setShowloggedOutToast] = useState(loggedOut);
+
+  useEffect(() => {
+    if (loggedOut) {
+      const timer = setTimeout(() => setShowToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [loggedOut]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,7 +32,13 @@ export default function Login() {
       const res = await loginUser(email, password);
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify(res.user));
-      navigate('/dashboard');
+       // show success toast
+      setShowToast(true);
+
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/dashboard');
+      }, 3000);
     } catch (err: any) {
       alert(err.message);
     }
@@ -83,6 +105,9 @@ export default function Login() {
           </p>
         </form>
       </div>
+          {showToast && <Toast message="Logged in successfully!" />}
+
+          {showloggedOutToast && <Toast message="Logged out successfully!" />}
     </div>
   );
 }
