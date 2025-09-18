@@ -928,7 +928,7 @@ const AddPage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
             <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              🎉 Success! 🎉
+              Success!
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
               Items added successfully.

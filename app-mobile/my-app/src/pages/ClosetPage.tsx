@@ -159,6 +159,8 @@ export default function ClosetPage() {
     variant: 'success',
   });
 
+  const prettyDate = (s?: string) => (s ? new Date(s).toLocaleString() : "—");
+
   const showPopup = (message: string, variant: 'success' | 'error' = 'success') =>
     setPopup({ open: true, message, variant });
 
@@ -268,7 +270,7 @@ export default function ClosetPage() {
         try {
           const body = await (res as any).json?.();
           errMsg += ` — ${JSON.stringify(body)}`;
-        } catch {}
+        } catch { }
         throw new Error(errMsg);
       }
 
@@ -292,13 +294,13 @@ export default function ClosetPage() {
           prev.map(o =>
             o.id === updated.id
               ? {
-                  ...o,
-                  category: updated.category,
-                  colorHex: updated.colorHex,
-                  warmthRating: updated.warmthFactor,
-                  waterproof: updated.waterproof,
-                  overallStyle: updated.style,
-                }
+                ...o,
+                category: updated.category,
+                colorHex: updated.colorHex,
+                warmthRating: updated.warmthFactor,
+                waterproof: updated.waterproof,
+                overallStyle: updated.style,
+              }
               : o
           )
         );
@@ -392,8 +394,8 @@ export default function ClosetPage() {
         /outfit/i.test(raw)
           ? 'You can’t delete this item because it’s part of an outfit. Remove it from the outfit first.'
           : /pack/i.test(raw)
-          ? 'You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.'
-          : 'Delete failed. Try again.';
+            ? 'You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.'
+            : 'Delete failed. Try again.';
       showPopup(friendly, 'error');
     } finally {
       setShowModal(false);
@@ -411,8 +413,8 @@ export default function ClosetPage() {
       activeTab === 'items'
         ? items
         : activeTab === 'favourites'
-        ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
-        : outfits;
+          ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
+          : outfits;
 
     if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
@@ -478,7 +480,7 @@ export default function ClosetPage() {
             className="px-4 py-2 border border-black text-black rounded-full disabled:opacity-50"
           >
             <option value="">All Categories</option>
-            { (CATEGORY_BY_LAYER[layerFilter] || []).map(opt => (
+            {(CATEGORY_BY_LAYER[layerFilter] || []).map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -718,7 +720,7 @@ export default function ClosetPage() {
                         <button onClick={() => onToggleFavourite(entry, 'items')}>
                           <Heart
                             className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                           />
+                          />
                         </button>
                       </div>
                     </div>
@@ -953,6 +955,133 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
+        {/* Item Details Modal */}
+        <AnimatePresence>
+          {activeDetailsItem && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-[90vw] max-w-md p-6"
+              >
+                {/* close */}
+                <button
+                  onClick={() => setActiveDetailsItem(null)}
+                  className="absolute top-3 right-3 text-gray-700 dark:text-gray-200 hover:text-black bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 rounded-full p-2 z-20"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* favourite (top-left) */}
+                <button
+                  onClick={() => onToggleFavourite(activeDetailsItem, 'items')}
+                  className="absolute top-3 left-3 z-20"
+                  aria-label={activeDetailsItem.favourite ? 'Unfavourite item' : 'Favourite item'}
+                >
+                  <Heart
+                    className={`w-5 h-5 sm:w-6 sm:h-6 transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-300'
+                      }`}
+                  />
+                </button>
+
+                {/* image */}
+                <div className="flex justify-center mb-3">
+                  <img
+                    src={activeDetailsItem.image}
+                    alt={activeDetailsItem.name}
+                    className="max-h-64 object-contain rounded-lg bg-white"
+                    onClick={() => setPreviewImage(activeDetailsItem.image)}
+                  />
+                </div>
+
+                {/* info */}
+                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                  <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div>
+                  <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
+                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div>
+                  <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
+                  <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
+                  <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
+                  <div><span className="font-semibold">Waterproof:</span> {activeDetailsItem.waterproof ? 'Yes' : 'No'}</div>
+                  <div><span className="font-semibold">Added:</span> {prettyDate(activeDetailsItem.createdAt)}</div>
+
+                  {/* colors */}
+                  <div className="pt-1">
+                    <div className="font-semibold mb-1">Colors</div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {/* primary color */}
+                      {activeDetailsItem.colorHex && (
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: activeDetailsItem.colorHex }}
+                            title={activeDetailsItem.colorHex}
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-300">{activeDetailsItem.colorHex}</span>
+                        </div>
+                      )}
+
+                      {/* extracted dominant colors */}
+                      {(activeDetailsItem.dominantColors || []).slice(0, 12).map((hex) => (
+                        <div key={hex} className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: hex }}
+                            title={hex}
+                          />
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">{hex}</span>
+                        </div>
+                      ))}
+
+                      {!activeDetailsItem.colorHex && (!activeDetailsItem.dominantColors || activeDetailsItem.dominantColors.length === 0) && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">No colors detected</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* actions */}
+                <div className="flex justify-end gap-2 pt-5">
+                  <button
+                    onClick={() => {
+                      setItemToEdit({ ...activeDetailsItem, tab: 'items' });
+                      setEditedCategory(activeDetailsItem.category);
+                      setEditedColorHex(activeDetailsItem.colorHex || '');
+                      setEditedWarmthFactor(activeDetailsItem.warmthFactor || 0);
+                      setEditedWaterproof(!!activeDetailsItem.waterproof);
+                      setEditedStyle(activeDetailsItem.style || '');
+                      setEditedMaterial(activeDetailsItem.material || '');
+                      setShowEditModal(true);
+                      setActiveDetailsItem(null);
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setItemToRemove({ id: activeDetailsItem.id, tab: 'items', name: activeDetailsItem.name });
+                      setShowModal(true);
+                      setActiveDetailsItem(null);
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+
         {/* Remove Confirmation */}
         <AnimatePresence>
           {showModal && itemToRemove && (
@@ -1175,19 +1304,19 @@ export default function ClosetPage() {
                 prev.map(o =>
                   o.id === updated.id
                     ? {
-                        ...o,
-                        overallStyle: updated.overallStyle,
-                        userRating: updated.userRating ?? o.userRating,
-                        outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                          closetItemId: it.closetItemId,
-                          layerCategory: it.layerCategory,
-                          imageUrl:
-                            it.imageUrl && it.imageUrl.length > 0
-                              ? it.imageUrl
-                              : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
-                          category: it?.closetItem?.category ?? it.category,
-                        })),
-                      }
+                      ...o,
+                      overallStyle: updated.overallStyle,
+                      userRating: updated.userRating ?? o.userRating,
+                      outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                        closetItemId: it.closetItemId,
+                        layerCategory: it.layerCategory,
+                        imageUrl:
+                          it.imageUrl && it.imageUrl.length > 0
+                            ? it.imageUrl
+                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
+                        category: it?.closetItem?.category ?? it.category,
+                      })),
+                    }
                     : o
                 )
               );
