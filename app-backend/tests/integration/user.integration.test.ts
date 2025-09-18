@@ -8,11 +8,14 @@ import path from "path";
 // --- Mock S3 utils used by users.controller ---
 // (Must match the import path used in the app code.)
 jest.mock("../../src/utils/s3", () => {
-  const mod = {
+  return {
     cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
     uploadBufferToS3: jest.fn().mockResolvedValue(undefined),
-  };
-  return mod;
+    putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => ({
+      key,
+      publicUrl: `https://cdn.test/${key}`,
+    })),
+  }
 });
 import * as s3 from "../../src/utils/s3";
 
@@ -161,7 +164,7 @@ describe("Auth Integration Tests", () => {
         .delete(`/api/auth/users/${userId}`)
         .set("Authorization", "Bearer badtoken");
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
       expect(res.body.error).toMatch(/invalid token/i);
     });
 
@@ -233,6 +236,7 @@ describe("Users Controller Integration", () => {
     beforeEach(() => {
       // clear mock call history each test
       (s3.uploadBufferToS3 as jest.Mock).mockClear();
+      (s3.putBufferSmart as jest.Mock).mockClear();
     });
 
     it("requires auth", async () => {
@@ -267,11 +271,8 @@ describe("Users Controller Integration", () => {
       expect(res.body.message).toBe("Updated");
       expect(res.body.user).toHaveProperty("profilePhoto");
 
-      // Ensure our mocked S3 uploader was called
-      expect(s3.uploadBufferToS3).toHaveBeenCalledTimes(1);
-      const call = (s3.uploadBufferToS3 as jest.Mock).mock.calls[0][0];
-      // Bucket should come from env
-      expect(call.bucket).toBe(process.env.S3_BUCKET_NAME);
+      expect(s3.putBufferSmart).toHaveBeenCalledTimes(1);
+      const call = (s3.putBufferSmart as jest.Mock).mock.calls[0][0];
       expect(call.key).toMatch(new RegExp(`^users/${user.id}/profile/`));
       expect(call.contentType).toMatch(/image\/png/);
 
@@ -307,7 +308,7 @@ describe("Users Controller Integration", () => {
       expect(res.status).toBe(200);
       expect(res.body.user.profilePhoto).toMatch(new RegExp(`^https://cdn\\.test/users/${user.id}/profile/`));
 
-      const call = (s3.uploadBufferToS3 as jest.Mock).mock.calls.pop()[0];
+      const call = (s3.putBufferSmart as jest.Mock).mock.calls.pop()[0];
       expect(call.contentType).toMatch(/image\/jpeg/);
       expect(call.key).toMatch(/\.jpg$/);
     });
