@@ -57,8 +57,21 @@ export async function searchCities(query: string): Promise<CityMatch[]> {
   }
 }
 
+// Group hours by YYYY-MM-DD (keeps API flat; UI can opt-in to grouping)
+export function groupByDay(forecast: HourlyForecast[]): Record<string, HourlyForecast[]> {
+  const out: Record<string, HourlyForecast[]> = {};
+  for (const h of forecast) {
+    const day = h.time.slice(0, 10);
+    (out[day] ||= []).push(h);
+  }
+  for (const day of Object.keys(out)) {
+    out[day].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  }
+  return out;
+}
+
 // Choose top match (we still expose /search-cities for UI selection path)
-async function geocodeOpenMeteoTop(location: string): Promise<{lat: number; lon: number; name: string; timezone?: string} | null> {
+async function geocodeOpenMeteoTop(location: string): Promise<{ lat: number; lon: number; name: string; timezone?: string } | null> {
   try {
     const matches = await searchCities(location);
     if (!matches.length) return null;
@@ -78,45 +91,66 @@ function weatherCodeToDescription(code: number): string {
   if (code === 3) return 'Overcast';
   if (code === 45) return 'Fog';
   if (code === 48) return 'Depositing rime fog';
-  if ([51,53,55].includes(code)) return 'Drizzle';
-  if ([56,57].includes(code)) return 'Freezing drizzle';
-  if ([61,63,65].includes(code)) return 'Rain';
-  if ([66,67].includes(code)) return 'Freezing rain';
-  if ([71,73,75].includes(code)) return 'Snowfall';
+  if ([51, 53, 55].includes(code)) return 'Drizzle';
+  if ([56, 57].includes(code)) return 'Freezing drizzle';
+  if ([61, 63, 65].includes(code)) return 'Rain';
+  if ([66, 67].includes(code)) return 'Freezing rain';
+  if ([71, 73, 75].includes(code)) return 'Snowfall';
   if (code === 77) return 'Snow grains';
-  if ([80,81,82].includes(code)) return 'Rain showers';
-  if ([85,86].includes(code)) return 'Snow showers';
+  if ([80, 81, 82].includes(code)) return 'Rain showers';
+  if ([85, 86].includes(code)) return 'Snow showers';
   if (code === 95) return 'Thunderstorm';
-  if ([96,99].includes(code)) return 'Thunderstorm with hail';
+  if ([96, 99].includes(code)) return 'Thunderstorm with hail';
   return 'Unknown';
 }
 
-// Open-Meteo's icon URL. 
+function normalizeBaseUrl(u: string): string {
+  let s = (u || '').trim();
+  if (!s) return '';
+  // Fix common typos like "https//" and ensure scheme
+  if (s.startsWith('https//')) s = 'https://' + s.slice('https//'.length);
+  if (s.startsWith('http//')) s = 'http://' + s.slice('http//'.length);
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s.replace(/^\/+/, '');
+  // Drop trailing slashes
+  s = s.replace(/\/+$/, '');
+  return s;
+}
+
 function weatherCodeToIcon(code: number, isDay: boolean): string | undefined {
-  const base = process.env.OPEN_METEO_ICON_BASE; // https://open-meteo.com/images/meteocons
+  const rawBase = process.env.OPEN_METEO_ICON_BASE || '';
+  const base = normalizeBaseUrl(rawBase);
   if (!base) return undefined;
-  // Icon naming scheme. Keep simple mapping:
-  const map: Record<number, string> = {
-    0: 'clear',
-    1: 'mostly-clear',
-    2: 'partly-cloudy',
-    3: 'overcast',
-    45: 'fog',
-    48: 'fog',
-    51: 'drizzle', 53: 'drizzle', 55: 'drizzle',
-    56: 'freezing-drizzle', 57: 'freezing-drizzle',
-    61: 'rain', 63: 'rain', 65: 'rain',
-    66: 'freezing-rain', 67: 'freezing-rain',
-    71: 'snow', 73: 'snow', 75: 'snow',
-    77: 'snow',
-    80: 'showers', 81: 'showers', 82: 'showers',
-    85: 'snow-showers', 86: 'snow-showers',
-    95: 'thunderstorm',
-    96: 'thunderstorm', 99: 'thunderstorm'
-  };
-  const name = map[code] || 'na';
-  const variant = isDay ? 'day' : 'night';
-  return `${base}/${name}-${variant}.svg`;
+
+  // Map WMO weather codes -> Meteocons filenames
+  // Ref: Meteocons list shows names like clear-day, clear-night, rain, drizzle, overcast-*, fog-*, partly-cloudy-*, thunderstorms-*, snow, sleet, hail, etc.
+  const name = (() => {
+    switch (code) {
+      case 0: return isDay ? 'clear-day' : 'clear-night'; // Clear sky
+      case 1:  // Mainly clear
+      case 2:  // Partly cloudy
+        return isDay ? 'partly-cloudy-day' : 'partly-cloudy-night';
+      case 3: return isDay ? 'overcast-day' : 'overcast-night'; // Overcast
+      case 45: // Fog
+      case 48: // Depositing rime fog
+        return isDay ? 'fog-day' : 'fog-night';
+      case 51: case 53: case 55: return 'drizzle'; // Drizzle
+      case 56: case 57: return 'sleet'; // Freezing drizzle → closest visual
+      case 61: case 63: case 65: return 'rain'; // Rain
+      case 66: case 67: return 'sleet'; // Freezing rain → sleet
+      case 71: case 73: case 75: case 77: return 'snow'; // Snow/grains
+      case 80: case 81: case 82: // Rain showers
+        return isDay ? 'partly-cloudy-day-rain' : 'partly-cloudy-night-rain';
+      case 85: case 86: // Snow showers
+        return isDay ? 'partly-cloudy-day-snow' : 'partly-cloudy-night-snow';
+      case 95: // Thunderstorm
+        return isDay ? 'thunderstorms-day' : 'thunderstorms-night';
+      case 96: case 99: // Thunderstorm with hail
+        return isDay ? 'thunderstorms-day' : 'thunderstorms-night';
+      default: return 'not-available';
+    }
+  })();
+
+  return `${base}/${name}.svg`;
 }
 
 // Build HourlyForecast[] from Open-Meteo hourly arrays
@@ -124,8 +158,7 @@ function buildHourlyFromOpenMeteo(hourly: any, tz?: string): HourlyForecast[] {
   const times: string[] = hourly.time || [];
   const temps: number[] = hourly.temperature_2m || [];
   const codes: number[] = hourly.weathercode || [];
-  const isDayArr: number[] = hourly.is_day || []; // 1=day,0=night (if requested)
-
+  const isDayArr: number[] = hourly.is_day || [];
   const precipProb: number[] = hourly.precipitation_probability || [];
   const precip: number[] = hourly.precipitation || [];
 
@@ -137,11 +170,14 @@ function buildHourlyFromOpenMeteo(hourly: any, tz?: string): HourlyForecast[] {
     const desc = weatherCodeToDescription(code);
     const isDay = typeof isDayArr[i] === 'number' ? isDayArr[i] === 1 : true;
     const icon = weatherCodeToIcon(code, isDay);
+
     out.push({
-      time: t, // Open-Meteo returns ISO local time strings matching timezone=auto
+      time: t,
       temperature: temp,
       description: desc,
-      icon
+      icon,
+      precipitationMm: typeof precip[i] === 'number' ? precip[i] : undefined,
+      precipitationProbability: typeof precipProb[i] === 'number' ? precipProb[i] : undefined,
     });
   }
   return out;
@@ -503,16 +539,17 @@ export interface WeatherSummary {
 
 export function summarizeWeather(forecast: HourlyForecast[]): WeatherSummary {
   if (!forecast.length) return { avgTemp: 0, minTemp: 0, maxTemp: 0, willRain: false, mainCondition: "unknown" };
+
   const temps = forecast.map(f => f.temperature);
   const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
   const minTemp = Math.min(...temps);
   const maxTemp = Math.max(...temps);
 
-  // Strengthen willRain using description + precipitation signals (if present)
   const hasRainyDesc = forecast.some(f => /rain|shower|drizzle/i.test(f.description));
-  // We didn’t include numeric values on HourlyForecast, so we infer via descriptions only here.
-  // If you want, we can extend HourlyForecast later with precip fields (kept minimal now).
-  const willRain = hasRainyDesc;
+  const hasPrecipSignal = forecast.some(f =>
+    (f.precipitationProbability ?? 0) >= 50 || (f.precipitationMm ?? 0) > 0.2
+  );
+  const willRain = hasRainyDesc || hasPrecipSignal;
 
   const condCount = forecast.reduce((acc, cur) => {
     const desc = cur.description.toLowerCase();
@@ -520,6 +557,7 @@ export function summarizeWeather(forecast: HourlyForecast[]): WeatherSummary {
     return acc;
   }, {} as Record<string, number>);
   const mainCondition = Object.keys(condCount).reduce((a, b) => condCount[a] > condCount[b] ? a : b);
+
   return { avgTemp, minTemp, maxTemp, willRain, mainCondition };
 }
 

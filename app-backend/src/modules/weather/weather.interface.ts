@@ -15,6 +15,10 @@ export interface HourlyForecast {
   temperature: number;
   description: string;
   icon?: string;
+
+  // numeric precipitation signals 
+  precipitationMm?: number;
+  precipitationProbability?: number; // 0..100 (%)
 }
 
 export interface WeatherData {
