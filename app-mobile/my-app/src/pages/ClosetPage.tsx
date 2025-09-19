@@ -132,7 +132,6 @@ export default function ClosetPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; tab: TabType; name: string } | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [showEditSuccess, setShowEditSuccess] = useState(false);
 
@@ -214,12 +213,12 @@ export default function ClosetPage() {
   }, []);
 
   useEffect(() => {
-    if (showModal || showEditModal || previewImage) {
+    if (showModal || showEditModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-  }, [showModal, showEditModal, previewImage]);
+  }, [showModal, showEditModal]);
 
   // Rename handler to avoid name clash with imported api function
   const onToggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
@@ -968,7 +967,8 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-[90vw] max-w-md p-6"
+                className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl
+            w-[85vw] sm:w-[70vw] max-w-sm p-4 sm:p-5"
               >
                 {/* close */}
                 <button
@@ -996,8 +996,7 @@ export default function ClosetPage() {
                   <img
                     src={activeDetailsItem.image}
                     alt={activeDetailsItem.name}
-                    className="max-h-64 object-contain rounded-lg bg-white"
-                    onClick={() => setPreviewImage(activeDetailsItem.image)}
+                    className="max-h-56 sm:max-h-64 object-contain rounded-lg bg-white"
                   />
                 </div>
 
@@ -1111,20 +1110,6 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
-        {/* Preview Overlay */}
-        <AnimatePresence>
-          {previewImage && (
-            <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
-              <motion.img src={previewImage} alt="" className="max-w-3/4 max-h-3/4 object-contain" />
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="absolute top-4 right-4 text-white bg-gray-800 p-2 rounded-full"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Edit Modal */}
         <AnimatePresence>
