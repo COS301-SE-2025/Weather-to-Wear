@@ -38,12 +38,13 @@ export async function getWeatherForDay(req: Request, res: Response): Promise<voi
 }
 
 /** NEW: 7-day planner */
-export async function getWeatherForWeek(req: Request, res: Response): Promise<void> {
+export async function getWeatherForWeek(req: Request, res: Response) {
   try {
-    const location = (req.query.location as string) || '';
+    let location = (req.query.location as string) || '';
     if (!location) {
-      res.status(400).json({ error: 'Location is required' });
-      return;
+      // fall back to same auto-detect used by getWeatherByLocation
+      const today = await getWeatherByLocation(''); // this resolves a city name
+      location = today.location;
     }
     const weather = await getWeatherWeek(location);
     if (!weather || !weather.forecast.length) {
@@ -56,6 +57,7 @@ export async function getWeatherForWeek(req: Request, res: Response): Promise<vo
     res.status(500).json({ error: 'Unable to fetch weekly weather' });
   }
 }
+
 
 /** NEW: city search for disambiguation */
 export async function getCityMatches(req: Request, res: Response): Promise<void> {
