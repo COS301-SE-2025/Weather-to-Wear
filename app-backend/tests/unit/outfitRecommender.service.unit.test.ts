@@ -35,6 +35,7 @@ jest.mock('@prisma/client', () => {
 import {
   partitionClosetByLayer,
   getRequiredLayers,
+  getLayerPlans,
   getCandidateOutfits,
   scoreOutfit,
   recommendOutfits,
@@ -82,21 +83,67 @@ describe('outfitRecommender.service (pure helpers)', () => {
   });
 
   describe('getRequiredLayers', () => {
-    it('includes mid and outerwear layers for cold weather', () => {
-      const result = getRequiredLayers({ avgTemp: 10, minTemp: 8 } as any);
-      expect(result).toEqual(
-        expect.arrayContaining(['base_top', 'mid_top', 'outerwear'])
+    it('always returns only the core required layers', () => {
+      const warm = getRequiredLayers({ avgTemp: 25, minTemp: 20 } as any);
+      const mild = getRequiredLayers({ avgTemp: 20, minTemp: 15 } as any);
+      const cold = getRequiredLayers({ avgTemp: 10, minTemp: 8 } as any);
+
+      const core = ['base_top', 'base_bottom', 'footwear'];
+
+      expect(warm).toEqual(core);
+      expect(mild).toEqual(core);
+      expect(cold).toEqual(core);
+
+      expect(cold).not.toContain('mid_top');
+      expect(cold).not.toContain('outerwear');
+    });
+  });
+
+  describe('getLayerPlans', () => {
+    it('includes outerwear without mid_top when raining and warm', () => {
+      const plans = getLayerPlans({
+        avgTemp: 22,
+        minTemp: 20,
+        willRain: true,
+      } as any);
+
+      const core = ['base_top', 'base_bottom', 'footwear'];
+      expect(plans.some(p => core.every(x => p.includes(x)))).toBe(true);
+
+      const hasOuterwearOnly = plans.some(
+        p => p.includes('outerwear') && !p.includes('mid_top')
       );
+      expect(hasOuterwearOnly).toBe(true);
     });
 
-    it('excludes outerwear for mild weather', () => {
-      const result = getRequiredLayers({ avgTemp: 20, minTemp: 15 } as any);
-      expect(result).not.toContain('outerwear');
+    it('includes mid_top (but not necessarily outerwear) when cool and dry', () => {
+      const plans = getLayerPlans({
+        avgTemp: 16,
+        minTemp: 12,
+        willRain: false,
+      } as any);
+      expect(plans.some(p => p.includes('mid_top'))).toBe(true);
     });
 
-    it('only returns base layers for warm weather', () => {
-      const result = getRequiredLayers({ avgTemp: 25, minTemp: 20 } as any);
-      expect(result).toEqual(['base_top', 'base_bottom', 'footwear']);
+    it('includes both mid_top and outerwear when cold', () => {
+      const plans = getLayerPlans({
+        avgTemp: 10,
+        minTemp: 8,
+        willRain: false,
+      } as any);
+      const hasBoth = plans.some(
+        p => p.includes('mid_top') && p.includes('outerwear')
+      );
+      expect(hasBoth).toBe(true);
+    });
+
+    it('may provide core-only plan when warm and dry', () => {
+      const plans = getLayerPlans({
+        avgTemp: 25,
+        minTemp: 20,
+        willRain: false,
+      } as any);
+      expect(plans).toContainEqual(['base_top', 'base_bottom', 'footwear']);
     });
   });
 
@@ -194,7 +241,7 @@ describe('outfitRecommender.service (pure helpers)', () => {
       expect(score).toBeLessThan(0);
     });
 
-    it('rewards waterproof items if raining', () => {
+    it('rewards waterproof items if raining (stronger bias)', () => {
       const rainyScore = scoreOutfit(baseOutfit as any, [], {
         avgTemp: 10,
         minTemp: 5,

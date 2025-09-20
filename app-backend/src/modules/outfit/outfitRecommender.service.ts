@@ -342,6 +342,7 @@ function buildFakeRec(outfit: any): OutfitRecommendation {
 export {
   partitionClosetByLayer,
   getRequiredLayers,
+  getLayerPlans,
   getCandidateOutfits,
   scoreOutfit,
 };
