@@ -30,6 +30,7 @@ import { useOutfitsQuery } from '../hooks/useOutfitsQuery';
 import { queryClient } from '../queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
+import { formatMonthDay } from '../utils/date';
 
 // ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
@@ -70,10 +71,17 @@ function toEvent(dto: EventDto): Event {
   };
 }
 
+// ---------- Utilities ----------
+function parseHourTS(s: string) {
+  return new Date(s.includes('T') ? s : s.replace(' ', 'T'));
+}
+
+
 const TypingSlogan = () => {
-  const slogan = 'Style Made Simple.';
-  const tealWord = 'Simple.';
-  const tealStart = slogan.indexOf(tealWord);
+  // 1) newline after "Style Made"
+  const slogan = 'Style Made\nSimple.';
+  const tealWord = 'Simple.'; // second line
+  const newlineIndex = slogan.indexOf('\n');
 
   const [displayText, setDisplayText] = useState('');
   const [index, setIndex] = useState(0);
@@ -94,24 +102,41 @@ const TypingSlogan = () => {
       }
     };
     const speed = isDeleting ? 60 : 120;
-    const timer = setTimeout(handleTyping, speed);
-    return () => clearTimeout(timer);
+    const t = setTimeout(handleTyping, speed);
+    return () => clearTimeout(t);
   }, [index, isDeleting, slogan]);
 
-  const beforeTeal = displayText.slice(0, Math.min(tealStart, displayText.length));
-  const tealVisibleLength =
-    displayText.length > tealStart ? Math.min(displayText.length - tealStart, tealWord.length) : 0;
-  const tealPart = tealWord.slice(0, tealVisibleLength);
+  // 2) split into lines as typed
+  const firstLine = displayText.slice(
+    0,
+    Math.min(displayText.length, newlineIndex === -1 ? displayText.length : newlineIndex)
+  );
+  const secondTyped = displayText.length > newlineIndex ? displayText.slice(newlineIndex + 1) : '';
+  const tealPart = tealWord.slice(0, Math.min(secondTyped.length, tealWord.length));
 
   return (
-    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-center lg:text-left w-full">
-
-      {beforeTeal}
-      <span className="text-[#3F978F]">{tealPart}</span>
-      <span className="animate-pulse">|</span>
+    <h2
+      className="
+        text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide
+        text-center lg:text-left
+        whitespace-nowrap leading-tight overflow-hidden
+        min-h-[7rem] lg:min-h-[9rem]
+        lg:self-start lg:mr-auto lg:w-auto
+      "
+    >
+      <span>{firstLine}</span>
+      {displayText.length > newlineIndex && (
+        <>
+          <br />
+          <span className="text-[#3F978F]">{tealPart}</span>
+        </>
+      )}
+      {/* 3) one caret, always at the end */}
+      <span className="inline-block w-[0.6ch] align-baseline animate-pulse">|</span>
     </h2>
   );
 };
+
 
 // ---------- HomePage ----------
 export default function HomePage() {
@@ -168,7 +193,7 @@ export default function HomePage() {
 
   const weekQuery = useQuery({
     queryKey: ['weather-week', locationLabel || 'pending'],
-    enabled: Boolean(locationLabel), 
+    enabled: Boolean(locationLabel),
     queryFn: async () => {
       try {
         const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
@@ -201,10 +226,28 @@ export default function HomePage() {
   useEffect(() => {
     if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
   }, [dayKeys, selectedDate]);
-  const selectedDayHours: H[] = useMemo(
-    () => (selectedDate && weekByDay[selectedDate]) ? weekByDay[selectedDate] : [],
-    [selectedDate, weekByDay]
-  );
+
+
+  const selectedDayHours: H[] = useMemo(() => {
+    if (!selectedDate || !weekByDay[selectedDate]) return [];
+
+    const hours = weekByDay[selectedDate];
+    // Compare against today's date key ("YYYY-MM-DD")
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    if (selectedDate === todayKey) {
+      const now = new Date();
+      // keep only hours at/after current time for *today*
+      return hours.filter(h => {
+        const t = parseHourTS(h.time);
+        return t >= now;
+      });
+    }
+
+    // other days: return full day
+    return hours;
+  }, [selectedDate, weekByDay]);
+
   const selectedDaySummary = useMemo(
     () => (selectedDayHours.length ? summarizeDay(selectedDayHours) : null),
     [selectedDayHours]
@@ -215,6 +258,21 @@ export default function HomePage() {
   // const outfits = outfitsQuery.data ?? [];
 
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
+
+  const tomorrowKey = useMemo(() => (dayKeys.length > 1 ? dayKeys[1] : null), [dayKeys]);
+  const tomorrowHours: H[] = useMemo(
+    () => (tomorrowKey ? weekByDay[tomorrowKey] : []),
+    [tomorrowKey, weekByDay]
+  );
+  const tomorrowSummary = useMemo(
+    () => (tomorrowHours.length ? summarizeDay(tomorrowHours) : null),
+    [tomorrowHours]
+  );
+
+  // Get a single recommended outfit for tomorrow (first option only)
+  const tomorrowOutfitsQuery = useOutfitsQuery(tomorrowSummary as any, selectedStyle);
+  const tomorrowsFirst = (tomorrowOutfitsQuery.data && tomorrowOutfitsQuery.data[0]) || null;
+
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
 
   const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
@@ -445,228 +503,291 @@ export default function HomePage() {
 
       {/* Main Sections */}
       <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
-        <div className="flex flex-col lg:flex-row gap-8 justify-between">
+        <div className="grid gap-8 lg:gap-16 items-start justify-center
+                grid-cols-1
+                lg:grid-cols-[380px_minmax(0,520px)_280px]">
+
+
           {/* Typing Slogan */}
-          <div className="flex-1 flex flex-col items-center lg:items-start justify-center">
+          <div
+            className="
+    flex-1 flex flex-col
+    items-center lg:items-start
+    justify-center lg:justify-start
+    lg:sticky lg:top-8
+    lg:self-start lg:mt-2
+    min-w-0
+    lg:flex-none lg:basis-[380px] lg:max-w-[380px]
+    lg:pl-0
+    lg:-ml-12 xl:-ml-16 2xl:-ml-16   /* ⟵ pull left on big screens */
+  "
+          >
+
             <TypingSlogan />
+
+            {/* Desktop-only "Tomorrow's Outfit" mini card */}
+            <div className="hidden lg:block w-full max-w-[280px] mt-4">
+
+              <div className="flex justify-center mb-2">
+                <h3 className="text-sm font-semibold border px-2 py-0.5 rounded-full">Tomorrow’s Outfit</h3>
+              </div>
+
+              {tomorrowOutfitsQuery.isLoading ? (
+                <p className="text-xs text-gray-500 text-center">Loading…</p>
+              ) : !tomorrowsFirst ? (
+                <p className="text-xs text-gray-500 text-center">No suggestion yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {/* headwear/accessory (tiny) */}
+                  <div className={`${tomorrowsFirst.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory') ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                    {tomorrowsFirst.outfitItems
+                      .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+                      .map(item => (
+                        <img
+                          key={item.closetItemId}
+                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                          alt={item.category}
+                          className="w-12 h-12 object-contain rounded"
+                        />
+                      ))}
+                  </div>
+                  {/* tops (tiny) */}
+                  <div className="flex justify-center space-x-1">
+                    {tomorrowsFirst.outfitItems
+                      .filter(i => i.layerCategory === 'base_top' || i.layerCategory === 'mid_top' || i.layerCategory === 'outerwear')
+                      .map(item => (
+                        <img
+                          key={item.closetItemId}
+                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                          alt={item.category}
+                          className="w-12 h-12 object-contain rounded"
+                        />
+                      ))}
+                  </div>
+                  {/* bottoms (tiny) */}
+                  <div className="flex justify-center space-x-1">
+                    {tomorrowsFirst.outfitItems
+                      .filter(i => i.layerCategory === 'base_bottom')
+                      .map(item => (
+                        <img
+                          key={item.closetItemId}
+                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                          alt={item.category}
+                          className="w-12 h-12 object-contain rounded"
+                        />
+                      ))}
+                  </div>
+                  {/* footwear (tiny) */}
+                  <div className="flex justify-center space-x-1">
+                    {tomorrowsFirst.outfitItems
+                      .filter(i => i.layerCategory === 'footwear')
+                      .map(item => (
+                        <img
+                          key={item.closetItemId}
+                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                          alt={item.category}
+                          className="w-10 h-10 object-contain rounded"
+                        />
+                      ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+
           </div>
 
           {/* Outfit Section */}
-          <div className="flex-1 flex flex-col items-center">
-            <div className="w-full max-w-[350px]">
-              <div className="flex justify-center mb-4">
-                <h1 className="text-xl border-2 border-black px-3 py-1">Outfit Of The Day</h1>
-              </div>
+          <div className="flex flex-col items-center lg:flex-none lg:basis-[520px] mx-auto lg:-ml-6 xl:-ml-10 2xl:-ml-14">
+            <div className="w-full max-w-[450px] mx-auto">
 
-              {/* WEEK STRIP (compact, scrollable) */}
-              <div className="mb-3">
-                {weekQuery.isLoading ? (
-                  <div className="text-center text-sm text-gray-500">Loading week…</div>
-                ) : (!week || !week.forecast?.length) ? (
-                  <div className="text-center text-xs text-gray-500">
-                    Can’t fetch the full week right now.
-                  </div>
-                ) : (
-                  <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
-                    {dayKeys.map((d) => {
-                      const hours = weekByDay[d] || [];
-                      const s = summarizeDay(hours);
-                      const label = new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
-                      const isActive = d === selectedDate;
-                      // Use the midday hour to pick an icon if present
-                      const mid = hours.find(h => h.time.endsWith('12:00')) || hours[Math.floor(hours.length / 2)];
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => { setSelectedDate(d); setCurrentIndex(0); }}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
-                           ${isActive ? 'bg-[#3F978F] text-white border-[#3F978F]' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'}`}
-                          aria-label={`Select ${label}`}
+              <div className="bg-white">
+                {/* WEEK STRIP (compact, scrollable) */}
+                <div className="mb-3">
+                  {weekQuery.isLoading ? (
+                    <div className="text-center text-sm text-gray-500">Loading week…</div>
+                  ) : (!week || !week.forecast?.length) ? (
+                    <div className="text-center text-xs text-gray-500">
+                      Can’t fetch the full week right now.
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar justify-center">
+                      {dayKeys.map((d) => {
+                        const hours = weekByDay[d] || [];
+                        const label = new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
+                        const isActive = d === selectedDate;
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => { setSelectedDate(d); setCurrentIndex(0); }}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
+                    ${isActive ? 'bg-[#3F978F] text-white border-[#3F978F]' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'}`}
+                            aria-label={`Select ${label}`}
+                          >
+                            <span className="font-medium">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {loadingOutfits && <p>Loading outfits…</p>}
+                {error && !loadingOutfits && <p className="text-red-500">{error}</p>}
+                {!loadingOutfits && outfits.length === 0 && (
+                  <p className="text-center text-gray-500 dark:text-gray-400">
+                    Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
+                  </p>
+                )}
+
+                {/* Style Dropdown */}
+                <div className="mb-4 w-full text-center">
+                  <label
+                    htmlFor="style-select"
+                    className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
+                  />
+                  <select
+                    id="style-select"
+                    value={selectedStyle}
+                    onChange={e => {
+                      setSelectedStyle(e.target.value);
+                      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                    }}
+                     className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                  >
+                    <option value="Formal">Formal</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
+                  </select>
+                </div>
+
+                {!loadingOutfits && outfits.length > 0 && (
+                  <>
+                    {/* Carousel container with overlay arrows */}
+                    <div className="relative mb-2">
+                      {/* Left arrow: vertically centered, no bg */}
+                      <button
+                        onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-transparent hover:bg-transparent focus:outline-none"
+                        aria-label="Previous outfit"
+                        title="Previous"
+                      >
+                        <ChevronLeft className="w-10 h-10 text-black" />
+                      </button>
+
+                      {/* Right arrow: vertically centered, no bg */}
+                      <button
+                        onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-transparent hover:bg-transparent focus:outline-none"
+                        aria-label="Next outfit"
+                        title="Next"
+                      >
+                        <ChevronRight className="w-10 h-10 text-black" />
+                      </button>
+
+                      {/* Pad sides so arrows don't overlap images */}
+                      <div className="space-y-2 px-14">
+                        {/* headwear/accessory */}
+                        <div
+                          className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                            i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
+                          )
+                            ? 'h-auto'
+                            : 'h-0 overflow-hidden'
+                            }`}
                         >
-                          {mid?.icon ? (
-                            <img src={mid.icon} alt="" className="w-4 h-4" />
-                          ) : null}
-                          <span className="font-medium">{label}</span>
-                          <span className="opacity-80">
-                            {Math.round(s.minTemp)}°/{Math.round(s.maxTemp)}°
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          {outfits[currentIndex].outfitItems
+                            .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+                            .map(item => (
+                              <img
+                                key={item.closetItemId}
+                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                                alt={item.category}
+                                className="w-32 h-32 object-contain rounded-2xl"
+                              />
+                            ))}
+                        </div>
+
+                        {/* tops */}
+                        <div className="flex justify-center space-x-2">
+                          {outfits[currentIndex].outfitItems
+                            .filter(i =>
+                              i.layerCategory === 'base_top' ||
+                              i.layerCategory === 'mid_top' ||
+                              i.layerCategory === 'outerwear'
+                            )
+                            .map(item => (
+                              <img
+                                key={item.closetItemId}
+                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                                alt={item.category}
+                                className="w-32 h-32 object-contain rounded-2xl"
+                              />
+                            ))}
+                        </div>
+
+                        {/* bottoms */}
+                        <div className="flex justify-center space-x-2">
+                          {outfits[currentIndex].outfitItems
+                            .filter(i => i.layerCategory === 'base_bottom')
+                            .map(item => (
+                              <img
+                                key={item.closetItemId}
+                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                                alt={item.category}
+                                className="w-32 h-32 object-contain rounded-2xl"
+                              />
+                            ))}
+                        </div>
+
+                        {/* footwear */}
+                        <div className="flex justify-center space-x-2">
+                          {outfits[currentIndex].outfitItems
+                            .filter(i => i.layerCategory === 'footwear')
+                            .map(item => (
+                              <img
+                                key={item.closetItemId}
+                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                                alt={item.category}
+                                className="w-28 h-28 object-contain rounded-2xl"
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* index below images */}
+                    <div className="text-center text-sm mb-2">
+                      {currentIndex + 1} / {outfits.length}
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2">
+                      <StarRating
+                        disabled={saving}
+                        onSelect={handleSaveRating}
+                        value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                      />
+                      <button
+                        onClick={handleRefresh}
+                        className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
+                        aria-label="Refresh recommendations"
+                        title="Refresh recommendations"
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
-
-              {loadingOutfits && <p>Loading outfits…</p>}
-              {error && !loadingOutfits && <p className="text-red-500">{error}</p>}
-              {!loadingOutfits && outfits.length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400">
-                  Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
-                </p>
-              )}
-
-              {/* Style Dropdown */}
-              <div className="mb-4 w-full text-center">
-                <label
-                  htmlFor="style-select"
-                  className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
-                >
-                  Choose Style:
-                </label>
-                <select
-                  id="style-select"
-                  value={selectedStyle}
-                  onChange={e => {
-                    setSelectedStyle(e.target.value);
-                    // Recompute outfits for new style
-                    queryClient.invalidateQueries({ queryKey: ['outfits'] });
-                  }}
-                  className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
-                >
-                  <option value="Formal">Formal</option>
-                  <option value="Casual">Casual</option>
-                  <option value="Athletic">Athletic</option>
-                  <option value="Party">Party</option>
-                  <option value="Business">Business</option>
-                  <option value="Outdoor">Outdoor</option>
-                </select>
-              </div>
-
-              {!loadingOutfits && outfits.length > 0 && (
-                <>
-                  {/* carousel controls */}
-                  <div className="flex justify-between items-center mb-2 w-full">
-                    <button
-                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
-                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
-                    >
-                      <ChevronLeft className="w-5 h-5 text-white" />
-                    </button>
-                    <span className="text-sm">
-                      {currentIndex + 1} / {outfits.length}
-                    </span>
-                    <button
-                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
-                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
-                    >
-                      <ChevronRight className="w-5 h-5 text-white" />
-                    </button>
-                  </div>
-
-                  <div className="mb-4 space-y-2">
-                    {/* headwear/accessory */}
-                    <div
-                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
-                        i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
-                      )
-
-                        ? 'h-auto'
-                        : 'h-0 overflow-hidden'
-
-                        }`}
-                    >
-                      {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-
-                    {/* tops */}
-                    <div className="flex justify-center space-x-2">
-                      {outfits[currentIndex].outfitItems
-                        .filter(
-                          i =>
-                            i.layerCategory === 'base_top' ||
-                            i.layerCategory === 'mid_top' ||
-                            i.layerCategory === 'outerwear',
-                        )
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-
-                    {/* bottoms */}
-                    <div className="flex justify-center space-x-2">
-                      {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'base_bottom')
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-
-                    {/* footwear */}
-                    <div className="flex justify-center space-x-2">
-                      {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'footwear')
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-28 h-28 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2">
-                    <StarRating
-                      disabled={saving}
-                      onSelect={handleSaveRating}
-                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                    />
-                    <button
-                      onClick={handleRefresh}
-                      className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                      aria-label="Refresh recommendations"
-                      title="Refresh recommendations"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
           </div>
 
           {/* Weather Section */}
-          <div className="flex-1 flex flex-col items-center">
+          <div className="flex flex-col items-center lg:items-end justify-self-end xl:mr-4 2xl:mr-8">
+
             <div className="w-full max-w-[280px]">
               <div className="flex items-center space-x-2 mb-4">
                 <div className="relative flex-1">
@@ -980,24 +1101,27 @@ export default function HomePage() {
                       sums = [];
                     }
                     if (!sums.length) return null;
+
                     return (
                       <div className="text-sm mb-4 space-y-1">
-                        {sums.map(({ date, summary }) =>
-                          summary ? (
+                        {sums.map(({ date, summary }) => {
+                          // Format to "Month Day" (removes any 'T' visually because we don't print raw ISO)
+                          const label = formatMonthDay(date);
+                          return summary ? (
                             <div key={date}>
-                              <span className="font-medium">{date}:</span> {summary.mainCondition} —{' '}
-                              {Math.round(summary.avgTemp)}°C
+                              <span className="font-medium">{label}:</span> {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
                             </div>
                           ) : (
                             <div key={date}>
-                              <span className="font-medium">{date}:</span>{' '}
+                              <span className="font-medium">{label}:</span>{' '}
                               <span className="text-red-400">No data</span>
                             </div>
-                          ),
-                        )}
+                          );
+                        })}
                       </div>
                     );
                   })()}
+
 
                 <div className="mt-4">
                   <h3 className="font-medium mb-2">Recommended Outfit</h3>
