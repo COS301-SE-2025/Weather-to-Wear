@@ -81,17 +81,22 @@ function scoreOutfit(
   );
   const harmony = computeColorHarmony(hexes);
   const prefHits = hexes.filter(h => userPreferredColors.includes(h)).length;
+
   const whitePenalty = hexes.some(h => {
     const { l, s } = tinycolor(h).toHsl();
     return l > 0.95 && s < 0.1;
   }) ? -2 : 0;
+
   const totalWarmth = outfit.reduce((sum, i) => sum + (i.warmthFactor || 0), 0);
   const requiredWarmth = Math.max(3, 30 - weather.minTemp);
   const warmthDiff = totalWarmth - requiredWarmth;
   const warmthScore = Math.exp(-(warmthDiff * warmthDiff) / 200);
-  const rainBonus = weather.willRain && outfit.some(i => i.waterproof) ? 1 : 0;
+
+  // Stronger rain preference
+  const rainBonus = weather.willRain && outfit.some(i => i.waterproof) ? 2.0 : 0;
+
   const W_WARMTH = weather.minTemp < 10 ? 3 : 1;
-  return (1 * harmony + 2 * prefHits + W_WARMTH * warmthScore + 1 * rainBonus + whitePenalty);
+  return (1 * harmony + 2 * prefHits + W_WARMTH * warmthScore + rainBonus + whitePenalty);
 }
 
 type PartitionedCloset = { [layer: string]: ClosetItem[] };
@@ -104,10 +109,38 @@ function partitionClosetByLayer(closetItems: ClosetItem[]): PartitionedCloset {
 }
 
 function getRequiredLayers(weather: { avgTemp: number; minTemp: number }): string[] {
-  const required = ['base_top', 'base_bottom', 'footwear'];
-  if (weather.avgTemp < 18 || weather.minTemp < 13) required.push('mid_top');
-  if (weather.avgTemp < 12 || weather.minTemp < 10) required.push('outerwear');
-  return required;
+  return ['base_top', 'base_bottom', 'footwear'];
+}
+
+// build multiple layer plans so outerwear and mid_top are independent
+function getLayerPlans(weather: { avgTemp: number; minTemp: number; willRain: boolean }): string[][] {
+  const core = getRequiredLayers(weather);
+  const plans: string[][] = [];
+
+  const isCool = weather.avgTemp < 18 || weather.minTemp < 13;
+  const isCold = weather.avgTemp < 12 || weather.minTemp < 10;
+
+  // Always consider core-only
+  plans.push(core);
+
+  // If cool: allow adding mid_top
+  if (isCool) plans.push([...core, 'mid_top']);
+
+  // If raining OR cold: allow outerwear even without mid_top
+  if (weather.willRain || isCold) plans.push([...core, 'outerwear']);
+
+  // If cold: allow both mid_top and outerwear
+  if (isCold) plans.push([...core, 'mid_top', 'outerwear']);
+
+  // De-dup (cheap)
+  const key = (p: string[]) => p.slice().sort().join('|');
+  const seen = new Set<string>();
+  return plans.filter(p => {
+    const k = key(p);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 // Define minimum warmth requirements per layer based on temperature
@@ -181,44 +214,42 @@ export async function recommendOutfits(
   userId: string,
   req: RecommendOutfitsRequest
 ): Promise<OutfitRecommendation[]> {
-  // console.log('Debug: Starting recommendOutfits for user:', userId);
-  // console.log('Debug: WeatherSummary:', req.weatherSummary);
-  // console.log('Debug: Requested style:', req.style);
 
   const closetItems = await prisma.closetItem.findMany({ where: { ownerId: userId } });
-  // console.log('Debug: Closet items retrieved:', closetItems.length);
-  // console.log('Debug: Items with style defined:', closetItems.filter(item => item.style).length);
-  // console.log('Debug: Items with warmthFactor defined:', closetItems.filter(item => item.warmthFactor).length);
-
   const userPref = await prisma.userPreference.findUnique({ where: { userId } });
+
   const style: Style = (req.style as Style) || userPref?.style || Style.Casual;
-  // console.log('Debug: Selected style:', style);
-
   const partitioned = partitionClosetByLayer(closetItems);
-  // console.log('Debug: Partitioned closet:', Object.keys(partitioned).map(layer => ({
-  //   layer,
-  //   count: partitioned[layer].length,
-  //   styles: [...new Set(partitioned[layer].map(item => item.style))],
-  // })));
-
-  const requiredLayers = getRequiredLayers(req.weatherSummary);
-  const raw = getCandidateOutfits(partitioned, requiredLayers, style, req.weatherSummary);
-  // console.log('Debug: Raw candidate outfits:', raw.length);
-
   const prefColors = Array.isArray(userPref?.preferredColours)
     ? (userPref.preferredColours as string[])
     : [];
-  // console.log('Debug: Preferred colors:', prefColors);
 
-  const scored = raw.map(outfit => {
+  const plans = getLayerPlans(req.weatherSummary);
+
+  // Generate candidates for each plan and merge (cap per plan for perf)
+  const allCandidates: ClosetItem[][] = [];
+  for (const plan of plans) {
+    const cands = getCandidateOutfits(partitioned, plan, style, req.weatherSummary);
+    // small cap per plan to avoid explosion
+    allCandidates.push(...(cands.length > 120 ? cands.slice(0, 120) : cands));
+  }
+
+  // De-dup by IDs set
+  const seen = new Set<string>();
+  const uniqueCandidates = allCandidates.filter(outfit => {
+    const key = outfit.map(i => i.id).sort().join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Score candidates
+  const scored = uniqueCandidates.map(outfit => {
     const items = outfit.map(item => ({
       closetItemId: item.id,
-      // imageUrl: `/uploads/${item.filename}`,
       imageUrl: cdnUrlFor(item.filename),
       layerCategory: item.layerCategory,
       category: item.category,
-      // ! Potential Problem 
-      // style: item.style ?? 'Casual',
       style: item.style ?? Style.Casual,
       dominantColors:
         Array.isArray(item.dominantColors) && item.dominantColors.length > 0
@@ -237,17 +268,14 @@ export async function recommendOutfits(
       weatherSummary: req.weatherSummary,
     };
   });
-  // console.log('Debug: Scored outfits:', scored.length);
 
+  // Personalize via KNN
   const past = await prisma.outfit.findMany({
     where: { userId, userRating: { not: null } },
     include: { outfitItems: { include: { closetItem: true } } },
   });
-  // console.log('Debug: Past rated outfits:', past.length);
-
   const historyVecs: number[][] = [];
   const historyRatings: number[] = [];
-
   for (const p of past) {
     const fake = buildFakeRec(p);
     historyVecs.push(getFeatureVector(fake));
@@ -256,32 +284,31 @@ export async function recommendOutfits(
 
   const augmented = scored.map(rec => {
     if (!historyRatings.length) return { ...rec, finalScore: rec.score };
-    const knn = predictRatingKnn(
-      getFeatureVector(rec),
-      historyVecs,
-      historyRatings,
-      5
-    );
+    const knn = predictRatingKnn(getFeatureVector(rec), historyVecs, historyRatings, 5);
     const alpha = 0.3;
     return { ...rec, finalScore: alpha * rec.score + (1 - alpha) * knn };
   });
-  // console.log('Debug: Augmented outfits:', augmented.length);
 
-  const k = Math.min(10, augmented.length);
-  const clusters = kMeansCluster(augmented, k);
-  // console.log('Debug: Clusters formed:', clusters.map(c => c.length));
+  // If raining, prefer waterproof outfits when available
+  let pool = augmented;
+  if (req.weatherSummary.willRain) {
+    const waterproofOnly = augmented.filter(a => a.waterproof);
+    if (waterproofOnly.length) pool = waterproofOnly;
+  }
+
+  // Cluster and pick top
+  const k = Math.min(10, pool.length);
+  const clusters = kMeansCluster(pool, k);
   const selected: OutfitRecommendation[] = [];
-
   for (const cluster of clusters) {
     if (cluster.length === 0) continue;
-    const clusterOutfits = cluster.map(idx => augmented[idx]);
+    const clusterOutfits = cluster.map(idx => pool[idx]);
     const bestInCluster = clusterOutfits.reduce((best, curr) =>
       curr.finalScore > best.finalScore ? curr : best
     );
     selected.push(bestInCluster);
     if (selected.length >= 5) break;
   }
-  // console.log('Debug: Selected outfits:', selected.length);
 
   return selected;
 }
