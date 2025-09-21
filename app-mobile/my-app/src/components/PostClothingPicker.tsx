@@ -189,82 +189,96 @@ export default function PostClothingPicker({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 m-4 mb-0 rounded-xl">
-          <button
-            onClick={() => setActiveTab('items')}
-            className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-300 ${
-              activeTab === 'items'
-                ? 'bg-white dark:bg-gray-800 text-[#3F978F] shadow-lg transform scale-[1.02]'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/40 dark:hover:bg-gray-600/40'
-            }`}
-          >
-            <Shirt className="w-4 h-4" />
-            Individual Items
-          </button>
-          <button
-            onClick={() => setActiveTab('outfits')}
-            className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-300 ${
-              activeTab === 'outfits'
-                ? 'bg-white dark:bg-gray-800 text-[#3F978F] shadow-lg transform scale-[1.02]'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/40 dark:hover:bg-gray-600/40'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            Saved Outfits
-          </button>
+        <div className="relative mx-6 mt-4">
+          <div className="flex bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 p-1.5 rounded-2xl border border-gray-200/50 dark:border-gray-600/50 shadow-inner">
+            <button
+              onClick={() => setActiveTab('items')}
+              className={`flex-1 px-5 py-3.5 text-sm font-semibold flex items-center justify-center gap-2.5 rounded-xl transition-all duration-300 ${
+                activeTab === 'items'
+                  ? 'bg-white dark:bg-gray-800 text-[#3F978F] shadow-lg ring-1 ring-[#3F978F]/20 transform scale-[1.01]'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-600/60 hover:shadow-sm'
+              }`}
+            >
+              <Shirt className={`w-4 h-4 transition-transform duration-200 ${activeTab === 'items' ? 'scale-110' : ''}`} />
+              <span className="relative">
+                Individual Items
+                {activeTab === 'items' && <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-[#3F978F] rounded-full" />}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('outfits')}
+              className={`flex-1 px-5 py-3.5 text-sm font-semibold flex items-center justify-center gap-2.5 rounded-xl transition-all duration-300 ${
+                activeTab === 'outfits'
+                  ? 'bg-white dark:bg-gray-800 text-[#3F978F] shadow-lg ring-1 ring-[#3F978F]/20 transform scale-[1.01]'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-600/60 hover:shadow-sm'
+              }`}
+            >
+              <Package className={`w-4 h-4 transition-transform duration-200 ${activeTab === 'outfits' ? 'scale-110' : ''}`} />
+              <span className="relative">
+                Saved Outfits
+                {activeTab === 'outfits' && <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-[#3F978F] rounded-full" />}
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-4">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="text-gray-500">Loading...</div>
+              <div className="flex items-center gap-3 text-gray-500">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-[#3F978F] rounded-full animate-spin"></div>
+                Loading...
+              </div>
             </div>
           ) : (
             <>
               {activeTab === 'items' && (
-                <div className="space-y-6">
+                <div className="space-y-8 py-4">{/* Enhanced spacing */}
                   {LAYERS.map(layer => {
                     const layerItems = itemsByLayer[layer.value] || [];
                     if (layerItems.length === 0) return null;
 
                     return (
                       <div key={layer.value}>
-                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                          {layer.label}
-                        </h4>
-                        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">{/* Consistent grid sizing */}
+                        <div className="flex items-center gap-3 mb-4">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                            {layer.label}
+                          </h4>
+                          <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-600 to-transparent"></div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                            {layerItems.length}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-4">
                           {layerItems.map(item => {
                             const isSelected = selectedItems.some(selected => selected.id === item.id);
                             return (
                               <button
                                 key={item.id}
                                 onClick={() => toggleItem(item)}
-                                className={`relative aspect-square rounded-xl border-2 overflow-hidden transition-all duration-200 group ${
+                                className={`relative aspect-square rounded-2xl border-2 overflow-hidden transition-all duration-200 group ${
                                   isSelected 
-                                    ? 'border-[#3F978F] ring-2 ring-[#3F978F]/30 shadow-md transform scale-105' 
-                                    : 'border-gray-200 dark:border-gray-600 hover:border-[#3F978F]/50 hover:shadow-sm'
+                                    ? 'border-[#3F978F] ring-2 ring-[#3F978F]/30 shadow-lg transform scale-105' 
+                                    : 'border-gray-200 dark:border-gray-600 hover:border-[#3F978F]/50 hover:shadow-md hover:scale-102'
                                 }`}
                               >
                                 <img
                                   src={item.imageUrl}
                                   alt={item.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAyNUMyMi43NjE0IDI1IDI1IDE2IDI1IDEzQzI1IDEwLjIzODYgMjIuNzYxNCA4IDIwIDhDMTcuMjM4NiA4IDE1IDEwLjIzODYgMTUgMTNDMTUgMTYgMTcuMjM4NiAyNSAyMCAyNVoiIGZpbGw9IiM5Q0E0QUYiLz4KPHA+PC9wYXRoPgo8L3N2Zz4K';
                                   }}
                                 />
                                 {isSelected && (
-                                  <div className="absolute inset-0 bg-gradient-to-br from-[#3F978F]/30 to-[#3F978F]/20 flex items-center justify-center backdrop-blur-[1px]">
+                                  <div className="absolute inset-0 bg-[#3F978F]/20 flex items-center justify-center">
                                     <div className="bg-[#3F978F] rounded-full p-1.5 shadow-lg">
-                                      <Check className="w-4 h-4 text-white" />
+                                      <Check className="w-3 h-3 text-white" />
                                     </div>
                                   </div>
                                 )}
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2 truncate">
-                                  {item.name}
-                                </div>
                               </button>
                             );
                           })}
@@ -276,23 +290,25 @@ export default function PostClothingPicker({
               )}
 
               {activeTab === 'outfits' && (
-                <div className="space-y-4">
+                <div className="py-4">
                   {outfits.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <Package className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                      <p>No saved outfits found.</p>
-                      <p className="text-sm">Create some outfits first!</p>
+                    <div className="text-center py-16 text-gray-500">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                        <Package className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-1">No saved outfits found</h5>
+                      <p className="text-sm text-gray-500">Create some outfits first to tag them in posts!</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       {outfits.map(outfit => (
                         <button
                           key={outfit.id}
-                          className="border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:border-[#3F978F] hover:shadow-md transition-all duration-200 text-left group"
+                          className="border-2 border-gray-200 dark:border-gray-600 rounded-2xl p-5 hover:border-[#3F978F] hover:shadow-lg transition-all duration-200 text-left group bg-white dark:bg-gray-800"
                           onClick={() => selectOutfit(outfit)}
                         >
-                          <div className="flex justify-between items-center mb-3">
-                            <h5 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-[#3F978F] transition-colors">
+                          <div className="flex justify-between items-center mb-4">
+                            <h5 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-[#3F978F] transition-colors text-sm">
                               {outfit.overallStyle} Outfit
                             </h5>
                             {outfit.userRating && (
@@ -302,9 +318,9 @@ export default function PostClothingPicker({
                             )}
                           </div>
                           
-                          <div className="grid grid-cols-4 gap-2 mb-3">
-                            {outfit.outfitItems.slice(0, 4).map((item, index) => (
-                              <div key={index} className="aspect-square rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                          <div className="grid grid-cols-3 gap-2.5 mb-4">
+                            {outfit.outfitItems.slice(0, 3).map((item, index) => (
+                              <div key={index} className="aspect-square rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700">
                                 <img
                                   src={item.imageUrl}
                                   alt={item.category}
@@ -316,20 +332,22 @@ export default function PostClothingPicker({
                                 />
                               </div>
                             ))}
-                            {outfit.outfitItems.length > 4 && (
-                              <div className="aspect-square rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-500">
-                                +{outfit.outfitItems.length - 4}
+                            {outfit.outfitItems.length > 3 && (
+                              <div className="aspect-square rounded-xl border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                  +{outfit.outfitItems.length - 3}
+                                </span>
                               </div>
                             )}
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
                               {outfit.outfitItems.length} item{outfit.outfitItems.length !== 1 ? 's' : ''}
                             </p>
-                            <div className="flex items-center gap-1 text-[#3F978F] opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Plus className="w-3 h-3" />
-                              <span className="text-xs font-medium">Add All</span>
+                            <div className="flex items-center gap-1.5 text-[#3F978F] opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Plus className="w-3.5 h-3.5" />
+                              <span className="text-xs font-semibold">Add All</span>
                             </div>
                           </div>
                         </button>
