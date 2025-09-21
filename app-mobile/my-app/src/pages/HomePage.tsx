@@ -334,12 +334,12 @@ export default function HomePage() {
       const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
       return days[0]?.summary
         ? {
-            avgTemp: days[0].summary.avgTemp,
-            minTemp: days[0].summary.minTemp,
-            maxTemp: days[0].summary.maxTemp,
-            willRain: days[0].summary.willRain,
-            mainCondition: days[0].summary.mainCondition,
-          }
+          avgTemp: days[0].summary.avgTemp,
+          minTemp: days[0].summary.minTemp,
+          maxTemp: days[0].summary.maxTemp,
+          willRain: days[0].summary.willRain,
+          mainCondition: days[0].summary.mainCondition,
+        }
         : undefined;
     } catch {
       return undefined;
@@ -353,12 +353,12 @@ export default function HomePage() {
       selectedEvent?.style || 'Casual',
       selectedEventTodaySummary
         ? JSON.stringify({
-            a: Math.round(selectedEventTodaySummary.avgTemp),
-            i: Math.round(selectedEventTodaySummary.minTemp),
-            x: Math.round(selectedEventTodaySummary.maxTemp),
-            r: selectedEventTodaySummary.willRain,
-            m: selectedEventTodaySummary.mainCondition,
-          })
+          a: Math.round(selectedEventTodaySummary.avgTemp),
+          i: Math.round(selectedEventTodaySummary.minTemp),
+          x: Math.round(selectedEventTodaySummary.maxTemp),
+          r: selectedEventTodaySummary.willRain,
+          m: selectedEventTodaySummary.mainCondition,
+        })
         : 'no-summary',
     ],
     enabled: Boolean(selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
@@ -459,17 +459,18 @@ export default function HomePage() {
   // ---------- Render ----------
   return (
     <div
-      className="flex flex-col min-h-screen w-full bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
       style={{ paddingTop: 0 }}
     >
       {/* Hero — full-bleed, no gap on mobile, no visual cut-off */}
-      <div className="relative w-full h-48 sm:h-56 md:h-64 lg:h-72 mb-6 mt-0 !mt-0">
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
         <div
           className="absolute inset-0 bg-cover bg-top md:bg-center"
           style={{ backgroundImage: `url(/background.jpg)` }}
         />
         <div className="absolute inset-0 bg-black/30" />
-        <div className="relative z-10 flex h-full items-center justify-center px-4">
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
           <div className="px-6 py-2 border-2 border-white">
             <h1 className="text-2xl font-bodoni font-light text-center text-white">
               {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
@@ -479,7 +480,8 @@ export default function HomePage() {
       </div>
 
       {/* Main Sections (full-width on desktop; gentle padding on mobile/tablet) */}
-      <main className="flex flex-col gap-12 px-4 sm:px-6 md:px-8 lg:px-6 xl:px-4 2xl:px-4 w-full">
+      <main className="flex flex-col gap-12 px-0 w-full">
+
         <section
           className="
             grid gap-8 lg:gap-10 xl:gap-12
@@ -489,7 +491,7 @@ export default function HomePage() {
           "
         >
           {/* Slogan + Tomorrow mini-card */}
-          <div className="flex flex-col items-center lg:items-start justify-center lg:justify-start lg:sticky lg:top-8 w-full">
+          <div className="flex flex-col items-center lg:items-start justify-center lg:justify-start lg:sticky lg:top-8 w-full px-4 sm:px-6 lg:px-0 lg:pl-8 sm:-pb-32">
             <TypingSlogan />
 
             {/* Desktop-only "Tomorrow's Outfit" mini card */}
@@ -506,11 +508,10 @@ export default function HomePage() {
                 <div className="space-y-1">
                   {/* headwear/accessory (tiny) */}
                   <div
-                    className={`${
-                      tomorrowsFirst.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-                        ? 'flex'
-                        : 'hidden'
-                    } justify-center space-x-1`}
+                    className={`${tomorrowsFirst.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+                      ? 'flex'
+                      : 'hidden'
+                      } justify-center space-x-1`}
                   >
                     {tomorrowsFirst.outfitItems
                       .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
@@ -568,8 +569,8 @@ export default function HomePage() {
           </div>
 
           {/* Outfit Section */}
-          <div className="flex flex-col items-center w-full">
-            <div className="w-full max-w-[1100px] mx-auto">
+          <div className="flex flex-col items-center w-full -mt-12 sm:-mt-8">
+            <div className="w-full max-w-none">
               <div className="bg-white">
                 {/* WEEK STRIP — prevent first button clipping on small phones */}
                 <div className="mb-3">
@@ -578,7 +579,7 @@ export default function HomePage() {
                   ) : !week || !week.forecast?.length ? (
                     <div className="text-center text-xs text-gray-500">Can’t fetch the full week right now.</div>
                   ) : (
-                    <div className="flex gap-2 overflow-x-auto py-1 pl-4 pr-4 no-scrollbar justify-start sm:justify-center">
+                    <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar justify-start sm:justify-center">
                       {dayKeys.map((d, idx) => {
                         const label = new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
                         const isActive = d === selectedDate;
@@ -590,10 +591,9 @@ export default function HomePage() {
                               setCurrentIndex(0);
                             }}
                             className={`shrink-0 first:ml-1 last:mr-1 flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
-                              ${
-                                isActive
-                                  ? 'bg-[#3F978F] text-white border-[#3F978F]'
-                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                              ${isActive
+                                ? 'bg-[#3F978F] text-white border-[#3F978F]'
+                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
                               }`}
                             aria-label={`Select ${label}${idx === 0 ? ' (first day)' : ''}`}
                           >
@@ -605,8 +605,8 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {loadingOutfits && <p>Loading outfits…</p>}
-                {error && !loadingOutfits && <p className="text-red-500">{error}</p>}
+                {loadingOutfits && <p className="text-center">Loading outfits…</p>}
+                {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
                 {!loadingOutfits && outfits.length === 0 && (
                   <p className="text-center text-gray-500 dark:text-gray-400">
                     Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
@@ -665,13 +665,12 @@ export default function HomePage() {
                       <div className="space-y-2 px-10 sm:px-12 md:px-16 max-[380px]:px-7">
                         {/* headwear/accessory */}
                         <div
-                          className={`flex justify-center space-x-2 transition-all ${
-                            outfits[currentIndex].outfitItems.some(
-                              i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
-                            )
-                              ? 'h-auto'
-                              : 'h-0 overflow-hidden'
-                          }`}
+                          className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
+                            i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
+                          )
+                            ? 'h-auto'
+                            : 'h-0 overflow-hidden'
+                            }`}
                         >
                           {outfits[currentIndex].outfitItems
                             .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
@@ -756,9 +755,9 @@ export default function HomePage() {
           </div>
 
           {/* Weather Section (centered on mobile, right-aligned on desktop) */}
-          <div className="flex flex-col w-full items-center lg:items-end">
-            <div className="w-full max-w-[340px] mx-auto lg:max-w-none lg:w-full lg:ml-auto">
-              <div className="flex items-center space-x-2 mb-4">
+          <div className="flex flex-col w-full items-center lg:items-end px-4 sm:px-6 lg:px-0 lg:pr-8">
+            <div className="w-full max-w-none mx-auto lg:max-w-none lg:w-full lg:ml-auto">
+              <div className="w-full max-w-none lg:w-full lg:ml-auto">
                 <div className="relative flex-1">
                   <input
                     type="text"
@@ -808,7 +807,8 @@ export default function HomePage() {
 
         {/* Events Section (full width on desktop) */}
         <section className="w-full mt-6 px-0">
-          <div className="w-full px-4 sm:px-6 md:px-8">
+          <div className="w-full px-0">
+
             <div className="flex items-center justify-center mb-4 space-x-4">
               <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
               <button
@@ -1099,7 +1099,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => {}} />
+                        <StarRating disabled={false} onSelect={() => { }} />
                       </div>
                     </>
                   )}
