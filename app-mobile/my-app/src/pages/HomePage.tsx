@@ -71,16 +71,13 @@ function toEvent(dto: EventDto): Event {
   };
 }
 
-// ---------- Utilities ----------
 function parseHourTS(s: string) {
   return new Date(s.includes('T') ? s : s.replace(' ', 'T'));
 }
 
-
 const TypingSlogan = () => {
-  // 1) newline after "Style Made"
   const slogan = 'Style Made\nSimple.';
-  const tealWord = 'Simple.'; // second line
+  const tealWord = 'Simple.';
   const newlineIndex = slogan.indexOf('\n');
 
   const [displayText, setDisplayText] = useState('');
@@ -106,7 +103,6 @@ const TypingSlogan = () => {
     return () => clearTimeout(t);
   }, [index, isDeleting, slogan]);
 
-  // 2) split into lines as typed
   const firstLine = displayText.slice(
     0,
     Math.min(displayText.length, newlineIndex === -1 ? displayText.length : newlineIndex)
@@ -117,9 +113,9 @@ const TypingSlogan = () => {
   return (
     <h2
       className="
-        text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide
+        text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide
         text-center lg:text-left
-        whitespace-nowrap leading-tight overflow-hidden
+        whitespace-normal lg:whitespace-nowrap leading-tight overflow-hidden
         min-h-[7rem] lg:min-h-[9rem]
         lg:self-start lg:mr-auto lg:w-auto
       "
@@ -131,16 +127,14 @@ const TypingSlogan = () => {
           <span className="text-[#3F978F]">{tealPart}</span>
         </>
       )}
-      {/* 3) one caret, always at the end */}
       <span className="inline-block w-[0.6ch] align-baseline animate-pulse">|</span>
     </h2>
   );
 };
 
-
 // ---------- HomePage ----------
 export default function HomePage() {
-  // Persist user-selected city as a small piece of UI state (not part of query cache)
+  // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
@@ -175,7 +169,6 @@ export default function HomePage() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
 
-
   // ---------- Weather (React Query) ----------
   const weatherQuery = useWeatherQuery(city);
   const weather: WeatherData | null = weatherQuery.data ?? null;
@@ -183,7 +176,7 @@ export default function HomePage() {
 
   const locationLabel = (city?.trim() || weather?.location || '').trim();
 
-  // if server gave us a location and we don't have one saved yet, seed it
+  // seed location if server returns one
   useEffect(() => {
     if (!city && weather?.location) {
       setCity(weather.location);
@@ -210,7 +203,6 @@ export default function HomePage() {
             source: 'openMeteo',
           };
         }
-        // surface server's error to console to help debug 400s etc.
         console.error('week error', err?.response?.status, err?.response?.data);
         throw err;
       }
@@ -222,29 +214,24 @@ export default function HomePage() {
   const week = weekQuery.data;
   const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
   const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
-  // default selected date = first available day (usually "today" in local time returned)
+
+  // default selected date = first available day
   useEffect(() => {
     if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
   }, [dayKeys, selectedDate]);
 
-
   const selectedDayHours: H[] = useMemo(() => {
     if (!selectedDate || !weekByDay[selectedDate]) return [];
-
     const hours = weekByDay[selectedDate];
-    // Compare against today's date key ("YYYY-MM-DD")
     const todayKey = new Date().toISOString().slice(0, 10);
 
     if (selectedDate === todayKey) {
       const now = new Date();
-      // keep only hours at/after current time for *today*
       return hours.filter(h => {
         const t = parseHourTS(h.time);
         return t >= now;
       });
     }
-
-    // other days: return full day
     return hours;
   }, [selectedDate, weekByDay]);
 
@@ -253,10 +240,7 @@ export default function HomePage() {
     [selectedDayHours]
   );
 
-  // ---------- Outfits (React Query) ---------- queryClient.invalidateQueries({ queryKey: ['outfits'] });
-  //const outfitsQuery = useOutfitsQuery(weather?.summary, selectedStyle);
-  // const outfits = outfitsQuery.data ?? [];
-
+  // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
 
   const tomorrowKey = useMemo(() => (dayKeys.length > 1 ? dayKeys[1] : null), [dayKeys]);
@@ -274,11 +258,9 @@ export default function HomePage() {
   const tomorrowsFirst = (tomorrowOutfitsQuery.data && tomorrowOutfitsQuery.data[0]) || null;
 
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
-
   const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
   const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
 
-  // One combined error message (optional)
   const error =
     (weatherQuery.isError && 'Failed to fetch weather data.') ||
     (outfitsQuery.isError && 'Could not load outfit recommendations.') ||
@@ -290,7 +272,7 @@ export default function HomePage() {
     setCity(next);
     localStorage.setItem('selectedCity', next);
     setCityInput('');
-    // Explicitly refresh both queries for the new city
+    // refresh queries
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
@@ -298,7 +280,6 @@ export default function HomePage() {
   };
 
   const handleRefresh = () => {
-    // Manual refresh only (no auto refetch on navigation)
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
@@ -328,7 +309,7 @@ export default function HomePage() {
     }
   };
 
-  // ---------- Boot-up effects (unchanged-ish) ----------
+  // ---------- Boot-up effects ----------
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
@@ -347,19 +328,18 @@ export default function HomePage() {
   }, []);
 
   // ---------- Event modal: outfit recommendation with caching ----------
-  // Build the "today" summary from selectedEvent.weather if available
   const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
     if (!selectedEvent?.weather) return undefined;
     try {
       const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
       return days[0]?.summary
         ? {
-          avgTemp: days[0].summary.avgTemp,
-          minTemp: days[0].summary.minTemp,
-          maxTemp: days[0].summary.maxTemp,
-          willRain: days[0].summary.willRain,
-          mainCondition: days[0].summary.mainCondition,
-        }
+            avgTemp: days[0].summary.avgTemp,
+            minTemp: days[0].summary.minTemp,
+            maxTemp: days[0].summary.maxTemp,
+            willRain: days[0].summary.willRain,
+            mainCondition: days[0].summary.mainCondition,
+          }
         : undefined;
     } catch {
       return undefined;
@@ -373,12 +353,12 @@ export default function HomePage() {
       selectedEvent?.style || 'Casual',
       selectedEventTodaySummary
         ? JSON.stringify({
-          a: Math.round(selectedEventTodaySummary.avgTemp),
-          i: Math.round(selectedEventTodaySummary.minTemp),
-          x: Math.round(selectedEventTodaySummary.maxTemp),
-          r: selectedEventTodaySummary.willRain,
-          m: selectedEventTodaySummary.mainCondition,
-        })
+            a: Math.round(selectedEventTodaySummary.avgTemp),
+            i: Math.round(selectedEventTodaySummary.minTemp),
+            x: Math.round(selectedEventTodaySummary.maxTemp),
+            r: selectedEventTodaySummary.willRain,
+            m: selectedEventTodaySummary.mainCondition,
+          })
         : 'no-summary',
     ],
     enabled: Boolean(selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
@@ -398,7 +378,7 @@ export default function HomePage() {
   const detailLoading = eventOutfitQuery.isLoading || eventOutfitQuery.isFetching;
   const detailError = eventOutfitQuery.isError ? 'Could not load outfit recommendation.' : null;
 
-  // Keep edit form in sync when event changes
+  // pre-warm recommendations for near events
   useEffect(() => {
     const isWithin3Days = (d: Date) => {
       const now = new Date();
@@ -443,7 +423,6 @@ export default function HomePage() {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
 
-
     const key = getOutfitKey(outfit);
     setSaving(true);
     try {
@@ -479,55 +458,42 @@ export default function HomePage() {
 
   // ---------- Render ----------
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
-      {/* Hero Background */}
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
-        style={{
-          backgroundImage: `url(/background.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-4rem',
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1 className="text-2xl font-bodoni font-light text-center text-white">
-            {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
-          </h1>
+    <div
+      className="flex flex-col min-h-screen w-full bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
+      {/* Hero — full-bleed, no gap on mobile, no visual cut-off */}
+      <div className="relative w-full h-48 sm:h-56 md:h-64 lg:h-72 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/background.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-4">
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      {/* Main Sections */}
-      <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
-        <div className="grid gap-8 lg:gap-16 items-start justify-center
-                grid-cols-1
-                lg:grid-cols-[380px_minmax(0,520px)_280px]">
-
-
-          {/* Typing Slogan */}
-          <div
-            className="
-    flex-1 flex flex-col
-    items-center lg:items-start
-    justify-center lg:justify-start
-    lg:sticky lg:top-8
-    lg:self-start lg:mt-2
-    min-w-0
-    lg:flex-none lg:basis-[380px] lg:max-w-[380px]
-    lg:pl-0
-    lg:-ml-12 xl:-ml-16 2xl:-ml-16   /* ⟵ pull left on big screens */
-  "
-          >
-
+      {/* Main Sections (full-width on desktop; gentle padding on mobile/tablet) */}
+      <main className="flex flex-col gap-12 px-4 sm:px-6 md:px-8 lg:px-6 xl:px-4 2xl:px-4 w-full">
+        <section
+          className="
+            grid gap-8 lg:gap-10 xl:gap-12
+            place-items-center lg:place-items-start
+            grid-cols-1
+            lg:[grid-template-columns:minmax(240px,320px)_minmax(0,1fr)_minmax(240px,320px)]
+          "
+        >
+          {/* Slogan + Tomorrow mini-card */}
+          <div className="flex flex-col items-center lg:items-start justify-center lg:justify-start lg:sticky lg:top-8 w-full">
             <TypingSlogan />
 
             {/* Desktop-only "Tomorrow's Outfit" mini card */}
             <div className="hidden lg:block w-full max-w-[280px] mt-4">
-
               <div className="flex justify-center mb-2">
                 <h3 className="text-sm font-semibold border px-2 py-0.5 rounded-full">Tomorrow’s Outfit</h3>
               </div>
@@ -539,7 +505,13 @@ export default function HomePage() {
               ) : (
                 <div className="space-y-1">
                   {/* headwear/accessory (tiny) */}
-                  <div className={`${tomorrowsFirst.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory') ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                  <div
+                    className={`${
+                      tomorrowsFirst.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+                        ? 'flex'
+                        : 'hidden'
+                    } justify-center space-x-1`}
+                  >
                     {tomorrowsFirst.outfitItems
                       .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
                       .map(item => (
@@ -554,7 +526,7 @@ export default function HomePage() {
                   {/* tops (tiny) */}
                   <div className="flex justify-center space-x-1">
                     {tomorrowsFirst.outfitItems
-                      .filter(i => i.layerCategory === 'base_top' || i.layerCategory === 'mid_top' || i.layerCategory === 'outerwear')
+                      .filter(i => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
                       .map(item => (
                         <img
                           key={item.closetItemId}
@@ -592,37 +564,38 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
-
             </div>
-
           </div>
 
           {/* Outfit Section */}
-          <div className="flex flex-col items-center lg:flex-none lg:basis-[520px] mx-auto lg:-ml-6 xl:-ml-10 2xl:-ml-14">
-            <div className="w-full max-w-[450px] mx-auto">
-
+          <div className="flex flex-col items-center w-full">
+            <div className="w-full max-w-[1100px] mx-auto">
               <div className="bg-white">
-                {/* WEEK STRIP (compact, scrollable) */}
+                {/* WEEK STRIP — prevent first button clipping on small phones */}
                 <div className="mb-3">
                   {weekQuery.isLoading ? (
                     <div className="text-center text-sm text-gray-500">Loading week…</div>
-                  ) : (!week || !week.forecast?.length) ? (
-                    <div className="text-center text-xs text-gray-500">
-                      Can’t fetch the full week right now.
-                    </div>
+                  ) : !week || !week.forecast?.length ? (
+                    <div className="text-center text-xs text-gray-500">Can’t fetch the full week right now.</div>
                   ) : (
-                    <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar justify-center">
-                      {dayKeys.map((d) => {
-                        const hours = weekByDay[d] || [];
+                    <div className="flex gap-2 overflow-x-auto py-1 pl-4 pr-4 no-scrollbar justify-start sm:justify-center">
+                      {dayKeys.map((d, idx) => {
                         const label = new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
                         const isActive = d === selectedDate;
                         return (
                           <button
                             key={d}
-                            onClick={() => { setSelectedDate(d); setCurrentIndex(0); }}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
-                    ${isActive ? 'bg-[#3F978F] text-white border-[#3F978F]' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'}`}
-                            aria-label={`Select ${label}`}
+                            onClick={() => {
+                              setSelectedDate(d);
+                              setCurrentIndex(0);
+                            }}
+                            className={`shrink-0 first:ml-1 last:mr-1 flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
+                              ${
+                                isActive
+                                  ? 'bg-[#3F978F] text-white border-[#3F978F]'
+                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                              }`}
+                            aria-label={`Select ${label}${idx === 0 ? ' (first day)' : ''}`}
                           >
                             <span className="font-medium">{label}</span>
                           </button>
@@ -653,7 +626,7 @@ export default function HomePage() {
                       setSelectedStyle(e.target.value);
                       queryClient.invalidateQueries({ queryKey: ['outfits'] });
                     }}
-                     className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                    className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
                   >
                     <option value="Formal">Formal</option>
                     <option value="Casual">Casual</option>
@@ -666,38 +639,39 @@ export default function HomePage() {
 
                 {!loadingOutfits && outfits.length > 0 && (
                   <>
-                    {/* Carousel container with overlay arrows */}
-                    <div className="relative mb-2">
-                      {/* Left arrow: vertically centered, no bg */}
+                    {/* Carousel (padding so arrows never clip; centered on mobile) */}
+                    <div className="relative mb-2 overflow-visible">
+                      {/* Left arrow */}
                       <button
                         onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-transparent hover:bg-transparent focus:outline-none"
+                        className="absolute inset-y-0 left-0 flex items-center z-10 p-3 focus:outline-none"
                         aria-label="Previous outfit"
                         title="Previous"
                       >
-                        <ChevronLeft className="w-10 h-10 text-black" />
+                        <ChevronLeft className="w-8 h-8 sm:w-10 sm:h-10 text-black" />
                       </button>
 
-                      {/* Right arrow: vertically centered, no bg */}
+                      {/* Right arrow */}
                       <button
                         onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-transparent hover:bg-transparent focus:outline-none"
+                        className="absolute inset-y-0 right-0 flex items-center z-10 p-3 focus:outline-none"
                         aria-label="Next outfit"
                         title="Next"
                       >
-                        <ChevronRight className="w-10 h-10 text-black" />
+                        <ChevronRight className="w-8 h-8 sm:w-10 sm:h-10 text-black" />
                       </button>
 
-                      {/* Pad sides so arrows don't overlap images */}
-                      <div className="space-y-2 px-14">
+                      {/* Pad sides so images never hit the edges/under arrows */}
+                      <div className="space-y-2 px-10 sm:px-12 md:px-16 max-[380px]:px-7">
                         {/* headwear/accessory */}
                         <div
-                          className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
-                            i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
-                          )
-                            ? 'h-auto'
-                            : 'h-0 overflow-hidden'
-                            }`}
+                          className={`flex justify-center space-x-2 transition-all ${
+                            outfits[currentIndex].outfitItems.some(
+                              i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
+                            )
+                              ? 'h-auto'
+                              : 'h-0 overflow-hidden'
+                          }`}
                         >
                           {outfits[currentIndex].outfitItems
                             .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
@@ -706,7 +680,7 @@ export default function HomePage() {
                                 key={item.closetItemId}
                                 src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                                 alt={item.category}
-                                className="w-32 h-32 object-contain rounded-2xl"
+                                className="w-20 h-20 max-[380px]:w-16 max-[380px]:h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain rounded-2xl"
                               />
                             ))}
                         </div>
@@ -714,17 +688,13 @@ export default function HomePage() {
                         {/* tops */}
                         <div className="flex justify-center space-x-2">
                           {outfits[currentIndex].outfitItems
-                            .filter(i =>
-                              i.layerCategory === 'base_top' ||
-                              i.layerCategory === 'mid_top' ||
-                              i.layerCategory === 'outerwear'
-                            )
+                            .filter(i => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
                             .map(item => (
                               <img
                                 key={item.closetItemId}
                                 src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                                 alt={item.category}
-                                className="w-32 h-32 object-contain rounded-2xl"
+                                className="w-20 h-20 max-[380px]:w-16 max-[380px]:h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain rounded-2xl"
                               />
                             ))}
                         </div>
@@ -738,7 +708,7 @@ export default function HomePage() {
                                 key={item.closetItemId}
                                 src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                                 alt={item.category}
-                                className="w-32 h-32 object-contain rounded-2xl"
+                                className="w-20 h-20 max-[380px]:w-16 max-[380px]:h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain rounded-2xl"
                               />
                             ))}
                         </div>
@@ -752,7 +722,7 @@ export default function HomePage() {
                                 key={item.closetItemId}
                                 src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                                 alt={item.category}
-                                className="w-28 h-28 object-contain rounded-2xl"
+                                className="w-16 h-16 max-[380px]:w-14 max-[380px]:h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 object-contain rounded-2xl"
                               />
                             ))}
                         </div>
@@ -785,10 +755,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Weather Section */}
-          <div className="flex flex-col items-center lg:items-end justify-self-end xl:mr-4 2xl:mr-8">
-
-            <div className="w-full max-w-[280px]">
+          {/* Weather Section (centered on mobile, right-aligned on desktop) */}
+          <div className="flex flex-col w-full items-center lg:items-end">
+            <div className="w-full max-w-[340px] mx-auto lg:max-w-none lg:w-full lg:ml-auto">
               <div className="flex items-center space-x-2 mb-4">
                 <div className="relative flex-1">
                   <input
@@ -803,7 +772,7 @@ export default function HomePage() {
                   />
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -824,7 +793,10 @@ export default function HomePage() {
                 <p className="text-red-500">{error}</p>
               ) : weather ? (
                 <>
-                  <WeatherDisplay weather={weather} setCity={setCity} />
+                  {/* Center the "weather section" card on mobile */}
+                  <div className="mx-auto">
+                    <WeatherDisplay weather={weather} setCity={setCity} />
+                  </div>
                   <HourlyForecast forecast={selectedDayHours.length ? selectedDayHours : weather.forecast} />
                 </>
               ) : (
@@ -832,11 +804,11 @@ export default function HomePage() {
               )}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Events Section */}
-        <div className="w-full mt-6">
-          <div className="max-w-4xl mx-auto px-4">
+        {/* Events Section (full width on desktop) */}
+        <section className="w-full mt-6 px-0">
+          <div className="w-full px-4 sm:px-6 md:px-8">
             <div className="flex items-center justify-center mb-4 space-x-4">
               <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
               <button
@@ -856,7 +828,7 @@ export default function HomePage() {
                     <div
                       key={ev.id}
                       className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
-                                 bg-white dark:bg-gray-700 rounded-full shadow-md border 
+                                 bg-white dark:bg-gray-700 rounded-full shadow-md border
                                  flex flex-col items-center justify-center text-center p-2
                                  transition-transform hover:scale-105"
                       onClick={() => {
@@ -890,21 +862,20 @@ export default function HomePage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
 
-      {/* Bottom Banner */}
-      <div
-        className="w-screen relative flex items-center justify-center h-48"
-        style={{
-          backgroundImage: `url(/header.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          marginTop: '2rem',
-          marginLeft: 'calc(-50vw + 50%)',
-        }}
-      >
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      {/* Footer banner (full-bleed) */}
+      <div className="relative w-full h-48 mt-8">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(/header.jpg)`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
       </div>
 
       {/* Create New Event Modal */}
@@ -960,10 +931,6 @@ export default function HomePage() {
               </button>
               <button
                 className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
-
-                // ! Merge Potential change 
-                //onClick={handleCreateEvent}
-                // ! Merge start
                 onClick={async () => {
                   if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
                     alert('Please fill in name, style, and both dates.');
@@ -989,15 +956,13 @@ export default function HomePage() {
                       for (const { summary } of days) {
                         try {
                           await fetchRecommendedOutfits(summary, created.style, created.id);
-                        } catch (err) {
-                          console.error(`Failed to fetch outfits for event day:`, err);
+                        } catch {
+                          /* ignore */
                         }
                       }
                     }
 
-                    // setEvents((evt: Event[]) => [...evt, created]);
                     setEvents(evt => [...evt, toEvent(created)]);
-                    // setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
                     setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
                     setShowModal(false);
                   } catch (err: any) {
@@ -1005,7 +970,6 @@ export default function HomePage() {
                     alert(msg);
                   }
                 }}
-              // ! Merge stop
               >
                 Save
               </button>
@@ -1052,11 +1016,6 @@ export default function HomePage() {
                 <select
                   className="w-full p-2 border rounded"
                   value={editEventData.style}
-
-                  // ! Merge Taylor
-                  //onChange={e => setEditEventData(d => ({ ...d, style: e.target.value as Style }))}
-
-                  // ! Merge Diya
                   onChange={e => setEditEventData(d => ({ ...d, style: e.target.value }))}
                 >
                   <option value="">Select style</option>
@@ -1083,7 +1042,9 @@ export default function HomePage() {
                           {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </>
                       ) : (
-                        <>{from.toLocaleString()} – {to.toLocaleString()}</>
+                        <>
+                          {from.toLocaleString()} – {to.toLocaleString()}
+                        </>
                       )}
                     </p>
                   );
@@ -1105,7 +1066,6 @@ export default function HomePage() {
                     return (
                       <div className="text-sm mb-4 space-y-1">
                         {sums.map(({ date, summary }) => {
-                          // Format to "Month Day" (removes any 'T' visually because we don't print raw ISO)
                           const label = formatMonthDay(date);
                           return summary ? (
                             <div key={date}>
@@ -1122,7 +1082,6 @@ export default function HomePage() {
                     );
                   })()}
 
-
                 <div className="mt-4">
                   <h3 className="font-medium mb-2">Recommended Outfit</h3>
                   {detailLoading && <p>Loading outfit…</p>}
@@ -1133,19 +1092,14 @@ export default function HomePage() {
                         {detailOutfit.outfitItems.map(item => (
                           <img
                             key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
+                            src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"
                           />
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => { }} />
+                        <StarRating disabled={false} onSelect={() => {}} />
                       </div>
                     </>
                   )}
@@ -1161,7 +1115,6 @@ export default function HomePage() {
                   </button>
                   <button
                     onClick={async () => {
-                      // ! Merge Taylor
                       try {
                         const updatedDto = await updateEvent({
                           id: editEventData.id,
@@ -1170,7 +1123,7 @@ export default function HomePage() {
                           dateFrom: new Date(editEventData.dateFrom).toISOString(),
                           dateTo: new Date(editEventData.dateTo).toISOString(),
                           style: editEventData.style as Style,
-                          isTrip: selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip'),
+                          isTrip: selectedEvent?.isTrip ?? selectedEvent?.type === 'trip',
                         });
                         const updated = toEvent(updatedDto);
                         setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
@@ -1180,18 +1133,6 @@ export default function HomePage() {
                         console.error('update failed', err);
                         alert('Failed to update event');
                       }
-                      // ! Merge Diya
-                      //                      const updated = await updateEvent({
-                      //                        id: editEventData.id,
-                      //                        name: editEventData.name,
-                      //                        location: editEventData.location,
-                      //                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
-                      //                        dateTo: new Date(editEventData.dateTo).toISOString(),
-                      //                        style: editEventData.style,
-                      //                      });
-                      //                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
-                      //                      setSelectedEvent(updated);
-                      //                      setIsEditing(false);
                     }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
@@ -1207,10 +1148,7 @@ export default function HomePage() {
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
                       await deleteEvent(selectedEvent.id);
-                      // ! Merge Taylor
                       setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
-                      // ! Merge Diya
-                      // setEvents((evts: Event[]) => evts.filter((e: Event) => e.id !== selectedEvent.id));
                       setShowDetailModal(false);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"
