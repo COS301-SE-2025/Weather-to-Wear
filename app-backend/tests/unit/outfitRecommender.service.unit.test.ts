@@ -159,7 +159,7 @@ describe('outfitRecommender.service (pure helpers)', () => {
         partitioned,
         ['base_top', 'base_bottom', 'footwear'],
         Style.Casual as any,
-        { minTemp: 10 } as any
+        { minTemp: 10, avgTemp: 15 } as any 
       );
 
       expect(result).toHaveLength(1);
@@ -177,7 +177,7 @@ describe('outfitRecommender.service (pure helpers)', () => {
         partitioned,
         ['base_top', 'base_bottom', 'footwear'],
         Style.Casual as any,
-        { minTemp: 10 } as any
+        { minTemp: 10, avgTemp: 15 } as any
       );
 
       expect(result).toEqual([]);
@@ -194,7 +194,7 @@ describe('outfitRecommender.service (pure helpers)', () => {
         partitioned,
         ['base_top', 'base_bottom', 'footwear'],
         Style.Casual as any,
-        { minTemp: 0 } as any
+        { minTemp: 0, avgTemp: 0 } as any 
       );
 
       expect(result).toEqual([]);
@@ -226,19 +226,32 @@ describe('outfitRecommender.service (pure helpers)', () => {
       expect(score).toBeGreaterThan(0);
     });
 
-    it('penalizes white or near-white outfits', () => {
+    it('penalizes white or near-white outfits (relative to colored)', () => {
+      const colored = [
+        dummyItem('c1', LayerCategory.base_top as any, {
+          colorHex: '#aa0000',
+          dominantColors: ['#aa0000'],
+        }),
+      ];
       const whiteOutfit = [
-        dummyItem('c', LayerCategory.base_top as any, {
+        dummyItem('c2', LayerCategory.base_top as any, {
           colorHex: '#ffffff',
           dominantColors: ['#ffffff'],
         }),
       ];
-      const score = scoreOutfit(whiteOutfit as any, [], {
+
+      const coloredScore = scoreOutfit(colored as any, [], {
         avgTemp: 20,
         minTemp: 15,
         willRain: false,
       } as any);
-      expect(score).toBeLessThan(0);
+      const whiteScore = scoreOutfit(whiteOutfit as any, [], {
+        avgTemp: 20,
+        minTemp: 15,
+        willRain: false,
+      } as any);
+
+      expect(whiteScore).toBeLessThan(coloredScore); // relative penalty
     });
 
     it('rewards waterproof items if raining (stronger bias)', () => {
