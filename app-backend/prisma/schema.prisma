@@ -108,6 +108,7 @@ model ClosetItem {
   owner       User         @relation(fields: [ownerId], references: [id])
   outfitItems OutfitItem[]
   posts       Post[]
+  postItems   PostItem[]   @relation("PostClosetItems")
 
   // Packing (back-ref)
   packingItems PackingItem[]
@@ -190,6 +191,7 @@ model Post {
   updatedAt DateTime  @updatedAt
   comments  Comment[]
   likes     Like[]
+  postItems PostItem[]
 }
 
 model Comment {
@@ -223,6 +225,17 @@ model Follow {
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+}
+
+model PostItem {
+  id           String @id @default(uuid())
+  postId       String
+  post         Post   @relation(fields: [postId], references: [id])
+  closetItemId String
+  closetItem   ClosetItem @relation("PostClosetItems", fields: [closetItemId], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@unique([postId, closetItemId])
 }
 
 //
