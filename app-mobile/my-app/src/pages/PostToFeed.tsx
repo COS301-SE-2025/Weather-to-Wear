@@ -340,11 +340,16 @@ const PostToFeed = () => {
                         <span
                           key={item.id}
                           className="inline-flex items-center px-3 py-1.5 rounded-full bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 text-sm font-medium shadow-sm"
+                          title={`${item.layerCategory}: ${item.name}`}
                         >
                           {item.name}
+                          <span className="ml-1 text-xs opacity-75">({item.layerCategory.replace('_', ' ')})</span>
                         </span>
                       ))}
                     </div>
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+                      Selected from {selectedClothingItems.length > 1 ? 'multiple layers' : selectedClothingItems[0]?.layerCategory.replace('_', ' ')}
+                    </p>
                   </div>
                 )}
                 
@@ -356,8 +361,8 @@ const PostToFeed = () => {
                   >
                     <Shirt className="h-5 w-5 mr-2" />
                     {selectedClothingItems.length > 0 
-                      ? `Edit Items (${selectedClothingItems.length})` 
-                      : "Select Items"
+                      ? `Edit Tagged Items (${selectedClothingItems.length})` 
+                      : "Tag Clothing Items"
                     }
                   </button>
                 </div>
