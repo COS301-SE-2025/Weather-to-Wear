@@ -12,11 +12,10 @@ class SocialService {
       location?: string;
       weather?: any;
       closetItemId?: string;
+      closetItemIds?: string[];
     }
   ) {
-
-
-    return this.prisma.post.create({
+    const post = await this.prisma.post.create({
       data: {
         userId,
         imageUrl: data.imageUrl,
@@ -26,6 +25,18 @@ class SocialService {
         closetItemId: data.closetItemId,
       },
     });
+
+    // If closetItemIds are provided, create PostItem relations
+    if (data.closetItemIds && data.closetItemIds.length > 0) {
+      await this.prisma.postItem.createMany({
+        data: data.closetItemIds.map(itemId => ({
+          postId: post.id,
+          closetItemId: itemId,
+        })),
+      });
+    }
+
+    return post;
   }
 
   async getPosts(options: { currentUserId: string; limit: number; offset: number; include: string[]; }) {
@@ -36,6 +47,7 @@ class SocialService {
     const incCommentUser = inc.includes('comments.user');   // NEW
     const incLikes = inc.includes('likes');
     const incClosetItem = inc.includes('closetitem');
+    const incPostItems = inc.includes('postitems') || inc.includes('clothing');
 
     const following = await this.prisma.follow.findMany({
       where: { followerId: currentUserId },
@@ -60,6 +72,22 @@ class SocialService {
           : undefined,
         likes: incLikes ? true : undefined,
         closetItem: incClosetItem ? true : undefined,
+        postItems: incPostItems 
+          ? { 
+            include: { 
+              closetItem: { 
+                select: { 
+                  id: true, 
+                  filename: true, 
+                  category: true, 
+                  layerCategory: true,
+                  colorHex: true,
+                  style: true 
+                } 
+              } 
+            } 
+          } 
+          : undefined,
       },
     });
   }
@@ -73,6 +101,7 @@ class SocialService {
     const incCommentUser = inc.includes('comments.user');   // NEW
     const incLikes = inc.includes('likes');
     const incClosetItem = inc.includes('closetitem');
+    const incPostItems = inc.includes('postitems') || inc.includes('clothing');
 
     return this.prisma.post.findUnique({
       where: { id },
@@ -88,6 +117,22 @@ class SocialService {
           : undefined,
         likes: incLikes ? true : undefined,
         closetItem: incClosetItem ? true : undefined,
+        postItems: incPostItems 
+          ? { 
+            include: { 
+              closetItem: { 
+                select: { 
+                  id: true, 
+                  filename: true, 
+                  category: true, 
+                  layerCategory: true,
+                  colorHex: true,
+                  style: true 
+                } 
+              } 
+            } 
+          } 
+          : undefined,
       },
     });
   }

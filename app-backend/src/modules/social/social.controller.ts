@@ -73,8 +73,14 @@ class SocialController {
         imageUrl = publicUrl;
       }
 
-      const { caption, location, closetItemId, weather } = req.body;
+      const { caption, location, closetItemId, closetItemIds, weather } = req.body;
       const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
+      
+      // Parse closetItemIds if it's a string
+      let parsedClosetItemIds: string[] | undefined;
+      if (closetItemIds) {
+        parsedClosetItemIds = typeof closetItemIds === 'string' ? JSON.parse(closetItemIds) : closetItemIds;
+      }
 
       const post = await socialService.createPost(user.id, {
         imageUrl,
@@ -82,6 +88,7 @@ class SocialController {
         location,
         weather: weatherData,
         closetItemId,
+        closetItemIds: parsedClosetItemIds,
       });
 
       res.status(201).json({ message: 'Post created successfully', post });
