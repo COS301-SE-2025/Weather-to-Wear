@@ -37,6 +37,29 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
+// put this near the top of HomePage.tsx (or in a utils file)
+const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
+
+function normalizeIcon(raw?: string) {
+  if (!raw) return '';
+  const s = raw.trim();
+
+  // already correct
+  if (s.startsWith('https://') || s.startsWith('http://')) return s;
+
+  // common typos / schemeless forms
+  if (s.startsWith('https//')) return 'https://' + s.slice('https//'.length);
+  if (s.startsWith('http//')) return 'http://' + s.slice('http//'.length);
+  if (s.startsWith('//')) return 'https:' + s;
+
+  // basmilius filename only (e.g. "partly-cloudy-day")
+  if (!s.includes('/')) return `${WI_BASE}/${s}.svg`;
+
+  // path without scheme (e.g. "basmilius.github.io/weather-icons/…")
+  return `https://${s.replace(/^\/+/, '')}`;
+}
+
+
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
 type Event = {
@@ -75,6 +98,22 @@ function parseHourTS(s: string) {
   return new Date(s.includes('T') ? s : s.replace(' ', 'T'));
 }
 
+// --- Weather icon mapping (align this with WeatherDisplay’s logic if you have one exported) ---
+function iconFor(conditionRaw: string | undefined) {
+  const c = (conditionRaw || '').toLowerCase();
+  if (!c) return '🌤️';
+  if (c.includes('thunder') || c.includes('storm')) return '⛈️';
+  if (c.includes('snow') || c.includes('sleet')) return '❄️';
+  if (c.includes('rain') || c.includes('drizzle') || c.includes('shower')) return '🌧️';
+  if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return '🌫️';
+  if (c.includes('cloud') || c.includes('overcast')) return '☁️';
+  if (c.includes('wind')) return '🌬️';
+  // clear/sunny fallback
+  return '☀️';
+}
+
+
+
 const TypingSlogan = () => {
   const slogan = 'Style Made\nSimple.';
   const tealWord = 'Simple.';
@@ -110,6 +149,7 @@ const TypingSlogan = () => {
   const secondTyped = displayText.length > newlineIndex ? displayText.slice(newlineIndex + 1) : '';
   const tealPart = tealWord.slice(0, Math.min(secondTyped.length, tealWord.length));
 
+
   return (
     <h2
       className="
@@ -131,6 +171,32 @@ const TypingSlogan = () => {
     </h2>
   );
 };
+
+// A thin “min→max” temp range bar like weather apps
+function TempRangeBar({
+  min,
+  max,
+  weekMin,
+  weekMax,
+}: {
+  min: number;
+  max: number;
+  weekMin: number;
+  weekMax: number;
+}) {
+  const span = Math.max(1, weekMax - weekMin);
+  const leftPct = ((min - weekMin) / span) * 100;
+  const widthPct = Math.max(4, ((max - min) / span) * 100); // keep a tiny visible chunk
+
+  return (
+    <div className="relative w-40 sm:w-48 md:w-56 h-[2px] rounded-full bg-gray-300/60 dark:bg-gray-600/60">
+      <div
+        className="absolute top-0 h-[2px] rounded-full bg-current"
+        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+      />
+    </div>
+  );
+}
 
 // ---------- HomePage ----------
 export default function HomePage() {
@@ -242,21 +308,6 @@ export default function HomePage() {
 
   // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
-
-  const tomorrowKey = useMemo(() => (dayKeys.length > 1 ? dayKeys[1] : null), [dayKeys]);
-  const tomorrowHours: H[] = useMemo(
-    () => (tomorrowKey ? weekByDay[tomorrowKey] : []),
-    [tomorrowKey, weekByDay]
-  );
-  const tomorrowSummary = useMemo(
-    () => (tomorrowHours.length ? summarizeDay(tomorrowHours) : null),
-    [tomorrowHours]
-  );
-
-  // Get a single recommended outfit for tomorrow (first option only)
-  const tomorrowOutfitsQuery = useOutfitsQuery(tomorrowSummary as any, selectedStyle);
-  const tomorrowsFirst = (tomorrowOutfitsQuery.data && tomorrowOutfitsQuery.data[0]) || null;
-
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
   const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
   const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
@@ -272,7 +323,6 @@ export default function HomePage() {
     setCity(next);
     localStorage.setItem('selectedCity', next);
     setCityInput('');
-    // refresh queries
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
@@ -456,7 +506,90 @@ export default function HomePage() {
     }
   };
 
-  // ---------- Render ----------
+
+  // Darker, brand-leaning gradient: teal → warm rust
+  const THEME = {
+    coldHue: 185,  // teal-ish (leans toward your #3F978F brand)
+    hotHue: 18,    // warm rust/orange
+    sat: 58,       // moderate saturation (less neon)
+    light: 38,     // darker lightness
+  };
+
+  function tempColor(t: number, min = weekMin, max = weekMax) {
+    const lo = Math.min(min, max);
+    const hi = Math.max(min, max);
+    const clamped = Math.max(lo, Math.min(hi, t));
+    const r = hi === lo ? 0.5 : (clamped - lo) / (hi - lo); // 0..1
+    const hue = THEME.coldHue + (THEME.hotHue - THEME.coldHue) * r;
+    return `hsl(${Math.round(hue)}, ${THEME.sat}%, ${THEME.light}%)`;
+  }
+
+
+  function TempRangeBar({ min, max, weekMin, weekMax }: {
+    min: number; max: number; weekMin: number; weekMax: number
+  }) {
+    const span = Math.max(1, weekMax - weekMin);
+    const left = ((min - weekMin) / span) * 100;
+    const width = Math.max(4, ((max - min) / span) * 100);
+
+    const c1 = tempColor(min, weekMin, weekMax);
+    const c2 = tempColor(max, weekMin, weekMax);
+
+    return (
+      <div className="relative w-40 sm:w-48 md:w-56 h-0.5"> {/* 2px (use h-1 for 4px, h-[3px] for 3px) */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full opacity-90"
+          style={{
+            left: `${left}%`,
+            width: `${width}%`,
+            background: `linear-gradient(to right, ${c1}, ${c2})`,
+          }}
+        />
+      </div>
+    );
+  }
+
+
+  // pick a representative hour's icon for each day (closest to noon)
+  function getDayIcon(dayHours: H[]) {
+    if (!dayHours?.length) return { icon: '', description: '' };
+    const target = 12;
+    let best = dayHours[0];
+    let diff = Infinity;
+    for (const h of dayHours) {
+      const hr = parseHourTS(h.time).getHours();
+      const d = Math.abs(hr - target);
+      if (d < diff) { diff = d; best = h; }
+    }
+    return {
+      icon: (best as any).icon || '',
+      description: (best as any).description || (best as any).condition || '',
+    };
+  }
+
+  // global bounds for scaling the thin min→max bar
+  const { weekMin, weekMax } = useMemo(() => {
+    let mn = Infinity, mx = -Infinity;
+    for (const d of Object.keys(weekByDay)) {
+      const s = summarizeDay(weekByDay[d]);
+      mn = Math.min(mn, s.minTemp);
+      mx = Math.max(mx, s.maxTemp);
+    }
+    if (!isFinite(mn) || !isFinite(mx)) return { weekMin: 0, weekMax: 1 };
+    return { weekMin: Math.floor(mn), weekMax: Math.ceil(mx) };
+  }, [weekByDay]);
+
+  // ensure "today" is selected by default
+  useEffect(() => {
+    if (!dayKeys.length) return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    setSelectedDate(dayKeys.includes(todayKey) ? todayKey : dayKeys[0]);
+  }, [dayKeys]);
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
   return (
     <div
       className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
@@ -479,132 +612,99 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Main Sections (full-width on desktop; gentle padding on mobile/tablet) */}
-      <main className="flex flex-col gap-12 px-0 w-full">
-
+      {/* Main: one 3-col section; Outfit first on mobile */}
+      <main className="flex flex-col gap-10 px-0 w-full ">
         <section
           className="
             grid gap-8 lg:gap-10 xl:gap-12
             place-items-center lg:place-items-start
             grid-cols-1
             lg:[grid-template-columns:minmax(240px,320px)_minmax(0,1fr)_minmax(240px,320px)]
+            px-4 sm:px-6 lg:px-8
           "
         >
-          {/* Slogan + Tomorrow mini-card */}
-          <div className="flex flex-col items-center lg:items-start justify-center lg:justify-start lg:sticky lg:top-8 w-full px-4 sm:px-6 lg:px-0 lg:pl-8 sm:-pb-32">
+          {/* LEFT: Slogan + Weather Summary (order 2 mobile, 1 desktop) */}
+          <div className="order-2 lg:order-1 flex flex-col items-center lg:items-start justify-start w-full">
             <TypingSlogan />
 
-            {/* Desktop-only "Tomorrow's Outfit" mini card */}
-            <div className="hidden lg:block w-full max-w-[280px] mt-4">
-              <div className="flex justify-center mb-2">
-                <h3 className="text-sm font-semibold border px-2 py-0.5 rounded-full">Tomorrow’s Outfit</h3>
-              </div>
-
-              {tomorrowOutfitsQuery.isLoading ? (
-                <p className="text-xs text-gray-500 text-center">Loading…</p>
-              ) : !tomorrowsFirst ? (
-                <p className="text-xs text-gray-500 text-center">No suggestion yet.</p>
+            {/* Weather Summary (click to change selected day → drives outfits) */}
+            <div className="w-full max-w-md mt-2">
+              {weekQuery.isLoading ? (
+                <p className="text-center text-sm text-gray-500">Loading week…</p>
+              ) : !week || !week.forecast?.length ? (
+                <p className="text-center text-xs text-gray-500">Can’t fetch the full week right now.</p>
               ) : (
-                <div className="space-y-1">
-                  {/* headwear/accessory (tiny) */}
-                  <div
-                    className={`${tomorrowsFirst.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-                      ? 'flex'
-                      : 'hidden'
-                      } justify-center space-x-1`}
-                  >
-                    {tomorrowsFirst.outfitItems
-                      .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-                      .map(item => (
-                        <img
-                          key={item.closetItemId}
-                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                          alt={item.category}
-                          className="w-12 h-12 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                  {/* tops (tiny) */}
-                  <div className="flex justify-center space-x-1">
-                    {tomorrowsFirst.outfitItems
-                      .filter(i => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
-                      .map(item => (
-                        <img
-                          key={item.closetItemId}
-                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                          alt={item.category}
-                          className="w-12 h-12 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                  {/* bottoms (tiny) */}
-                  <div className="flex justify-center space-x-1">
-                    {tomorrowsFirst.outfitItems
-                      .filter(i => i.layerCategory === 'base_bottom')
-                      .map(item => (
-                        <img
-                          key={item.closetItemId}
-                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                          alt={item.category}
-                          className="w-12 h-12 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                  {/* footwear (tiny) */}
-                  <div className="flex justify-center space-x-1">
-                    {tomorrowsFirst.outfitItems
-                      .filter(i => i.layerCategory === 'footwear')
-                      .map(item => (
-                        <img
-                          key={item.closetItemId}
-                          src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                          alt={item.category}
-                          className="w-10 h-10 object-contain rounded"
-                        />
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+                <div className="flex justify-center"> {/* Added this container for centering */}
+                  <ul className="space-y-1 w-full max-w-xs"> {/* Added max-w-xs for better mobile sizing */}
+                    {dayKeys.map((d) => {
+                      const s = summarizeDay(weekByDay[d]);
+                      const { icon, description } = getDayIcon(weekByDay[d]);
+                      const isActive = d === selectedDate;
 
-          {/* Outfit Section */}
-          <div className="flex flex-col items-center w-full -mt-12 sm:-mt-8">
-            <div className="w-full max-w-none">
-              <div className="bg-white">
-                {/* WEEK STRIP — prevent first button clipping on small phones */}
-                <div className="mb-3">
-                  {weekQuery.isLoading ? (
-                    <div className="text-center text-sm text-gray-500">Loading week…</div>
-                  ) : !week || !week.forecast?.length ? (
-                    <div className="text-center text-xs text-gray-500">Can’t fetch the full week right now.</div>
-                  ) : (
-                    <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar justify-start sm:justify-center">
-                      {dayKeys.map((d, idx) => {
-                        const label = new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
-                        const isActive = d === selectedDate;
-                        return (
+                      return (
+                        <li key={d}>
                           <button
-                            key={d}
                             onClick={() => {
                               setSelectedDate(d);
                               setCurrentIndex(0);
+                              queryClient.invalidateQueries({ queryKey: ['outfits'] });
                             }}
-                            className={`shrink-0 first:ml-1 last:mr-1 flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
-                              ${isActive
-                                ? 'bg-[#3F978F] text-white border-[#3F978F]'
-                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
-                              }`}
-                            aria-label={`Select ${label}${idx === 0 ? ' (first day)' : ''}`}
+                            className={`w-full grid grid-cols-[3.5rem_1.5rem_1fr] items-center gap-3 p-2 rounded-md transition-opacity
+                  ${isActive ? 'opacity-100' : 'opacity-60 hover:opacity-90'}`}
+                            aria-label={`Select ${new Date(d).toLocaleDateString(undefined, { weekday: 'long' })}`}
                           >
-                            <span className="font-medium">{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                            {/* Day */}
+                            <span className="text-left font-medium">
+                              {new Date(d).toLocaleDateString(undefined, { weekday: 'short' })}
+                            </span>
 
+                            {/* Icon from the same source your main summary uses (no emojis) */}
+                            <span className="flex items-center justify-center">
+                              {icon ? (
+                                <img
+                                  src={normalizeIcon(icon)}
+                                  alt={description || 'weather'}
+                                  width={20}
+                                  height={20}
+                                  className="w-5 h-5"
+                                />
+
+                              ) : null}
+                            </span>
+
+                            {/* Thin linear min→max temperature bar */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] sm:text-xs tabular-nums text-black dark:text-white">
+                                {Math.round(s.minTemp)}°
+                              </span>
+
+                              <TempRangeBar
+                                min={Math.round(s.minTemp)}
+                                max={Math.round(s.maxTemp)}
+                                weekMin={weekMin}
+                                weekMax={weekMax}
+                              />
+
+                              <span className="text-[11px] sm:text-xs tabular-nums text-black dark:text-white">
+                                {Math.round(s.maxTemp)}°
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
+          <div className="order-1 lg:order-2 flex flex-col items-center w-full">
+            <div className="w-full max-w-none">
+              <div className="bg-white">
+                {/* (Week buttons removed) */}
                 {loadingOutfits && <p className="text-center">Loading outfits…</p>}
                 {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
                 {!loadingOutfits && outfits.length === 0 && (
@@ -637,9 +737,9 @@ export default function HomePage() {
                   </select>
                 </div>
 
+                {/* Carousel */}
                 {!loadingOutfits && outfits.length > 0 && (
                   <>
-                    {/* Carousel (padding so arrows never clip; centered on mobile) */}
                     <div className="relative mb-2 overflow-visible">
                       {/* Left arrow */}
                       <button
@@ -754,52 +854,47 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Weather Section (centered on mobile, right-aligned on desktop) */}
-          <div className="flex flex-col w-full items-center lg:items-end px-4 sm:px-6 lg:px-0 lg:pr-8">
-            <div className="w-full max-w-none mx-auto lg:max-w-none lg:w-full lg:ml-auto">
-              <div className="w-full max-w-none lg:w-full lg:ml-auto">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Select City"
-                    value={cityInput}
-                    onChange={e => setCityInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleEnterCity();
-                    }}
-                    className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
+          {/* RIGHT: Search + Weather (order 3) */}
+          <div className="order-3 flex flex-col w-full items-center lg:items-end">
+            <div className="w-full max-w-sm mx-auto lg:max-w-none lg:mx-0 lg:w-full lg:ml-auto">
+              <div className="relative flex-1 mb-4">
+                <input
+                  type="text"
+                  placeholder="Select City"
+                  value={cityInput}
+                  onChange={e => setCityInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleEnterCity();
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
+                />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                   />
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
+                </svg>
               </div>
 
               {loadingWeather ? (
-                <p>Loading weather…</p>
+                <p className="text-center">Loading weather…</p>
               ) : error && !weather ? (
-                <p className="text-red-500">{error}</p>
+                <p className="text-red-500 text-center">{error}</p>
               ) : weather ? (
-                <>
-                  {/* Center the "weather section" card on mobile */}
-                  <div className="mx-auto">
-                    <WeatherDisplay weather={weather} setCity={setCity} />
-                  </div>
+                <div className="text-center">
+                  <WeatherDisplay weather={weather} setCity={setCity} />
                   <HourlyForecast forecast={selectedDayHours.length ? selectedDayHours : weather.forecast} />
-                </>
+                </div>
               ) : (
-                <p>No weather data available.</p>
+                <p className="text-center">No weather data available.</p>
               )}
             </div>
           </div>
@@ -808,7 +903,6 @@ export default function HomePage() {
         {/* Events Section (full width on desktop) */}
         <section className="w-full mt-6 px-0">
           <div className="w-full px-0">
-
             <div className="flex items-center justify-center mb-4 space-x-4">
               <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
               <button

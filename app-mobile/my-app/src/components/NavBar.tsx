@@ -138,44 +138,39 @@ const NavBar: React.FC = () => {
             <div className="bg-black dark:bg-gray-800 rounded-full flex items-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
               <Link
                 to="/dashboard"
-                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-                } text-white`}
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  } text-white`}
               >
                 Home
               </Link>
               <Link
                 to="/closet"
-                className={`px-3 py-1 rounded-full text-white transition-colors ${
-                  isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-                }`}
+                className={`px-3 py-1 rounded-full text-white transition-colors ${isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  }`}
               >
                 Closet
               </Link>
               <button
                 onClick={toggleMenu}
-                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
-                  isAddRoute
+                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isAddRoute
                     ? "bg-[#3F978F] text-white"
                     : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-[#304946]"
-                }`}
+                  }`}
                 aria-label="Add options"
               >
                 <Plus size={20} />
               </button>
               <Link
                 to="/calendar"
-                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${
-                  isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-                } text-white`}
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  } text-white`}
               >
                 Calendar
               </Link>
               <Link
                 to="/feed"
-                className={`px-3 py-1 rounded-full text-white transition-colors ${
-                  isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-                }`}
+                className={`px-3 py-1 rounded-full text-white transition-colors ${isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  }`}
               >
                 Feed
               </Link>
@@ -257,11 +252,10 @@ const NavBar: React.FC = () => {
       </div>
 
       {/* FLOW SPACERS (outside the fixed header) */}
-      {/* Desktop: offset fixed header height so content isn't hidden */}
-      <div className="hidden lg:block h-[0px] -mb-8" aria-hidden />
-      {/* Mobile: zero-height spacer with a tiny negative bottom margin to pull content up ~16px */}
-      <div className="block lg:hidden h-0 -mb-16 " aria-hidden />
-
+      {/* Desktop: proper spacing for fixed header */}
+      <div className="hidden lg:block h-[0px]" aria-hidden />
+      {/* Mobile: proper spacing for fixed header */}
+      <div className="block lg:hidden h-[0px]" aria-hidden />
       {/* Mobile bottom nav */}
       {isMobile && (
         <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 py-2 px-4 z-40">
@@ -298,44 +292,39 @@ const NavBar: React.FC = () => {
           >
             <Link
               to="/dashboard"
-              className={`p-2 rounded-full transition-colors ${
-                isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-              }`}
+              className={`p-2 rounded-full transition-colors ${isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                }`}
             >
               <Home className="w-5 h-5 text-white" />
             </Link>
             <Link
               to="/closet"
-              className={`p-2 rounded-full transition-colors ${
-                isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-              }`}
+              className={`p-2 rounded-full transition-colors ${isActive("/closet") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                }`}
             >
               <Shirt className="w-5 h-5 text-white" />
             </Link>
             <button
               onClick={toggleMenu}
-              className={`p-1 rounded-full w-8 h-8 transition-colors ${
-                isAddRoute
+              className={`p-1 rounded-full w-8 h-8 transition-colors ${isAddRoute
                   ? "bg-[#3F978F] text-white"
                   : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-[#304946]"
-              }`}
+                }`}
               aria-label="Add options"
             >
               <Plus size={20} />
             </button>
             <Link
               to="/calendar"
-              className={`p-2 rounded-full transition-colors ${
-                isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-              }`}
+              className={`p-2 rounded-full transition-colors ${isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                }`}
             >
               <Calendar className="w-5 h-5 text-white" />
             </Link>
             <Link
               to="/feed"
-              className={`p-2 rounded-full transition-colors ${
-                isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
-              }`}
+              className={`p-2 rounded-full transition-colors ${isActive("/feed") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                }`}
             >
               <Users className="w-5 h-5 text-white" />
             </Link>
