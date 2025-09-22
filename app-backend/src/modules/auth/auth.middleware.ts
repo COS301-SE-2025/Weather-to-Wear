@@ -18,7 +18,7 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
   const token = authHeader && authHeader.split(' ')[1]; // Expecting: Bearer <token>
 
   if (!token) {
-    res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
+    res.status(401).json({ error: 'Missing token' });
     return;
   }
 
@@ -36,7 +36,7 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
       }
 
       // Invalid for any other reason
-      res.status(401).json({ code: 'INVALID_TOKEN', error: 'Invalid token' });
+      res.status(403).json({ error: 'Invalid token' });
       return;
     }
 

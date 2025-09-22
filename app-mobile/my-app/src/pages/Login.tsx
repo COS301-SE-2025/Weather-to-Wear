@@ -1,4 +1,6 @@
 // src/pages/Login.tsx
+// ! Merge Bemo
+//import { useAuth } from '../contexts/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
@@ -18,6 +20,8 @@ export default function Login() {
   const [showLoggedOutToast, setShowLoggedOutToast] = useState(loggedOut);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
   useEffect(() => {
     try {
@@ -40,6 +44,14 @@ export default function Login() {
     e.preventDefault();
     try {
       const res = await loginUser(email, password);
+// ! Merge Bemo      
+      // Use AuthContext login method instead of direct localStorage
+//      login(res.token, res.user);
+      
+      // Redirect to the page they were trying to access, or dashboard by default
+//      const from = location.state?.from?.pathname || '/dashboard';
+//      navigate(from, { replace: true });
+// ! Merge Kyle
       if (res?.token) applyAuthToken(res.token); // persist & schedule auto-logout
       if (res?.user) localStorage.setItem('user', JSON.stringify(res.user));
 
@@ -47,7 +59,7 @@ export default function Login() {
       setTimeout(() => {
         setShowToast(false);
         navigate('/dashboard', { replace: true });
-      }, 3000);
+      }, 30);
     } catch (err: any) {
       alert(err?.message || 'Login failed');
     }

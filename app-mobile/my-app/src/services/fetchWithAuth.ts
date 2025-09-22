@@ -1,6 +1,30 @@
 // src/services/fetchWithAuth.ts
 import { getToken } from '../persist';
-import { logoutAndResetApp } from './auth';
+
+// Note: We can't directly use AuthContext here since this is a service function
+// The AuthContext will be handled by the ProtectedRoute components
+async function clearAuthData() {
+  // Clear all auth data
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("selectedCity");
+  
+  // Clear any user-specific data
+  const allKeys = Object.keys(localStorage);
+  allKeys.forEach(key => {
+    if (key.startsWith('closet-favs-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  
+  // Clear React Query cache
+  const { queryClient } = await import('../queryClient');
+  const { clearPersistedCache } = await import('../persist');
+  
+  await queryClient.cancelQueries();
+  queryClient.clear();
+  await clearPersistedCache();
+}
 
 export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) {
   const token = getToken();
@@ -28,7 +52,7 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
 
     if (expiredHeader || code === 'SESSION_EXPIRED') {
       console.warn('Session expired, logging out automatically');
-      await logoutAndResetApp();
+      await clearAuthData();
 
       try { localStorage.setItem('sessionExpiredNotice', '1'); } catch {}
 
@@ -38,7 +62,7 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
     }
 
     if (code === 'INVALID_TOKEN' || code === 'NO_TOKEN') {
-      await logoutAndResetApp();
+      await clearAuthData();
       window.location.assign('/login');
       throw new Error(code || 'AUTH_ERROR');
     }

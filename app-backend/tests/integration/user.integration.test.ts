@@ -11,11 +11,15 @@ jest.mock("../../src/utils/s3", () => {
   return {
     cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
     uploadBufferToS3: jest.fn().mockResolvedValue(undefined),
-    putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => ({
-      key,
-      publicUrl: `https://cdn.test/${key}`,
-    })),
-  }
+    putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => {
+      const publicUrl = `https://cdn.test/${key || 'mock-key'}`;
+      return Promise.resolve({
+        key: key || 'mock-key',
+        publicUrl: publicUrl
+      });
+    }),
+  };
+  return mod;
 });
 import * as s3 from "../../src/utils/s3";
 
@@ -271,8 +275,10 @@ describe("Users Controller Integration", () => {
       expect(res.body.message).toBe("Updated");
       expect(res.body.user).toHaveProperty("profilePhoto");
 
+      // Ensure our mocked S3 uploader was called
       expect(s3.putBufferSmart).toHaveBeenCalledTimes(1);
       const call = (s3.putBufferSmart as jest.Mock).mock.calls[0][0];
+      // Check the key pattern
       expect(call.key).toMatch(new RegExp(`^users/${user.id}/profile/`));
       expect(call.contentType).toMatch(/image\/png/);
 

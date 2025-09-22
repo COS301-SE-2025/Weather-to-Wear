@@ -10,6 +10,7 @@ export async function createPost(data: {
   location?: string;
   weather?: any;
   closetItemId?: string;
+  closetItemIds?: string[];
 }) {
   const formData = new FormData();
   if (data.image) formData.append("image", data.image);
@@ -17,6 +18,9 @@ export async function createPost(data: {
   if (data.location) formData.append("location", data.location);
   if (data.weather) formData.append("weather", JSON.stringify(data.weather));
   if (data.closetItemId) formData.append("closetItemId", data.closetItemId);
+  if (data.closetItemIds && data.closetItemIds.length > 0) {
+    formData.append("closetItemIds", JSON.stringify(data.closetItemIds));
+  }
 
   const response = await fetchWithAuth(`${API_URL}/posts`, {
     method: "POST",

@@ -12,14 +12,17 @@ import {
   Users,
   User,
   HelpCircle,
+  Lightbulb,
 } from "lucide-react";
 import { queryClient } from '../queryClient';
 import { clearPersistedCache } from '../persist';
+import { useAuth } from '../contexts/AuthContext';
 
 const NavBar: React.FC = () => {
   const location = useLocation();
   const[showToast, setShowToast] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const currentPath = location.pathname;
 
   const isAddRoute =
@@ -48,12 +51,28 @@ const NavBar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      const { logoutAndResetApp } = await import('../services/auth');
-      await logoutAndResetApp();
+      // Clear React Query cache
+      await queryClient.cancelQueries();
+      queryClient.clear();
 
+      // Remove the persisted dehydrated cache (localStorage copy)
+      await clearPersistedCache();
+
+      // Use AuthContext logout method to clear all auth state
+      logout();
+
+      // Close open UI bits
       setMenuOpen(false);
       setProfileOpen(false);
 
+      // ! Merge Bemo Changes
+//      navigate("/login", { replace: true });
+//    } catch (err) {
+//      console.error("Logout cleanup failed:", err);
+//      navigate("/login", { replace: true });
+//    }
+//  };
+// ! Merge Kyle Changes
      navigate("/login", { 
       replace: true, 
       state: { loggedOut: true } 
@@ -206,6 +225,13 @@ const NavBar: React.FC = () => {
               >
                 Feed
               </Link>
+              <Link
+                to="/inspo"
+                className={`px-3 py-1 rounded-full text-white transition-colors ${isActive("/inspo") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  }`}
+              >
+                Inspo
+              </Link>
             </div>
 
             {/* Desktop Help, Profile & Logout */}
@@ -357,6 +383,13 @@ const NavBar: React.FC = () => {
                 }`}
             >
               <Users className="w-5 h-5 text-white" />
+            </Link>
+            <Link
+              to="/inspo"
+              className={`p-2 rounded-full transition-colors ${isActive("/inspo") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                }`}
+            >
+              <Lightbulb className="w-5 h-5 text-white" />
             </Link>
           </nav>
         </div>

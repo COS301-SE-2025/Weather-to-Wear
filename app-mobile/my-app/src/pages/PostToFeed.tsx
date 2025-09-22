@@ -10,9 +10,11 @@ import {
   CloudSnow,
   Wind,
   ChevronDown,
+  Shirt,
 } from "lucide-react";
 import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
+import PostClothingPicker from "../components/PostClothingPicker";
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
@@ -26,6 +28,15 @@ const PostToFeed = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
   const [showCameraPopup, setShowCameraPopup] = useState(false);
+
+  // Clothing picker state
+  const [showClothingPicker, setShowClothingPicker] = useState(false);
+  const [selectedClothingItems, setSelectedClothingItems] = useState<{
+    id: string;
+    name: string;
+    category: string;
+    layerCategory: string;
+  }[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -107,6 +118,7 @@ const PostToFeed = () => {
     setImage(null);
     setLocation("");
     setWeather(null);
+    setSelectedClothingItems([]);
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -154,11 +166,14 @@ const PostToFeed = () => {
       }
 
       await createPost({
-  caption: content.trim() || undefined,
-  location: location || undefined,
-  image: imageFile,
-  weather: weather || undefined,
-});
+        caption: content.trim() || undefined,
+        location: location || undefined,
+        image: imageFile,
+        weather: weather || undefined,
+        closetItemIds: selectedClothingItems.length > 0 
+          ? selectedClothingItems.map(item => item.id)
+          : undefined,
+      });
 
 // Navigate with success message
 navigate("/feed", { state: { postSuccess: true } });
@@ -314,6 +329,47 @@ navigate("/feed", { state: { postSuccess: true } });
                 />
               </div>
 
+              {/* Clothing Items Section */}
+              <div>
+                <label className="block text-center font-livvic text-sm text-gray-700 dark:text-gray-200 mb-3">
+                  Tag Clothing Items
+                </label>
+                
+                {selectedClothingItems.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {selectedClothingItems.map((item) => (
+                        <span
+                          key={item.id}
+                          className="inline-flex items-center px-3 py-1.5 rounded-full bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 text-sm font-medium shadow-sm"
+                          title={`${item.layerCategory}: ${item.name}`}
+                        >
+                          {item.name}
+                          <span className="ml-1 text-xs opacity-75">({item.layerCategory.replace('_', ' ')})</span>
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+                      Selected from {selectedClothingItems.length > 1 ? 'multiple layers' : selectedClothingItems[0]?.layerCategory.replace('_', ' ')}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowClothingPicker(true)}
+                    className="inline-flex items-center px-4 py-2 rounded-full bg-white dark:bg-gray-700 border-2 border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F] hover:text-white transition-colors font-livvic text-sm"
+                  >
+                    <Shirt className="h-5 w-5 mr-2" />
+                    {selectedClothingItems.length > 0 
+                      ? `Edit Tagged Items (${selectedClothingItems.length})` 
+                      : "Tag Clothing Items"
+                    }
+                  </button>
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -407,6 +463,23 @@ navigate("/feed", { state: { postSuccess: true } });
             </div>
           </div>
         </div>
+      )}
+
+      {/* Clothing picker modal */}
+      {showClothingPicker && (
+        <PostClothingPicker
+          visible={showClothingPicker}
+          selectedItemIds={selectedClothingItems.map(item => item.id)}
+          onClose={() => setShowClothingPicker(false)}
+          onConfirm={(items) => {
+            setSelectedClothingItems(items.map(item => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              layerCategory: item.layerCategory,
+            })));
+          }}
+        />
       )}
     </div>
   );

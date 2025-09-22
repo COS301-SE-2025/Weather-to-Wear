@@ -12,6 +12,7 @@ jest.mock("../../src/utils/s3", () => ({
     publicUrl: `https://cdn.test/${key}`,
   })),
   cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
+  putBufferSmart: jest.fn().mockResolvedValue({ key: 'mock-key', publicUrl: 'https://cdn.test/mock-key' }),
 }));
 
 jest.mock("../../src/middleware/nsfw.middleware", () => ({
