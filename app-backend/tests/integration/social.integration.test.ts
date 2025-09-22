@@ -8,6 +8,7 @@ import prisma from "../../src/prisma";
 jest.mock("../../src/utils/s3", () => ({
   uploadBufferToS3: jest.fn().mockResolvedValue({}),
   cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
+  putBufferSmart: jest.fn().mockResolvedValue({ key: 'mock-key', publicUrl: 'https://cdn.test/mock-key' }),
 }));
 
 async function createTestUser(email = "user@example.com") {

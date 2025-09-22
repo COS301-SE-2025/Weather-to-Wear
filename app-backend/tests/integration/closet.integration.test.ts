@@ -5,12 +5,22 @@ import jwt from 'jsonwebtoken';
 
 import ClosetService from '../../src/modules/closet/closet.service';
 import axios from 'axios';
-import { uploadBufferToS3 } from '../../src/utils/s3';
+import { putBufferSmart } from '../../src/utils/s3';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
 jest.mock('axios');
-jest.mock('../../src/utils/s3');
+jest.mock('../../src/utils/s3', () => ({
+  uploadBufferToS3: jest.fn().mockResolvedValue({ key: 'mock-key' }),
+  deleteFromS3: jest.fn().mockResolvedValue(undefined),
+  cdnUrlFor: (k: string) => `https://cdn.test/${k}`,
+  putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => {
+    return Promise.resolve({
+      key: key || 'mock-key',
+      publicUrl: `https://cdn.test/${key || 'mock-key'}`
+    });
+  }),
+}));
 
 // ------------------ INTEGRATION TESTS ------------------
 describe('Integration: Closet', () => {
@@ -217,7 +227,7 @@ describe('Integration: Closet', () => {
 describe('Unit: ClosetService', () => {
   let prismaMock: any;
   const axiosMock = axios as jest.Mocked<typeof axios>;
-  const s3Mock = uploadBufferToS3 as jest.Mock;
+  const s3Mock = putBufferSmart as jest.Mock;
 
   const fakeFile: Express.Multer.File = {
     buffer: Buffer.from('fake'),
@@ -260,7 +270,7 @@ describe('Unit: ClosetService', () => {
     axiosMock.post
       .mockResolvedValueOnce({ data: Buffer.from('nobg') }) // bg removal
       .mockResolvedValueOnce({ data: { colors: ['#111', '#222'] } }); // color extraction
-    s3Mock.mockResolvedValueOnce(undefined);
+    s3Mock.mockResolvedValueOnce({ key: 'mock-key', publicUrl: 'https://cdn.test/mock-key' });
     prismaMock.closetItem.create.mockResolvedValueOnce({
       id: '1',
       filename: 'key.png',
