@@ -1,16 +1,17 @@
 // src/pages/Login.tsx
-// ! Merge Bemo
-//import { useAuth } from '../contexts/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { loginUser, applyAuthToken } from '../services/auth';
 import Toast from '../components/Toast';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+    const [errors, setErrors] = useState<string[]>([]);
+  
 
   const [expiredMsg, setExpiredMsg] = useState<string | null>(null);
 
@@ -20,8 +21,7 @@ export default function Login() {
   const [showLoggedOutToast, setShowLoggedOutToast] = useState(loggedOut);
 
   const navigate = useNavigate();
-  // const location = useLocation();
-  // const { login } = useAuth();
+  const { login } = useAuth();
 
   useEffect(() => {
     try {
@@ -42,26 +42,25 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors([]); 
     try {
       const res = await loginUser(email, password);
-// ! Merge Bemo      
-      // Use AuthContext login method instead of direct localStorage
-//      login(res.token, res.user);
       
-      // Redirect to the page they were trying to access, or dashboard by default
-//      const from = location.state?.from?.pathname || '/dashboard';
-//      navigate(from, { replace: true });
-// ! Merge Kyle
-      if (res?.token) applyAuthToken(res.token); // persist & schedule auto-logout
-      if (res?.user) localStorage.setItem('user', JSON.stringify(res.user));
-
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        navigate('/dashboard', { replace: true });
-      }, 30);
+      if (res?.token && res?.user) {
+        login(res.token, res.user);
+        
+        applyAuthToken(res.token);
+        
+        setShowToast(true);
+        
+        setTimeout(() => {
+          const from = location.state?.from?.pathname || '/dashboard';
+          navigate(from, { replace: true });
+        }, 3000);
+      }
     } catch (err: any) {
-      alert(err?.message || 'Login failed');
+      setErrors([err.message || 'Login failed.']);
+
     }
   };
 
@@ -87,6 +86,34 @@ export default function Login() {
               aria-live="polite"
             >
               {expiredMsg}
+            </div>
+          )}
+
+          {/* Error Popup */}
+          {errors.length > 0 && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900 border-l-4 border-rose-500 dark:border-rose-300 rounded-lg shadow-md animate-fade-in">
+              {errors.map((err, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center text-rose-600 dark:text-rose-300 text-sm font-medium mb-2 last:mb-0"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>{err}</span>
+                </div>
+              ))}
             </div>
           )}
 
