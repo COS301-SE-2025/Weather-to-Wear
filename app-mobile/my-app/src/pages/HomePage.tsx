@@ -1,7 +1,7 @@
 // src/pages/HomePage.tsx
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Plus, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
@@ -60,7 +60,6 @@ function normalizeIcon(raw?: string) {
   return `https://${s.replace(/^\/+/, '')}`;
 }
 
-
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
 type Event = {
@@ -99,7 +98,7 @@ function parseHourTS(s: string) {
   return new Date(s.includes('T') ? s : s.replace(' ', 'T'));
 }
 
-// --- Weather icon mapping (align this with WeatherDisplay’s logic if you have one exported) ---
+// --- Weather icon mapping ---
 function iconFor(conditionRaw: string | undefined) {
   const c = (conditionRaw || '').toLowerCase();
   if (!c) return '🌤️';
@@ -112,8 +111,6 @@ function iconFor(conditionRaw: string | undefined) {
   // clear/sunny fallback
   return '☀️';
 }
-
-
 
 const TypingSlogan = () => {
   const slogan = 'Style Made\nSimple.';
@@ -150,7 +147,6 @@ const TypingSlogan = () => {
   const secondTyped = displayText.length > newlineIndex ? displayText.slice(newlineIndex + 1) : '';
   const tealPart = tealWord.slice(0, Math.min(secondTyped.length, tealWord.length));
 
-
   return (
     <h2
       className="
@@ -173,27 +169,42 @@ const TypingSlogan = () => {
   );
 };
 
-// A thin “min→max” temp range bar like weather apps
+// ---------------- Temp range bar (single definition) ----------------
+const THEME = {
+  coldHue: 185, // teal-ish, near #3F978F
+  hotHue: 18,   // warm rust/orange
+  sat: 58,
+  light: 38,
+};
+
 function TempRangeBar({
-  min,
-  max,
-  weekMin,
-  weekMax,
-}: {
-  min: number;
-  max: number;
-  weekMin: number;
-  weekMax: number;
-}) {
+  min, max, weekMin, weekMax,
+}: { min: number; max: number; weekMin: number; weekMax: number }) {
   const span = Math.max(1, weekMax - weekMin);
-  const leftPct = ((min - weekMin) / span) * 100;
-  const widthPct = Math.max(4, ((max - min) / span) * 100); // keep a tiny visible chunk
+  const left = ((min - weekMin) / span) * 100;
+  const width = Math.max(4, ((max - min) / span) * 100);
+
+  const tempColor = (t: number) => {
+    const lo = Math.min(weekMin, weekMax);
+    const hi = Math.max(weekMin, weekMax);
+    const clamped = Math.max(lo, Math.min(hi, t));
+    const r = hi === lo ? 0.5 : (clamped - lo) / (hi - lo);
+    const hue = THEME.coldHue + (THEME.hotHue - THEME.coldHue) * r;
+    return `hsl(${Math.round(hue)}, ${THEME.sat}%, ${THEME.light}%)`;
+  };
+
+  const c1 = tempColor(min);
+  const c2 = tempColor(max);
 
   return (
-    <div className="relative w-40 sm:w-48 md:w-56 h-[2px] rounded-full bg-gray-300/60 dark:bg-gray-600/60">
+    <div className="relative w-40 sm:w-48 md:w-56 h-0.5">
       <div
-        className="absolute top-0 h-[2px] rounded-full bg-current"
-        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+        className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full opacity-90"
+        style={{
+          left: `${left}%`,
+          width: `${width}%`,
+          background: `linear-gradient(to right, ${c1}, ${c2})`,
+        }}
       />
     </div>
   );
@@ -201,8 +212,6 @@ function TempRangeBar({
 
 // ---------- HomePage ----------
 export default function HomePage() {
-
-
   // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
@@ -386,7 +395,6 @@ export default function HomePage() {
   const slideTo = (dir: -1 | 1) =>
     setCurrentIndex(i => (i + dir + outfits.length) % outfits.length);
 
-
   // ---------- Event modal: outfit recommendation with caching ----------
   const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
     if (!selectedEvent?.weather) return undefined;
@@ -516,67 +524,6 @@ export default function HomePage() {
     }
   };
 
-
-  // Darker, brand-leaning gradient: teal → warm rust
-  const THEME = {
-    coldHue: 185,  // teal-ish (leans toward your #3F978F brand)
-    hotHue: 18,    // warm rust/orange
-    sat: 58,       // moderate saturation (less neon)
-    light: 38,     // darker lightness
-  };
-
-  function tempColor(t: number, min = weekMin, max = weekMax) {
-    const lo = Math.min(min, max);
-    const hi = Math.max(min, max);
-    const clamped = Math.max(lo, Math.min(hi, t));
-    const r = hi === lo ? 0.5 : (clamped - lo) / (hi - lo); // 0..1
-    const hue = THEME.coldHue + (THEME.hotHue - THEME.coldHue) * r;
-    return `hsl(${Math.round(hue)}, ${THEME.sat}%, ${THEME.light}%)`;
-  }
-
-
-  function TempRangeBar({ min, max, weekMin, weekMax }: {
-    min: number; max: number; weekMin: number; weekMax: number
-  }) {
-    const span = Math.max(1, weekMax - weekMin);
-    const left = ((min - weekMin) / span) * 100;
-    const width = Math.max(4, ((max - min) / span) * 100);
-
-    const c1 = tempColor(min, weekMin, weekMax);
-    const c2 = tempColor(max, weekMin, weekMax);
-
-    return (
-      <div className="relative w-40 sm:w-48 md:w-56 h-0.5"> {/* 2px (use h-1 for 4px, h-[3px] for 3px) */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full opacity-90"
-          style={{
-            left: `${left}%`,
-            width: `${width}%`,
-            background: `linear-gradient(to right, ${c1}, ${c2})`,
-          }}
-        />
-      </div>
-    );
-  }
-
-
-  // pick a representative hour's icon for each day (closest to noon)
-  function getDayIcon(dayHours: H[]) {
-    if (!dayHours?.length) return { icon: '', description: '' };
-    const target = 12;
-    let best = dayHours[0];
-    let diff = Infinity;
-    for (const h of dayHours) {
-      const hr = parseHourTS(h.time).getHours();
-      const d = Math.abs(hr - target);
-      if (d < diff) { diff = d; best = h; }
-    }
-    return {
-      icon: (best as any).icon || '',
-      description: (best as any).description || (best as any).condition || '',
-    };
-  }
-
   // global bounds for scaling the thin min→max bar
   const { weekMin, weekMax } = useMemo(() => {
     let mn = Infinity, mx = -Infinity;
@@ -665,36 +612,100 @@ export default function HomePage() {
     );
   }
 
+  // ------------------------------------------------------------------------------------------
+  // RENDER
+  // ------------------------------------------------------------------------------------------
+  // hero data: description + location + avg temp
+  const heroDescription =
+    selectedDaySummary?.mainCondition ||
+    weather?.summary?.mainCondition ||
+    (week?.summary?.mainCondition ?? '');
 
-
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+  const heroAvgTemp =
+    typeof selectedDaySummary?.avgTemp === 'number'
+      ? Math.round(selectedDaySummary.avgTemp)
+      : typeof weather?.summary?.avgTemp === 'number'
+        ? Math.round(weather.summary.avgTemp)
+        : null;
 
   return (
     <div
-      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
+      className="flex flex-col min-h-screen w-full bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden pt-0"
       style={{ paddingTop: 0 }}
     >
-      {/* Hero — full-bleed, no gap on mobile, no visual cut-off */}
-      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+      {/* ===================== HERO (reworked) ===================== */}
+      <header className="relative w-full overflow-hidden pb-8 mb-8">
+        {/* Background */}
         <div
-          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(/background.jpg)` }}
+          aria-hidden="true"
         />
-        <div className="absolute inset-0 bg-black/30" />
-        <div className="relative z-10 flex h-full items-center justify-center px-0">
+        <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
-          <div className="px-6 py-2 border-2 border-white">
-            <h1 className="text-2xl font-bodoni font-light text-center text-white">
-              {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
-            </h1>
+        {/* Content */}
+        <div className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-4 sm:py-6 lg:py-8">
+            {/* two columns at ALL sizes so left/right are side-by-side on mobile too */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 items-center">
+              {/* LEFT: welcome + tag + description */}
+              <div className="text-white">
+                <p className="text-[11px] sm:text-xs uppercase tracking-wide opacity-90 mb-2">
+                  {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
+                </p>
+
+                <div className="backdrop-blur-2xl bg-white/10 rounded-2xl p-2 sm:p-2.5 inline-block mb-2">
+                  <p className="text-[11px] sm:text-xs font-medium tracking-wide">
+                    Weather Forecast
+                  </p>
+                </div>
+
+                {/* bigger on mobile now */}
+                <h1 className="text-2xl sm:text-4xl md:text-4xl font-livvic font-semibold leading-snug">
+                  {heroDescription || '—'}
+                </h1>
+              </div>
+
+              {/* RIGHT: responsive glass card; wraps location; dynamic height; aligned right */}
+              <div className="justify-self-end self-center">
+                <div
+                  className={[
+                    "backdrop-blur-2xl bg-white/10 text-white rounded-2xl",
+                    "p-3 sm:p-4",
+                    // constrain width a bit so it sits neatly beside the left block on small screens
+                    "w-auto max-w-[85vw] xs:max-w-[70vw] sm:max-w-xs",
+                    "flex flex-col items-end gap-1",
+                    "text-right",
+                  ].join(" ")}
+                >
+                  {/* Location (wraps) */}
+                  <div className="flex items-start gap-1 w-full justify-end">
+                    {/* Pin */}
+                    <svg
+                      className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 2C8.686 2 6 4.686 6 8c0 4.333 6 12 6 12s6-7.667 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+                    </svg>
+                    <span className="text-xs sm:text-sm font-medium whitespace-normal break-words leading-snug">
+                      {locationLabel || 'Select a city'}
+                    </span>
+                  </div>
+
+                  {/* Temperature */}
+                  <div className="text-3xl sm:text-5xl md:text-6xl font-semibold tabular-nums">
+                    {heroAvgTemp !== null ? `${heroAvgTemp}°C` : '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main: one 3-col section; Outfit first on mobile */}
+      {/* ===================== MAIN ===================== */}
       <main className="flex flex-col gap-10 px-0 w-full ">
         <section
           className="
@@ -710,18 +721,21 @@ export default function HomePage() {
             <TypingSlogan />
 
             {/* Weather Summary (click to change selected day → drives outfits) */}
+            {/* Weather Summary (click to change selected day → drives outfits) */}
             <div className="w-full max-w-md mt-2">
               {weekQuery.isLoading ? (
                 <p className="text-center text-sm text-gray-500">Loading week…</p>
               ) : !week || !week.forecast?.length ? (
                 <p className="text-center text-xs text-gray-500">Can’t fetch the full week right now.</p>
               ) : (
-                <div className="flex justify-center"> {/* Added this container for centering */}
-                  <ul className="space-y-1 w-full max-w-xs"> {/* Added max-w-xs for better mobile sizing */}
+                <div className="flex justify-center">
+                  <ul className="space-y-1 w-full max-w-xs">
                     {dayKeys.map((d) => {
                       const s = summarizeDay(weekByDay[d]);
-                      const { icon, description } = getDayIcon(weekByDay[d]);
                       const isActive = d === selectedDate;
+
+                      // 👇 Use your icon helper based on the day's main condition
+                      const emoji = iconFor(s?.mainCondition);
 
                       return (
                         <li key={d}>
@@ -740,18 +754,12 @@ export default function HomePage() {
                               {new Date(d).toLocaleDateString(undefined, { weekday: 'short' })}
                             </span>
 
-                            {/* Icon from the same source your main summary uses (no emojis) */}
-                            <span className="flex items-center justify-center">
-                              {icon ? (
-                                <img
-                                  src={normalizeIcon(icon)}
-                                  alt={description || 'weather'}
-                                  width={20}
-                                  height={20}
-                                  className="w-5 h-5"
-                                />
-
-                              ) : null}
+                            {/* Icon via iconFor (emoji) */}
+                            <span className="flex items-center justify-center text-lg" aria-hidden="true">
+                              {emoji}
+                            </span>
+                            <span className="sr-only">
+                              {s?.mainCondition || 'weather'}
                             </span>
 
                             {/* Thin linear min→max temperature bar */}
@@ -786,7 +794,6 @@ export default function HomePage() {
           <div className="order-1 lg:order-2 flex flex-col items-center w-full">
             <div className="w-full max-w-none">
               <div className="bg-white">
-                {/* (Week buttons removed) */}
                 {loadingOutfits && <p className="text-center">Loading outfits…</p>}
                 {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
                 {!loadingOutfits && outfits.length === 0 && (
@@ -797,10 +804,7 @@ export default function HomePage() {
 
                 {/* Style Dropdown */}
                 <div className="mb-4 w-full text-center">
-                  <label
-                    htmlFor="style-select"
-                    className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
-                  />
+                  <label htmlFor="style-select" className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100" />
                   <select
                     id="style-select"
                     value={selectedStyle}
@@ -829,7 +833,7 @@ export default function HomePage() {
 
                       {/* stage */}
                       <div className="absolute inset-0">
-                        {/* LEFT (prev) — tiny peek, clipped in center column on lg+ */}
+                        {/* LEFT (prev) */}
                         {outfits.length > 1 && (
                           <motion.button
                             type="button"
@@ -845,7 +849,7 @@ export default function HomePage() {
                           </motion.button>
                         )}
 
-                        {/* RIGHT (next) — tiny peek */}
+                        {/* RIGHT (next) */}
                         {outfits.length > 1 && (
                           <motion.button
                             type="button"
@@ -861,7 +865,7 @@ export default function HomePage() {
                           </motion.button>
                         )}
 
-                        {/* CENTER (current) — slightly thinner, softer shadow */}
+                        {/* CENTER (current) */}
                         <motion.div
                           className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
                           style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
@@ -882,37 +886,22 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* index & actions (unchanged) */}
                     <div className="text-center text-sm mb-2">
                       {currentIndex + 1} / {outfits.length}
                     </div>
                     <div className="flex items-center justify-center gap-2">
-                      {/* <StarRating
-                        disabled={saving}
-                        onSelect={handleSaveRating}
-                        value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                      />
-                      <button
-                        onClick={handleRefresh}
-                        className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                        aria-label="Refresh recommendations"
-                        title="Refresh recommendations"
-                      >
-                        <RefreshCw className="w-5 h-5" />
-                      </button> */}
+                      {/* <StarRating ... />  */}
                     </div>
                     <p className="mt-1 text-center text-xs text-gray-500">
                       Swipe the front card, or tap the side cards
                     </p>
                   </>
                 )}
-
-
               </div>
             </div>
           </div>
 
-          {/* RIGHT: Search + Weather (order 3) */}
+          {/* RIGHT: Search + Hourly forecast (order 3) */}
           <div className="order-3 flex flex-col w-full items-center lg:items-end">
             <div className="w-full max-w-sm mx-auto lg:max-w-none lg:mx-0 lg:w-full lg:ml-auto">
               <div className="relative flex-1 mb-4">
@@ -948,7 +937,7 @@ export default function HomePage() {
                 <p className="text-red-500 text-center">{error}</p>
               ) : weather ? (
                 <div className="text-center">
-                  <WeatherDisplay weather={weather} setCity={setCity} />
+                  {/* Removed duplicate summary; header is the summary now */}
                   <HourlyForecast forecast={selectedDayHours.length ? selectedDayHours : weather.forecast} />
                 </div>
               ) : (
@@ -958,7 +947,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Events Section (full width on desktop) */}
+        {/* Events Section */}
         <section className="w-full mt-6 px-0">
           <div className="w-full px-0">
             <div className="flex items-center justify-center mb-4 space-x-4">
