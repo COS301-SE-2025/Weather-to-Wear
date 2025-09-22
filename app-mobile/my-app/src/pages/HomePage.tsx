@@ -577,7 +577,7 @@ export default function HomePage() {
                                 : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
+                            className="w-16 h-16 object-contain rounded-2xl"
                           />
                         ))}
                     </div>

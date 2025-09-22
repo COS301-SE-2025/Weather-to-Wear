@@ -620,7 +620,7 @@ export default function ClosetPage() {
                                   key={it.closetItemId}
                                   src={absolutize(it.imageUrl, API_BASE)}
                                   alt=""
-                                  className="w-16 h-16 object-contain rounded"
+                                  className="w-8 h-8 object-contain rounded"
                                 />
                               ))}
                           </div>
@@ -761,7 +761,7 @@ export default function ClosetPage() {
                               key={it.closetItemId}
                               src={absolutize(it.imageUrl, API_BASE)}
                               alt=""
-                              className="w-16 h-16 object-contain rounded"
+                              className="w-8 h-8 object-contain rounded"
                             />
                           ))}
                       </div>
@@ -871,7 +871,7 @@ export default function ClosetPage() {
                             key={it.closetItemId}
                             src={absolutize(it.imageUrl, API_BASE)}
                             alt=""
-                            className="w-16 h-16 object-contain rounded"
+                            className="w-8 h-8 object-contain rounded"
                           />
                         ))}
                     </div>

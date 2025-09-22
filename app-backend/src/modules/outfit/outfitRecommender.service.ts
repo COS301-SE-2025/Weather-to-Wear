@@ -93,7 +93,7 @@ const LAYER_WARMTH_WEIGHT: Record<string, number> = {
   outerwear: 1.6,
   footwear: 0.4,
   headwear: 0.2,
-  accessory: 0.1,
+  // accessory: 0.1,
 };
 
 function weightedItemWarmth(item: ClosetItem): number {
@@ -329,6 +329,75 @@ function attachLightRainOuterwear(
 }
 
 // ---------------------------------------------
+//            Headwear add-on (sun/cold)
+// ---------------------------------------------
+function isSunny(main: string | undefined): boolean {
+  if (!main) return false;
+  const m = main.toLowerCase();
+  return m.includes('clear') || m.includes('sun');
+}
+
+/**
+ * Choose a headwear item based on weather:
+ * - Very cold (minTemp <= 5): pick a BEANIE (warmest first)
+ * - Sunny & dry & warmish: pick a HAT (lightest first)
+ * Style must match; if none, fallback to any style.
+ */
+function pickHeadwear(
+  partitioned: PartitionedCloset,
+  style: Style,
+  weather: { avgTemp: number; minTemp: number; willRain: boolean; mainCondition?: string }
+): ClosetItem | null {
+  const headwear = (partitioned['headwear'] || []);
+  if (!headwear.length) return null;
+
+  // Very cold -> beanie
+  if (weather.minTemp <= 5) {
+    const beanies = headwear.filter(i => (i as any).category === 'BEANIE');
+    if (!beanies.length) return null;
+    const styled = beanies.filter(b => b.style === style);
+    const pool = styled.length ? styled : beanies;
+    // warmest first
+    return pool
+      .slice()
+      .sort((a, b) => (b.warmthFactor ?? 0) - (a.warmthFactor ?? 0))[0] ?? null;
+  }
+
+  // Sunny and dry and warm -> hat
+  if (!weather.willRain && isSunny(weather.mainCondition) && weather.avgTemp >= 18) {
+    const hats = headwear.filter(i => (i as any).category === 'HAT');
+    if (!hats.length) return null;
+    const styled = hats.filter(h => h.style === style);
+    const pool = styled.length ? styled : hats;
+    // lightest first (avoid overheating)
+    return pool
+      .slice()
+      .sort((a, b) => (a.warmthFactor ?? 0) - (b.warmthFactor ?? 0))[0] ?? null;
+  }
+
+  return null;
+}
+
+// Attach a selected headwear item if present and not already included 
+function attachHeadwearIfNeeded(
+  outfit: ClosetItem[],
+  partitioned: PartitionedCloset,
+  style: Style,
+  weather: { avgTemp: number; minTemp: number; willRain: boolean; mainCondition?: string }
+): ClosetItem[] {
+  // Already has headwear?
+  if (outfit.some(i => i.layerCategory === 'headwear')) return outfit;
+
+  const hw = pickHeadwear(partitioned, style, weather);
+  if (!hw) return outfit;
+
+  // Avoid duplicates by id
+  if (outfit.some(i => i.id === hw.id)) return outfit;
+
+  return outfit.concat(hw);
+}
+
+// ---------------------------------------------
 //                Main: recommend
 // ---------------------------------------------
 export async function recommendOutfits(
@@ -351,13 +420,23 @@ export async function recommendOutfits(
   const allCandidates: ClosetItem[][] = [];
   for (const plan of plans) {
     const cands = getCandidateOutfits(partitioned, plan, style, req.weatherSummary as any);
+
     // For warm rain: also try adding light waterproof outerwear to base-only candidates
     for (const cand of cands) {
       const hasOuterwear = cand.some(i => i.layerCategory === 'outerwear');
+      let withAddons = cand;
+
       if (!hasOuterwear && req.weatherSummary.willRain) {
-        allCandidates.push(attachLightRainOuterwear(cand, partitioned, req.weatherSummary));
+        withAddons = attachLightRainOuterwear(withAddons, partitioned, req.weatherSummary);
       }
+
+      // attach headwear for sun/cold
+      withAddons = attachHeadwearIfNeeded(withAddons, partitioned, style, req.weatherSummary);
+
+      allCandidates.push(withAddons);
     }
+
+    // also keep raw candidates, but cap to 120
     allCandidates.push(...(cands.length > 120 ? cands.slice(0, 120) : cands));
   }
 
