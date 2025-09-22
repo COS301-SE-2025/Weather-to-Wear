@@ -648,22 +648,25 @@ export default function HomePage() {
           <div className="py-4 sm:py-6 lg:py-8">
             {/* two columns at ALL sizes so left/right are side-by-side on mobile too */}
             <div className="grid grid-cols-2 gap-3 sm:gap-6 items-center">
-              {/* LEFT: welcome + tag + description */}
+              {/* LEFT: welcome + tag + description + SEARCH */}
               <div className="text-white">
-                <p className="text-[11px] sm:text-xs uppercase tracking-wide opacity-90 mb-2">
+                <p className="text-[13px] sm:text-xs uppercase tracking-wide opacity-90 mb-2">
                   {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
                 </p>
 
-                <div className="backdrop-blur-2xl bg-white/10 rounded-2xl p-2 sm:p-2.5 inline-block mb-2">
-                  <p className="text-[11px] sm:text-xs font-medium tracking-wide">
+                <div className="hidden sm:inline-block backdrop-blur-2xl bg-white/10 rounded-2xl p-2 sm:p-2.5 -mb-2 mt-2">
+                  <p className="text-[14px] sm:text-xs font-medium tracking-wide">
                     Weather Forecast
                   </p>
                 </div>
 
-                {/* bigger on mobile now */}
-                <h1 className="text-2xl sm:text-4xl md:text-4xl font-livvic font-semibold leading-snug">
+                {/* bigger on mobile */}
+                <h1 className="text-4xl sm:text-4xl md:text-6xl font-livvic font-semibold leading-snug mb-3 sm:mb-4">
                   {heroDescription || '—'}
                 </h1>
+
+                {/* SEARCH IN HERO (mobile + desktop) */}
+
               </div>
 
               {/* RIGHT: responsive glass card; wraps location; dynamic height; aligned right */}
@@ -672,14 +675,67 @@ export default function HomePage() {
                   className={[
                     "backdrop-blur-2xl bg-white/10 text-white rounded-2xl",
                     "p-3 sm:p-4",
-                    // constrain width a bit so it sits neatly beside the left block on small screens
                     "w-auto max-w-[85vw] xs:max-w-[70vw] sm:max-w-xs",
                     "flex flex-col items-end gap-1",
                     "text-right",
                   ].join(" ")}
                 >
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleEnterCity();
+                    }}
+                    className="w-full"
+                  >
+                    <div className="
+              relative
+              w-full
+              max-w-[90vw] sm:max-w-md
+              backdrop-blur-2xl bg-white/10
+              
+              rounded-full
+              pl-8 pr-3 py-1
+              focus-within:ring-2 focus-within:ring-[#3F978F]
+            ">
+                      {/* search icon */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+
+                      <input
+                        type="text"
+                        placeholder=" Select City"
+                        value={cityInput}
+                        onChange={(e) => setCityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleEnterCity();
+                        }}
+                        className="
+                  w-full bg-transparent outline-none
+                  placeholder-white/70 text-white
+                  text-sm sm:text-base
+                "
+                        aria-label=" Select City"
+                      />
+
+
+                    </div>
+                  </form>
+
                   {/* Location (wraps) */}
-                  <div className="flex items-start gap-1 w-full justify-end">
+                  <div className="mt-4 flex items-start gap-1 w-full justify-end">
                     {/* Pin */}
                     <svg
                       className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]"
@@ -704,6 +760,7 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
 
       {/* ===================== MAIN ===================== */}
       <main className="flex flex-col gap-10 px-0 w-full ">
@@ -901,50 +958,26 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* RIGHT: Search + Hourly forecast (order 3) */}
+          {/* RIGHT */}
           <div className="order-3 flex flex-col w-full items-center lg:items-end">
             <div className="w-full max-w-sm mx-auto lg:max-w-none lg:mx-0 lg:w-full lg:ml-auto">
-              <div className="relative flex-1 mb-4">
-                <input
-                  type="text"
-                  placeholder="Select City"
-                  value={cityInput}
-                  onChange={e => setCityInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleEnterCity();
-                  }}
-                  className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
-                />
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-
               {loadingWeather ? (
                 <p className="text-center">Loading weather…</p>
               ) : error && !weather ? (
                 <p className="text-red-500 text-center">{error}</p>
               ) : weather ? (
                 <div className="text-center">
-                  {/* Removed duplicate summary; header is the summary now */}
-                  <HourlyForecast forecast={selectedDayHours.length ? selectedDayHours : weather.forecast} />
+                  {/* Header shows the day summary; keep Hourly here */}
+                  <HourlyForecast
+                    forecast={selectedDayHours.length ? selectedDayHours : weather.forecast}
+                  />
                 </div>
               ) : (
                 <p className="text-center">No weather data available.</p>
               )}
             </div>
           </div>
+
         </section>
 
         {/* Events Section */}
