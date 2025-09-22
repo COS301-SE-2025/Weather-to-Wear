@@ -51,6 +51,8 @@
   },
   "devDependencies": {
     "@types/react": "^19.1.5",
-    "@types/react-dom": "^19.1.5"
+    "@types/react-dom": "^19.1.5",
+    "ajv": "^6.12.6",
+    "ajv-keywords": "^3.5.2"
   }
 }
