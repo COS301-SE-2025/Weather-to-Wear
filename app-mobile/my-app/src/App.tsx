@@ -78,7 +78,7 @@ function App() {
                   <UploadQueueProvider>
                     <NavBar />
                     <main className="mx-auto w-full max-w-screen-xl 
-                   pt-[120px] lg:pt-[140px] 
+                   pt-[57px] lg:pt-[110px] 
                    pb-[calc(env(safe-area-inset-bottom)+80px)] lg:pb-0">
                       <Routes>
                         <Route path="dashboard" element={<HomePage />} />

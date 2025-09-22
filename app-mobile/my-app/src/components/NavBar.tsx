@@ -253,9 +253,9 @@ const NavBar: React.FC = () => {
 
       {/* FLOW SPACERS (outside the fixed header) */}
       {/* Desktop: proper spacing for fixed header */}
-      <div className="hidden lg:block h-[0px]" aria-hidden />
+      <div className="hidden lg:block !h-[0px]" aria-hidden />
       {/* Mobile: proper spacing for fixed header */}
-      <div className="block lg:hidden h-[0px]" aria-hidden />
+      <div className="block lg:hidden !h-[0px]" aria-hidden />
       {/* Mobile bottom nav */}
       {isMobile && (
         <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 py-2 px-4 z-40">
