@@ -887,7 +887,7 @@ export default function HomePage() {
                       {currentIndex + 1} / {outfits.length}
                     </div>
                     <div className="flex items-center justify-center gap-2">
-                      <StarRating
+                      {/* <StarRating
                         disabled={saving}
                         onSelect={handleSaveRating}
                         value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
@@ -899,7 +899,7 @@ export default function HomePage() {
                         title="Refresh recommendations"
                       >
                         <RefreshCw className="w-5 h-5" />
-                      </button>
+                      </button> */}
                     </div>
                     <p className="mt-1 text-center text-xs text-gray-500">
                       Swipe the front card, or tap the side cards
