@@ -35,29 +35,37 @@ const LAYER_OPTIONS = [
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
-    { value: "TSHIRT", label: "T-shirt" },
-    { value: "LONGSLEEVE", label: "Long Sleeve" },
+    { value: 'TSHIRT', label: 'T-shirt' },
+    { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+    { value: 'SLEEVELESS', label: 'Sleeveless' },
   ],
   base_bottom: [
-    { value: "PANTS", label: "Pants" },
-    { value: "JEANS", label: "Jeans" },
-    { value: "SHORTS", label: "Shorts" },
+    { value: 'PANTS', label: 'Pants' },
+    { value: 'JEANS', label: 'Jeans' },
+    { value: 'SHORTS', label: 'Shorts' },
+    { value: 'SKIRT', label: 'Skirt' },
   ],
   mid_top: [
-    { value: "SWEATER", label: "Sweater" },
-    { value: "HOODIE", label: "Hoodie" },
+    { value: 'SWEATER', label: 'Sweater' },
+    { value: 'HOODIE', label: 'Hoodie' },
   ],
   outerwear: [
-    { value: "JACKET", label: "Jacket" },
-    { value: "RAINCOAT", label: "Raincoat" },
+    { value: 'COAT', label: 'Coat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'JACKET', label: 'Jacket' },
+    { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'COAT', label: 'Coat' },
   ],
   footwear: [
-    { value: "SHOES", label: "Shoes" },
-    { value: "BOOTS", label: "Boots" },
+    { value: 'SHOES', label: 'Shoes' },
+    { value: 'BOOTS', label: 'Boots' },
+    { value: 'SANDALS', label: 'Sandals' },
+    { value: 'HEELS', label: 'Heels' },
   ],
   headwear: [
-    { value: "BEANIE", label: "Beanie" },
-    { value: "HAT", label: "Hat" },
+    { value: 'BEANIE', label: 'Beanie' },
+    { value: 'HAT', label: 'Hat' },
   ],
 };
 
@@ -79,6 +87,11 @@ const MATERIAL_OPTIONS = [
   { value: "Leather", label: "Leather" },
   { value: "Nylon", label: "Nylon" },
   { value: "Fleece", label: "Fleece" },
+  { value: "Denim", label: "Denim" },
+  { value: "Linen", label: "Linen" },
+  { value: "Silk", label: "Silk" },
+  { value: "Suede", label: "Suede" },
+  { value: "Fabric", label: "Fabric" },
 ];
 
 const COLOR_PALETTE = [
@@ -912,7 +925,7 @@ const AddPage: React.FC = () => {
       )}
 
       {showQueueToast && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#3F978F] text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
           Item added to queue
         </div>
       )}
@@ -928,7 +941,7 @@ const AddPage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
             <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              🎉 Success! 🎉
+              Success!
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
               Items added successfully.

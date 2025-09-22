@@ -175,7 +175,9 @@ const PostToFeed = () => {
           : undefined,
       });
 
-      navigate("/feed");
+// Navigate with success message
+navigate("/feed", { state: { postSuccess: true } });
+
     } catch (err: any) {
       console.error("Failed to create post:", err);
       setError(err.message || "Failed to share post.");

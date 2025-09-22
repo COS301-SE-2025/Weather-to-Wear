@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+// import Toast from './Toast';
+
 import {
   Plus,
   Home,
@@ -18,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const NavBar: React.FC = () => {
   const location = useLocation();
+  const[showToast, setShowToast] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
   const currentPath = location.pathname;
@@ -62,13 +65,23 @@ const NavBar: React.FC = () => {
       setMenuOpen(false);
       setProfileOpen(false);
 
-      // Go to login on a clean slate
-      navigate("/login", { replace: true });
-    } catch (err) {
-      console.error("Logout cleanup failed:", err);
-      navigate("/login", { replace: true });
-    }
-  };
+      // ! Merge Bemo Changes
+//      navigate("/login", { replace: true });
+//    } catch (err) {
+//      console.error("Logout cleanup failed:", err);
+//      navigate("/login", { replace: true });
+//    }
+//  };
+// ! Merge Kyle Changes
+     navigate("/login", { 
+      replace: true, 
+      state: { loggedOut: true } 
+    });
+  } catch (err) {
+    console.error("Logout cleanup failed:", err);
+    navigate("/login", { replace: true });
+  }
+};
 
   useEffect(() => {
     setMenuOpen(false);
@@ -138,6 +151,7 @@ const NavBar: React.FC = () => {
                 >
                   log out
                 </button>
+
 
                 {profileOpen && (
                   <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
@@ -241,6 +255,7 @@ const NavBar: React.FC = () => {
               >
                 Log Out
               </button>
+
               {profileOpen && (
                 <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
                   <Link

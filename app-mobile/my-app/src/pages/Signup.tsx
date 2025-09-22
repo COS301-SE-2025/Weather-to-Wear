@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { signupUser } from '../services/auth';
-import { useAuth } from '../contexts/AuthContext';
+// ! Merge Bemo
+//import { useAuth } from '../contexts/AuthContext';
+import Toast from '../components/Toast';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -16,6 +18,8 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [showToast, setShowToast] = useState(false);
+
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -53,9 +57,20 @@ export default function Signup() {
         formData.password
       );
       
+      // ! Merge Bemo
       // Use AuthContext login method instead of direct localStorage
-      login(res.token, res.user);
-      navigate('/dashboard');
+      //login(res.token, res.user);
+      //navigate('/dashboard');
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+       // show success toast
+      setShowToast(true);
+
+      // hide after 3s, then navigate
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/dashboard');
+      }, 30);
     } catch (err: any) {
       setErrors([err.message || 'Signup failed.']);
     }
@@ -178,6 +193,7 @@ export default function Signup() {
           </p>
         </form>
       </div>
+      {showToast && <Toast message="Account created successfully!" />}
     </div>
   );
 }

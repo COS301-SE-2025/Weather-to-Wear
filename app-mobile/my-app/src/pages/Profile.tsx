@@ -15,6 +15,7 @@ import { getOutfitCount } from "../services/outfitApi";
 import { uploadProfilePhoto, getMe } from "../services/usersApi";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+import Toast from "../components/Toast";
 
 
 interface OutfitItem {
@@ -47,6 +48,8 @@ const Profile = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
 
   // Helper to prefix image URLs
@@ -148,6 +151,7 @@ const Profile = () => {
             email: userInfo.email,
           })
         );
+        setShowSuccessPopup(true);
       } catch (error) {
         console.error("Failed to update user data", error);
       }
@@ -452,7 +456,7 @@ const Profile = () => {
                               // src={prefixed(it.imageUrl)}
                               src = {absolutize(it.imageUrl, API_BASE)}
                               alt={`Outfit ${outfit.id} ${it.layerCategory}`}
-                              className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
+                              className="w-5 h-5 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
                             />
                           ))}
                       </div>
@@ -541,6 +545,7 @@ const Profile = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      {showSuccessPopup && <Toast message="Profile updated successfully!" />}
     </div>
   );
 };

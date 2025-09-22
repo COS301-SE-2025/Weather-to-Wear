@@ -8,7 +8,7 @@ import path from "path";
 // --- Mock S3 utils used by users.controller ---
 // (Must match the import path used in the app code.)
 jest.mock("../../src/utils/s3", () => {
-  const mod = {
+  return {
     cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
     uploadBufferToS3: jest.fn().mockResolvedValue(undefined),
     putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => {
@@ -168,7 +168,7 @@ describe("Auth Integration Tests", () => {
         .delete(`/api/auth/users/${userId}`)
         .set("Authorization", "Bearer badtoken");
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
       expect(res.body.error).toMatch(/invalid token/i);
     });
 
@@ -240,6 +240,7 @@ describe("Users Controller Integration", () => {
     beforeEach(() => {
       // clear mock call history each test
       (s3.uploadBufferToS3 as jest.Mock).mockClear();
+      (s3.putBufferSmart as jest.Mock).mockClear();
     });
 
     it("requires auth", async () => {

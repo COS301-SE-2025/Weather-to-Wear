@@ -1,5 +1,5 @@
 // src/pages/HomePage.tsx
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Plus, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from '../components/Footer';
@@ -29,6 +29,7 @@ import { useWeatherQuery, type WeatherData, type WeatherSummary } from '../hooks
 import { useOutfitsQuery } from '../hooks/useOutfitsQuery';
 import { queryClient } from '../queryClient';
 import { useQuery } from '@tanstack/react-query';
+import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
 
 // ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
@@ -147,14 +148,75 @@ export default function HomePage() {
     style: '',
   });
 
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
+
+
   // ---------- Weather (React Query) ----------
   const weatherQuery = useWeatherQuery(city);
   const weather: WeatherData | null = weatherQuery.data ?? null;
   const loadingWeather = weatherQuery.isLoading || weatherQuery.isFetching;
 
-  // ---------- Outfits (React Query) ----------
-  const outfitsQuery = useOutfitsQuery(weather?.summary, selectedStyle);
+  const locationLabel = (city?.trim() || weather?.location || '').trim();
+
+  // if server gave us a location and we don't have one saved yet, seed it
+  useEffect(() => {
+    if (!city && weather?.location) {
+      setCity(weather.location);
+      localStorage.setItem('selectedCity', weather.location);
+    }
+  }, [city, weather?.location]);
+
+  const weekQuery = useQuery({
+    queryKey: ['weather-week', locationLabel || 'pending'],
+    enabled: Boolean(locationLabel), 
+    queryFn: async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
+          params: { location: locationLabel },
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        return data as { forecast: H[]; location: string; summary: any; source: string };
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          return {
+            forecast: [],
+            location: locationLabel,
+            summary: { avgTemp: 0, minTemp: 0, maxTemp: 0, willRain: false, mainCondition: 'unknown' },
+            source: 'openMeteo',
+          };
+        }
+        // surface server's error to console to help debug 400s etc.
+        console.error('week error', err?.response?.status, err?.response?.data);
+        throw err;
+      }
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const week = weekQuery.data;
+  const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
+  const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
+  // default selected date = first available day (usually "today" in local time returned)
+  useEffect(() => {
+    if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
+  }, [dayKeys, selectedDate]);
+  const selectedDayHours: H[] = useMemo(
+    () => (selectedDate && weekByDay[selectedDate]) ? weekByDay[selectedDate] : [],
+    [selectedDate, weekByDay]
+  );
+  const selectedDaySummary = useMemo(
+    () => (selectedDayHours.length ? summarizeDay(selectedDayHours) : null),
+    [selectedDayHours]
+  );
+
+  // ---------- Outfits (React Query) ---------- queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  //const outfitsQuery = useOutfitsQuery(weather?.summary, selectedStyle);
   // const outfits = outfitsQuery.data ?? [];
+
+  const summaryForOutfits = selectedDaySummary || weather?.summary || null;
+  const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
+
   const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
   const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
 
@@ -173,14 +235,17 @@ export default function HomePage() {
     // Explicitly refresh both queries for the new city
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
+    setSelectedDate(null);
   };
 
   const handleRefresh = () => {
     // Manual refresh only (no auto refetch on navigation)
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
   };
-      
+
   const handleCreateEvent = async () => {
     if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
       alert('Please fill in name, style, and both dates.');
@@ -203,7 +268,7 @@ export default function HomePage() {
       const msg = err?.response?.data?.message || 'Failed to create event';
       alert(msg);
     }
-   };
+  };
 
   // ---------- Boot-up effects (unchanged-ish) ----------
   useEffect(() => {
@@ -390,7 +455,46 @@ export default function HomePage() {
           <div className="flex-1 flex flex-col items-center">
             <div className="w-full max-w-[350px]">
               <div className="flex justify-center mb-4">
-                <h1 className="text-xl border-2 border-black px-3 py-1">OUTFIT OF THE DAY</h1>
+                <h1 className="text-xl border-2 border-black px-3 py-1">Outfit Of The Day</h1>
+              </div>
+
+              {/* WEEK STRIP (compact, scrollable) */}
+              <div className="mb-3">
+                {weekQuery.isLoading ? (
+                  <div className="text-center text-sm text-gray-500">Loading week…</div>
+                ) : (!week || !week.forecast?.length) ? (
+                  <div className="text-center text-xs text-gray-500">
+                    Can’t fetch the full week right now.
+                  </div>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
+                    {dayKeys.map((d) => {
+                      const hours = weekByDay[d] || [];
+                      const s = summarizeDay(hours);
+                      const label = new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
+                      const isActive = d === selectedDate;
+                      // Use the midday hour to pick an icon if present
+                      const mid = hours.find(h => h.time.endsWith('12:00')) || hours[Math.floor(hours.length / 2)];
+                      return (
+                        <button
+                          key={d}
+                          onClick={() => { setSelectedDate(d); setCurrentIndex(0); }}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm whitespace-nowrap transition
+                           ${isActive ? 'bg-[#3F978F] text-white border-[#3F978F]' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'}`}
+                          aria-label={`Select ${label}`}
+                        >
+                          {mid?.icon ? (
+                            <img src={mid.icon} alt="" className="w-4 h-4" />
+                          ) : null}
+                          <span className="font-medium">{label}</span>
+                          <span className="opacity-80">
+                            {Math.round(s.minTemp)}°/{Math.round(s.maxTemp)}°
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {loadingOutfits && <p>Loading outfits…</p>}
@@ -456,8 +560,8 @@ export default function HomePage() {
                         i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
                       )
 
-                          ? 'h-auto'
-                          : 'h-0 overflow-hidden'
+                        ? 'h-auto'
+                        : 'h-0 overflow-hidden'
 
                         }`}
                     >
@@ -473,7 +577,7 @@ export default function HomePage() {
                                 : absolutize(item.imageUrl, API_BASE)
                             }
                             alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
+                            className="w-16 h-16 object-contain rounded-2xl"
                           />
                         ))}
                     </div>
@@ -600,7 +704,7 @@ export default function HomePage() {
               ) : weather ? (
                 <>
                   <WeatherDisplay weather={weather} setCity={setCity} />
-                  <HourlyForecast forecast={weather.forecast} />
+                  <HourlyForecast forecast={selectedDayHours.length ? selectedDayHours : weather.forecast} />
                 </>
               ) : (
                 <p>No weather data available.</p>
@@ -780,7 +884,7 @@ export default function HomePage() {
                     alert(msg);
                   }
                 }}
-                // ! Merge stop
+              // ! Merge stop
               >
                 Save
               </button>
@@ -917,7 +1021,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => {}} />
+                        <StarRating disabled={false} onSelect={() => { }} />
                       </div>
                     </>
                   )}
@@ -953,17 +1057,17 @@ export default function HomePage() {
                         alert('Failed to update event');
                       }
                       // ! Merge Diya
-//                      const updated = await updateEvent({
-//                        id: editEventData.id,
-//                        name: editEventData.name,
-//                        location: editEventData.location,
-//                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
-//                        dateTo: new Date(editEventData.dateTo).toISOString(),
-//                        style: editEventData.style,
-//                      });
-//                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
-//                      setSelectedEvent(updated);
-//                      setIsEditing(false);
+                      //                      const updated = await updateEvent({
+                      //                        id: editEventData.id,
+                      //                        name: editEventData.name,
+                      //                        location: editEventData.location,
+                      //                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
+                      //                        dateTo: new Date(editEventData.dateTo).toISOString(),
+                      //                        style: editEventData.style,
+                      //                      });
+                      //                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
+                      //                      setSelectedEvent(updated);
+                      //                      setIsEditing(false);
                     }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >

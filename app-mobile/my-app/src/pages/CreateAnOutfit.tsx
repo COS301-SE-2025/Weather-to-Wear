@@ -4,6 +4,7 @@ import { createOutfitManual } from "../services/outfitApi";
 import ClosetPickerModal from "../components/ClosetPickerModal";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+import Toast from "../components/Toast";
 
 export interface ClosetItem {
   id: string;
@@ -16,30 +17,37 @@ export interface ClosetItem {
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
-    { value: "TSHIRT", label: "T-shirt" },
-    { value: "LONGSLEEVE", label: "Long Sleeve" },
-    { value: "SHIRT", label: "Shirt" },
+    { value: 'TSHIRT', label: 'T-shirt' },
+    { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+    { value: 'SLEEVELESS', label: 'Sleeveless' },
   ],
   base_bottom: [
-    { value: "PANTS", label: "Pants" },
-    { value: "SHORTS", label: "Shorts" },
-    { value: "JEANS", label: "Jeans" },
+    { value: 'PANTS', label: 'Pants' },
+    { value: 'JEANS', label: 'Jeans' },
+    { value: 'SHORTS', label: 'Shorts' },
+    { value: 'SKIRT', label: 'Skirt' },
   ],
   mid_top: [
-    { value: "SWEATER", label: "Sweater" },
-    { value: "HOODIE", label: "Hoodie" },
+    { value: 'SWEATER', label: 'Sweater' },
+    { value: 'HOODIE', label: 'Hoodie' },
   ],
   outerwear: [
-    { value: "JACKET", label: "Jacket" },
-    { value: "RAINCOAT", label: "Raincoat" },
+    { value: 'COAT', label: 'Coat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'JACKET', label: 'Jacket' },
+    { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'COAT', label: 'Coat' },
   ],
   footwear: [
-    { value: "SHOES", label: "Shoes" },
-    { value: "BOOTS", label: "Boots" },
+    { value: 'SHOES', label: 'Shoes' },
+    { value: 'BOOTS', label: 'Boots' },
+    { value: 'SANDALS', label: 'Sandals' },
+    { value: 'HEELS', label: 'Heels' },
   ],
   headwear: [
-    { value: "BEANIE", label: "Beanie" },
-    { value: "HAT", label: "Hat" },
+    { value: 'BEANIE', label: 'Beanie' },
+    { value: 'HAT', label: 'Hat' },
   ],
   accessory: [
     { value: "SCARF", label: "Scarf" },
@@ -66,6 +74,8 @@ export default function CreateAnOutfit() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [rating, setRating] = useState<number>(0);
+
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     const getItems = async () => {
@@ -154,6 +164,7 @@ export default function CreateAnOutfit() {
       setFootwear(null);
       setAdditional([]);
       setRating(0);
+      setShowToast(true);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e: any) {
       setError(e?.response?.data?.message || e.message || "Unknown error");
@@ -467,6 +478,8 @@ export default function CreateAnOutfit() {
         title="Add Additional Items"
         closeOnSelect={false}
       />
+
+      {showToast && <Toast message="Outfit created successfully!" />}
     </div >
   );
 }

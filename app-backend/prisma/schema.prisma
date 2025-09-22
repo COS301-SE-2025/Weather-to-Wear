@@ -24,6 +24,13 @@ enum Category {
   GLOVES
   RAINCOAT
   UMBRELLA
+  SLEEVELESS
+  SKIRT
+  BLAZER
+  COAT
+  BOOTS
+  SANDALS
+  HEELS
 }
 
 enum Style {
@@ -42,6 +49,11 @@ enum Material {
   Leather
   Nylon
   Fleece
+  Denim
+  Linen
+  Silk
+  Suede
+  Fabric
 }
 
 enum LayerCategory {

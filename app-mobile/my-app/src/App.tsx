@@ -28,6 +28,9 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient } from './queryClient';
 import { persister } from './persist';
 
+import "./services/http";
+import { scheduleTokenAutoLogout } from "./services/auth";
+
 // const persister = createAsyncStoragePersister({
 //   storage: {
 //     getItem: (key) => Promise.resolve(window.localStorage.getItem(key)),
@@ -45,6 +48,21 @@ import { persister } from './persist';
 // });
 
 function App() {
+  React.useEffect(() => {
+    const t = localStorage.getItem("token");
+    if (t) scheduleTokenAutoLogout(t);
+
+    const onFocus = () => {
+      const t2 = localStorage.getItem("token");
+      if (t2) scheduleTokenAutoLogout(t2);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: 15 * 60 * 1000 }}>
       <QueryClientProvider client={queryClient}>
