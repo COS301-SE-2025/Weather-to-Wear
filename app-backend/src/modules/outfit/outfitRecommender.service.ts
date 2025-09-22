@@ -6,6 +6,13 @@ import {
   WeatherSummary,
 } from './outfit.types';
 import { getFeatureVector, predictRatingKnn, cosineSimilarity } from './itemItemKnn';
+import {
+  getBlendWeights,
+  summarizeUser,
+  topNeighbors,
+  predictFromNeighbors,
+  type RatingPoint
+} from "./collabFiltering";
 import tinycolor from 'tinycolor2';
 import { cdnUrlFor } from '../../utils/s3';
 
@@ -409,8 +416,50 @@ export async function recommendOutfits(
     return { ...rec, finalScore: alpha * rec.score + (1 - alpha) * knn };
   });
 
+  // ===== Collaborative Filtering (user-user over vectors) =====
+  // Pull a capped pool of rated outfits across users to keep runtime fast.
+  const rated = await prisma.outfit.findMany({
+    where: { userRating: { not: null } },
+    include: { outfitItems: { include: { closetItem: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 3000, // tweak after profiling
+  });
+
+  // Turn into rating points in the same feature space
+  const points: RatingPoint[] = rated.map(o => ({
+    userId: o.userId,
+    vec: getFeatureVector(buildFakeRec(o)),
+    rating: o.userRating!,
+  }));
+
+  const globalMean = points.length
+    ? points.reduce((s, p) => s + p.rating, 0) / points.length
+    : 3.0;
+
+  const centroids = summarizeUser(points); // per-user mean vectors
+  const neighbors = topNeighbors(userId, centroids, 20, 2); // top users near this user
+
+  const neighborIds = new Set(neighbors.map(n => n.userId));
+  const neighborPoints = points.filter(p => neighborIds.has(p.userId));
+
+  const { wRule, wKnn, wCf } = getBlendWeights();
+
+  const withCF = augmented.map(rec => {
+    // rec.finalScore currently = blend(rule, knn). We’ll recover components by reusing rec.score (rule)
+    const ruleScore = rec.score;
+    const rkScore   = (rec as any).finalScore ?? rec.score; // safety for tests/mocks
+
+    // CF predicted rating from neighbors
+    const cfPred = predictFromNeighbors(getFeatureVector(rec), neighborPoints, globalMean, 50);
+
+    // three-way blend: rule + item-KNN + collaborative filtering
+    const combined = wRule * ruleScore + wKnn * rkScore + wCf * cfPred;
+    return { ...rec, finalScore: combined };
+  });
+
   // If raining, prefer waterproof outfits when available
-  let pool = augmented;
+  let pool = withCF;
+
   if (req.weatherSummary.willRain) {
     const waterproofOnly = augmented.filter(a => a.waterproof);
     if (waterproofOnly.length) pool = waterproofOnly;
