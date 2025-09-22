@@ -52,6 +52,7 @@ export default function Login() {
   };
 
   return (
+   
     <div className="relative min-h-screen flex flex-col lg:flex-row bg-transparent lg:bg-white dark:bg-transparent lg:dark:bg-gray-900 overflow-hidden">
       {/* Mobile full-screen background */}
       <img
@@ -157,5 +158,6 @@ export default function Login() {
       {showToast && <Toast message="Logged in successfully!" />}
       {showLoggedOutToast && <Toast message="Logged out successfully!" />}
     </div>
+    
   );
 }
