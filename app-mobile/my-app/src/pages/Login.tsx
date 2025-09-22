@@ -20,8 +20,8 @@ export default function Login() {
   const [showLoggedOutToast, setShowLoggedOutToast] = useState(loggedOut);
 
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useAuth();
+  // const location = useLocation();
+  // const { login } = useAuth();
 
   useEffect(() => {
     try {

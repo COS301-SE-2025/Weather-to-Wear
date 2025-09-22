@@ -21,7 +21,7 @@ export default function Signup() {
   const [showToast, setShowToast] = useState(false);
 
   const navigate = useNavigate();
-  const { login } = useAuth();
+  //const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
