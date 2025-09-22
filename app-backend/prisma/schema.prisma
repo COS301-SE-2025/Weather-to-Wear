@@ -75,6 +75,7 @@ model User {
 
   closetItems ClosetItem[]
   outfits     Outfit[]
+  inspoOutfits InspoOutfit[]
   preference  UserPreference?
   events      Event[]
 
@@ -107,6 +108,7 @@ model ClosetItem {
   ownerId     String
   owner       User         @relation(fields: [ownerId], references: [id])
   outfitItems OutfitItem[]
+  inspoItems  InspoItem[]
   posts       Post[]
   postItems   PostItem[]   @relation("PostClosetItems")
 
@@ -283,4 +285,33 @@ model PackingOther {
   packed        Boolean @default(false)
 
   list PackingList @relation(fields: [packingListId], references: [id])
+}
+
+//
+// ──────── INSPIRATION OUTFITS ────────
+//
+
+model InspoOutfit {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
+  warmthRating   Int
+  waterproof     Boolean
+  overallStyle   OverallStyle
+  inspoItems     InspoItem[]
+  tags           String[]     // Store tags from liked clothing items
+  recommendedWeatherMin Int?   // Minimum temperature recommendation
+  recommendedWeatherMax Int?   // Maximum temperature recommendation
+  recommendedConditions String[] @default([]) // e.g., ["sunny", "rainy", "windy"]
+}
+
+model InspoItem {
+  id              String        @id @default(uuid())
+  inspoOutfitId   String
+  inspoOutfit     InspoOutfit   @relation(fields: [inspoOutfitId], references: [id])
+  closetItemId    String
+  closetItem      ClosetItem    @relation(fields: [closetItemId], references: [id])
+  layerCategory   LayerCategory
+  sortOrder       Int
 }
