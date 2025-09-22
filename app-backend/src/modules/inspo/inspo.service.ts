@@ -52,6 +52,61 @@ function extractTagsFromItem(item: any): string[] {
   return tags;
 }
 
+// Store a liked outfit (multiple items from a social media post)
+export async function storeLikedOutfit(userId: string, clothingItems: any[]): Promise<void> {
+  if (!clothingItems || clothingItems.length === 0) {
+    return;
+  }
+
+  // Extract all tags from all clothing items
+  const allTags = clothingItems.flatMap(item => extractTagsFromItem(item));
+  
+  // Calculate overall warmth and waterproof status
+  const totalWarmth = clothingItems.reduce((sum, item) => 
+    sum + (item.warmthFactor || 5), 0
+  );
+  const avgWarmth = Math.round(totalWarmth / clothingItems.length);
+  const hasWaterproof = clothingItems.some(item => item.waterproof);
+  
+  // Determine overall style (most common style)
+  const styles = clothingItems
+    .map(item => item.style)
+    .filter(style => style);
+  
+  const styleCounts = styles.reduce((acc, style) => {
+    acc[style] = (acc[style] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const mostCommonStyle = Object.keys(styleCounts).length > 0
+    ? Object.keys(styleCounts).reduce((a, b) => styleCounts[a] > styleCounts[b] ? a : b)
+    : 'Casual';
+  
+  // Calculate weather recommendations
+  const weatherRec = calculateWeatherRecommendations(avgWarmth, hasWaterproof);
+  
+  // Store as inspiration outfit
+  await prisma.inspoOutfit.create({
+    data: {
+      userId,
+      warmthRating: avgWarmth,
+      waterproof: hasWaterproof,
+      overallStyle: (mostCommonStyle as OverallStyle) || OverallStyle.Casual,
+      tags: [...new Set(allTags)], // Remove duplicates
+      recommendedWeatherMin: weatherRec.minTemp,
+      recommendedWeatherMax: weatherRec.maxTemp,
+      recommendedConditions: weatherRec.conditions,
+      inspoItems: {
+        create: clothingItems.map((item, index) => ({
+          closetItemId: item.id,
+          layerCategory: item.layerCategory,
+          sortOrder: index + 1
+        }))
+      }
+    }
+  });
+}
+
 // Store a liked item and its tags
 export async function storeLikedItem(userId: string, closetItemId: string): Promise<void> {
   const closetItem = await prisma.closetItem.findUnique({
