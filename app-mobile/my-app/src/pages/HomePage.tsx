@@ -8,6 +8,7 @@ import HourlyForecast from '../components/HourlyForecast';
 import StarRating from '../components/StarRating';
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+import { motion } from 'framer-motion';
 
 import {
   fetchRecommendedOutfits,
@@ -200,6 +201,8 @@ function TempRangeBar({
 
 // ---------- HomePage ----------
 export default function HomePage() {
+
+
   // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
@@ -376,6 +379,13 @@ export default function HomePage() {
       .then(fetched => setEvents(fetched.map(toEvent)))
       .catch(err => console.error('Error loading events on mount:', err));
   }, []);
+
+  const prevIndex = outfits.length ? (currentIndex - 1 + outfits.length) % outfits.length : 0;
+  const nextIndex = outfits.length ? (currentIndex + 1) % outfits.length : 0;
+
+  const slideTo = (dir: -1 | 1) =>
+    setCurrentIndex(i => (i + dir + outfits.length) % outfits.length);
+
 
   // ---------- Event modal: outfit recommendation with caching ----------
   const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
@@ -586,6 +596,78 @@ export default function HomePage() {
     setSelectedDate(dayKeys.includes(todayKey) ? todayKey : dayKeys[0]);
   }, [dayKeys]);
 
+  function OutfitImagesCard({ outfit }: { outfit: RecommendedOutfit }) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border rounded-xl shadow-md p-1.5">
+        <div className="space-y-1">
+          {/* headwear / accessory */}
+          <div
+            className={`flex justify-center space-x-1 transition-all ${outfit.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+              ? 'h-auto'
+              : 'h-0 overflow-hidden'
+              }`}
+          >
+            {outfit.outfitItems
+              .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+              .map(item => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="w-14 h-14 max-[380px]:w-12 max-[380px]:h-12 sm:w-18 sm:h-18 md:w-20 md:h-20 object-contain rounded-lg"
+                />
+              ))}
+          </div>
+
+          {/* tops */}
+          <div className="flex justify-center space-x-1">
+            {outfit.outfitItems
+              .filter(i => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
+              .map(item => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="w-14 h-14 max-[380px]:w-12 max-[380px]:h-12 sm:w-18 sm:h-18 md:w-20 md:h-20 object-contain rounded-lg"
+                />
+              ))}
+          </div>
+
+          {/* bottoms */}
+          <div className="flex justify-center space-x-1">
+            {outfit.outfitItems
+              .filter(i => i.layerCategory === 'base_bottom')
+              .map(item => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="w-14 h-14 max-[380px]:w-12 max-[380px]:h-12 sm:w-18 sm:h-18 md:w-20 md:h-20 object-contain rounded-lg"
+                />
+              ))}
+          </div>
+
+          {/* footwear */}
+          <div className="flex justify-center space-x-1">
+            {outfit.outfitItems
+              .filter(i => i.layerCategory === 'footwear')
+              .map(item => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="w-12 h-12 max-[380px]:w-10 max-[380px]:h-10 sm:w-16 sm:h-16 md:w-18 md:h-18 object-contain rounded-lg"
+                />
+              ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -737,102 +819,73 @@ export default function HomePage() {
                   </select>
                 </div>
 
-                {/* Carousel */}
                 {!loadingOutfits && outfits.length > 0 && (
                   <>
-                    <div className="relative mb-2 overflow-visible">
-                      {/* Left arrow */}
-                      <button
-                        onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
-                        className="absolute inset-y-0 left-0 flex items-center z-10 p-3 focus:outline-none"
-                        aria-label="Previous outfit"
-                        title="Previous"
-                      >
-                        <ChevronLeft className="w-8 h-8 sm:w-10 sm:h-10 text-black" />
-                      </button>
+                    <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto lg:overflow-hidden">
+                      {/* height guard */}
+                      <div className="invisible">
+                        <OutfitImagesCard outfit={outfits[currentIndex]} />
+                      </div>
 
-                      {/* Right arrow */}
-                      <button
-                        onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
-                        className="absolute inset-y-0 right-0 flex items-center z-10 p-3 focus:outline-none"
-                        aria-label="Next outfit"
-                        title="Next"
-                      >
-                        <ChevronRight className="w-8 h-8 sm:w-10 sm:h-10 text-black" />
-                      </button>
+                      {/* stage */}
+                      <div className="absolute inset-0">
+                        {/* LEFT (prev) — tiny peek, clipped in center column on lg+ */}
+                        {outfits.length > 1 && (
+                          <motion.button
+                            type="button"
+                            onClick={() => slideTo(-1)}
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                            style={{ width: 'min(90%, 300px)' }}
+                            initial={false}
+                            animate={{ x: '-82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
+                            whileHover={{ scale: 0.87, opacity: 0.6 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                          >
+                            <OutfitImagesCard outfit={outfits[prevIndex]} />
+                          </motion.button>
+                        )}
 
-                      {/* Pad sides so images never hit the edges/under arrows */}
-                      <div className="space-y-2 px-10 sm:px-12 md:px-16 max-[380px]:px-7">
-                        {/* headwear/accessory */}
-                        <div
-                          className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
-                            i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
-                          )
-                            ? 'h-auto'
-                            : 'h-0 overflow-hidden'
-                            }`}
+                        {/* RIGHT (next) — tiny peek */}
+                        {outfits.length > 1 && (
+                          <motion.button
+                            type="button"
+                            onClick={() => slideTo(1)}
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                            style={{ width: 'min(90%, 300px)' }}
+                            initial={false}
+                            animate={{ x: '82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
+                            whileHover={{ scale: 0.87, opacity: 0.6 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                          >
+                            <OutfitImagesCard outfit={outfits[nextIndex]} />
+                          </motion.button>
+                        )}
+
+                        {/* CENTER (current) — slightly thinner, softer shadow */}
+                        <motion.div
+                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                          style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
+                          initial={false}
+                          animate={{ x: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                          drag="x"
+                          dragConstraints={{ left: 0, right: 0 }}
+                          onDragEnd={(_, info) => {
+                            const goRight = info.offset.x < -70 || info.velocity.x < -300;
+                            const goLeft = info.offset.x > 70 || info.velocity.x > 300;
+                            if (goRight) slideTo(1);
+                            else if (goLeft) slideTo(-1);
+                          }}
                         >
-                          {outfits[currentIndex].outfitItems
-                            .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-                            .map(item => (
-                              <img
-                                key={item.closetItemId}
-                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                                alt={item.category}
-                                className="w-20 h-20 max-[380px]:w-16 max-[380px]:h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain rounded-2xl"
-                              />
-                            ))}
-                        </div>
-
-                        {/* tops */}
-                        <div className="flex justify-center space-x-2">
-                          {outfits[currentIndex].outfitItems
-                            .filter(i => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
-                            .map(item => (
-                              <img
-                                key={item.closetItemId}
-                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                                alt={item.category}
-                                className="w-20 h-20 max-[380px]:w-16 max-[380px]:h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain rounded-2xl"
-                              />
-                            ))}
-                        </div>
-
-                        {/* bottoms */}
-                        <div className="flex justify-center space-x-2">
-                          {outfits[currentIndex].outfitItems
-                            .filter(i => i.layerCategory === 'base_bottom')
-                            .map(item => (
-                              <img
-                                key={item.closetItemId}
-                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                                alt={item.category}
-                                className="w-20 h-20 max-[380px]:w-16 max-[380px]:h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain rounded-2xl"
-                              />
-                            ))}
-                        </div>
-
-                        {/* footwear */}
-                        <div className="flex justify-center space-x-2">
-                          {outfits[currentIndex].outfitItems
-                            .filter(i => i.layerCategory === 'footwear')
-                            .map(item => (
-                              <img
-                                key={item.closetItemId}
-                                src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
-                                alt={item.category}
-                                className="w-16 h-16 max-[380px]:w-14 max-[380px]:h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 object-contain rounded-2xl"
-                              />
-                            ))}
-                        </div>
+                          <OutfitImagesCard outfit={outfits[currentIndex]} />
+                        </motion.div>
                       </div>
                     </div>
 
-                    {/* index below images */}
+                    {/* index & actions (unchanged) */}
                     <div className="text-center text-sm mb-2">
                       {currentIndex + 1} / {outfits.length}
                     </div>
-
                     <div className="flex items-center justify-center gap-2">
                       <StarRating
                         disabled={saving}
@@ -848,8 +901,13 @@ export default function HomePage() {
                         <RefreshCw className="w-5 h-5" />
                       </button>
                     </div>
+                    <p className="mt-1 text-center text-xs text-gray-500">
+                      Swipe the front card, or tap the side cards
+                    </p>
                   </>
                 )}
+
+
               </div>
             </div>
           </div>
