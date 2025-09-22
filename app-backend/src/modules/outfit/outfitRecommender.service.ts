@@ -117,12 +117,12 @@ function targetWeightedWarmth(minTemp: number, avgTemp: number): number {
   const points: Array<[number, number]> = [
     [30, 5],
     [25, 7],
-    [20,10],
-    [15,14],
-    [10,20],
-    [ 5,24],
-    [ 0,28],
-    [-5,32],
+    [20, 10],
+    [15, 14],
+    [10, 20],
+    [5, 24],
+    [0, 28],
+    [-5, 32],
   ];
 
   for (let i = 0; i < points.length - 1; i++) {
@@ -143,8 +143,8 @@ function warmthTolerance(minTemp: number, avgTemp: number): number {
   if (t >= 28) return 6;
   if (t >= 22) return 5;
   if (t >= 14) return 4.5;
-  if (t >= 8)  return 4;
-  if (t >= 2)  return 3.5;
+  if (t >= 8) return 4;
+  if (t >= 2) return 3.5;
   return 3;
 }
 
@@ -418,12 +418,12 @@ export async function recommendOutfits(
 
   // ===== Collaborative Filtering (user-user over vectors) =====
   // Pull a capped pool of rated outfits across users to keep runtime fast.
-  const rated = await prisma.outfit.findMany({
+  const rated = (await prisma.outfit.findMany({
     where: { userRating: { not: null } },
     include: { outfitItems: { include: { closetItem: true } } },
     orderBy: { createdAt: 'desc' },
-    take: 3000, // tweak after profiling
-  });
+    take: 3000,
+  })) ?? [];
 
   // Turn into rating points in the same feature space
   const points: RatingPoint[] = rated.map(o => ({
@@ -447,7 +447,7 @@ export async function recommendOutfits(
   const withCF = augmented.map(rec => {
     // rec.finalScore currently = blend(rule, knn). We’ll recover components by reusing rec.score (rule)
     const ruleScore = rec.score;
-    const rkScore   = (rec as any).finalScore ?? rec.score; // safety for tests/mocks
+    const rkScore = (rec as any).finalScore ?? rec.score; // safety for tests/mocks
 
     // CF predicted rating from neighbors
     const cfPred = predictFromNeighbors(getFeatureVector(rec), neighborPoints, globalMean, 50);
