@@ -10,6 +10,7 @@ import {
   Users,
   User,
   HelpCircle,
+  Lightbulb,
 } from "lucide-react";
 import { queryClient } from '../queryClient';
 import { clearPersistedCache } from '../persist';
@@ -210,6 +211,13 @@ const NavBar: React.FC = () => {
               >
                 Feed
               </Link>
+              <Link
+                to="/inspo"
+                className={`px-3 py-1 rounded-full text-white transition-colors ${isActive("/inspo") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                  }`}
+              >
+                Inspo
+              </Link>
             </div>
 
             {/* Desktop Help, Profile & Logout */}
@@ -360,6 +368,13 @@ const NavBar: React.FC = () => {
                 }`}
             >
               <Users className="w-5 h-5 text-white" />
+            </Link>
+            <Link
+              to="/inspo"
+              className={`p-2 rounded-full transition-colors ${isActive("/inspo") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
+                }`}
+            >
+              <Lightbulb className="w-5 h-5 text-white" />
             </Link>
           </nav>
         </div>
