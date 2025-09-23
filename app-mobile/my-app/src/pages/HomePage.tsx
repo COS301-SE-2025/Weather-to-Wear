@@ -925,15 +925,13 @@ export default function HomePage() {
 
 
       {/* ===================== MAIN ===================== */}
-      <main className="flex flex-col gap-10 px-0 w-full ">
-        <section
-          className="
-    grid gap-8 lg:gap-10 xl:gap-12
-    place-items-center lg:place-items-start
-    grid-cols-1 lg:grid-cols-3
-    px-4 sm:px-6 lg:px-8
-  "
-        >
+      <main className="flex flex-col gap-10 px-0 w-full">
+        <section className="
+  grid gap-8 lg:gap-10 xl:gap-12
+  place-items-center lg:place-items-start
+  grid-cols-1 lg:grid-cols-3
+  px-0 sm:px-6 lg:px-8
+">
 
           {/* LEFT: Slogan + Hourly Forecast */}
           <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full">
@@ -961,8 +959,8 @@ export default function HomePage() {
 
 
           {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
-          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center lg:items-start w-full">
-            <div className="w-full max-w-none">
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full">
+            <div className="w-full">
               <div className="bg-white">
 
                 {loadingOutfits && <p className="text-center">Loading outfits…</p>}
@@ -973,9 +971,9 @@ export default function HomePage() {
                   </p>
                 )}
 
-                {/* Style Dropdown */}
-                <div className="mb-4 w-full text-center">
-                  <label htmlFor="style-select" className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100" />
+                {/* Style Dropdown — centered, same width as carousel */}
+                <div className="mb-4 w-full">
+                  <label htmlFor="style-select" className="sr-only">Style</label>
                   <select
                     id="style-select"
                     value={selectedStyle}
@@ -983,7 +981,7 @@ export default function HomePage() {
                       setSelectedStyle(e.target.value);
                       queryClient.invalidateQueries({ queryKey: ['outfits'] });
                     }}
-                    className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                    className="block w-full w-[min(50%,320px)] mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
                   >
                     <option value="Formal">Formal</option>
                     <option value="Casual">Casual</option>
@@ -993,96 +991,66 @@ export default function HomePage() {
                     <option value="Outdoor">Outdoor</option>
                   </select>
                 </div>
-
                 {!loadingOutfits && outfits.length > 0 && (
                   <>
-                    <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto lg:mx-auto lg:self-center overflow-visible">
-                      {/* height guard */}
-                      <div className="invisible">
+                    {/* Carousel — centered, no extra margins */}
+                    <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto overflow-visible">
+                      {/* Reserve height so absolute stage can sit on top */}
+                      <div className="invisible w-[min(92%,320px)] mx-auto">
                         <OutfitImagesCard outfit={outfits[currentIndex]} />
-                      </div>
+                      </div> {/* stage (full area), with a centered "rail" that everything aligns to */}
+                      <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center"> {/* the centering rail */}
+                        <div className="relative w-[min(92%,320px)]">
 
-                      {/* stage */}
-                      <div className="absolute inset-0">
-                        {/* LEFT (prev) — tighter, more hidden, slightly higher */}
-                        {outfits.length > 1 && (
-                          <motion.button
-                            type="button"
-                            onClick={() => slideTo(-1)}
+                          {/* LEFT (prev) */}
+                          {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(-1)}
                             className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                            style={{ width: 'min(88%, 300px)' }}
                             initial={false}
                             animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.35, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity: 0.45 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                          >
-                            <OutfitImagesCard outfit={outfits[prevIndex]} />
-                          </motion.button>
-                        )}
+                            whileHover={{ scale: 0.84, opacity: 0.6 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
 
-                        {/* RIGHT (next) — tighter, more hidden, slightly higher */}
-                        {outfits.length > 1 && (
-                          <motion.button
-                            type="button"
-                            onClick={() => slideTo(1)}
+                            <OutfitImagesCard outfit={outfits[prevIndex]} />
+                          </motion.button>)}
+
+
+                          {/* RIGHT (next) */}
+                          {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(1)}
                             className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                            style={{ width: 'min(88%, 300px)' }}
                             initial={false}
                             animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.35, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity: 0.45 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                          >
-                            <OutfitImagesCard outfit={outfits[nextIndex]} />
-                          </motion.button>
-                        )}
+                            whileHover={{ scale: 0.84, opacity: 0.6 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
+                            <OutfitImagesCard outfit={outfits[nextIndex]} /> </motion.button>)}
 
-                        {/* CENTER (current) — only this card has stars + refresh inside the card */}
-                        <motion.div
-                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
-                          style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
-                          initial={false}
-                          animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
-                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                          drag="x"
-                          dragConstraints={{ left: 0, right: 0 }}
-                          onDragEnd={(_, info) => {
-                            const goRight = info.offset.x < -70 || info.velocity.x < -300;
-                            const goLeft = info.offset.x > 70 || info.velocity.x > 300;
-                            if (goRight) slideTo(1);
-                            else if (goLeft) slideTo(-1);
-                          }}
-                        >
-                          <OutfitImagesCard
-                            outfit={outfits[currentIndex]}
-                            controls={
-                              <>
-                                <StarRating
-                                  disabled={saving}
-                                  onSelect={handleSaveRating}
-                                  value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                                />
-                                <button
-                                  onClick={handleRefresh}
+                          {/* CENTER (current) */}
+                          <motion.div
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                            initial={false}
+                            animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                            drag="x"
+                            dragConstraints={{ left: 0, right: 0 }}
+                            onDragEnd={(_, info) => { const goRight = info.offset.x < -70 || info.velocity.x < -300; const goLeft = info.offset.x > 70 || info.velocity.x > 300; if (goRight) slideTo(1); else if (goLeft) slideTo(-1); }} >
+                            <OutfitImagesCard
+                              outfit={outfits[currentIndex]}
+                              controls={<> <StarRating disabled={saving}
+                                onSelect={handleSaveRating} value={ratings[getOutfitKey(outfits[currentIndex])] || 0} />
+                                <button onClick={handleRefresh}
                                   className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                                  aria-label="Refresh recommendations"
-                                  title="Refresh recommendations"
-                                >
+                                  aria-label="Refresh recommendations" title="Refresh recommendations" >
                                   <RefreshCw className="w-5 h-5" />
                                 </button>
-                              </>
-                            }
-                          />
-                        </motion.div>
+                              </>} />
+                          </motion.div> </div>
                       </div>
-
                     </div>
 
-                    <div className="text-center text-sm mb-2">
+
+                    {/* Counter — same width + centered, snug under the card */}
+                    <div className="text-center text-sm mb-2 mt-32 w-full w-[min(92%,320px)] mx-auto">
                       {currentIndex + 1} / {outfits.length}
                     </div>
-                    <p className="mt-1 text-center text-xs text-gray-500">
-                      Swipe the front card, or tap the side cards
-                    </p>
                   </>
                 )}
               </div>
@@ -1091,10 +1059,11 @@ export default function HomePage() {
 
 
 
+
         </section>
 
         {/* Events Section */}
-        <section className="w-full mt-6 px-0">
+        <section className="w-full mt-6 px-0 pt-16">
           <div className="w-full px-0">
             <div className="flex items-center justify-center mb-4 space-x-4">
               <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
