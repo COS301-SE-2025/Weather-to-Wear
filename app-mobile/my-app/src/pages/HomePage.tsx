@@ -98,6 +98,13 @@ function parseHourTS(s: string) {
   return new Date(s.includes('T') ? s : s.replace(' ', 'T'));
 }
 
+function toLocalDatetimeInputValue(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
 // --- Weather icon mapping ---
 function iconFor(conditionRaw: string | undefined) {
   const c = (conditionRaw || '').toLowerCase();
@@ -238,6 +245,57 @@ export default function HomePage() {
     style: 'CASUAL',
   });
 
+
+  // --- Location validation state (city autocomplete) ---
+  const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
+  const [locError, setLocError] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+
+  // Free geocoder: Open-Meteo
+  async function geocodeCity(query: string, count = 5): Promise<Array<{ label: string; city: string }>> {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    query
+  )}&count=${count}&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const results = (data?.results || []) as Array<any>;
+  return results.map(r => ({
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(', '), // what we SHOW
+    city: r.name as string,                                          // what we SAVE
+  }));
+}
+
+  // Debounced suggestions while user types
+  useEffect(() => {
+    const q = newEvent.location.trim();
+    setLocError(null);
+    if (!q || q.length < 2) {
+      setLocSuggest([]);
+      return;
+    }
+    let cancelled = false;
+    setLocLoading(true);
+    const t = setTimeout(async () => {
+      const opts = await geocodeCity(q, 6);
+      if (!cancelled) setLocSuggest(opts);
+      setLocLoading(false);
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [newEvent.location]);
+
+  // Validate final input and standardize "City, Region, Country"
+  async function validateAndStandardizeLocation(raw: string): Promise<string | null> {
+    const q = raw.trim();
+    if (!q) return null;
+    const matches = await geocodeCity(q, 1);
+    return matches[0]?.city ?? null; // <-- return only the city
+  }
+
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -253,6 +311,18 @@ export default function HomePage() {
     dateTo: '',
     style: '',
   });
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    setEditEventData({
+      id: selectedEvent.id,
+      name: selectedEvent.name,
+      location: selectedEvent.location,
+      dateFrom: toLocalDatetimeInputValue(selectedEvent.dateFrom),
+      dateTo: toLocalDatetimeInputValue(selectedEvent.dateTo),
+      style: selectedEvent.style || 'Casual',
+    });
+  }, [selectedEvent]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
 
@@ -1186,6 +1256,35 @@ export default function HomePage() {
                 value={newEvent.location}
                 onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
               />
+              {/* Suggestions + validation for Location */}
+              {locLoading && (
+                <div className="text-xs text-gray-500 mt-1">Searching cities…</div>
+              )}
+
+              {locSuggest.length > 0 && (
+              <ul className="mt-1 border rounded-md max-h-40 overflow-auto bg-white dark:bg-gray-800">
+                {locSuggest.map((opt: { label: string; city: string }, i: number) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => {
+                          setNewEvent(prev => ({ ...prev, location: opt.city })); // <-- save only the city
+                          setLocSuggest([]);
+                          setLocError(null);
+                        }}
+                      >
+                        {opt.label} {/* <-- show "City, Region, Country" */}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {locError && (
+                <p className="text-sm text-red-500 mt-1">{locError}</p>
+              )}
+
               <input
                 type="datetime-local"
                 className="w-full p-2 border rounded"
@@ -1223,16 +1322,25 @@ export default function HomePage() {
                     alert('Please fill in name, style, and both dates.');
                     return;
                   }
+
+                  // ✅ Validate & standardize location BEFORE saving
+                  setLocError(null);
+                  const standardized = await validateAndStandardizeLocation(newEvent.location);
+                  if (!standardized) {
+                    setLocError('Please select a real city (use the suggestions).');
+                    return;
+                  }
+
                   try {
                     const created = await createEvent({
                       name: newEvent.name,
-                      location: newEvent.location,
+                      location: standardized, // use canonical "City, Region, Country"
                       style: newEvent.style,
                       dateFrom: new Date(newEvent.dateFrom).toISOString(),
                       dateTo: new Date(newEvent.dateTo).toISOString(),
                     });
 
-                    // Pre-warm event outfit recs for each day if weather exists
+                    // Pre-warm recommendations if weather exists
                     if (created.weather) {
                       let days: { date: string; summary: WeatherSummary }[] = [];
                       try {
@@ -1257,6 +1365,7 @@ export default function HomePage() {
                     alert(msg);
                   }
                 }}
+
               >
                 Save
               </button>
@@ -1288,6 +1397,35 @@ export default function HomePage() {
                   value={editEventData.location}
                   onChange={e => setEditEventData(d => ({ ...d, location: e.target.value }))}
                 />
+                {/* Edit: Suggestions + validation for Location */}
+                {locLoadingE && (
+                  <div className="text-xs text-gray-500 mt-1">Searching cities…</div>
+                )}
+
+                {locSuggestE.length > 0 && (
+                  <ul className="mt-1 border rounded-md max-h-40 overflow-auto bg-white dark:bg-gray-800">
+                    {locSuggestE.map((opt: { label: string; city: string }, i: number) => (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => {
+                            setEditEventData(d => ({ ...d, location: opt.city })); // save only the city
+                            setLocSuggestE([]);
+                            setLocErrorE(null);
+                          }}
+                        >
+                          {opt.label} {/* show City, Region, Country */}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {locErrorE && (
+                  <p className="text-sm text-red-500 mt-1">{locErrorE}</p>
+                )}
+
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
@@ -1397,21 +1535,26 @@ export default function HomePage() {
             <div className="mt-4 flex flex-wrap justify-end space-x-2">
               {isEditing ? (
                 <>
-                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-full border border-black">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
+                  <button onClick={async () => {
                       try {
+                        // Validate the location (just like in Create)
+                        setLocErrorE(null);
+                        const standardized = await validateAndStandardizeLocation(editEventData.location);
+                        if (!standardized) {
+                          setLocErrorE('Please select a real city (use the suggestions).');
+                          return;
+                        }
+
                         const updatedDto = await updateEvent({
                           id: editEventData.id,
                           name: editEventData.name,
-                          location: editEventData.location,
+                          location: standardized, // send only the city
                           dateFrom: new Date(editEventData.dateFrom).toISOString(),
                           dateTo: new Date(editEventData.dateTo).toISOString(),
                           style: editEventData.style as Style,
                           isTrip: selectedEvent?.isTrip ?? selectedEvent?.type === 'trip',
                         });
+
                         const updated = toEvent(updatedDto);
                         setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
                         setSelectedEvent(updated);
@@ -1421,6 +1564,7 @@ export default function HomePage() {
                         alert('Failed to update event');
                       }
                     }}
+
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
                     Save
