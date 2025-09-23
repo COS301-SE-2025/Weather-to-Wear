@@ -1,58 +1,3 @@
-// import React, { useEffect, useState } from "react";
-// import TryOnCanvas, { TryOnItem } from "./TryOnCanvas";
-// import { getItemFits } from "../../services/tryonApi";
-// import { cdnUrlFor } from "../../utils/cdn"; // or your s3 util
-
-// export default function TryOnViewer({
-//     mannequinUrl,
-//     poseId = "front_v1",
-//     outfitItems,
-// }: {
-//     mannequinUrl: string;
-//     poseId?: string;
-//     outfitItems: {
-//         closetItemId: string;
-//         urlKey?: string;        // storage key if you have it
-//         imageUrl?: string;      // absolute or relative image URL if that's what you have
-//         layerCategory: TryOnItem["layerCategory"];
-//     }[];
-// }) {
-//     const [items, setItems] = useState<TryOnItem[]>([]);
-
-//     useEffect(() => {
-//         const ids = outfitItems.map(o => o.closetItemId);
-//         getItemFits(poseId, ids).then(({ fits }) => {
-//             const byId: Record<string, any> = {};
-//             fits.forEach((f: any) => { byId[f.itemId] = f; });
-//             const mapped: TryOnItem[] = outfitItems.map(o => ({
-//                 id: o.closetItemId,
-//                 url: cdnUrlFor(o.urlKey),
-//                 layerCategory: o.layerCategory,
-//                 fit: byId[o.closetItemId]
-//                     ? {
-//                         x: byId[o.closetItemId].transform.x,
-//                         y: byId[o.closetItemId].transform.y,
-//                         scale: byId[o.closetItemId].transform.scale,
-//                         rotationDeg: byId[o.closetItemId].transform.rotationDeg,
-//                         mesh: byId[o.closetItemId].mesh,
-//                     }
-//                     : undefined,
-//             }));
-//             setItems(mapped);
-//         }).catch(() => {
-//             const mapped: TryOnItem[] = outfitItems.map(o => ({
-//                 id: o.closetItemId,
-//                 url: cdnUrlFor(o.urlKey),
-//                 layerCategory: o.layerCategory,
-//             }));
-//             setItems(mapped);
-//         });
-//     }, [poseId, JSON.stringify(outfitItems)]);
-
-//     return <TryOnCanvas mannequinUrl={mannequinUrl} poseId={poseId} items={items} />;
-// }
-
-
 import React, { useEffect, useState } from "react";
 import TryOnCanvas, { TryOnItem } from "./TryOnCanvas";
 import { getItemFits } from "../../services/tryonApi";
@@ -111,5 +56,18 @@ export default function TryOnViewer({
         });
     }, [poseId, JSON.stringify(outfitItems)]);
 
-    return <TryOnCanvas mannequinUrl={mannequinUrl} poseId={poseId} items={items} />;
+    return (
+        <div className="try-on-container" style={{
+            width: "100%",
+            height: "100%",
+            minHeight: "400px",
+            position: "relative"
+        }}>
+            <TryOnCanvas
+                mannequinUrl={mannequinUrl}
+                poseId={poseId}
+                items={items}
+            />
+        </div>
+    );
 }

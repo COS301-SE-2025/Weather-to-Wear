@@ -29,9 +29,9 @@ export type PoseAnchors = {
 export const FRONT_V1: PoseAnchors = {
   id: "front_v1",
   boxes: {
-   NECK_CENTER:   { x: 0.50, y: 0.205 },
-   HEAD_BOX:      { x: 0.41, y: 0.06,  w: 0.18, h: 0.14 },
-   CHEST_BOX:     { x: 0.30, y: 0.30,  w: 0.40, h: 0.24 },
+   NECK_CENTER:   { x: 0.50, y: 0.184 },
+   HEAD_BOX:      { x: 0.400, y: 0.05,  w: 0.2, h: 0.1 },
+   CHEST_BOX:     { x: 0.30, y: 0.20,  w: 0.40, h: 0.24 },
    WAIST_BOX:     { x: 0.33, y: 0.50,  w: 0.34, h: 0.10 },
    HIP_BOX:       { x: 0.31, y: 0.60,  w: 0.38, h: 0.16 },
    HEM_LINE:      { x1: 0.28, y: 0.88, x2: 0.72 },

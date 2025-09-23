@@ -1,0 +1,55 @@
+.flex-grow.overflow-hidden.relative {
+  flex: 1 1 auto;
+  min-height: 400px;
+}
+
+.bg-white.rounded-2xl.shadow-xl {
+  display: flex;
+  flex-direction: column;
+}
+
+.fixed.inset-0 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.bg-white.rounded-2xl.shadow-xl.relative.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-1.relative {
+  flex: 1;
+  position: relative;
+}
+
+.try-on-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 1196px !important;
+  min-height: 658px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  background: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.try-on-container canvas.mannequin-canvas {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  image-rendering: -webkit-optimize-contrast !important;
+  image-rendering: crisp-edges !important;
+  image-rendering: pixelated !important;
+}
+
+.try-on-container canvas {
+  max-width: none !important;
+  max-height: none !important;
+}

@@ -14,6 +14,8 @@ import EditOutfitModal from "../components/EditOutfitModal";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
 
+import "../styles/ClosetPage.css";
+
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
 }
@@ -163,7 +165,8 @@ export default function ClosetPage() {
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
-  const [showTryOn, setShowTryOn] = useState(false);
+  const [showTryOnModal, setShowTryOnModal] = useState(false); // New state for separate try-on modal
+  const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
 
   // Global popup (Success/Error)
   const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
@@ -786,7 +789,7 @@ export default function ClosetPage() {
                       {/* bottoms */}
                       <div className="flex justify-center space-x-1">
                         {entry.outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
+                          .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                           .map(it => (
                             <img
                               key={it.closetItemId}
@@ -831,6 +834,7 @@ export default function ClosetPage() {
           </div>
         )}
 
+        {/* Outfit Details Modal (always shows thumbnails, no try-on toggle) */}
         <AnimatePresence>
           {activeDetailsOutfit && (
             <motion.div
@@ -843,12 +847,12 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl min-w-0 p-8 relative flex flex-col gap-4"
               >
                 {/* Close Button */}
                 <button
                   onClick={() => setActiveDetailsOutfit(null)}
-                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-30"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -864,79 +868,63 @@ export default function ClosetPage() {
                   />
                 </button>
 
-                {/* Try-On or static thumbnails */}
-                {showTryOn ? (
-                  <div className="mb-2">
-                    <TryOnViewer
-                      mannequinUrl="/mannequins/front_v1.png"
-                      poseId="front_v1"
-                      outfitItems={activeDetailsOutfit!.outfitItems.map(it => ({
-                        closetItemId: it.closetItemId,
-                        // we already render thumbnails using imageUrl below;
-                        // pass imageUrl to the viewer; cdnUrlFor handles absolute/relative
-                        imageUrl: it.imageUrl,
-                        layerCategory: it.layerCategory as any, // matches the union type string
-                      }))}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex justify-center mb-2">
-                    <div className="space-y-1">
-                      {/* headwear + accessory */}
-                      <div className={`${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
-                        {activeDetailsOutfit.outfitItems
-                          .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={absolutize(it.imageUrl, API_BASE)}
-                              alt=""
-                              className="w-8 h-8 object-contain rounded"
-                            />
-                          ))}
-                      </div>
-                      {/* tops */}
-                      <div className="flex justify-center space-x-1">
-                        {activeDetailsOutfit.outfitItems
-                          .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={absolutize(it.imageUrl, API_BASE)}
-                              alt=""
-                              className="w-16 h-16 object-contain rounded"
-                            />
-                          ))}
-                      </div>
-                      {/* bottoms */}
-                      <div className="flex justify-center space-x-1">
-                        {activeDetailsOutfit.outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={absolutize(it.imageUrl, API_BASE)}
-                              alt=""
-                              className="w-16 h-16 object-contain rounded"
-                            />
-                          ))}
-                      </div>
-                      {/* footwear */}
-                      <div className="flex justify-center space-x-1">
-                        {activeDetailsOutfit.outfitItems
-                          .filter(it => it.layerCategory === 'footwear')
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={absolutize(it.imageUrl, API_BASE)}
-                              alt=""
-                              className="w-14 h-14 object-contain rounded"
-                            />
-                          ))}
-                      </div>
+                {/* Static thumbnails */}
+                <div className="flex justify-center mb-2">
+                  <div className="space-y-1">
+                    {/* headwear + accessory */}
+                    <div className={`${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
+                            className="w-8 h-8 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* tops */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* bottoms */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                    </div>
+                    {/* footwear */}
+                    <div className="flex justify-center space-x-1">
+                      {activeDetailsOutfit.outfitItems
+                        .filter(it => it.layerCategory === 'footwear')
+                        .map(it => (
+                          <img
+                            key={it.closetItemId}
+                            src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
+                            className="w-14 h-14 object-contain rounded"
+                          />
+                        ))}
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Outfit Info */}
                 <div className="space-y-2 text-gray-700 text-base mt-2">
@@ -959,10 +947,16 @@ export default function ClosetPage() {
                 {/* Actions */}
                 <div className="flex justify-end gap-2 pt-6">
                   <button
-                    onClick={() => setShowTryOn(s => !s)}
+                    onClick={() => {
+                      if (activeDetailsOutfit) {
+                        setTryOnOutfit(activeDetailsOutfit); // Store the outfit data
+                        setShowTryOnModal(true);
+                        setActiveDetailsOutfit(null); // Close details modal
+                      }
+                    }}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
                   >
-                    {showTryOn ? "Hide Try-On" : "Try On"}
+                    Try On
                   </button>
                   <button
                     onClick={() => {
@@ -984,6 +978,65 @@ export default function ClosetPage() {
                   >
                     Delete
                   </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Separate Try-On Modal */}
+        <AnimatePresence>
+          {showTryOnModal && tryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowTryOnModal(false);
+                setTryOnOutfit(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col"
+                style={{
+                  width: 'min(95vw, 1200px)',
+                  height: 'min(95vh, 800px)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setShowTryOnModal(false);
+                    setTryOnOutfit(null);
+                  }}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[101]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Try-On Viewer - SIMPLIFIED CONTAINER */}
+                <div
+                  className="flex-1 relative"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px'
+                  }}
+                >
+                  <TryOnViewer
+                    mannequinUrl="/mannequins/front_v1.png"
+                    poseId="front_v1"
+                    outfitItems={tryOnOutfit.outfitItems.map(it => ({
+                      closetItemId: it.closetItemId,
+                      imageUrl: it.imageUrl,
+                      layerCategory: it.layerCategory as any,
+                    }))}
+                  />
                 </div>
               </motion.div>
             </motion.div>
