@@ -599,7 +599,14 @@ export default function HomePage() {
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                   alt={item.category}
-                  className="w-14 h-14 max-[380px]:w-12 max-[380px]:h-12 sm:w-18 sm:h-18 md:w-20 md:h-20 object-contain rounded-lg"
+                  className="
+  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  sm:w-20 sm:h-20
+  md:w-24 md:h-24
+  lg:w-28 lg:h-28
+  xl:w-32 xl:h-32
+  object-contain rounded-lg
+"
                 />
               ))}
           </div>
@@ -613,7 +620,14 @@ export default function HomePage() {
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                   alt={item.category}
-                  className="w-14 h-14 max-[380px]:w-12 max-[380px]:h-12 sm:w-18 sm:h-18 md:w-20 md:h-20 object-contain rounded-lg"
+                  className="
+  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  sm:w-20 sm:h-20
+  md:w-24 md:h-24
+  lg:w-28 lg:h-28
+  xl:w-32 xl:h-32
+  object-contain rounded-lg
+"
                 />
               ))}
           </div>
@@ -627,7 +641,14 @@ export default function HomePage() {
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                   alt={item.category}
-                  className="w-14 h-14 max-[380px]:w-12 max-[380px]:h-12 sm:w-18 sm:h-18 md:w-20 md:h-20 object-contain rounded-lg"
+                  className="
+  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  sm:w-20 sm:h-20
+  md:w-24 md:h-24
+  lg:w-28 lg:h-28
+  xl:w-32 xl:h-32
+  object-contain rounded-lg
+"
                 />
               ))}
           </div>
@@ -641,7 +662,14 @@ export default function HomePage() {
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                   alt={item.category}
-                  className="w-12 h-12 max-[380px]:w-10 max-[380px]:h-10 sm:w-16 sm:h-16 md:w-18 md:h-18 object-contain rounded-lg"
+                  className="
+  w-14 h-14 max-[380px]:w-10 max-[380px]:h-10
+  sm:w-18 sm:h-18
+  md:w-20 md:h-20
+  lg:w-22 lg:h-22
+  xl:w-24 xl:h-24
+  object-contain rounded-lg
+"
                 />
               ))}
           </div>
@@ -650,7 +678,8 @@ export default function HomePage() {
         {/* Controls below the card so images aren’t covered */}
         {controls && (
           <div className="mt-3">
-            <div className="flex items-center justify-between gap-2 bg-white/80 dark:bg-gray-900/70 backdrop-blur rounded-lg px-3 py-2 shadow-sm">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 bg-white/80 dark:bg-gray-900/70 backdrop-blur rounded-lg px-3 py-2 shadow-sm">
+
               {controls}
             </div>
           </div>
@@ -970,9 +999,40 @@ export default function HomePage() {
 
 
           {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
-          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full md:-ml-32">
+
+
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full md:-ml-16">
             <div className="w-full">
               <div className="bg-white">
+
+                <div className="w-full mb-4">
+                  <h3
+                    className="
+    md:ml-8
+      text-center
+      text-3xl sm:text-4xl lg:text-5xl
+      font-livvic font-bold tracking-tight
+      text-gray-900 dark:text-gray-100
+    "
+                  >
+                    Outfit of the Day
+                  </h3>
+                </div>
+
+                <div className="w-full mb-4">
+                  <h3
+                    className="
+    md:ml-8
+      text-center
+      text-xl sm:text-xl lg:text-xl
+      font-livvic  tracking-tight
+      text-gray-900 dark:text-gray-100
+    "
+                  >
+                    Select a Style:
+                  </h3>
+                </div>
+
 
                 {loadingOutfits && <p className="text-center">Loading outfits…</p>}
                 {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
@@ -982,8 +1042,10 @@ export default function HomePage() {
                   </p>
                 )}
 
+
+
                 {/* Style Dropdown — centered, same width as carousel */}
-                <div className="mb-4 w-full">
+                <div className="md:ml-8 mb-4 w-full">
                   <label htmlFor="style-select" className="sr-only">Style</label>
                   <select
                     id="style-select"
@@ -1005,13 +1067,32 @@ export default function HomePage() {
                 {!loadingOutfits && outfits.length > 0 && (
                   <>
                     {/* Carousel — centered, no extra margins */}
-                    <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto overflow-visible">
+                    <div
+                      className="
+                      
+    relative mb-2 w-full
+    max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16
+    mx-0 sm:mx-auto            /* don't center on mobile */
+    -ml-3                      /* pull left on mobile */
+    sm:ml-0 sm:-ml-8           /* bigger pull starting at sm if you want */
+    overflow-visible
+    sm:mr-16 lg:mr-32
+  "
+                    >
                       {/* Reserve height so absolute stage can sit on top */}
-                      <div className="invisible w-[min(92%,320px)] mx-auto">
+                      <div className="
+                      invisible
+  w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
+  mx-auto
+                ">
                         <OutfitImagesCard outfit={outfits[currentIndex]} />
-                      </div> {/* stage (full area), with a centered "rail" that everything aligns to */}
+                      </div>
+                      {/* stage (full area), with a centered "rail" that everything aligns to */}
                       <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center"> {/* the centering rail */}
-                        <div className="relative w-[min(92%,320px)]">
+                        <div className="
+                         relative
+    w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
+                  ">
 
                           {/* LEFT (prev) */}
                           {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(-1)}
@@ -1045,21 +1126,43 @@ export default function HomePage() {
                             onDragEnd={(_, info) => { const goRight = info.offset.x < -70 || info.velocity.x < -300; const goLeft = info.offset.x > 70 || info.velocity.x > 300; if (goRight) slideTo(1); else if (goLeft) slideTo(-1); }} >
                             <OutfitImagesCard
                               outfit={outfits[currentIndex]}
-                              controls={<> <StarRating disabled={saving}
-                                onSelect={handleSaveRating} value={ratings[getOutfitKey(outfits[currentIndex])] || 0} />
-                                <button onClick={handleRefresh}
-                                  className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                                  aria-label="Refresh recommendations" title="Refresh recommendations" >
-                                  <RefreshCw className="w-5 h-5" />
-                                </button>
-                              </>} />
+                              controls={
+                                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                                  {/* Stars — bigger on mobile, normal from sm+ */}
+                                  <div className="scale-125 sm:scale-100 transform origin-center">
+                                    <StarRating
+                                      disabled={saving}
+                                      onSelect={handleSaveRating}
+                                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                                    />
+                                  </div>
+
+                                  {/* Refresh — sits right next to stars on mobile & desktop */}
+                                  <button
+                                    onClick={handleRefresh}
+                                    className="p-2 rounded-full text-[#3F978F] hover:text-[#2f716b]
+             transform -translate-y-2 sm:-translate-y-2"
+                                    aria-label="Refresh recommendations"
+                                    title="Refresh recommendations"
+                                  >
+                                    <RefreshCw className="w-6 h-6 align-middle" />
+                                  </button>
+
+
+                                </div>
+                              }
+
+                            />
+
                           </motion.div> </div>
                       </div>
                     </div>
 
 
                     {/* Counter — same width + centered, snug under the card */}
-                    <div className="text-center text-sm mb-2 mt-32 w-full w-[min(92%,320px)] mx-auto">
+                    <div className="md:ml-32 text-center text-sm mb-2 mt-32 w-full
+  w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,560px)] lg:w-[min(92%,680px)] xl:w-[min(92%,760px)]
+  mx-auto">
                       {currentIndex + 1} / {outfits.length}
                     </div>
                   </>
@@ -1067,8 +1170,6 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-
 
 
         </section>
