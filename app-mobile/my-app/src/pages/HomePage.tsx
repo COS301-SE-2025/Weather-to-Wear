@@ -122,6 +122,13 @@ const TypingSlogan = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    document.body.classList.add('home-fullbleed');
+    return () => {
+      document.body.classList.remove('home-fullbleed');
+    };
+  }, []);
+
+  useEffect(() => {
     const handleTyping = () => {
       if (!isDeleting && index < slogan.length) {
         setDisplayText(slogan.slice(0, index + 1));
@@ -298,25 +305,37 @@ export default function HomePage() {
     if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
   }, [dayKeys, selectedDate]);
 
-  const selectedDayHours: H[] = useMemo(() => {
+  const selectedDayHoursRaw: H[] = useMemo(() => {
     if (!selectedDate || !weekByDay[selectedDate]) return [];
     const hours = weekByDay[selectedDate];
     const todayKey = new Date().toISOString().slice(0, 10);
 
     if (selectedDate === todayKey) {
       const now = new Date();
-      return hours.filter(h => {
-        const t = parseHourTS(h.time);
-        return t >= now;
-      });
+      return hours.filter(h => parseHourTS(h.time) >= now);
     }
     return hours;
   }, [selectedDate, weekByDay]);
 
+  // strictly 8 items:
+  // - today: next 8 from "now"
+  // - other days: start at 05:00
+  const selectedDayHoursForDisplay: H[] = useMemo(() => {
+    if (!selectedDate) return [];
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    if (selectedDate === todayKey) {
+      return selectedDayHoursRaw.slice(0, 8);
+    }
+    const fromFiveAM = selectedDayHoursRaw.filter(h => parseHourTS(h.time).getHours() >= 5);
+    return fromFiveAM.slice(0, 8);
+  }, [selectedDate, selectedDayHoursRaw]);
+
   const selectedDaySummary = useMemo(
-    () => (selectedDayHours.length ? summarizeDay(selectedDayHours) : null),
-    [selectedDayHours]
+    () => (selectedDayHoursRaw.length ? summarizeDay(selectedDayHoursRaw) : null),
+    [selectedDayHoursRaw]
   );
+
 
   // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
@@ -671,7 +690,7 @@ export default function HomePage() {
 
   return (
     <div
-      className="flex flex-col min-h-screen w-full bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden pt-0"
+      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
       style={{ paddingTop: 0 }}
     >
 
@@ -688,7 +707,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
         {/* Content */}
-        <div className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4 sm:py-6 lg:py-8">
             {/* two columns at all sizes so left/right sit side by side on mobile too */}
             <div className="grid grid-cols-2 gap-3 sm:gap-6 items-start">
@@ -875,151 +894,149 @@ export default function HomePage() {
       <main className="flex flex-col gap-10 px-0 w-full ">
         <section
           className="
-            grid gap-8 lg:gap-10 xl:gap-12
-            place-items-center lg:place-items-start
-            grid-cols-1
-            lg:[grid-template-columns:minmax(240px,320px)_minmax(0,1fr)_minmax(240px,320px)]
-            px-4 sm:px-6 lg:px-8
-          "
+    grid gap-8 lg:gap-10 xl:gap-12
+    place-items-center lg:place-items-start
+    grid-cols-1 lg:grid-cols-3
+    px-4 sm:px-6 lg:px-8
+  "
         >
-          {/* LEFT: Slogan + Weather Summary (order 2 mobile, 1 desktop) */}
-          <div className="order-2 lg:order-1 flex flex-col items-center lg:items-start justify-start w-full">
+
+          {/* LEFT: Slogan + Hourly Forecast */}
+          <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full">
             <TypingSlogan />
 
-            {/* Weather Summary (click to change selected day → drives outfits) */}
-
-          </div>
-
-          {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
-          <div className="order-1 lg:order-2 flex flex-col items-center w-full">
-            <div className="w-full max-w-none">
-              <div className="bg-white">
-                {loadingOutfits && <p className="text-center">Loading outfits…</p>}
-                {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
-                {!loadingOutfits && outfits.length === 0 && (
-                  <p className="text-center text-gray-500 dark:text-gray-400">
-                    Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
-                  </p>
-                )}
-
-                {/* Style Dropdown */}
-                <div className="mb-4 w-full text-center">
-                  <label htmlFor="style-select" className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100" />
-                  <select
-                    id="style-select"
-                    value={selectedStyle}
-                    onChange={e => {
-                      setSelectedStyle(e.target.value);
-                      queryClient.invalidateQueries({ queryKey: ['outfits'] });
-                    }}
-                    className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
-                  >
-                    <option value="Formal">Formal</option>
-                    <option value="Casual">Casual</option>
-                    <option value="Athletic">Athletic</option>
-                    <option value="Party">Party</option>
-                    <option value="Business">Business</option>
-                    <option value="Outdoor">Outdoor</option>
-                  </select>
-                </div>
-
-                {!loadingOutfits && outfits.length > 0 && (
-                  <>
-                    <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto lg:overflow-hidden">
-                      {/* height guard */}
-                      <div className="invisible">
-                        <OutfitImagesCard outfit={outfits[currentIndex]} />
-                      </div>
-
-                      {/* stage */}
-                      <div className="absolute inset-0">
-                        {/* LEFT (prev) */}
-                        {outfits.length > 1 && (
-                          <motion.button
-                            type="button"
-                            onClick={() => slideTo(-1)}
-                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                            style={{ width: 'min(90%, 300px)' }}
-                            initial={false}
-                            animate={{ x: '-82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
-                            whileHover={{ scale: 0.87, opacity: 0.6 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                          >
-                            <OutfitImagesCard outfit={outfits[prevIndex]} />
-                          </motion.button>
-                        )}
-
-                        {/* RIGHT (next) */}
-                        {outfits.length > 1 && (
-                          <motion.button
-                            type="button"
-                            onClick={() => slideTo(1)}
-                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                            style={{ width: 'min(90%, 300px)' }}
-                            initial={false}
-                            animate={{ x: '82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
-                            whileHover={{ scale: 0.87, opacity: 0.6 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                          >
-                            <OutfitImagesCard outfit={outfits[nextIndex]} />
-                          </motion.button>
-                        )}
-
-                        {/* CENTER (current) */}
-                        <motion.div
-                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
-                          style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
-                          initial={false}
-                          animate={{ x: 0, scale: 1, opacity: 1, zIndex: 3 }}
-                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                          drag="x"
-                          dragConstraints={{ left: 0, right: 0 }}
-                          onDragEnd={(_, info) => {
-                            const goRight = info.offset.x < -70 || info.velocity.x < -300;
-                            const goLeft = info.offset.x > 70 || info.velocity.x > 300;
-                            if (goRight) slideTo(1);
-                            else if (goLeft) slideTo(-1);
-                          }}
-                        >
-                          <OutfitImagesCard outfit={outfits[currentIndex]} />
-                        </motion.div>
-                      </div>
-                    </div>
-
-                    <div className="text-center text-sm mb-2">
-                      {currentIndex + 1} / {outfits.length}
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      {/* <StarRating ... />  */}
-                    </div>
-                    <p className="mt-1 text-center text-xs text-gray-500">
-                      Swipe the front card, or tap the side cards
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT */}
-          <div className="order-3 flex flex-col w-full items-center lg:items-end">
-            <div className="w-full max-w-sm mx-auto lg:max-w-none lg:mx-0 lg:w-full lg:ml-auto">
+            {/* Hourly forecast (8 hours) under the slogan */}
+            <div className="w-full max-w-sm sm:max-w-md mt-2">
               {loadingWeather ? (
-                <p className="text-center">Loading weather…</p>
+                <p className="text-center text-sm text-gray-500">Loading hours…</p>
               ) : error && !weather ? (
                 <p className="text-red-500 text-center">{error}</p>
-              ) : weather ? (
+              ) : (
                 <div className="text-center">
-                  {/* Header shows the day summary; keep Hourly here */}
                   <HourlyForecast
-                    forecast={selectedDayHours.length ? selectedDayHours : weather.forecast}
+                    forecast={
+                      selectedDayHoursForDisplay.length
+                        ? selectedDayHoursForDisplay
+                        : weather?.forecast?.slice(0, 8) || []
+                    }
                   />
                 </div>
-              ) : (
-                <p className="text-center">No weather data available.</p>
               )}
             </div>
           </div>
+
+
+          {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full">            <div className="w-full max-w-none">
+            <div className="bg-white">
+              {loadingOutfits && <p className="text-center">Loading outfits…</p>}
+              {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
+              {!loadingOutfits && outfits.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400">
+                  Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
+                </p>
+              )}
+
+              {/* Style Dropdown */}
+              <div className="mb-4 w-full text-center">
+                <label htmlFor="style-select" className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100" />
+                <select
+                  id="style-select"
+                  value={selectedStyle}
+                  onChange={e => {
+                    setSelectedStyle(e.target.value);
+                    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                  }}
+                  className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                >
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Athletic">Athletic</option>
+                  <option value="Party">Party</option>
+                  <option value="Business">Business</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
+              </div>
+
+              {!loadingOutfits && outfits.length > 0 && (
+                <>
+                  <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto lg:overflow-hidden">
+                    {/* height guard */}
+                    <div className="invisible">
+                      <OutfitImagesCard outfit={outfits[currentIndex]} />
+                    </div>
+
+                    {/* stage */}
+                    <div className="absolute inset-0">
+                      {/* LEFT (prev) */}
+                      {outfits.length > 1 && (
+                        <motion.button
+                          type="button"
+                          onClick={() => slideTo(-1)}
+                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                          style={{ width: 'min(90%, 300px)' }}
+                          initial={false}
+                          animate={{ x: '-82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
+                          whileHover={{ scale: 0.87, opacity: 0.6 }}
+                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                        >
+                          <OutfitImagesCard outfit={outfits[prevIndex]} />
+                        </motion.button>
+                      )}
+
+                      {/* RIGHT (next) */}
+                      {outfits.length > 1 && (
+                        <motion.button
+                          type="button"
+                          onClick={() => slideTo(1)}
+                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                          style={{ width: 'min(90%, 300px)' }}
+                          initial={false}
+                          animate={{ x: '82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
+                          whileHover={{ scale: 0.87, opacity: 0.6 }}
+                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                        >
+                          <OutfitImagesCard outfit={outfits[nextIndex]} />
+                        </motion.button>
+                      )}
+
+                      {/* CENTER (current) */}
+                      <motion.div
+                        className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                        style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
+                        initial={false}
+                        animate={{ x: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        onDragEnd={(_, info) => {
+                          const goRight = info.offset.x < -70 || info.velocity.x < -300;
+                          const goLeft = info.offset.x > 70 || info.velocity.x > 300;
+                          if (goRight) slideTo(1);
+                          else if (goLeft) slideTo(-1);
+                        }}
+                      >
+                        <OutfitImagesCard outfit={outfits[currentIndex]} />
+                      </motion.div>
+                    </div>
+                  </div>
+
+                  <div className="text-center text-sm mb-2">
+                    {currentIndex + 1} / {outfits.length}
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    {/* <StarRating ... />  */}
+                  </div>
+                  <p className="mt-1 text-center text-xs text-gray-500">
+                    Swipe the front card, or tap the side cards
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+          </div>
+
+
 
         </section>
 

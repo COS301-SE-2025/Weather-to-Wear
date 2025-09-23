@@ -36,6 +36,10 @@ body {
   color: var(--fg);
 }
 
+body.home-fullbleed {
+  max-width: none !important;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
