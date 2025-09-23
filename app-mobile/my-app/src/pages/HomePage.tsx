@@ -934,7 +934,7 @@ export default function HomePage() {
 ">
 
           {/* LEFT: Slogan + Hourly Forecast */}
-          <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full">
+          <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full z-10">
             <TypingSlogan />
 
             {/* Hourly forecast (8 hours) under the slogan */}
@@ -959,7 +959,7 @@ export default function HomePage() {
 
 
           {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
-          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full">
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full md:-ml-32">
             <div className="w-full">
               <div className="bg-white">
 
@@ -1006,8 +1006,8 @@ export default function HomePage() {
                           {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(-1)}
                             className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
                             initial={false}
-                            animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.35, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity: 0.6 }}
+                            animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                            whileHover={{ scale: 0.84, opacity:1 }}
                             transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
 
                             <OutfitImagesCard outfit={outfits[prevIndex]} />
@@ -1018,8 +1018,8 @@ export default function HomePage() {
                           {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(1)}
                             className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
                             initial={false}
-                            animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.35, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity: 0.6 }}
+                            animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                            whileHover={{ scale: 0.84, opacity: 1 }}
                             transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
                             <OutfitImagesCard outfit={outfits[nextIndex]} /> </motion.button>)}
 
@@ -1063,7 +1063,7 @@ export default function HomePage() {
         </section>
 
         {/* Events Section */}
-        <section className="w-full mt-6 px-0 pt-16">
+        <section className="w-full mt-6 px-0 pt-0">
           <div className="w-full px-0">
             <div className="flex items-center justify-center mb-4 space-x-4">
               <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
