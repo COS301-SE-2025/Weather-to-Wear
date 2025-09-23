@@ -1,5 +1,5 @@
 // src/pages/HomePage.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 import { Plus, RefreshCw } from 'lucide-react';
 import Footer from '../components/Footer';
@@ -219,6 +219,8 @@ function TempRangeBar({
 
 // ---------- HomePage ----------
 export default function HomePage() {
+  const submittingRef = useRef(false);
+
   // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
@@ -275,7 +277,7 @@ export default function HomePage() {
     queryFn: async () => {
       try {
         const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
-          params: { location: locationLabel },
+          params: { location: locationLabel, t: Date.now() },
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         return data as { forecast: H[]; location: string; summary: any; source: string };
@@ -351,6 +353,13 @@ export default function HomePage() {
   // ---------- City enter/refresh handlers ----------
   const handleEnterCity = () => {
     const next = cityInput.trim();
+    if (submittingRef.current) return;       // guard: ignore re-entrancy
+    submittingRef.current = true;
+    // ignore no-op searches
+    if (!next || next === city) {
+      submittingRef.current = false;
+      return;
+    }
     setCity(next);
     localStorage.setItem('selectedCity', next);
     setCityInput('');
@@ -358,6 +367,8 @@ export default function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
     setSelectedDate(null);
+    // release the guard on next tick (after state flush)
+    queueMicrotask(() => { submittingRef.current = false; });
   };
 
   const handleRefresh = () => {
@@ -562,20 +573,28 @@ export default function HomePage() {
     setSelectedDate(dayKeys.includes(todayKey) ? todayKey : dayKeys[0]);
   }, [dayKeys]);
 
-  function OutfitImagesCard({ outfit }: { outfit: RecommendedOutfit }) {
+  function OutfitImagesCard({
+    outfit,
+    controls,
+  }: {
+    outfit: RecommendedOutfit;
+    controls?: ReactNode;
+  }) {
     return (
-      <div className="bg-white dark:bg-gray-800 border rounded-xl shadow-md p-1.5">
+      <div className="relative bg-white dark:bg-gray-800 border rounded-xl shadow-md p-2 sm:p-2.5">
         <div className="space-y-1">
           {/* headwear / accessory */}
           <div
-            className={`flex justify-center space-x-1 transition-all ${outfit.outfitItems.some(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+            className={`flex justify-center space-x-1 transition-all ${outfit.outfitItems.some(
+              (i) => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
+            )
               ? 'h-auto'
               : 'h-0 overflow-hidden'
               }`}
           >
             {outfit.outfitItems
-              .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-              .map(item => (
+              .filter((i) => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+              .map((item) => (
                 <img
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
@@ -588,8 +607,8 @@ export default function HomePage() {
           {/* tops */}
           <div className="flex justify-center space-x-1">
             {outfit.outfitItems
-              .filter(i => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
-              .map(item => (
+              .filter((i) => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
+              .map((item) => (
                 <img
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
@@ -602,8 +621,8 @@ export default function HomePage() {
           {/* bottoms */}
           <div className="flex justify-center space-x-1">
             {outfit.outfitItems
-              .filter(i => i.layerCategory === 'base_bottom')
-              .map(item => (
+              .filter((i) => i.layerCategory === 'base_bottom')
+              .map((item) => (
                 <img
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
@@ -616,8 +635,8 @@ export default function HomePage() {
           {/* footwear */}
           <div className="flex justify-center space-x-1">
             {outfit.outfitItems
-              .filter(i => i.layerCategory === 'footwear')
-              .map(item => (
+              .filter((i) => i.layerCategory === 'footwear')
+              .map((item) => (
                 <img
                   key={item.closetItemId}
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
@@ -627,9 +646,19 @@ export default function HomePage() {
               ))}
           </div>
         </div>
+
+        {/* Controls below the card so images aren’t covered */}
+        {controls && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between gap-2 bg-white/80 dark:bg-gray-900/70 backdrop-blur rounded-lg px-3 py-2 shadow-sm">
+              {controls}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
+
 
   // ------------------------------------------------------------------------------------------
   // RENDER
@@ -823,8 +852,13 @@ export default function HomePage() {
                         value={cityInput}
                         onChange={(e) => setCityInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleEnterCity();
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.stopPropagation(); // avoid bubbling to any parent handlers
+                            handleEnterCity();
+                          }
                         }}
+                        autoComplete="off"
                         className="
                   w-full bg-transparent outline-none
                   placeholder-white/70 text-white
@@ -927,113 +961,132 @@ export default function HomePage() {
 
 
           {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
-          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full">            <div className="w-full max-w-none">
-            <div className="bg-white">
-              {loadingOutfits && <p className="text-center">Loading outfits…</p>}
-              {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
-              {!loadingOutfits && outfits.length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400">
-                  Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
-                </p>
-              )}
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center lg:items-start w-full">
+            <div className="w-full max-w-none">
+              <div className="bg-white">
 
-              {/* Style Dropdown */}
-              <div className="mb-4 w-full text-center">
-                <label htmlFor="style-select" className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100" />
-                <select
-                  id="style-select"
-                  value={selectedStyle}
-                  onChange={e => {
-                    setSelectedStyle(e.target.value);
-                    queryClient.invalidateQueries({ queryKey: ['outfits'] });
-                  }}
-                  className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
-                >
-                  <option value="Formal">Formal</option>
-                  <option value="Casual">Casual</option>
-                  <option value="Athletic">Athletic</option>
-                  <option value="Party">Party</option>
-                  <option value="Business">Business</option>
-                  <option value="Outdoor">Outdoor</option>
-                </select>
-              </div>
-
-              {!loadingOutfits && outfits.length > 0 && (
-                <>
-                  <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto lg:overflow-hidden">
-                    {/* height guard */}
-                    <div className="invisible">
-                      <OutfitImagesCard outfit={outfits[currentIndex]} />
-                    </div>
-
-                    {/* stage */}
-                    <div className="absolute inset-0">
-                      {/* LEFT (prev) */}
-                      {outfits.length > 1 && (
-                        <motion.button
-                          type="button"
-                          onClick={() => slideTo(-1)}
-                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                          style={{ width: 'min(90%, 300px)' }}
-                          initial={false}
-                          animate={{ x: '-82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
-                          whileHover={{ scale: 0.87, opacity: 0.6 }}
-                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                        >
-                          <OutfitImagesCard outfit={outfits[prevIndex]} />
-                        </motion.button>
-                      )}
-
-                      {/* RIGHT (next) */}
-                      {outfits.length > 1 && (
-                        <motion.button
-                          type="button"
-                          onClick={() => slideTo(1)}
-                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                          style={{ width: 'min(90%, 300px)' }}
-                          initial={false}
-                          animate={{ x: '82%', scale: 0.85, opacity: 0.5, zIndex: 2 }}
-                          whileHover={{ scale: 0.87, opacity: 0.6 }}
-                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                        >
-                          <OutfitImagesCard outfit={outfits[nextIndex]} />
-                        </motion.button>
-                      )}
-
-                      {/* CENTER (current) */}
-                      <motion.div
-                        className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
-                        style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
-                        initial={false}
-                        animate={{ x: 0, scale: 1, opacity: 1, zIndex: 3 }}
-                        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                        drag="x"
-                        dragConstraints={{ left: 0, right: 0 }}
-                        onDragEnd={(_, info) => {
-                          const goRight = info.offset.x < -70 || info.velocity.x < -300;
-                          const goLeft = info.offset.x > 70 || info.velocity.x > 300;
-                          if (goRight) slideTo(1);
-                          else if (goLeft) slideTo(-1);
-                        }}
-                      >
-                        <OutfitImagesCard outfit={outfits[currentIndex]} />
-                      </motion.div>
-                    </div>
-                  </div>
-
-                  <div className="text-center text-sm mb-2">
-                    {currentIndex + 1} / {outfits.length}
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    {/* <StarRating ... />  */}
-                  </div>
-                  <p className="mt-1 text-center text-xs text-gray-500">
-                    Swipe the front card, or tap the side cards
+                {loadingOutfits && <p className="text-center">Loading outfits…</p>}
+                {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
+                {!loadingOutfits && outfits.length === 0 && (
+                  <p className="text-center text-gray-500 dark:text-gray-400">
+                    Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
                   </p>
-                </>
-              )}
+                )}
+
+                {/* Style Dropdown */}
+                <div className="mb-4 w-full text-center">
+                  <label htmlFor="style-select" className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100" />
+                  <select
+                    id="style-select"
+                    value={selectedStyle}
+                    onChange={e => {
+                      setSelectedStyle(e.target.value);
+                      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                    }}
+                    className="block w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                  >
+                    <option value="Formal">Formal</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
+                  </select>
+                </div>
+
+                {!loadingOutfits && outfits.length > 0 && (
+                  <>
+                    <div className="relative mb-2 w-full max-w-sm sm:max-w-md mx-auto lg:mx-auto lg:self-center overflow-visible">
+                      {/* height guard */}
+                      <div className="invisible">
+                        <OutfitImagesCard outfit={outfits[currentIndex]} />
+                      </div>
+
+                      {/* stage */}
+                      <div className="absolute inset-0">
+                        {/* LEFT (prev) — tighter, more hidden, slightly higher */}
+                        {outfits.length > 1 && (
+                          <motion.button
+                            type="button"
+                            onClick={() => slideTo(-1)}
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                            style={{ width: 'min(88%, 300px)' }}
+                            initial={false}
+                            animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.35, zIndex: 1 }}
+                            whileHover={{ scale: 0.84, opacity: 0.45 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                          >
+                            <OutfitImagesCard outfit={outfits[prevIndex]} />
+                          </motion.button>
+                        )}
+
+                        {/* RIGHT (next) — tighter, more hidden, slightly higher */}
+                        {outfits.length > 1 && (
+                          <motion.button
+                            type="button"
+                            onClick={() => slideTo(1)}
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                            style={{ width: 'min(88%, 300px)' }}
+                            initial={false}
+                            animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.35, zIndex: 1 }}
+                            whileHover={{ scale: 0.84, opacity: 0.45 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                          >
+                            <OutfitImagesCard outfit={outfits[nextIndex]} />
+                          </motion.button>
+                        )}
+
+                        {/* CENTER (current) — only this card has stars + refresh inside the card */}
+                        <motion.div
+                          className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                          style={{ width: 'min(92%, 320px)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.12))' }}
+                          initial={false}
+                          animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                          drag="x"
+                          dragConstraints={{ left: 0, right: 0 }}
+                          onDragEnd={(_, info) => {
+                            const goRight = info.offset.x < -70 || info.velocity.x < -300;
+                            const goLeft = info.offset.x > 70 || info.velocity.x > 300;
+                            if (goRight) slideTo(1);
+                            else if (goLeft) slideTo(-1);
+                          }}
+                        >
+                          <OutfitImagesCard
+                            outfit={outfits[currentIndex]}
+                            controls={
+                              <>
+                                <StarRating
+                                  disabled={saving}
+                                  onSelect={handleSaveRating}
+                                  value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                                />
+                                <button
+                                  onClick={handleRefresh}
+                                  className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
+                                  aria-label="Refresh recommendations"
+                                  title="Refresh recommendations"
+                                >
+                                  <RefreshCw className="w-5 h-5" />
+                                </button>
+                              </>
+                            }
+                          />
+                        </motion.div>
+                      </div>
+
+                    </div>
+
+                    <div className="text-center text-sm mb-2">
+                      {currentIndex + 1} / {outfits.length}
+                    </div>
+                    <p className="mt-1 text-center text-xs text-gray-500">
+                      Swipe the front card, or tap the side cards
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
           </div>
 
 
