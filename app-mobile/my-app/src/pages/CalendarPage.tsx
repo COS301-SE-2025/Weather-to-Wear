@@ -169,6 +169,28 @@ export default function CalendarPage() {
   const [eventOutfitLoading, setEventOutfitLoading] = useState(false);
   const [eventOutfitError, setEventOutfitError] = useState<string | null>(null);
   const [showDayList, setShowDayList] = useState<{ open: boolean; date: Date | null }>({ open: false, date: null });
+
+  // ---- Plan Outfit (per trip-day) ----
+  type DayChoice =
+    | { kind: 'outfit'; outfitId: string }                // user picked one of the packed outfits
+    | { kind: 'items'; items: OutfitItemPreview[] };      // user set a generated combo (list of items)
+
+  const [planModal, setPlanModal] = useState<{ open: boolean; date: Date | null; trip: Event | null }>({
+    open: false, date: null, trip: null
+  });
+  const [planTab, setPlanTab] = useState<'landing' | 'pick' | 'generate' | 'chosen'>('landing');
+
+  const [suitcaseItems, setSuitcaseItems] = useState<ClothingItem[]>([]);
+  const [suitcaseOutfits, setSuitcaseOutfits] = useState<Outfit[]>([]);
+
+  const [genStyle, setGenStyle] = useState<Style>('Casual');
+  const [genOutfits, setGenOutfits] = useState<RecommendedOutfit[]>([]);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  const [chosenDraft, setChosenDraft] = useState<DayChoice | null>(null);
+
+
   const [showPackingModal, setShowPackingModal] = useState(false);
   const [packItems, setPackItems] = useState<{ closetItemId: string; name: string; imageUrl?: string | null; checked?: boolean; _rowId?: string }[]>([]);
   const [packOutfits, setPackOutfits] = useState<{ outfitId: string; name: string; imageUrl?: string | null; checked?: boolean; _rowId?: string }[]>([]);
@@ -659,6 +681,92 @@ export default function CalendarPage() {
     }
   }
 
+  // Load suitcase contents (items & outfits) without opening the Pack UI
+  async function loadSuitcase(trip: Event) {
+    try {
+      const [ciRes, ofRes, existing] = await Promise.all([fetchAllItems(), fetchAllOutfits(), getPackingList(trip.id)]);
+      const ciRaw = Array.isArray((ciRes as any)?.data) ? (ciRes as any).data : ((ciRes as any)?.data?.items ?? (ciRes as any)?.data ?? ciRes);
+      const ofRaw = Array.isArray((ofRes as any)?.data) ? (ofRes as any).data : ((ofRes as any)?.data?.outfits ?? (ofRes as any)?.data ?? ofRes);
+
+      const closet: ClothingItem[] = (ciRaw as any[]).map((it: any) => ({
+        id: String(it.id ?? it.itemId ?? ''),
+        name: it.name ?? it.title ?? it.category ?? '',
+        category: it.category ?? it.type ?? 'Other',
+        imageUrl: it.imageUrl ? normalizeUrl(it.imageUrl) : null,
+        style: (it.style ?? it.tag ?? null) as any,
+      }));
+      const allOutfits: Outfit[] = (ofRaw as any[]).map((o: any, idx: number) => ({
+        id: String(o.id ?? o.outfitId ?? `outfit-${idx}`),
+        name: o.name ?? o.title ?? `Outfit ${idx + 1}`,
+        style: o.style ?? o.occasion ?? 'Other',
+        coverImageUrl: normalizeUrl(o.coverImageUrl ?? null),
+        outfitItems: Array.isArray(o.outfitItems)
+          ? o.outfitItems.map((it: any) => ({
+              closetItemId: String(it.closetItemId ?? it.id ?? ''),
+              layerCategory: String(it.layerCategory ?? it.layer ?? ''),
+              imageUrl: normalizeUrl(it.imageUrl ?? null),
+            }))
+          : [],
+      }));
+
+      const packedItemIds = new Set((existing?.items ?? []).map((r: any) => String(r.closetItemId)));
+      const packedOutfitIds = new Set((existing?.outfits ?? []).map((r: any) => String(r.outfitId)));
+
+      const items = closet.filter(ci => packedItemIds.has(ci.id));
+      const outfits = allOutfits
+        .filter(o => packedOutfitIds.has(o.id))
+        .map(o => ({ ...o, outfitItems: (o.outfitItems ?? []).filter(it => packedItemIds.has(it.closetItemId)) }))
+        .filter(o => (o.outfitItems?.length ?? 0) > 0);
+
+      setSuitcaseItems(items);
+      setSuitcaseOutfits(outfits);
+    } catch (e) {
+      console.error('loadSuitcase failed', e);
+      setSuitcaseItems([]);
+      setSuitcaseOutfits([]);
+    }
+  }
+
+  // Summary for a specific date within a trip (from trip.weather)
+  function summaryForTripDay(trip: Event, d: Date) {
+    try {
+      const key = toDateKey(d);
+      const days: any[] = JSON.parse(trip.weather || '[]');
+      const hit = days.find(x => x?.date === key)?.summary || days[0]?.summary;
+      return hit ? {
+        avgTemp: hit.avgTemp, minTemp: hit.minTemp, maxTemp: hit.maxTemp,
+        willRain: hit.willRain, mainCondition: hit.mainCondition
+      } : undefined;
+    } catch { return undefined; }
+  }
+
+  async function generateTwoSuitcaseRecs(trip: Event, d: Date, style: Style) {
+    const summary = summaryForTripDay(trip, d);
+    if (!summary) {
+      setGenError('No weather summary for this day.');
+      setGenOutfits([]);
+      return;
+    }
+    setGenError(null);
+    setGenLoading(true);
+    try {
+      // Pull recs from the same API used on Dashboard
+      const poolIds = new Set(suitcaseItems.map(i => i.id));
+      let recs = await fetchRecommendedOutfits(summary, style, trip.id);
+      // Keep only outfits that are fully composed of suitcase items
+      recs = (recs || []).filter(r => (r.outfitItems || []).every(it => poolIds.has(it.closetItemId))).slice(0, 2);
+      setGenOutfits(recs);
+      if (!recs.length) setGenError('No suitcase-only suggestions. Try packing more items or pick an outfit.');
+    } catch (e) {
+      console.error(e);
+      setGenError('Could not generate outfits.');
+      setGenOutfits([]);
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+
   const addClothingToPack = (item: ClothingItem) => {
     setPackItems(prev => {
       if (prev.some(p => p.closetItemId === item.id)) return prev;
@@ -890,6 +998,31 @@ export default function CalendarPage() {
     });
   }
 
+  // --- helpers for trip-day selections (persisted locally for now) ---
+  function toDateKey(d: Date) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x.toISOString().slice(0, 10);
+  }
+  function loadTripDayMap(tripId: string): Record<string, DayChoice> {
+    try { return JSON.parse(localStorage.getItem(`tripDayOutfits:${tripId}`) || '{}'); } catch { return {}; }
+  }
+  function saveTripDayChoice(tripId: string, dateKey: string, choice: DayChoice) {
+    const map = loadTripDayMap(tripId);
+    map[dateKey] = choice;
+    localStorage.setItem(`tripDayOutfits:${tripId}`, JSON.stringify(map));
+  }
+  function getTripDayChoice(tripId: string, dateKey: string): DayChoice | null {
+    const map = loadTripDayMap(tripId);
+    return map[dateKey] ?? null;
+  }
+  function deleteTripDayChoice(tripId: string, dateKey: string) {
+    const map = loadTripDayMap(tripId);
+    delete map[dateKey];
+    localStorage.setItem(`tripDayOutfits:${tripId}`, JSON.stringify(map));
+  }
+
+
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
       <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
@@ -931,7 +1064,20 @@ export default function CalendarPage() {
                 ${inMonth ? 'bg-white' : 'bg-gray-100'}
                 ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-200'}
                 ${isSameDay(d, selectedDate) ? 'bg-[#3F978F] bg-opacity-10' : ''}`}
-                onClick={() => onDayClick(new Date(d))}
+                onClick={() => {
+                  const dd = new Date(d);
+                  const trips = eventsOnDay(dd).filter(isTripEvent);
+                  if (trips.length) {
+                    const trip = trips[0];
+                    setPlanModal({ open: true, date: dd, trip });
+                    setPlanTab(getTripDayChoice(trip.id, toDateKey(dd)) ? 'chosen' : 'landing');
+                    setChosenDraft(null);
+                    setGenStyle((trip.style as Style) || 'Casual');
+                    loadSuitcase(trip);
+                  } else {
+                    onDayClick(dd);
+                  }
+                }}
               >
                 <div className="text-right text-sm">{d.getDate()}</div>
                 {overflow > 0 && (
@@ -1247,24 +1393,26 @@ export default function CalendarPage() {
                     </div>
                   </div>
                 )}
-                {/* Recommended Outfit (shared cache with Dashboard) */}
-                <div className="mt-4">
-                  <h3 className="font-medium mb-2">Recommended Outfit</h3>
-                  {eventOutfitQuery.isLoading && <p className="text-sm text-gray-500">Loading outfit…</p>}
-                  {eventOutfitQuery.isError && <p className="text-sm text-red-500">Could not load outfit recommendation.</p>}
-                  {eventOutfitQuery.data && (
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {eventOutfitQuery.data.outfitItems.map((item: any) => (
-                        <img
-                          key={item.closetItemId}
-                          src={normalizeUrl(item.imageUrl) || ''}
-                          alt={item.layerCategory}
-                          className="w-16 h-16 object-contain rounded"
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {/* Recommended Outfit (events only, not trips) */}
+                {!isTripEvent(selectedEvent) && (
+                  <div className="mt-4">
+                    <h3 className="font-medium mb-2">Recommended Outfit</h3>
+                    {eventOutfitQuery.isLoading && <p className="text-sm text-gray-500">Loading outfit…</p>}
+                    {eventOutfitQuery.isError && <p className="text-sm text-red-500">Could not load outfit recommendation.</p>}
+                    {eventOutfitQuery.data && (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {eventOutfitQuery.data.outfitItems.map((item: any) => (
+                          <img
+                            key={item.closetItemId}
+                            src={normalizeUrl(item.imageUrl) || ''}
+                            alt={item.layerCategory}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             <div className="mt-6 flex justify-between">
@@ -1291,6 +1439,167 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      {planModal.open && planModal.trip && planModal.date && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg shadow-lg relative max-h-[90vh] overflow-y-auto">
+            <button className="absolute top-4 right-4 text-xl" onClick={() => setPlanModal({ open: false, date: null, trip: null })}>×</button>
+
+            <h2 className="text-2xl mb-1 font-livvic">Plan Your Outfit</h2>
+            <div className="text-sm text-gray-600 mb-4">
+              {fmt(planModal.date, { weekday: 'short', month: 'long', day: 'numeric' })}
+            </div>
+
+            {/* If already chosen for this day, show it */}
+            {(() => {
+              const saved = getTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!));
+              if (saved && planTab === 'chosen') {
+                return (
+                  <div className="space-y-4">
+                    <div className="font-medium">Your outfit for this day</div>
+                    <div className="flex justify-center flex-wrap gap-2">
+                      {saved.kind === 'outfit'
+                        ? (suitcaseOutfits.find(o => o.id === saved.outfitId)?.outfitItems ?? []).map(it => (
+                            <img key={it.closetItemId} src={normalizeUrl(it.imageUrl) || ''} className="w-16 h-16 object-contain rounded" />
+                          ))
+                        : saved.items.map(it => (
+                            <img key={it.closetItemId} src={normalizeUrl(it.imageUrl) || ''} className="w-16 h-16 object-contain rounded" />
+                          ))}
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>Change</button>
+                      <button className="px-4 py-2 rounded bg-red-500 text-white"
+                        onClick={() => { deleteTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!)); setPlanTab('landing'); }}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Landing: choose Pick vs Generate */}
+            {planTab === 'landing' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    disabled={suitcaseOutfits.length === 0}
+                    onClick={() => { setChosenDraft(null); setPlanTab('pick'); }}
+                    className={`p-4 rounded-lg border ${suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'}`}
+                  >
+                    Pick an Outfit
+                    <div className="text-xs text-gray-500 mt-1">From the outfits you packed</div>
+                  </button>
+                  <button
+                    disabled={suitcaseItems.length === 0}
+                    onClick={() => { setChosenDraft(null); setGenOutfits([]); generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle); setPlanTab('generate'); }}
+                    className={`p-4 rounded-lg border ${suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'}`}
+                  >
+                    Generate Your Outfit
+                    <div className="text-xs text-gray-500 mt-1">Weather-aware, from suitcase items</div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Pick an Outfit */}
+            {planTab === 'pick' && (
+              <div className="mt-2 space-y-3">
+                <div className="text-sm text-gray-600">Packed outfits</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {suitcaseOutfits.map(o => {
+                    const isChosen = (chosenDraft?.kind === 'outfit' && chosenDraft.outfitId === o.id);
+                    return (
+                      <button key={o.id}
+                        onClick={() => setChosenDraft({ kind: 'outfit', outfitId: o.id })}
+                        className={`border rounded-lg p-2 bg-white hover:bg-gray-50 ${isChosen ? 'border-[#3F978F] ring-2 ring-[#3F978F]' : 'border-gray-200'}`}>
+                        <div className="flex justify-center gap-1 flex-wrap">
+                          {(o.outfitItems ?? []).map(it => (
+                            <img key={it.closetItemId} src={normalizeUrl(it.imageUrl) || ''} className="w-12 h-12 object-contain rounded" />
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-3">
+                  <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>Back</button>
+                  <button
+                    disabled={!chosenDraft}
+                    onClick={() => {
+                      if (!chosenDraft) return;
+                      saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), chosenDraft);
+                      setPlanTab('chosen');
+                    }}
+                    className={`px-4 py-2 rounded ${chosenDraft ? 'bg-[#3F978F] text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    Set Outfit
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Generate Your Outfit */}
+            {planTab === 'generate' && (
+              <div className="mt-2 space-y-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm">Style:</label>
+                  <select className="p-2 border rounded"
+                    value={genStyle}
+                    onChange={(e) => { const s = e.target.value as Style; setGenStyle(s); generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, s); }}>
+                    <option value="Casual">Casual</option>
+                    <option value="Formal">Formal</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
+                  </select>
+                  <button className="ml-auto px-3 py-2 rounded border" onClick={() => generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle)}>
+                    Regenerate
+                  </button>
+                </div>
+
+                {genLoading && <div className="text-sm text-gray-500">Generating…</div>}
+                {genError && <div className="text-sm text-red-500">{genError}</div>}
+
+                <div className="grid grid-cols-2 gap-2">
+                  {genOutfits.map((o, idx) => {
+                    const isChosen = (chosenDraft?.kind === 'items' && JSON.stringify(chosenDraft.items) === JSON.stringify(o.outfitItems));
+                    return (
+                      <button key={idx}
+                        onClick={() => setChosenDraft({ kind: 'items', items: o.outfitItems })}
+                        className={`border rounded-lg p-2 bg-white hover:bg-gray-50 ${isChosen ? 'border-[#3F978F] ring-2 ring-[#3F978F]' : 'border-gray-200'}`}>
+                        <div className="flex justify-center gap-1 flex-wrap">
+                          {o.outfitItems.map(it => (
+                            <img key={it.closetItemId} src={normalizeUrl(it.imageUrl) || ''} className="w-12 h-12 object-contain rounded" />
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-between mt-3">
+                  <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>Back</button>
+                  <button
+                    disabled={!chosenDraft}
+                    onClick={() => {
+                      if (!chosenDraft) return;
+                      saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), chosenDraft);
+                      setPlanTab('chosen');
+                    }}
+                    className={`px-4 py-2 rounded ${chosenDraft ? 'bg-[#3F978F] text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    Set Outfit
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {showPackingModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
