@@ -439,7 +439,7 @@ export default function ClosetPage() {
 
   return (
     <div
-      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
       style={{ paddingTop: 0 }}
     >
       {/* Header Image Section */}
@@ -459,7 +459,7 @@ export default function ClosetPage() {
         </div>
       </div>
 
-      <div className="max-w-screen-sm mx-auto px-4 pb-12">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl pb-12">
         {/* Filters & Search */}
         <div className="flex flex-wrap justify-center gap-4 my-4">
           <select
@@ -539,7 +539,7 @@ export default function ClosetPage() {
 
             {favView === 'items' ? (
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {items.filter(i => i.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
                   ) : (
@@ -552,6 +552,7 @@ export default function ClosetPage() {
                               alt={entry.name}
                               onClick={() => setActiveDetailsItem(entry)}
                               className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+                              
                             />
                             <button
                               onClick={() => {
@@ -590,14 +591,19 @@ export default function ClosetPage() {
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {outfits.filter(o => o.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
                     outfits.filter(o => o.favourite).map(entry => (
                       <div
-                        key={entry.id}
-                        className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                        className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                         onClick={() => setActiveDetailsOutfit(entry)}
                       >
                         <button
@@ -682,12 +688,12 @@ export default function ClosetPage() {
           </div>
         ) : (
           // NORMAL GRID FOR ITEMS / OUTFITS TAB
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
                 return (
                   <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                    <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                    <div className="hover:shadow-2xl hover:shadow-black/20 bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
                       <div className="flex-grow relative">
                         <img
                           src={entry.image}
@@ -733,8 +739,13 @@ export default function ClosetPage() {
               } else if (isUIOutfit(entry)) {
                 return (
                   <div
-                    key={entry.id}
-                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                     onClick={() => setActiveDetailsOutfit(entry)}
                   >
                     <button
