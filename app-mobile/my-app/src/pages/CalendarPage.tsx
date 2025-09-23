@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, ReactElement, useCallback } from 'react';
+import React, { useEffect, useState, ReactElement, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, CalendarPlus, Luggage } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 import { fetchAllItems } from '../services/closetApi';
@@ -6,6 +6,9 @@ import { fetchAllOutfits } from '../services/outfitApi';
 import { getPackingList, createPackingList, updatePackingList, deletePackingList } from '../services/packingApi';
 import { API_BASE } from '../config';
 import axios from 'axios';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '../queryClient';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
 import { fetchRecommendedOutfits, type RecommendedOutfit } from '../services/outfitApi';
 
@@ -108,6 +111,7 @@ async function validateAndStandardizeLocation(raw: string): Promise<string | nul
 }
 
 
+
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
@@ -127,7 +131,35 @@ export default function CalendarPage() {
     dateTo: '',
     style: 'Casual' as Style,
   });
-  // Edit-location autocomplete state
+
+  // Debounced suggestions while user types (Create)
+  useEffect(() => {
+    const q = newEvent.location.trim();
+    setLocError(null);
+    if (!q || q.length < 2) {
+      setLocSuggest([]);
+      return;
+    }
+    let cancelled = false;
+    setLocLoading(true);
+    const t = setTimeout(async () => {
+      const opts = await geocodeCity(q, 6);
+      if (!cancelled) setLocSuggest(opts);
+      setLocLoading(false);
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [newEvent.location]);
+
+
+  // Location autocomplete (Create)
+  const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
+  const [locError, setLocError] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+
+  // Location autocomplete (Edit)
   const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
   const [locErrorE, setLocErrorE] = useState<string | null>(null);
   const [locLoadingE, setLocLoadingE] = useState(false);
@@ -234,7 +266,7 @@ export default function CalendarPage() {
     };
   };
 
-  useEffect(() => {
+    useEffect(() => {
     const load = async () => {
       try {
         const list = await fetchAllEvents();
@@ -283,38 +315,34 @@ export default function CalendarPage() {
     }
   }, [selectedEvent?.weather]);
 
-  // Fetch a recommended outfit whenever the modal opens and we have a summary
-  useEffect(() => {
-    if (!showEventModal || !selectedEvent?.id || !selectedEvent?.style || !selectedEventTodaySummary) {
-      setEventOutfit(null);
-      return;
-    }
-    let cancelled = false;
-    setEventOutfitLoading(true);
-    setEventOutfitError(null);
-
-    fetchRecommendedOutfits(selectedEventTodaySummary, selectedEvent.style, selectedEvent.id)
-      .then(recs => {
-        if (cancelled) return;
-        setEventOutfit(recs[0] ?? null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setEventOutfitError('Could not load outfit recommendation.');
-      })
-      .finally(() => {
-        if (!cancelled) setEventOutfitLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [
-    showEventModal,
-    selectedEvent?.id,
-    selectedEvent?.style,
-    selectedEventTodaySummary ? JSON.stringify(selectedEventTodaySummary) : 'no-summary',
-  ]);
-
-
+  // Use the SAME query key as Dashboard so both screens share the cache
+  const eventOutfitQuery = useQuery({
+    queryKey: [
+      'event-outfit',
+      selectedEvent?.id || 'no-event',
+      selectedEvent?.style || 'Casual',
+      selectedEventTodaySummary
+        ? JSON.stringify({
+            a: Math.round(selectedEventTodaySummary.avgTemp),
+            i: Math.round(selectedEventTodaySummary.minTemp),
+            x: Math.round(selectedEventTodaySummary.maxTemp),
+            r: selectedEventTodaySummary.willRain,
+            m: selectedEventTodaySummary.mainCondition,
+          })
+        : 'no-summary',
+    ],
+    enabled: Boolean(showEventModal && selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
+    queryFn: async () => {
+      const recs = await fetchRecommendedOutfits(
+        selectedEventTodaySummary!,
+        selectedEvent!.style!,
+        selectedEvent!.id
+      );
+      return recs[0] ?? null;
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
     const tick = async () => {
@@ -362,15 +390,25 @@ export default function CalendarPage() {
       notify('error', 'Please fill in all required fields.');
       return;
     }
+
+    // Validate & standardize the city (matches Dashboard behavior)
+    const standardized = src.location ? await validateAndStandardizeLocation(src.location) : '';
+    if (src.location && !standardized) {
+      if (kind === 'event') setLocError('Please select a real city (use the suggestions).');
+      notify('error', 'Please select a valid city from the suggestions.');
+      return;
+    }
+
     try {
       const created = await createEvent({
         name: kind === 'trip' ? 'Trip' : (src.name ?? null),
-        location: src.location,
+        location: standardized || '',
         style: src.style,
         dateFrom: new Date(src.dateFrom).toISOString(),
         dateTo: new Date(src.dateTo).toISOString(),
         isTrip: kind === 'trip',
       });
+
       const mapped = mapEventDto(created);
       setEvents((e) => [...e, mapped]);
       if (kind === 'event') {
@@ -466,6 +504,8 @@ export default function CalendarPage() {
 
       // Rebuild weather (for the possibly new city)
       await rebuildEventWeatherAndRecs(mapped);
+      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+
 
       setIsEditing(false);
       notify('success', 'Event updated');
@@ -1061,7 +1101,37 @@ export default function CalendarPage() {
             <h2 className="text-2xl mb-4 font-livvic">Create new event</h2>
             <div className="space-y-3">
               <input className="w-full p-2 border rounded" placeholder="Event name" value={newEvent.name} onChange={e => setNewEvent({ ...newEvent, name: e.target.value })} />
-              <input className="w-full p-2 border rounded" placeholder="Location" value={newEvent.location} onChange={e => setNewEvent({ ...newEvent, location: e.target.value })} />
+              <div>
+                <input
+                  className="w-full p-2 border rounded"
+                  placeholder="Location"
+                  value={newEvent.location}
+                  onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                  autoComplete="off"
+                />
+                {locLoading && <div className="text-xs text-gray-500 mt-1">Searching cities…</div>}
+                {locSuggest.length > 0 && (
+                  <ul className="mt-1 border rounded-md max-h-40 overflow-auto bg-white">
+                    {locSuggest.map((opt, i) => (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                          onClick={() => {
+                            setNewEvent(prev => ({ ...prev, location: opt.city })); // save only city
+                            setLocSuggest([]);
+                            setLocError(null);
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {locError && <p className="text-sm text-red-500 mt-1">{locError}</p>}
+              </div>
+
               <input type="datetime-local" className="w-full p-2 border rounded" value={newEvent.dateFrom} onChange={e => setNewEvent({ ...newEvent, dateFrom: e.target.value })} />
               <input type="datetime-local" className="w-full p-2 border rounded" value={newEvent.dateTo} onChange={e => setNewEvent({ ...newEvent, dateTo: e.target.value })} />
               <select className="w-full p-2 border rounded" value={newEvent.style} onChange={e => setNewEvent({ ...newEvent, style: e.target.value as Style })}>
@@ -1177,24 +1247,24 @@ export default function CalendarPage() {
                     </div>
                   </div>
                 )}
-                {/* Recommended Outfit (like the dashboard) */}
-                  <div className="mt-4">
-                    <h3 className="font-medium mb-2">Recommended Outfit</h3>
-                    {eventOutfitLoading && <p className="text-sm text-gray-500">Loading outfit…</p>}
-                    {eventOutfitError && <p className="text-sm text-red-500">{eventOutfitError}</p>}
-                    {eventOutfit && (
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {eventOutfit.outfitItems.map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={normalizeUrl(item.imageUrl) || ''}
-                            alt={item.layerCategory}
-                            className="w-16 h-16 object-contain rounded"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {/* Recommended Outfit (shared cache with Dashboard) */}
+                <div className="mt-4">
+                  <h3 className="font-medium mb-2">Recommended Outfit</h3>
+                  {eventOutfitQuery.isLoading && <p className="text-sm text-gray-500">Loading outfit…</p>}
+                  {eventOutfitQuery.isError && <p className="text-sm text-red-500">Could not load outfit recommendation.</p>}
+                  {eventOutfitQuery.data && (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {eventOutfitQuery.data.outfitItems.map((item: any) => (
+                        <img
+                          key={item.closetItemId}
+                          src={normalizeUrl(item.imageUrl) || ''}
+                          alt={item.layerCategory}
+                          className="w-16 h-16 object-contain rounded"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <div className="mt-6 flex justify-between">
