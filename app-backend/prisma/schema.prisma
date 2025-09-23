@@ -327,3 +327,23 @@ model InspoItem {
   layerCategory   LayerCategory
   sortOrder       Int
 }
+
+model ItemFit {
+  id          String   @id @default(uuid())
+  userId      String
+  itemId      String
+  poseId      String   // e.g., "front_v1"
+  // Basic transform
+  x           Float
+  y           Float
+  scale       Float
+  rotationDeg Float
+  // Optional light warp (0–8 control points, local to the garment sprite)
+  meshJson    Json?
+
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, itemId, poseId])
+  @@index([userId, poseId])
+  @@index([itemId, poseId])
+}

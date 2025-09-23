@@ -8,6 +8,7 @@ import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { fetchAllEvents } from '../services/eventsApi';
 import { getPackingList } from '../services/packingApi';
+import TryOnViewer from "../components/tryon/TryOnViewer";
 
 import EditOutfitModal from "../components/EditOutfitModal";
 import { API_BASE } from '../config';
@@ -107,6 +108,8 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
+
+
 type Item = {
   id: string;
   name: string;
@@ -159,6 +162,8 @@ export default function ClosetPage() {
   const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
+
+  const [showTryOn, setShowTryOn] = useState(false);
 
   // Global popup (Success/Error)
   const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
@@ -859,63 +864,79 @@ export default function ClosetPage() {
                   />
                 </button>
 
-                {/* Outfit Images */}
-                <div className="flex justify-center mb-2">
-                  <div className="space-y-1">
-                    {/* headwear + accessory */}
-                    <div className={`${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
-                      {activeDetailsOutfit.outfitItems
-                        .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                        .map(it => (
-                          <img
-                            key={it.closetItemId}
-                            src={absolutize(it.imageUrl, API_BASE)}
-                            alt=""
-                            className="w-8 h-8 object-contain rounded"
-                          />
-                        ))}
-                    </div>
-                    {/* tops */}
-                    <div className="flex justify-center space-x-1">
-                      {activeDetailsOutfit.outfitItems
-                        .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                        .map(it => (
-                          <img
-                            key={it.closetItemId}
-                            src={absolutize(it.imageUrl, API_BASE)}
-                            alt=""
-                            className="w-16 h-16 object-contain rounded"
-                          />
-                        ))}
-                    </div>
-                    {/* bottoms */}
-                    <div className="flex justify-center space-x-1">
-                      {activeDetailsOutfit.outfitItems
-                        .filter(it => it.layerCategory === 'base_bottom')
-                        .map(it => (
-                          <img
-                            key={it.closetItemId}
-                            src={absolutize(it.imageUrl, API_BASE)}
-                            alt=""
-                            className="w-16 h-16 object-contain rounded"
-                          />
-                        ))}
-                    </div>
-                    {/* footwear */}
-                    <div className="flex justify-center space-x-1">
-                      {activeDetailsOutfit.outfitItems
-                        .filter(it => it.layerCategory === 'footwear')
-                        .map(it => (
-                          <img
-                            key={it.closetItemId}
-                            src={absolutize(it.imageUrl, API_BASE)}
-                            alt=""
-                            className="w-14 h-14 object-contain rounded"
-                          />
-                        ))}
+                {/* Try-On or static thumbnails */}
+                {showTryOn ? (
+                  <div className="mb-2">
+                    <TryOnViewer
+                      mannequinUrl="/mannequins/front_v1.png"
+                      poseId="front_v1"
+                      outfitItems={activeDetailsOutfit!.outfitItems.map(it => ({
+                        closetItemId: it.closetItemId,
+                        // we already render thumbnails using imageUrl below;
+                        // pass imageUrl to the viewer; cdnUrlFor handles absolute/relative
+                        imageUrl: it.imageUrl,
+                        layerCategory: it.layerCategory as any, // matches the union type string
+                      }))}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex justify-center mb-2">
+                    <div className="space-y-1">
+                      {/* headwear + accessory */}
+                      <div className={`${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                        {activeDetailsOutfit.outfitItems
+                          .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
+                              className="w-8 h-8 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* tops */}
+                      <div className="flex justify-center space-x-1">
+                        {activeDetailsOutfit.outfitItems
+                          .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* bottoms */}
+                      <div className="flex justify-center space-x-1">
+                        {activeDetailsOutfit.outfitItems
+                          .filter(it => it.layerCategory === 'base_bottom')
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* footwear */}
+                      <div className="flex justify-center space-x-1">
+                        {activeDetailsOutfit.outfitItems
+                          .filter(it => it.layerCategory === 'footwear')
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
+                              className="w-14 h-14 object-contain rounded"
+                            />
+                          ))}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Outfit Info */}
                 <div className="space-y-2 text-gray-700 text-base mt-2">
@@ -937,6 +958,12 @@ export default function ClosetPage() {
 
                 {/* Actions */}
                 <div className="flex justify-end gap-2 pt-6">
+                  <button
+                    onClick={() => setShowTryOn(s => !s)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+                  >
+                    {showTryOn ? "Hide Try-On" : "Try On"}
+                  </button>
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;

@@ -14,6 +14,7 @@ import inspoRoutes from './modules/inspo/inspo.routes';
 import socialRoutes from './modules/social/social.route';
 import packingRoutes from './modules/packing/packing.route';
 import usersRoutes from './modules/users/users.routes';
+import tryonRoutes from "./modules/tryon/tryon.routes";
 import fs from 'fs';
 
 dotenv.config();
@@ -37,6 +38,7 @@ app.use('/api/inspo', inspoRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/packing', packingRoutes);
 app.use('/api/users', usersRoutes);
+app.use("/api/tryon", tryonRoutes);
 
 // health check
 const healthz: RequestHandler = (_req, res) => {
