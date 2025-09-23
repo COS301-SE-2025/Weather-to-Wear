@@ -38,6 +38,22 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
+// Map style → image in /public/events/*.jpg (e.g. /events/business.jpg)
+function eventImageFor(style?: string) {
+  const slug = (style || 'other').toLowerCase();
+  // put images in public/events/<slug>.jpg
+  return `${slug}.jpg`;
+}
+
+function formatDateOnly(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTimeAmPm(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); // 3:05 PM
+}
+
+
 // put this near the top of HomePage.tsx (or in a utils file)
 const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
 
@@ -977,14 +993,13 @@ export default function HomePage() {
   place-items-center lg:place-items-start
   grid-cols-1 lg:grid-cols-3
   px-0 sm:px-6 lg:px-8
+  -mb-16
 ">
 
           {/* LEFT: Slogan + Hourly Forecast */}
           <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full z-10">
-            <TypingSlogan />
-
             {/* Hourly forecast (8 hours) under the slogan */}
-            <div className="w-full max-w-sm sm:max-w-md mt-0">
+            <div className="w-full max-w-sm sm:max-w-md mt-0 mb-8">
               {loadingWeather ? (
                 <p className="text-center text-sm text-gray-500">Loading hours…</p>
               ) : error && !weather ? (
@@ -995,6 +1010,10 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+
+            <TypingSlogan />
+
+
           </div>
 
 
@@ -1174,56 +1193,87 @@ export default function HomePage() {
 
         </section>
 
+
         {/* Events Section */}
-        <section className="w-full mt-6 px-0 pt-0">
-          <div className="w-full px-0">
-            <div className="flex items-center justify-center mb-4 space-x-4">
-              <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
+        <section className="w-full sm:mt-12 px-0 -mt-32 bg-black">
+          <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+            {/* Header */}
+            <div className="grid grid-cols-3 items-center mb-6">
+              <div /> {/* spacer */}
+              <h2 className="justify-self-center text-center text-white text-3xl sm:text-4xl font-livvic font-semibold tracking-tight">
+                Upcoming Events
+              </h2>
               <button
                 onClick={() => setShowModal(true)}
-                className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+                className="justify-self-end inline-flex items-center justify-center rounded-full border border-[#FFFFFF]/60 text-[#FFFFFF] px-3 py-2 hover:bg-[#FFFFFF]/10 transition"
                 aria-label="Add Event"
               >
                 <Plus className="w-5 h-5" />
               </button>
             </div>
 
+
+            {/* Auto-scrolling carousel */}
             {events.filter(e => e.type !== 'trip').length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-6 overflow-x-auto py-2">
-                {events
-                  .filter(e => e.type !== 'trip')
-                  .map(ev => (
-                    <div
-                      key={ev.id}
-                      className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
-                                 bg-white dark:bg-gray-700 rounded-full shadow-md border
-                                 flex flex-col items-center justify-center text-center p-2
-                                 transition-transform hover:scale-105"
-                      onClick={() => {
-                        setSelectedEvent(ev);
-                        setShowDetailModal(true);
-                      }}
+              <div className="relative overflow-hidden">
+                {(() => {
+                  // sorted by start date (earliest → latest)
+                  const base = events
+                    .filter(e => e.type !== 'trip')
+                    .slice()
+                    .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime());
+
+                  const loop = [...base, ...base]; // duplicate for seamless loop
+                  return (
+                    <motion.div
+                      className="flex gap-6"
+                      animate={{ x: ['0%', '-50%'] }}
+                      transition={{ duration: 60, ease: 'linear', repeat: Infinity }}
                     >
-                      <div className="font-semibold truncate">
-                        {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                        &nbsp;–&nbsp;
-                        {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                      </div>
-                      <div className="mt-1 text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
-                        {ev.style}
-                      </div>
-                    </div>
-                  ))}
+                      {loop.map((ev, idx) => {
+                        const img = eventImageFor(ev.style);
+                        return (
+                          <button
+                            key={`${ev.id}-${idx}`}
+                            onClick={() => { setSelectedEvent(ev); setShowDetailModal(true); }}
+                            className="group text-left min-w-[240px] sm:min-w-[240px] lg:min-w-[280px]"
+                          >
+                            {/* Image */}
+                            <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
+                              <img
+                                src={img} // e.g. "outdoor.jpg"
+                                alt={ev.style || 'event'}
+                                className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
+                              />
+                            </div>
+
+                            {/* Info */}
+                            <div className="mt-3">
+                              <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
+                                {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
+                              </div>
+                              <div className="mt-1 text-gray-300 text-sm sm:text-base space-y-0.5">
+                                <div className="capitalize">{ev.style || '—'}</div>
+                                <div className="truncate">{ev.location || '—'}</div>
+                                <div>{formatDateOnly(ev.dateFrom)}</div>
+                                <div>{formatTimeAmPm(ev.dateFrom)}</div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                    </motion.div>
+                  );
+                })()}
+
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No upcoming events</p>
+              <div className="text-center py-10">
+                <p className="text-gray-400 mb-4">No upcoming events</p>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="bg-[#3F978F] text-white px-4 py-2 rounded-lg hover:bg-[#347e77] transition"
+                  className="px-4 py-2 rounded-full border border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F]/10 transition"
                 >
                   Add Your First Event
                 </button>
@@ -1231,10 +1281,12 @@ export default function HomePage() {
             )}
           </div>
         </section>
+
+
       </main>
 
       {/* Footer banner (full-bleed) */}
-      <div className="relative w-full h-48 mt-8">
+      <div className="relative w-full h-48 mt-0">
         <div
           className="absolute inset-0"
           style={{

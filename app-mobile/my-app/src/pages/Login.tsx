@@ -31,7 +31,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!showLoggedOutToast) return;
-    const t = setTimeout(() => setShowLoggedOutToast(false), 3000);
+    const t = setTimeout(() => setShowLoggedOutToast(false), 1000);
     return () => clearTimeout(t);
   }, [showLoggedOutToast]);
 
@@ -45,7 +45,7 @@ export default function Login() {
       setTimeout(() => {
         setShowToast(false);
         navigate('/dashboard', { replace: true });
-      }, 3000);
+      }, 1000);
     } catch (err: any) {
       alert(err?.message || 'Login failed');
     }
