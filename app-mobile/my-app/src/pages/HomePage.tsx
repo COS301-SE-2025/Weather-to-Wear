@@ -628,13 +628,57 @@ export default function HomePage() {
         ? Math.round(weather.summary.avgTemp)
         : null;
 
+  // ----- HERO week UI helpers -----
+  // rotate dayKeys so the list starts at "today"
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const orderedDays = useMemo(() => {
+    if (!dayKeys.length) return [];
+    const i = Math.max(0, dayKeys.indexOf(todayIso));
+    return [...dayKeys.slice(i), ...dayKeys.slice(0, i)];
+  }, [dayKeys, todayIso]);
+
+  // quick lookup of summaries for each day
+  const daySummaries = useMemo(() => {
+    const map: Record<string, ReturnType<typeof summarizeDay>> = {};
+    for (const d of dayKeys) {
+      map[d] = summarizeDay(weekByDay[d] || []);
+    }
+    return map;
+  }, [dayKeys, weekByDay]);
+
+  // formatter helpers
+  const shortDow = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { weekday: 'short' }); // Mon, Tue…
+
+  const avgFor = (iso: string) =>
+    daySummaries[iso] ? Math.round(daySummaries[iso].avgTemp) : null;
+
+  // change selectedDate and refetch outfits
+  const pickDay = (iso: string) => {
+    setSelectedDate(iso);
+    setCurrentIndex(0);
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  };
+
+  // mobile arrows
+  const stepDay = (dir: -1 | 1) => {
+    if (!orderedDays.length) return;
+    const idx = Math.max(0, orderedDays.indexOf(selectedDate || orderedDays[0]));
+    const next = orderedDays[(idx + (dir === 1 ? 1 : -1) + orderedDays.length) % orderedDays.length];
+    pickDay(next);
+  };
+
+
   return (
     <div
       className="flex flex-col min-h-screen w-full bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden pt-0"
       style={{ paddingTop: 0 }}
     >
-      {/* ===================== HERO (reworked) ===================== */}
-      <header className="relative w-full overflow-hidden pb-8 mb-8">
+
+      {/* ===================== HERO (reworked with week controls) ===================== */}
+
+      <header className="relative w-full overflow-hidden pb-16 sm:pb-20 mb-8">
+
         {/* Background */}
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -646,30 +690,70 @@ export default function HomePage() {
         {/* Content */}
         <div className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4 sm:py-6 lg:py-8">
-            {/* two columns at ALL sizes so left/right are side-by-side on mobile too */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-6 items-center">
-              {/* LEFT: welcome + tag + description + SEARCH */}
-              <div className="text-white">
+            {/* two columns at all sizes so left/right sit side by side on mobile too */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 items-start">
+              {/* LEFT: welcome + tag + description (mobile switcher pinned at bottom) */}
+              <div className="text-white relative pb-12 sm:pb-0">
+                {/* Top content */}
                 <p className="text-[13px] sm:text-xs uppercase tracking-wide opacity-90 mb-2">
                   {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
                 </p>
 
                 <div className="hidden sm:inline-block backdrop-blur-2xl bg-white/10 rounded-2xl p-2 sm:p-2.5 -mb-2 mt-2">
-                  <p className="text-[14px] sm:text-xs font-medium tracking-wide">
-                    Weather Forecast
-                  </p>
+                  <p className="text-[14px] sm:text-xs font-medium tracking-wide">Weather Forecast</p>
                 </div>
 
-                {/* bigger on mobile */}
-                <h1 className="text-4xl sm:text-4xl md:text-6xl font-livvic font-semibold leading-snug mb-3 sm:mb-4">
+                {/* Your weather description; can grow/shrink freely */}
+                <h1 className="text-4xl sm:text-4xl md:text-6xl font-livvic font-semibold leading-snug mb-2 sm:mb-3">
                   {heroDescription || '—'}
                 </h1>
 
-                {/* SEARCH IN HERO (mobile + desktop) */}
+                {/* MOBILE day switcher — pinned to bottom of this block */}
+                {orderedDays.length > 0 && (
+                  <div className="sm:hidden absolute left-0 right-0 bottom-0 flex items-center gap-3 text-white">
+                    {/* left triangle (solid white) */}
+                    <button
+                      type="button"
+                      onClick={() => stepDay(-1)}
+                      aria-label="Previous day"
+                      className="shrink-0 active:scale-95"
+                    >
+                      <svg viewBox="0 0 10 10" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+                        <polygon points="7.5,1 2.5,5 7.5,9" />
+                      </svg>
+                    </button>
 
+                    {/* weekday + temp (same size, no background) */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-medium">
+                        {shortDow(selectedDate || orderedDays[0])}
+                      </span>
+                      <span className="text-base font-medium tabular-nums">
+                        {(() => {
+                          const d = selectedDate || orderedDays[0];
+                          const t = avgFor(d);
+                          return t !== null ? `${t}°C` : '—';
+                        })()}
+                      </span>
+                    </div>
+
+                    {/* right triangle (solid white) */}
+                    <button
+                      type="button"
+                      onClick={() => stepDay(1)}
+                      aria-label="Next day"
+                      className="shrink-0 active:scale-95"
+                    >
+                      <svg viewBox="0 0 10 10" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+                        <polygon points="2.5,1 7.5,5 2.5,9" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* RIGHT: responsive glass card; wraps location; dynamic height; aligned right */}
+
+              {/* RIGHT: location + temp card */}
               <div className="justify-self-end self-center">
                 <div
                   className={[
@@ -735,17 +819,11 @@ export default function HomePage() {
                   </form>
 
                   {/* Location (wraps) */}
-                  <div className="mt-4 flex items-start gap-1 w-full justify-end">
-                    {/* Pin */}
-                    <svg
-                      className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
+                  <div className="flex items-start gap-1 w-full justify-end">
+                    <svg className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C8.686 2 6 4.686 6 8c0 4.333 6 12 6 12s6-7.667 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
                     </svg>
-                    <span className="text-xs sm:text-sm font-medium whitespace-normal break-words leading-snug">
+                    <span className="text-lg sm:text-sm font-medium whitespace-normal break-words leading-snug">
                       {locationLabel || 'Select a city'}
                     </span>
                   </div>
@@ -759,6 +837,37 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+
+        {/* DESKTOP week bar pinned to bottom of hero */}
+        {orderedDays.length > 0 && (
+          <div className="pointer-events-auto hidden sm:block absolute bottom-3 sm:bottom-4 left-0 right-0">
+            <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-7 gap-2">
+                {orderedDays.slice(0, 7).map((iso) => {
+                  const active = iso === (selectedDate || orderedDays[0]);
+                  const avg = avgFor(iso);
+                  return (
+                    <button
+                      key={iso}
+                      onClick={() => pickDay(iso)}
+                      className={[
+                        "flex flex-col items-center justify-center rounded-xl",
+                        " text-white",
+                        "py-2 sm:py-3",
+                        active ? "opacity-100 " : "opacity-60 hover:opacity-85",
+                        "transition"
+                      ].join(" ")}
+                      aria-label={`Select ${shortDow(iso)}`}
+                    >
+                      <span className="text-lg font-medium leading-none">{shortDow(iso)}</span>
+                      <span className="text-sm mt-1 tabular-nums">{avg !== null ? `${avg}°C` : '—'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
 
@@ -778,72 +887,6 @@ export default function HomePage() {
             <TypingSlogan />
 
             {/* Weather Summary (click to change selected day → drives outfits) */}
-            {/* Weather Summary (click to change selected day → drives outfits) */}
-            <div className="w-full max-w-md mt-2">
-              {weekQuery.isLoading ? (
-                <p className="text-center text-sm text-gray-500">Loading week…</p>
-              ) : !week || !week.forecast?.length ? (
-                <p className="text-center text-xs text-gray-500">Can’t fetch the full week right now.</p>
-              ) : (
-                <div className="flex justify-center">
-                  <ul className="space-y-1 w-full max-w-xs">
-                    {dayKeys.map((d) => {
-                      const s = summarizeDay(weekByDay[d]);
-                      const isActive = d === selectedDate;
-
-                      // 👇 Use your icon helper based on the day's main condition
-                      const emoji = iconFor(s?.mainCondition);
-
-                      return (
-                        <li key={d}>
-                          <button
-                            onClick={() => {
-                              setSelectedDate(d);
-                              setCurrentIndex(0);
-                              queryClient.invalidateQueries({ queryKey: ['outfits'] });
-                            }}
-                            className={`w-full grid grid-cols-[3.5rem_1.5rem_1fr] items-center gap-3 p-2 rounded-md transition-opacity
-                  ${isActive ? 'opacity-100' : 'opacity-60 hover:opacity-90'}`}
-                            aria-label={`Select ${new Date(d).toLocaleDateString(undefined, { weekday: 'long' })}`}
-                          >
-                            {/* Day */}
-                            <span className="text-left font-medium">
-                              {new Date(d).toLocaleDateString(undefined, { weekday: 'short' })}
-                            </span>
-
-                            {/* Icon via iconFor (emoji) */}
-                            <span className="flex items-center justify-center text-lg" aria-hidden="true">
-                              {emoji}
-                            </span>
-                            <span className="sr-only">
-                              {s?.mainCondition || 'weather'}
-                            </span>
-
-                            {/* Thin linear min→max temperature bar */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] sm:text-xs tabular-nums text-black dark:text-white">
-                                {Math.round(s.minTemp)}°
-                              </span>
-
-                              <TempRangeBar
-                                min={Math.round(s.minTemp)}
-                                max={Math.round(s.maxTemp)}
-                                weekMin={weekMin}
-                                weekMax={weekMax}
-                              />
-
-                              <span className="text-[11px] sm:text-xs tabular-nums text-black dark:text-white">
-                                {Math.round(s.maxTemp)}°
-                              </span>
-                            </div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
-            </div>
 
           </div>
 
