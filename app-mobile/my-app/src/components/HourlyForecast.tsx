@@ -33,28 +33,40 @@ function IconFor({ description }: { description?: string }) {
 type Hour = { time: string; temperature: number; description: string };
 
 const HourlyForecast: React.FC<{ forecast: Hour[] }> = ({ forecast }) => {
-  const upcoming = forecast.slice(1, 9); // keep your 4-hour slice
+  // pick the next 8 future hours (spills into tomorrow if provided)
+  const now = Date.now();
+  const FUTURE_GRACE_MS = 5 * 60 * 1000; // include "current" hour within ±5min
+
+  const future = forecast
+    .map(h => ({ ...h, dt: toDateFromAPITime(h.time) }))
+    .filter(h => h.dt) // drop invalid dates
+    .filter(h => (h.dt as Date).getTime() >= now - FUTURE_GRACE_MS)
+    .sort((a, b) => (a.dt as Date).getTime() - (b.dt as Date).getTime())
+    .slice(0, 8);
+
+  // fallback: if we somehow don't have enough future data, show what we can
+  const upcoming = future.length > 0 ? future : forecast.slice(0, 8).map(h => ({ ...h, dt: toDateFromAPITime(h.time) }));
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
       {/* blurred background */}
       <div
-        className="absolute inset-0 bg-cover bg-center filter blur-xl scale-110"
-        style={{ backgroundImage: `url(/landing.jpg)` }}
+        className="absolute inset-0 bg-cover bg-center blur-xl scale-110"
+        style={{ backgroundImage: `url(/landing.jpg)` }} // your bg file
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
       <div className="relative z-10 text-white divide-y divide-white/10">
         {upcoming.map((hour, idx) => {
-          const dt = toDateFromAPITime(hour.time);
+          const dt = hour.dt as Date | null;
           const timePart = dt
             ? dt.toLocaleTimeString([], { hour: 'numeric', hour12: true })
             : hour.time;
 
           return (
             <div key={idx} className="flex items-center justify-between px-4 py-3">
-              {/* left: icon + time (top) + description (bottom) */}
+              {/* left: icon + time + description */}
               <div className="flex items-center gap-3 text-left">
                 <IconFor description={hour.description} />
                 <div className="leading-tight">

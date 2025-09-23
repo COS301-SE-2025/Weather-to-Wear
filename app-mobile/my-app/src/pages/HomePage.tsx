@@ -678,12 +678,29 @@ export default function HomePage() {
 
   // ----- HERO week UI helpers -----
   // rotate dayKeys so the list starts at "today"
+
   const todayIso = new Date().toISOString().slice(0, 10);
+
   const orderedDays = useMemo(() => {
     if (!dayKeys.length) return [];
     const i = Math.max(0, dayKeys.indexOf(todayIso));
     return [...dayKeys.slice(i), ...dayKeys.slice(0, i)];
   }, [dayKeys, todayIso]);
+
+
+
+  const orderedIdx = Math.max(0, orderedDays.indexOf(selectedDate || todayIso));
+  const nextDayIso = orderedDays[(orderedIdx + 1) % orderedDays.length];
+
+  const hoursForHourlyComponent =
+    selectedDate === todayIso
+      ? [
+        ...selectedDayHoursRaw,                     // today from now (you already filter past)
+        ...(weekByDay[nextDayIso] || []),           // add tomorrow’s hours
+      ]
+      : selectedDayHoursRaw;
+
+
 
   // quick lookup of summaries for each day
   const daySummaries = useMemo(() => {
@@ -938,20 +955,14 @@ export default function HomePage() {
             <TypingSlogan />
 
             {/* Hourly forecast (8 hours) under the slogan */}
-            <div className="w-full max-w-sm sm:max-w-md mt-2">
+            <div className="w-full max-w-sm sm:max-w-md mt-0">
               {loadingWeather ? (
                 <p className="text-center text-sm text-gray-500">Loading hours…</p>
               ) : error && !weather ? (
                 <p className="text-red-500 text-center">{error}</p>
               ) : (
                 <div className="text-center">
-                  <HourlyForecast
-                    forecast={
-                      selectedDayHoursForDisplay.length
-                        ? selectedDayHoursForDisplay
-                        : weather?.forecast?.slice(0, 8) || []
-                    }
-                  />
+                  <HourlyForecast forecast={hoursForHourlyComponent} />
                 </div>
               )}
             </div>
@@ -1007,7 +1018,7 @@ export default function HomePage() {
                             className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
                             initial={false}
                             animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity:1 }}
+                            whileHover={{ scale: 0.84, opacity: 1 }}
                             transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
 
                             <OutfitImagesCard outfit={outfits[prevIndex]} />
