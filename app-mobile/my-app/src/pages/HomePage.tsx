@@ -993,7 +993,8 @@ export default function HomePage() {
   place-items-center lg:place-items-start
   grid-cols-1 lg:grid-cols-3
   px-0 sm:px-6 lg:px-8
-  -mb-16
+  md:-mb-16
+  
 ">
 
           {/* LEFT: Slogan + Hourly Forecast */}
@@ -1011,7 +1012,10 @@ export default function HomePage() {
               )}
             </div>
 
-            <TypingSlogan />
+            {/* Hide slogan on mobile; show from sm+ */}
+            <div className="hidden sm:block">
+              <TypingSlogan />
+            </div>
 
 
           </div>
@@ -1195,7 +1199,7 @@ export default function HomePage() {
 
 
         {/* Events Section */}
-        <section className="w-full sm:mt-12 px-0 -mt-32 bg-black">
+        <section className="w-full sm:mt-12 px-0  bg-black">
           <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
             {/* Header */}
             <div className="grid grid-cols-3 items-center mb-6">
