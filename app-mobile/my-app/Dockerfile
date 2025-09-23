@@ -29,6 +29,9 @@ RUN npm cache clean --force && \
     rm -rf node_modules package-lock.json && \
     npm install --legacy-peer-deps --no-optional
 
+RUN npm install ajv@^8.0.0 ajv-keywords@^5.0.0 --no-save && \
+    npm list ajv
+
 # Copy rest of the code
 COPY . .
 
