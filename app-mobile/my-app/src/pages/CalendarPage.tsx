@@ -1,10 +1,14 @@
-import React, { useEffect, useState, ReactElement, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, ReactElement, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, CalendarPlus, Luggage } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 import { fetchAllItems } from '../services/closetApi';
 import { fetchAllOutfits } from '../services/outfitApi';
 import { getPackingList, createPackingList, updatePackingList, deletePackingList } from '../services/packingApi';
 import { API_BASE } from '../config';
+import axios from 'axios';
+import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
+import { fetchRecommendedOutfits, type RecommendedOutfit } from '../services/outfitApi';
+
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
@@ -77,6 +81,33 @@ function isTripEvent(ev: Partial<Event>) {
   return t === 'trip' || ev.isTrip === true || /(^|\s)trip(\s|$)/i.test(ev.name || '');
 }
 
+function toLocalDatetimeInputValue(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// --- Open-Meteo geocoder (for city suggestions/validation) ---
+async function geocodeCity(query: string, count = 5): Promise<Array<{ label: string; city: string }>> {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=${count}&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const results = (data?.results || []) as Array<any>;
+  return results.map(r => ({
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(', '), // what we show
+    city: r.name as string,                                          // what we save
+  }));
+}
+
+async function validateAndStandardizeLocation(raw: string): Promise<string | null> {
+  const q = (raw || '').trim();
+  if (!q) return null;
+  const matches = await geocodeCity(q, 1);
+  return matches[0]?.city ?? null; // canonical city
+}
+
+
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
@@ -96,6 +127,15 @@ export default function CalendarPage() {
     dateTo: '',
     style: 'Casual' as Style,
   });
+  // Edit-location autocomplete state
+  const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
+  const [locErrorE, setLocErrorE] = useState<string | null>(null);
+  const [locLoadingE, setLocLoadingE] = useState(false);
+
+  // Recommended outfit (for selected event)
+  const [eventOutfit, setEventOutfit] = useState<RecommendedOutfit | null>(null);
+  const [eventOutfitLoading, setEventOutfitLoading] = useState(false);
+  const [eventOutfitError, setEventOutfitError] = useState<string | null>(null);
   const [showDayList, setShowDayList] = useState<{ open: boolean; date: Date | null }>({ open: false, date: null });
   const [showPackingModal, setShowPackingModal] = useState(false);
   const [packItems, setPackItems] = useState<{ closetItemId: string; name: string; imageUrl?: string | null; checked?: boolean; _rowId?: string }[]>([]);
@@ -217,11 +257,64 @@ export default function CalendarPage() {
       id: selectedEvent.id,
       name: selectedEvent.name,
       location: selectedEvent.location,
-      dateFrom: selectedEvent.dateFrom.slice(0, 16),
-      dateTo: selectedEvent.dateTo.slice(0, 16),
+      dateFrom: toLocalDatetimeInputValue(selectedEvent.dateFrom),
+      dateTo: toLocalDatetimeInputValue(selectedEvent.dateTo),
       style: selectedEvent.style || 'Casual'
     });
   }, [selectedEvent]);
+
+  // Day-1 summary from the event's weather (enables outfit recs)
+  const selectedEventTodaySummary = useMemo(() => {
+    if (!selectedEvent?.weather) return undefined;
+    try {
+      const days: { date: string; summary: any }[] = JSON.parse(selectedEvent.weather) || [];
+      const s = days[0]?.summary;
+      return s
+        ? {
+            avgTemp: s.avgTemp,
+            minTemp: s.minTemp,
+            maxTemp: s.maxTemp,
+            willRain: s.willRain,
+            mainCondition: s.mainCondition,
+          }
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [selectedEvent?.weather]);
+
+  // Fetch a recommended outfit whenever the modal opens and we have a summary
+  useEffect(() => {
+    if (!showEventModal || !selectedEvent?.id || !selectedEvent?.style || !selectedEventTodaySummary) {
+      setEventOutfit(null);
+      return;
+    }
+    let cancelled = false;
+    setEventOutfitLoading(true);
+    setEventOutfitError(null);
+
+    fetchRecommendedOutfits(selectedEventTodaySummary, selectedEvent.style, selectedEvent.id)
+      .then(recs => {
+        if (cancelled) return;
+        setEventOutfit(recs[0] ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setEventOutfitError('Could not load outfit recommendation.');
+      })
+      .finally(() => {
+        if (!cancelled) setEventOutfitLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [
+    showEventModal,
+    selectedEvent?.id,
+    selectedEvent?.style,
+    selectedEventTodaySummary ? JSON.stringify(selectedEventTodaySummary) : 'no-summary',
+  ]);
+
+
 
   useEffect(() => {
     const tick = async () => {
@@ -239,6 +332,25 @@ export default function CalendarPage() {
     tick();
     return () => clearInterval(id);
   }, [events]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const q = editEventData.location.trim();
+    setLocErrorE(null);
+    if (!q || q.length < 2) {
+      setLocSuggestE([]);
+      return;
+    }
+    let cancelled = false;
+    setLocLoadingE(true);
+    const t = setTimeout(async () => {
+      const opts = await geocodeCity(q, 6);
+      if (!cancelled) setLocSuggestE(opts);
+      setLocLoadingE(false);
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [isEditing, editEventData.location]);
+
 
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
@@ -275,29 +387,95 @@ export default function CalendarPage() {
     }
   }
 
+  // === Rebuild weather + summaries after an edit (city/date/style) ===
+  async function rebuildEventWeatherAndRecs(ev: Event) {
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
+        params: { location: ev.location, t: Date.now() },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      const hours: H[] = (data?.forecast || []) as H[];
+      const byDay = groupByDay(hours);
+
+      const days: Array<{ date: string; summary: ReturnType<typeof summarizeDay> | null }> = [];
+      const start = new Date(ev.dateFrom);
+      const end = new Date(ev.dateTo);
+      const seen = new Set<string>();
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().slice(0, 10);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dayHours = byDay[key] || [];
+        days.push({ date: key, summary: dayHours.length ? summarizeDay(dayHours) : null });
+      }
+
+      const withWeather: Event = {
+        ...ev,
+        weather: JSON.stringify(
+          days.map(d => ({
+            date: d.date,
+            summary: d.summary && {
+              avgTemp: d.summary.avgTemp,
+              minTemp: d.summary.minTemp,
+              maxTemp: d.summary.maxTemp,
+              willRain: d.summary.willRain,
+              mainCondition: d.summary.mainCondition,
+            },
+          }))
+        ),
+      };
+
+      setEvents(list => list.map(e => (e.id === withWeather.id ? withWeather : e)));
+      setSelectedEvent(withWeather);
+      return withWeather;
+    } catch (e) {
+      console.error('Failed to rebuild weather after edit', e);
+      return ev;
+    }
+  }
+
   const handleUpdateEvent = async () => {
     if (!selectedEvent) return;
-    const edit = editEventData;
+
     try {
-      const updated = await updateEvent({
+      setLocErrorE(null);
+      const standardized = await validateAndStandardizeLocation(editEventData.location);
+      if (!standardized) {
+        setLocErrorE('Please select a real city (use the suggestions).');
+        return;
+      }
+
+      const payload = {
         id: selectedEvent.id,
-        name: edit.name,
-        location: edit.location,
-        style: edit.style,
-        dateFrom: new Date(edit.dateFrom).toISOString(),
-        dateTo: new Date(edit.dateTo).toISOString(),
+        name: editEventData.name || selectedEvent.name,
+        location: standardized, // save canonical city
+        style: editEventData.style || selectedEvent.style,
+        dateFrom: new Date(
+          editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent.dateFrom)
+        ).toISOString(),
+        dateTo: new Date(
+          editEventData.dateTo || toLocalDatetimeInputValue(selectedEvent.dateTo)
+        ).toISOString(),
         isTrip: selectedEvent.isTrip ?? false,
-      });
+      };
+
+      const updated = await updateEvent(payload as any);
       const mapped = mapEventDto(updated);
-      setEvents((list) => list.map((e) => (e.id === mapped.id ? mapped : e)));
-      setSelectedEvent(mapped);
+
+      // Rebuild weather (for the possibly new city)
+      await rebuildEventWeatherAndRecs(mapped);
+
       setIsEditing(false);
+      notify('success', 'Event updated');
       window.dispatchEvent(new Event('eventUpdated'));
-    } catch (e) {
-      console.error('update failed', e);
-      notify('error', 'Failed to update event');
+    } catch (e: any) {
+      console.error('update failed', e?.response?.data || e);
+      notify('error', e?.response?.data?.message || 'Failed to update event');
     }
   };
+
 
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
@@ -934,8 +1112,38 @@ export default function CalendarPage() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Location</label>
-                  <input className="w-full p-2 border rounded" value={editEventData.location} onChange={e => setEditEventData({ ...editEventData, location: e.target.value })} />
+                  <input
+                    className="w-full p-2 border rounded"
+                    value={editEventData.location}
+                    onChange={e => setEditEventData(d => ({ ...d, location: e.target.value }))}
+                    placeholder="City (pick from suggestions)"
+                  />
+
+                  {locLoadingE && <div className="text-xs text-gray-500 mt-1">Searching cities…</div>}
+
+                  {locSuggestE.length > 0 && (
+                    <ul className="mt-1 border rounded-md max-h-40 overflow-auto bg-white">
+                      {locSuggestE.map((opt, i) => (
+                        <li key={i}>
+                          <button
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                            onClick={() => {
+                              setEditEventData(d => ({ ...d, location: opt.city })); // save only city
+                              setLocSuggestE([]);
+                              setLocErrorE(null);
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {locErrorE && <p className="text-sm text-red-500 mt-1">{locErrorE}</p>}
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">Start</label>
                   <input type="datetime-local" className="w-full p-2 border rounded" value={editEventData.dateFrom} onChange={e => setEditEventData({ ...editEventData, dateFrom: e.target.value })} />
@@ -969,6 +1177,24 @@ export default function CalendarPage() {
                     </div>
                   </div>
                 )}
+                {/* Recommended Outfit (like the dashboard) */}
+                  <div className="mt-4">
+                    <h3 className="font-medium mb-2">Recommended Outfit</h3>
+                    {eventOutfitLoading && <p className="text-sm text-gray-500">Loading outfit…</p>}
+                    {eventOutfitError && <p className="text-sm text-red-500">{eventOutfitError}</p>}
+                    {eventOutfit && (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {eventOutfit.outfitItems.map(item => (
+                          <img
+                            key={item.closetItemId}
+                            src={normalizeUrl(item.imageUrl) || ''}
+                            alt={item.layerCategory}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
               </div>
             )}
             <div className="mt-6 flex justify-between">
