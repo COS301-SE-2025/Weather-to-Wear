@@ -309,8 +309,35 @@ export default function HomePage() {
     location: '',
     dateFrom: '',
     dateTo: '',
-    style: '',
+    style: 'Casual',
   });
+
+  // --- Edit modal: city autocomplete state ---
+    const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
+    const [locErrorE, setLocErrorE] = useState<string | null>(null);
+    const [locLoadingE, setLocLoadingE] = useState(false);
+
+    // Debounced suggestions for EDIT location
+    useEffect(() => {
+      if (!isEditing) return;
+      const q = editEventData.location.trim();
+      setLocErrorE(null);
+      if (!q || q.length < 2) {
+        setLocSuggestE([]);
+        return;
+      }
+      let cancelled = false;
+      setLocLoadingE(true);
+      const t = setTimeout(async () => {
+        const opts = await geocodeCity(q, 6);
+        if (!cancelled) setLocSuggestE(opts);
+        setLocLoadingE(false);
+      }, 350);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
+    }, [isEditing, editEventData.location]);
 
   useEffect(() => {
     if (!selectedEvent) return;
@@ -585,6 +612,79 @@ export default function HomePage() {
     const id = setInterval(tick, 6 * 60 * 60 * 1000);
     return () => clearInterval(id);
   }, [events]);
+
+  // Rebuild weather for a given event (client-side) and pre-warm recommendations.
+  // Then update state and force the detail query to refetch.
+  async function rebuildEventWeatherAndRecs(ev: Event) {
+    try {
+      // 1) Fetch a week of hourly weather for the event's (edited) city
+      const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
+        params: { location: ev.location, t: Date.now() },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      const hours: H[] = (data?.forecast || []) as H[];
+      const byDay = groupByDay(hours);
+
+      // 2) Build day summaries covering the event's date range
+      const days: Array<{ date: string; summary: ReturnType<typeof summarizeDay> | null }> = [];
+      const start = new Date(ev.dateFrom);
+      const end = new Date(ev.dateTo);
+      const seen = new Set<string>();
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().slice(0, 10);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dayHours = byDay[key] || [];
+        days.push({ date: key, summary: dayHours.length ? summarizeDay(dayHours) : null });
+      }
+
+      // 3) Pre-warm server outfit recs for each summarized day
+      for (const item of days) {
+        if (item.summary) {
+          await fetchRecommendedOutfits(
+            {
+              avgTemp: item.summary.avgTemp,
+              minTemp: item.summary.minTemp,
+              maxTemp: item.summary.maxTemp,
+              willRain: item.summary.willRain,
+              mainCondition: item.summary.mainCondition,
+            },
+            ev.style || 'Casual',
+            ev.id
+          );
+        }
+      }
+
+      // 4) Write summaries into the event so eventOutfitQuery becomes enabled
+      const withWeather: Event = {
+        ...ev,
+        weather: JSON.stringify(
+          days.map(d => ({
+            date: d.date,
+            summary: d.summary && {
+              avgTemp: d.summary.avgTemp,
+              minTemp: d.summary.minTemp,
+              maxTemp: d.summary.maxTemp,
+              willRain: d.summary.willRain,
+              mainCondition: d.summary.mainCondition,
+            },
+          }))
+        ),
+      };
+
+      // Update state and force a refetch of the event outfit query
+      setEvents(list => list.map(e => (e.id === withWeather.id ? withWeather : e)));
+      setSelectedEvent(withWeather);
+      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+    } catch (e) {
+      console.error('Failed to rebuild weather/recs after edit', e);
+      // Even if this fails, we still refresh the query key to avoid stale UI
+      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+    }
+  }
+
 
   // ---------- Rating save ----------
   const handleSaveRating = async (rating: number) => {
@@ -1378,9 +1478,32 @@ export default function HomePage() {
       {showDetailModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
-            <button className="absolute top-4 right-4 text-xl" onClick={() => setShowDetailModal(false)}>
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => {
+                if (isEditing) {
+                  // Exit edit mode WITHOUT saving; keep the modal open
+                  setIsEditing(false);
+                  // Reset form to the currently selected event values
+                  if (selectedEvent) {
+                    setEditEventData({
+                      id: selectedEvent.id,
+                      name: selectedEvent.name,
+                      location: selectedEvent.location,
+                      dateFrom: toLocalDatetimeInputValue(selectedEvent.dateFrom),
+                      dateTo: toLocalDatetimeInputValue(selectedEvent.dateTo),
+                      style: selectedEvent.style || 'Casual',
+                    });
+                  }
+                } else {
+                  // Only close the popup when NOT editing
+                  setShowDetailModal(false);
+                }
+              }}
+            >
               ×
             </button>
+
             <h2 className="text-2xl mb-4 font-livvic">
               {selectedEvent.name.charAt(0).toUpperCase() + selectedEvent.name.slice(1).toLowerCase()}
             </h2>
@@ -1536,35 +1659,57 @@ export default function HomePage() {
               {isEditing ? (
                 <>
                   <button onClick={async () => {
-                      try {
-                        // Validate the location (just like in Create)
-                        setLocErrorE(null);
-                        const standardized = await validateAndStandardizeLocation(editEventData.location);
-                        if (!standardized) {
-                          setLocErrorE('Please select a real city (use the suggestions).');
-                          return;
-                        }
-
-                        const updatedDto = await updateEvent({
-                          id: editEventData.id,
-                          name: editEventData.name,
-                          location: standardized, // send only the city
-                          dateFrom: new Date(editEventData.dateFrom).toISOString(),
-                          dateTo: new Date(editEventData.dateTo).toISOString(),
-                          style: editEventData.style as Style,
-                          isTrip: selectedEvent?.isTrip ?? selectedEvent?.type === 'trip',
-                        });
-
-                        const updated = toEvent(updatedDto);
-                        setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
-                        setSelectedEvent(updated);
-                        setIsEditing(false);
-                      } catch (err) {
-                        console.error('update failed', err);
-                        alert('Failed to update event');
+                    try {
+                      // Validate city (same as Create)
+                      setLocErrorE(null);
+                      const standardized = await validateAndStandardizeLocation(editEventData.location);
+                      if (!standardized) {
+                        setLocErrorE('Please select a real city (use the suggestions).');
+                        return;
                       }
-                    }}
 
+                      // Build safe payload
+                      const payload = {
+                        id: editEventData.id || selectedEvent!.id,
+                        name: editEventData.name || selectedEvent!.name,
+                        location: standardized, // city only
+                        dateFrom: new Date(
+                          editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent!.dateFrom)
+                        ).toISOString(),
+                        dateTo: new Date(
+                          editEventData.dateTo || toLocalDatetimeInputValue(selectedEvent!.dateTo)
+                        ).toISOString(),
+                        style: (editEventData.style || selectedEvent!.style || 'Casual') as Style,
+                        isTrip: Boolean(selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip')),
+                      };
+
+                      // inside the "Save" click handler (isEditing branch)
+                      const updatedDto = await updateEvent(payload as any);
+                      let updated = toEvent(updatedDto);
+
+                      // ✅ trust what the user just picked; some APIs echo the old value
+                      updated = { ...updated, location: payload.location };
+
+                      // ✅ reflect immediately in UI (optional but makes it feel instant)
+                      setEvents(list => list.map(e => (e.id === updated.id ? updated : e)));
+                      setSelectedEvent(updated);
+
+                      // ✅ rebuild weather + prewarm using the new city
+                      await rebuildEventWeatherAndRecs(updated);
+
+                      // leave edit mode + refresh outfit query
+                      setIsEditing(false);
+                      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+
+
+                    } catch (err: any) {
+                      console.error('update failed', err?.response?.data || err);
+                      const msg =
+                        err?.response?.data?.message ||
+                        (err?.message ? `Failed to update: ${err.message}` : 'Failed to update event');
+                      alert(msg);
+                    }
+                  }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
                     Save
@@ -1572,9 +1717,24 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  <button onClick={() => setIsEditing(true)} className="px-4 py-2 rounded-full bg-[#3F978F] text-white">
+                  <button
+                    onClick={() => {
+                      if (!selectedEvent) return;
+                      setEditEventData({
+                        id: selectedEvent.id,
+                        name: selectedEvent.name,
+                        location: selectedEvent.location,
+                        dateFrom: toLocalDatetimeInputValue(selectedEvent.dateFrom),
+                        dateTo: toLocalDatetimeInputValue(selectedEvent.dateTo),
+                        style: selectedEvent.style || 'Casual',
+                      });
+                      setIsEditing(true);
+                    }}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
                     Edit
                   </button>
+
                   <button
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
