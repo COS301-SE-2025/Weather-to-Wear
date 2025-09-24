@@ -67,9 +67,22 @@ class InspoController {
       }
 
       const recommendations = await generateInspoOutfits(user.id, req.body);
+      
+      if (recommendations.length === 0) {
+        res.status(404).json({ 
+          error: 'No recommendations available', 
+          message: 'Try liking some items from the social feed or rating your outfits to get better recommendations.' 
+        });
+        return;
+      }
+      
       res.status(200).json(recommendations.map(mapInspoOutfitForClient));
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      console.error('Error generating outfits:', err);
+      res.status(400).json({ 
+        error: 'Failed to generate recommendations',
+        message: 'Try liking some items from the social feed or rating your outfits to get better recommendations.'
+      });
     }
   };
 
@@ -84,9 +97,22 @@ class InspoController {
       }
 
       const inspoOutfits = await getUserInspoOutfits(user.id);
+      
+      if (inspoOutfits.length === 0) {
+        res.status(404).json({ 
+          error: 'No saved inspiration outfits found', 
+          message: 'Try liking some items from the social feed to save them for inspiration.' 
+        });
+        return;
+      }
+      
       res.status(200).json(inspoOutfits.map(mapInspoOutfitForClient));
-    } catch (err) {
-      next(err);
+    } catch (err: any) {
+      console.error('Error getting inspo outfits:', err);
+      res.status(400).json({ 
+        error: 'Failed to retrieve inspiration outfits',
+        message: err.message || 'An unexpected error occurred'
+      });
     }
   };
 
