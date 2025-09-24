@@ -22,3 +22,22 @@ export async function saveItemFit(payload: {
     if (!res.ok) throw new Error("Failed to save fit");
     return res.json();
 }
+
+export async function runTryOnSelf(payload: {
+  useProfilePhoto?: boolean;
+  modelImageUrl?: string;
+  closetItemIds?: string[];
+  mode?: 'performance'|'balanced'|'quality';
+  returnBase64?: boolean;
+  numSamples?: 1|2|3|4;
+  seed?: number;
+}) {
+  return fetchWithAuth('/tryon-self/run', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getTryOnCredits() {
+  return fetchWithAuth('/tryon-self/credits', { method: 'GET' });
+}
