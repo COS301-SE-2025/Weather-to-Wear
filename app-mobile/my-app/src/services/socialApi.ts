@@ -123,11 +123,51 @@ export async function followUser(userId: string) {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to follow user");
   }
 
-  return response.json(); // Returns { follow: {...} }
+  return response.json(); // Returns { follow: {...} } with status 'pending' or 'accepted'
+}
+
+export async function getNotifications() {
+  const response = await fetchWithAuth(`${API_URL}/notifications`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to get notifications");
+  }
+
+  return response.json(); 
+  // Returns { notifications: { followRequests: [...], likes: [...], comments: [...] } }
+}
+
+export async function acceptFollowRequest(requestId: string) {
+  const response = await fetchWithAuth(`${API_URL}/follow/accept/${requestId}`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to accept follow request");
+  }
+
+  return response.json(); // Returns { follow: {...} } with updated status 'accepted'
+}
+
+export async function rejectFollowRequest(requestId: string) {
+  const response = await fetchWithAuth(`${API_URL}/follow/reject/${requestId}`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to reject follow request");
+  }
+
+  return response.json(); // Returns { follow: {...} } with status 'rejected'
 }
 
 export async function unfollowUser(userId: string) {
