@@ -1,6 +1,9 @@
+// src/components/tryon/TryOnCanvas.tsx
 import React, { useEffect, useRef, useState } from "react";
 import * as PIXI from "pixi.js";
 import { FRONT_V1, anchorForLayer } from "./anchors";
+
+type Node2D = PIXI.Container | PIXI.Sprite;
 
 export type TryOnItem = {
     id: string;
@@ -21,7 +24,7 @@ export type TryOnItem = {
         rotationDeg: number;
         mesh?: { x: number; y: number }[];
     };
-    z?: number;
+    z?: number; // optional override
 };
 
 export type FitTransform = {
@@ -49,8 +52,8 @@ export default function TryOnCanvas({
 }) {
     const hostRef = useRef<HTMLDivElement>(null);
 
-    const DEBUG_ANCHORS = false;
-    const DEBUG_GRID = false;
+    const DEBUG_ANCHORS = true;
+    const DEBUG_GRID = true;
 
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -64,7 +67,7 @@ export default function TryOnCanvas({
         let manW = 0;
         let manH = 0;
 
-        const nodeById = new Map<string, PIXI.Sprite>();
+        const nodeById = new Map<string, Node2D>();
         const spriteInfo = new Map<
             string,
             {
@@ -77,7 +80,11 @@ export default function TryOnCanvas({
             }
         >();
 
-        const overlay = new PIXI.Container();   // occluder
+        // Local, unsaved edits (prevents “snap back” if parent re-renders)
+        // Key format: normal items => itemId; shoes => `${itemId}|L` / `${itemId}|R`
+        const localFits = new Map<string, FitTransform>();
+
+        const overlay = new PIXI.Container(); // occluder (forearms as-is)
         const gizmoLayer = new PIXI.Container(); // selection handles
 
         const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -88,6 +95,9 @@ export default function TryOnCanvas({
             return { nx: x / Math.max(1, manW), ny: y / Math.max(1, manH) };
         };
 
+        const getEffectiveFit = (id: string, fallback?: FitTransform) =>
+            localFits.get(id) ?? fallback;
+
         // forward declaration so we can start drag from initial click
         let drawGizmo: (forcedId?: string, startDragEv?: PIXI.FederatedPointerEvent) => void;
 
@@ -96,6 +106,8 @@ export default function TryOnCanvas({
             const stage = app.stage;
             const renderer = app.renderer;
             const pose = FRONT_V1;
+            const zFor = (layer: keyof typeof FRONT_V1.layerDefaults) =>
+                FRONT_V1.layerDefaults[layer]?.z ?? 500;
 
             const toStageX = (nx: number) => mannequin!.x + (nx - 0.5) * manW;
             const toStageY = (ny: number) => mannequin!.y + (ny - 0.5) * manH;
@@ -106,14 +118,14 @@ export default function TryOnCanvas({
                 ph: b.h * manH,
             });
 
-            // garments (non-footwear)
+            // ===== garments (non-footwear)
             items
                 .filter((it) => !!it.url && it.layerCategory !== "footwear")
                 .forEach((it) => {
                     const tex = PIXI.Texture.from(it.url);
                     if (!tex || tex.width === 0 || tex.height === 0) return;
 
-                    let node = nodeById.get(it.id);
+                    let node = nodeById.get(it.id) as PIXI.Sprite | undefined;
                     if (!node) {
                         node = new PIXI.Sprite(tex);
                         node.anchor.set(0.5);
@@ -128,30 +140,37 @@ export default function TryOnCanvas({
                             setSelectedId(it.id);
                             drawGizmo(it.id, e); // start dragging from this first click
                         });
+                    } else {
+                        // update texture if URL changed
+                        if ((node.texture as any)?.baseTexture?.resource?.url !== it.url) {
+                            node.texture = PIXI.Texture.from(it.url);
+                        }
                     }
 
-                    // keep interactivity synced to `editable`
+                    // interactivity + layering
                     node.eventMode = editable ? "static" : "none";
                     node.cursor = editable ? "grab" : "default";
-                    node.zIndex = it.z ?? (it.layerCategory === "headwear" ? 650 : 500);
+                    node.zIndex = zFor(it.layerCategory);
 
+                    // position/scale/rot
                     const anchor = anchorForLayer(it.layerCategory, pose);
                     const { cx, cy, pw, ph } = anchor
                         ? boxToStage(anchor)
                         : { cx: renderer.width / 2, cy: renderer.height / 2, pw: manW * 0.3, ph: manH * 0.3 };
 
-                    const baseScale = Math.min(pw / tex.width, ph / tex.height);
+                    const baseScale = Math.min(pw / node.texture.width, ph / node.texture.height);
 
-                    const fit = it.fit;
+                    // apply saved fit (db) OR local override if present
+                    const effFit = getEffectiveFit(it.id, it.fit);
                     const norm =
-                        fit && typeof fit.x === "number" && typeof fit.y === "number"
-                            ? ensureNormalized(fit.x, fit.y)
+                        effFit && typeof effFit.x === "number" && typeof effFit.y === "number"
+                            ? ensureNormalized(effFit.x, effFit.y)
                             : { nx: 0, ny: 0 };
 
                     const offsetX = norm.nx * manW;
                     const offsetY = norm.ny * manH;
-                    const scl = (fit?.scale ?? 1) * baseScale;
-                    const rot = rad(fit?.rotationDeg ?? 0);
+                    const scl = (effFit?.scale ?? 1) * baseScale;
+                    const rot = rad(effFit?.rotationDeg ?? 0);
 
                     node.x = cx + offsetX;
                     node.y = cy + offsetY;
@@ -168,49 +187,79 @@ export default function TryOnCanvas({
                     });
                 });
 
-            // footwear mirrored (view-only here)
+            // ===== footwear: independent L/R shoes (local fit per shoe)
             items
                 .filter((i) => i.layerCategory === "footwear" && !!i.url)
                 .forEach((it) => {
                     const tex = PIXI.Texture.from(it.url);
                     if (!tex || tex.width === 0 || tex.height === 0) return;
+
                     const lb = boxToStage(pose.boxes.LEFT_SHOE_BOX);
                     const rb = boxToStage(pose.boxes.RIGHT_SHOE_BOX);
 
-                    const place = (b: typeof lb, mirrorX: boolean, key: string) => {
-                        let spr = nodeById.get(key) as PIXI.Sprite | undefined;
+                    const leftId = `${it.id}|L`;
+                    const rightId = `${it.id}|R`;
+
+                    const ensureShoe = (id: string, box: typeof lb, mirrored = false) => {
+                        let spr = nodeById.get(id) as PIXI.Sprite | undefined;
                         if (!spr) {
                             spr = new PIXI.Sprite(tex);
                             spr.anchor.set(0.5);
-                            spr.name = key;
-                            stage.addChild(spr);
-                            nodeById.set(key, spr);
-                        }
-                        spr.eventMode = "none";
-                        spr.cursor = "default";
-                        spr.zIndex = it.z ?? 600;
+                            spr.name = id;
+                            spr.eventMode = editable ? "static" : "none";
+                            spr.cursor = editable ? "grab" : "default";
+                            spr.zIndex = zFor("footwear");
+                            if (mirrored) spr.scale.x = -1; // mirror horizontally
+                            app!.stage.addChild(spr);
+                            nodeById.set(id, spr);
 
-                        spr.x = b.cx;
-                        spr.y = b.cy;
-                        const base = Math.min(b.pw / tex.width, b.ph / tex.height);
-                        let s = base;
-                        let rot = 0;
-                        if (it.fit) {
-                            const norm = ensureNormalized(it.fit.x ?? 0, it.fit.y ?? 0);
-                            spr.x += norm.nx * manW;
-                            spr.y += norm.ny * manH;
-                            s *= it.fit.scale ?? 1;
-                            rot = rad(it.fit.rotationDeg ?? 0);
+                            // selection + start drag immediately
+                            spr.on("pointerdown", (e: PIXI.FederatedPointerEvent) => {
+                                if (!editable) return;
+                                e.stopPropagation();
+                                setSelectedId(id);
+                                drawGizmo(id, e);
+                            });
+                        } else {
+                            spr.eventMode = editable ? "static" : "none";
+                            spr.cursor = editable ? "grab" : "default";
+                            spr.zIndex = zFor("footwear");
                         }
-                        spr.scale.set(mirrorX ? -s : s, s);
-                        spr.rotation = rot;
+
+                        // base placement at its box center
+                        const base = Math.min(box.pw / tex.width, box.ph / tex.height);
+                        const baseSign = mirrored ? -1 : 1;
+                        const effFit = getEffectiveFit(id, it.fit); // local shoe fit takes precedence
+                        const norm =
+                            effFit && typeof effFit.x === "number" && typeof effFit.y === "number"
+                                ? ensureNormalized(effFit.x, effFit.y)
+                                : { nx: 0, ny: 0 };
+
+                        spr.x = box.cx + norm.nx * manW;
+                        spr.y = box.cy + norm.ny * manH;
+
+                        const newS = (effFit?.scale ?? 1) * base;
+                        spr.scale.set(baseSign * newS, newS);
+                        spr.rotation = rad(effFit?.rotationDeg ?? 0);
+
+                        // store per-shoe info for commit()
+                        spriteInfo.set(id, {
+                            baseScale: base,
+                            anchorCenter: { x: box.cx, y: box.cy },
+                            stageX: spr.x,
+                            stageY: spr.y,
+                            stageScale: newS,
+                            stageRotation: spr.rotation,
+                        });
+
+                        return spr;
                     };
 
-                    place(lb, false, `${it.id}|L`);
-                    place(rb, true, `${it.id}|R`);
+                    ensureShoe(leftId, lb, /*mirrored*/ false);
+                    ensureShoe(rightId, rb, /*mirrored*/ true);
                 });
 
-            // occlusion overlay
+            // ===== occlusion (forearms) — unchanged
             if (!overlay.parent) {
                 overlay.zIndex = 550;
                 stage.addChild(overlay);
@@ -229,8 +278,11 @@ export default function TryOnCanvas({
                 }
             } catch { }
 
-            // refresh gizmo if already selected
+            // keep gizmo on current selection
             drawGizmo(selectedId ?? undefined, undefined);
+
+            // final order
+            app.stage.sortChildren();
         };
 
         drawGizmo = (forcedId?: string, startDragEv?: PIXI.FederatedPointerEvent) => {
@@ -241,7 +293,7 @@ export default function TryOnCanvas({
             const spr = id ? nodeById.get(id) : null;
 
             gizmoLayer.removeChildren();
-            // rebind stage listeners ONLY when (re)drawing the gizmo (i.e., on select/layout)
+            // rebind stage listeners ONLY when (re)drawing the gizmo
             stage.removeAllListeners("pointerup");
             stage.removeAllListeners("pointerupoutside");
             stage.removeAllListeners("pointermove");
@@ -249,97 +301,123 @@ export default function TryOnCanvas({
             if (!editable || !spr || !id) return;
 
             // --- visuals (bbox + handles) ---
-            const g = new PIXI.Graphics();
-            g.zIndex = 10050;
-            const rotHandle = new PIXI.Graphics();
-            rotHandle.zIndex = 10051;
-            const sclHandle = new PIXI.Graphics();
-            sclHandle.zIndex = 10051;
+            const bboxG = new PIXI.Graphics();
+            bboxG.zIndex = 10050;
+
+            const HANDLE_PX = 16;
+
+            // Visual icons
+            const rotIcon = PIXI.Sprite.from("/ui/tryon/handle-rotate.svg");
+            rotIcon.anchor.set(0.5);
+            rotIcon.width = HANDLE_PX;
+            rotIcon.height = HANDLE_PX;
+            rotIcon.zIndex = 10052;
+
+            rotIcon.eventMode = "none";
+
+            const sclIcon = PIXI.Sprite.from("/ui/tryon/handle-scale.svg");
+            sclIcon.anchor.set(0.5);
+            sclIcon.width = HANDLE_PX;
+            sclIcon.height = HANDLE_PX;
+            sclIcon.zIndex = 10052;
+
+            sclIcon.eventMode = "none";
+
+            // Invisible hit targets (robust pointer capture)
+            const rotHit = new PIXI.Graphics();
+            rotHit.zIndex = 10053;
+            rotHit.eventMode = "static";
+            rotHit.cursor = "grab";
+            rotHit.alpha = 0.001; // invisible but pickable
+
+            const sclHit = new PIXI.Graphics();
+            sclHit.zIndex = 10053;
+            sclHit.eventMode = "static";
+            sclHit.cursor = "nwse-resize";
+            sclHit.alpha = 0.001;
 
             const updateGizmoVisuals = () => {
+                const b = (spr as any).getBounds();
+
                 // bbox
-                g.clear();
-                g.setStrokeStyle({ width: 2, color: 0x00c2ff, alpha: 0.95 });
-                const cornersLocal = [
-                    new PIXI.Point(-spr.width / 2, -spr.height / 2),
-                    new PIXI.Point(spr.width / 2, -spr.height / 2),
-                    new PIXI.Point(spr.width / 2, spr.height / 2),
-                    new PIXI.Point(-spr.width / 2, spr.height / 2),
-                ];
-                const world = cornersLocal.map((p) => spr.toGlobal(p));
-                g.moveTo(world[0].x, world[0].y);
-                for (let i = 1; i < world.length; i++) g.lineTo(world[i].x, world[i].y);
-                g.closePath();
-                g.stroke();
+                bboxG.clear();
+                bboxG.setStrokeStyle({ width: 2, color: 0x00c2ff, alpha: 0.95 });
+                bboxG.rect(b.x, b.y, b.width, b.height);
+                bboxG.stroke();
 
-                // rotate handle above top edge
-                rotHandle.clear();
-                rotHandle.setStrokeStyle({ width: 2, color: 0x00c2ff, alpha: 0.95 });
-                const topWorld = spr.toGlobal(new PIXI.Point(0, -spr.height / 2));
-                rotHandle.circle(topWorld.x, topWorld.y - 24, 9);
-                rotHandle.stroke();
-                rotHandle.eventMode = "static";
-                rotHandle.cursor = "grab";
+                // rotate: top-center
+                const rotX = b.x + b.width / 2;
+                const rotY = b.y - HANDLE_PX * 0.9;
 
-                // scale handle bottom-right
-                sclHandle.clear();
-                sclHandle.setStrokeStyle({ width: 2, color: 0x00c2ff, alpha: 0.95 });
-                const rbWorld = spr.toGlobal(new PIXI.Point(spr.width / 2, spr.height / 2));
-                sclHandle.rect(rbWorld.x - 8, rbWorld.y - 8, 16, 16);
-                sclHandle.stroke();
-                sclHandle.eventMode = "static";
-                sclHandle.cursor = "nwse-resize";
+                rotIcon.x = rotX;
+                rotIcon.y = rotY;
+
+                rotHit.clear();
+                rotHit.beginFill(0xffffff, 1);
+                rotHit.circle(rotX, rotY, Math.max(12, HANDLE_PX * 0.75));
+                rotHit.endFill();
+
+                // scale: bottom-right
+                const sclX = b.x + b.width + HANDLE_PX * 0.25;
+                const sclY = b.y + b.height + HANDLE_PX * 0.25;
+
+                sclIcon.x = sclX;
+                sclIcon.y = sclY;
+
+                sclHit.clear();
+                sclHit.beginFill(0xffffff, 1);
+                sclHit.circle(sclX, sclY, Math.max(12, HANDLE_PX * 0.75));
+                sclHit.endFill();
             };
 
             updateGizmoVisuals();
 
-            // --- interactions (do NOT recreate during move) ---
+            // --- interactions ---
             // DRAG
             let dragging = false;
             let dragOffset = { x: 0, y: 0 };
 
-            spr.eventMode = "static";
-            spr.cursor = "grab";
-            spr.removeAllListeners("pointerdown");
-            spr.on("pointerdown", (e: PIXI.FederatedPointerEvent) => {
+            (spr as any).eventMode = "static";
+            (spr as any).cursor = "grab";
+            (spr as any).removeAllListeners?.("pointerdown");
+            (spr as any).on?.("pointerdown", (e: PIXI.FederatedPointerEvent) => {
                 if (!editable) return;
                 dragging = true;
-                spr.cursor = "grabbing";
-                dragOffset = { x: spr.x - e.global.x, y: spr.y - e.global.y };
+                (spr as any).cursor = "grabbing";
+                dragOffset = { x: (spr as any).x - e.global.x, y: (spr as any).y - e.global.y };
                 e.stopPropagation();
             });
 
-            // If selection originated from a sprite click, begin that drag immediately
             if (startDragEv) {
                 dragging = true;
-                spr.cursor = "grabbing";
-                dragOffset = { x: spr.x - startDragEv.global.x, y: spr.y - startDragEv.global.y };
+                (spr as any).cursor = "grabbing";
+                dragOffset = { x: (spr as any).x - startDragEv.global.x, y: (spr as any).y - startDragEv.global.y };
             }
 
             stage.on("pointerup", () => {
                 if (dragging) {
                     dragging = false;
-                    spr.cursor = "grab";
+                    (spr as any).cursor = "grab";
                     commit(id);
                 }
             });
             stage.on("pointerupoutside", () => {
                 if (dragging) {
                     dragging = false;
-                    spr.cursor = "grab";
+                    (spr as any).cursor = "grab";
                     commit(id);
                 }
             });
-            stage.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
+            stage.on("globalpointermove", (e: PIXI.FederatedPointerEvent) => {
                 if (!dragging) return;
-                spr.x = e.global.x + dragOffset.x;
-                spr.y = e.global.y + dragOffset.y;
-                updateGizmoVisuals(); // just redraw graphics, keep handlers intact
+                (spr as any).x = e.global.x + dragOffset.x;
+                (spr as any).y = e.global.y + dragOffset.y;
+                updateGizmoVisuals();
             });
 
             // ROTATE
             let rotating = false;
-            rotHandle.on("pointerdown", (e) => {
+            rotHit.on("pointerdown", (e) => {
                 if (!editable) return;
                 rotating = true;
                 e.stopPropagation();
@@ -356,22 +434,24 @@ export default function TryOnCanvas({
                     commit(id);
                 }
             });
-            stage.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
+            stage.on("globalpointermove", (e: PIXI.FederatedPointerEvent) => {
                 if (!rotating) return;
-                const ang = Math.atan2(e.global.y - spr.y, e.global.x - spr.x) + Math.PI / 2;
-                spr.rotation = ang;
+                const b = (spr as any).getBounds();
+                const cx = b.x + b.width / 2;
+                const cy = b.y + b.height / 2;
+                (spr as any).rotation = Math.atan2(e.global.y - cy, e.global.x - cx) + Math.PI / 2;
                 updateGizmoVisuals();
             });
 
             // SCALE
             let scaling = false;
             const start = { x: 0, y: 0, s: 1 };
-            sclHandle.on("pointerdown", (e) => {
+            sclHit.on("pointerdown", (e) => {
                 if (!editable) return;
                 scaling = true;
                 start.x = e.global.x;
                 start.y = e.global.y;
-                start.s = spr.scale.x;
+                start.s = (spr as any).scale.x;
                 e.stopPropagation();
             });
             stage.on("pointerup", () => {
@@ -386,33 +466,33 @@ export default function TryOnCanvas({
                     commit(id);
                 }
             });
-            stage.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
+            stage.on("globalpointermove", (e: PIXI.FederatedPointerEvent) => {
                 if (!scaling) return;
                 const dx = e.global.x - start.x;
                 const dy = e.global.y - start.y;
                 const dist = Math.hypot(dx, dy);
-                const sign = spr.scale.x < 0 ? -1 : 1;
+                const sign = (spr as any).scale.x < 0 ? -1 : 1;
                 const newS = Math.max(0.05, start.s + (dist / 300) * sign);
-                spr.scale.set(newS, newS);
+                (spr as any).scale.set(newS, newS);
                 updateGizmoVisuals();
             });
 
-            // WHEEL scale
-            spr.removeAllListeners("wheel");
-            spr.on("wheel", (e: WheelEvent) => {
+            // WHEEL scale (handy)
+            (spr as any).removeAllListeners?.("wheel");
+            (spr as any).on?.("wheel", (e: WheelEvent) => {
                 if (!editable) return;
-                const s = spr.scale.x * (e.deltaY < 0 ? 1.06 : 1 / 1.06);
+                const s = (spr as any).scale.x * (e.deltaY < 0 ? 1.06 : 1 / 1.06);
                 const clamped = Math.max(0.05, Math.min(s, 6));
-                spr.scale.set(clamped, clamped);
+                (spr as any).scale.set(clamped, clamped);
                 updateGizmoVisuals();
             });
 
-            gizmoLayer.addChild(g, rotHandle, sclHandle);
+            gizmoLayer.addChild(bboxG, rotHit, sclHit, rotIcon, sclIcon);
         };
 
         const commit = (id: string) => {
-            if (destroyed || !app || !onChangeFit) return;
-            const spr = nodeById.get(id);
+            if (destroyed || !app) return;
+            const spr = nodeById.get(id) as any;
             const info = spriteInfo.get(id);
             if (!spr || !info || !mannequin) return;
 
@@ -423,7 +503,18 @@ export default function TryOnCanvas({
             const relScale = spr.scale.x / Math.max(1e-6, info.baseScale);
             const rotationDeg = (spr.rotation * 180) / Math.PI;
 
-            onChangeFit(id, { x: nx, y: ny, scale: relScale, rotationDeg });
+            const t: FitTransform = { x: nx, y: ny, scale: relScale, rotationDeg };
+
+            // If this is a shoe sub-id, keep it local (backend can't store L/R independently yet)
+            if (id.includes("|L") || id.includes("|R")) {
+                localFits.set(id, t);
+                return; // prevent “snap back” from parent refresh
+            }
+
+            // Normal items: let parent persist
+            onChangeFit?.(id, t);
+            // Also keep a local echo so even immediate re-layout stays consistent
+            localFits.set(id, t);
         };
 
         const setStageHitArea = () => {
@@ -432,7 +523,7 @@ export default function TryOnCanvas({
             const r = app.renderer;
             stage.eventMode = "static";
             stage.hitArea = new PIXI.Rectangle(0, 0, r.width, r.height);
-            // Deselect when clicking empty space (sprite handlers call stopPropagation)
+            // Deselect when clicking empty space (sprite/handle handlers stopPropagation)
             stage.removeAllListeners("pointerdown");
             stage.on("pointerdown", () => {
                 if (!editable) return;
@@ -475,10 +566,13 @@ export default function TryOnCanvas({
 
         (async () => {
             const localApp = new PIXI.Application();
+            const DPR = Math.min(Math.max(window.devicePixelRatio || 1, 1), 3); // crisp, capped
             await localApp.init({
                 backgroundAlpha: 0,
                 antialias: true,
-                resolution: Math.min(window.devicePixelRatio || 1, 2),
+                autoDensity: true,               // ⬅️ hi-DPI fix
+                resolution: DPR,                 // ⬅️ hi-DPI fix
+                powerPreference: "high-performance",
             });
             if (destroyed) {
                 localApp.destroy(true);
@@ -495,6 +589,9 @@ export default function TryOnCanvas({
             renderer.resize(containerWidth, containerHeight);
 
             (localApp.canvas as HTMLCanvasElement).classList.add("mannequin-canvas");
+            // Prevent browser blurring the canvas on CSS scale in some cases
+            (localApp.canvas as HTMLCanvasElement).style.transform = "translateZ(0)";
+
             while (hostEl.firstChild) hostEl.removeChild(hostEl.firstChild);
             hostEl.appendChild(localApp.canvas as any);
 
@@ -503,7 +600,8 @@ export default function TryOnCanvas({
             // preload
             const garmentUrls = items.map((i) => i.url).filter(Boolean);
             const queue = [mannequinUrl, ...garmentUrls, "/mannequins/front_v1_forearms.png"];
-            await PIXI.Assets.load(queue).catch(() => { });
+            const iconQueue = ["/ui/tryon/handle-rotate.svg", "/ui/tryon/handle-scale.svg"];
+            await PIXI.Assets.load([...queue, ...iconQueue]).catch(() => { });
 
             // mannequin
             const manTex = PIXI.Texture.from(mannequinUrl);
@@ -534,26 +632,19 @@ export default function TryOnCanvas({
             manW = manTex.width * manScale;
             manH = manTex.height * manScale;
 
+            // ===== Debug Anchors/Boxes
+            const toStageX = (nx: number) => mannequin!.x + (nx - 0.5) * manW;
+            const toStageY = (ny: number) => mannequin!.y + (ny - 0.5) * manH;
+            const boxToStage = (b: { x: number; y: number; w: number; h: number }) => ({
+                cx: toStageX(b.x + b.w / 2),
+                cy: toStageY(b.y + b.h / 2),
+                pw: b.w * manW,
+                ph: b.h * manH,
+            });
 
-
-
-
-
-
-            // debug anchors/grid (kept from your original)
             if (DEBUG_ANCHORS) {
-                const pose = FRONT_V1;
                 const g = new PIXI.Graphics();
                 g.zIndex = 9999;
-
-                const toStageX = (nx: number) => mannequin!.x + (nx - 0.5) * manW;
-                const toStageY = (ny: number) => mannequin!.y + (ny - 0.5) * manH;
-                const boxToStage = (b: { x: number; y: number; w: number; h: number }) => ({
-                    cx: toStageX(b.x + b.w / 2),
-                    cy: toStageY(b.y + b.h / 2),
-                    pw: b.w * manW,
-                    ph: b.h * manH,
-                });
 
                 const draw = (b: { x: number; y: number; w: number; h: number }, color = 0x00ff88) => {
                     const { cx, cy, pw, ph } = boxToStage(b);
@@ -571,32 +662,18 @@ export default function TryOnCanvas({
                 stage.addChild(g);
             }
 
-            // DEBUG GRID + cursor readout
+            // ===== Debug Grid
             if (DEBUG_GRID) {
-                const toStageX = (nx: number) => mannequin!.x + (nx - 0.5) * manW;
-                const toStageY = (ny: number) => mannequin!.y + (ny - 0.5) * manH;
-
-                const fromStageNx = (sx: number) => (sx - mannequin!.x) / Math.max(1, manW) + 0.5;
-                const fromStageNy = (sy: number) => (sy - mannequin!.y) / Math.max(1, manH) + 0.5;
-
                 const grid = new PIXI.Graphics();
                 grid.zIndex = 9998;
 
                 const drawGrid = () => {
                     grid.clear();
-
-                    // border
                     grid.setStrokeStyle({ width: 2, color: 0x888888, alpha: 0.9 });
                     grid.rect(mannequin!.x - manW / 2, mannequin!.y - manH / 2, manW, manH);
                     grid.stroke();
 
-                    const drawLine = (
-                        x1: number,
-                        y1: number,
-                        x2: number,
-                        y2: number,
-                        major = false
-                    ) => {
+                    const drawLine = (x1: number, y1: number, x2: number, y2: number, major = false) => {
                         grid.setStrokeStyle({
                             width: major ? 2 : 1,
                             color: major ? 0x00aaff : 0xcccccc,
@@ -611,13 +688,38 @@ export default function TryOnCanvas({
                         const major = Math.abs((t * 100) % 10) < 1e-6;
                         const sx = toStageX(t);
                         drawLine(sx, mannequin!.y - manH / 2, sx, mannequin!.y + manH / 2, major);
+
                         const sy = toStageY(t);
                         drawLine(mannequin!.x - manW / 2, sy, mannequin!.x + manW / 2, sy, major);
                     }
+
+                    const mkLabel = (txt: string, x: number, y: number) => {
+                        const label = new PIXI.Text({
+                            text: txt,
+                            style: { fill: 0x333333, fontSize: 12, align: "center" },
+                        });
+                        label.x = x;
+                        label.y = y;
+                        label.zIndex = 9999;
+                        stage.addChild(label);
+                        return label;
+                    };
+
+                    mkLabel("nx=0", toStageX(0) - 14, mannequin!.y - manH / 2 - 16);
+                    mkLabel("nx=0.5", toStageX(0.5) - 18, mannequin!.y - manH / 2 - 16);
+                    mkLabel("nx=1", toStageX(1) - 10, mannequin!.y - manH / 2 - 16);
+
+                    mkLabel("ny=0", mannequin!.x + manW / 2 + 6, toStageY(0) - 7);
+                    mkLabel("ny=0.5", mannequin!.x + manW / 2 + 6, toStageY(0.5) - 7);
+                    mkLabel("ny=1", mannequin!.x + manW / 2 + 6, toStageY(1) - 7);
                 };
 
                 drawGrid();
                 stage.addChild(grid);
+
+                const cross = new PIXI.Graphics();
+                cross.zIndex = 10000;
+                stage.addChild(cross);
 
                 const tip = new PIXI.Text({
                     text: "",
@@ -629,7 +731,11 @@ export default function TryOnCanvas({
                 stage.eventMode = "static";
                 stage.hitArea = new PIXI.Rectangle(0, 0, renderer.width, renderer.height);
 
+                const fromStageNx = (sx2: number) => (sx2 - mannequin!.x) / manW + 0.5;
+                const fromStageNy = (sy2: number) => (sy2 - mannequin!.y) / manH + 0.5;
+
                 stage.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
+                // stage.on("globalpointermove", (e: PIXI.FederatedPointerEvent) => {
                     const { x: sx, y: sy } = e.global;
 
                     const nx = Math.max(0, Math.min(1, fromStageNx(sx)));
@@ -641,7 +747,16 @@ export default function TryOnCanvas({
                         sy >= mannequin!.y - manH / 2 &&
                         sy <= mannequin!.y + manH / 2;
 
+                    cross.clear();
                     if (inside) {
+                        cross.setStrokeStyle({ width: 1, color: 0xff3366, alpha: 0.85 });
+                        cross.moveTo(toStageX(nx), mannequin!.y - manH / 2);
+                        cross.lineTo(toStageX(nx), mannequin!.y + manH / 2);
+                        cross.stroke();
+                        cross.moveTo(mannequin!.x - manW / 2, toStageY(ny));
+                        cross.lineTo(mannequin!.x + manW / 2, toStageY(ny));
+                        cross.stroke();
+
                         tip.text = `nx=${nx.toFixed(3)}  ny=${ny.toFixed(3)}`;
                         tip.x = toStageX(nx) + 8;
                         tip.y = toStageY(ny) - 18;
@@ -652,14 +767,10 @@ export default function TryOnCanvas({
                 });
             }
 
-
-
-
-
-
-
-
             gizmoLayer.zIndex = 10060;
+            // Allow children (handles) to receive pointer events
+            gizmoLayer.eventMode = "static";
+            (gizmoLayer as any).interactiveChildren = true;
             stage.addChild(gizmoLayer);
 
             layoutAll();
