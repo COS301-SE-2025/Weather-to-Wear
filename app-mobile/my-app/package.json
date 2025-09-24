@@ -19,6 +19,7 @@
     "axios": "^1.11.0",
     "framer-motion": "^12.15.0",
     "lucide-react": "^0.511.0",
+    "pixi.js": "^8.13.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.6.0",
@@ -52,6 +53,8 @@
   },
   "devDependencies": {
     "@types/react": "^19.1.5",
-    "@types/react-dom": "^19.1.5"
+    "@types/react-dom": "^19.1.5",
+    "ajv": "^6.12.6",
+    "ajv-keywords": "^3.5.2"
   }
 }

@@ -928,8 +928,6 @@ export default function HomePage() {
                 "
                         aria-label=" Select City"
                       />
-
-
                     </div>
                   </form>
 

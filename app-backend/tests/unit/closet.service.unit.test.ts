@@ -3,6 +3,7 @@ jest.mock('../../src/utils/s3', () => ({
   putBufferSmart: jest.fn().mockResolvedValue({ key: 'mock-key' }), // <-- add this
   deleteFromS3: jest.fn().mockResolvedValue(undefined),
   cdnUrlFor: (k: string) => `https://cdn.test/${k}`,
+  putBufferSmart: jest.fn().mockResolvedValue({ key: 'mock-key', publicUrl: 'https://cdn.test/mock-key' }),
 }));
 
 import path from 'path';

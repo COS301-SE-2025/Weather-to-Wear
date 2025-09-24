@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 
 import ClosetService from '../../src/modules/closet/closet.service';
 import axios from 'axios';
+
 import { uploadBufferToS3, putBufferSmart } from '../../src/utils/s3';
 
 const prisma = new PrismaClient();
@@ -12,6 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
 jest.mock('axios');
 jest.mock('../../src/utils/s3', () => ({
   uploadBufferToS3: jest.fn().mockResolvedValue({ key: 'mock-key' }),
+
   putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => ({
     key,
     publicUrl: `https://cdn.test/${key}`,

@@ -12,11 +12,10 @@ class SocialService {
       location?: string;
       weather?: any;
       closetItemId?: string;
+      closetItemIds?: string[];
     }
   ) {
-
-
-    return this.prisma.post.create({
+    const post = await this.prisma.post.create({
       data: {
         userId,
         imageUrl: data.imageUrl,
@@ -26,6 +25,18 @@ class SocialService {
         closetItemId: data.closetItemId,
       },
     });
+
+    // If closetItemIds are provided, create PostItem relations
+    if (data.closetItemIds && data.closetItemIds.length > 0) {
+      await this.prisma.postItem.createMany({
+        data: data.closetItemIds.map(itemId => ({
+          postId: post.id,
+          closetItemId: itemId,
+        })),
+      });
+    }
+
+    return post;
   }
 
   async getPosts(options: { currentUserId: string; limit: number; offset: number; include: string[]; }) {
@@ -36,6 +47,7 @@ class SocialService {
     const incCommentUser = inc.includes('comments.user');   // NEW
     const incLikes = inc.includes('likes');
     const incClosetItem = inc.includes('closetitem');
+    const incPostItems = inc.includes('postitems') || inc.includes('clothing');
 
     const following = await this.prisma.follow.findMany({
       where: { followerId: currentUserId },
@@ -60,6 +72,22 @@ class SocialService {
           : undefined,
         likes: incLikes ? true : undefined,
         closetItem: incClosetItem ? true : undefined,
+        postItems: incPostItems 
+          ? { 
+            include: { 
+              closetItem: { 
+                select: { 
+                  id: true, 
+                  filename: true, 
+                  category: true, 
+                  layerCategory: true,
+                  colorHex: true,
+                  style: true 
+                } 
+              } 
+            } 
+          } 
+          : undefined,
       },
     });
   }
@@ -73,6 +101,7 @@ class SocialService {
     const incCommentUser = inc.includes('comments.user');   // NEW
     const incLikes = inc.includes('likes');
     const incClosetItem = inc.includes('closetitem');
+    const incPostItems = inc.includes('postitems') || inc.includes('clothing');
 
     return this.prisma.post.findUnique({
       where: { id },
@@ -88,6 +117,22 @@ class SocialService {
           : undefined,
         likes: incLikes ? true : undefined,
         closetItem: incClosetItem ? true : undefined,
+        postItems: incPostItems 
+          ? { 
+            include: { 
+              closetItem: { 
+                select: { 
+                  id: true, 
+                  filename: true, 
+                  category: true, 
+                  layerCategory: true,
+                  colorHex: true,
+                  style: true 
+                } 
+              } 
+            } 
+          } 
+          : undefined,
       },
     });
   }
@@ -183,7 +228,17 @@ class SocialService {
 
   // Like endpoints
   async likePost(postId: string, userId: string) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    const post = await this.prisma.post.findUnique({ 
+      where: { id: postId },
+      include: {
+        postItems: {
+          include: {
+            closetItem: true
+          }
+        },
+        closetItem: true // For backward compatibility if single item posts exist
+      }
+    });
     if (!post) throw new Error('Post not found');
 
     const existingLike = await this.prisma.like.findUnique({
@@ -191,7 +246,39 @@ class SocialService {
     });
     if (existingLike) throw new Error('User already liked this post');
 
-    return this.prisma.like.create({ data: { userId, postId } });
+    const like = await this.prisma.like.create({ data: { userId, postId } });
+
+    // Extract clothing items from the liked post and generate inspiration
+    await this.generateInspirationFromLikedPost(userId, post);
+
+    return like;
+  }
+
+  private async generateInspirationFromLikedPost(userId: string, post: any) {
+    try {
+      const { storeLikedOutfit } = await import('../inspo/inspo.service');
+      
+      // Get all clothing items from the post
+      const clothingItems = [];
+      
+      // Add items from postItems relation
+      if (post.postItems && post.postItems.length > 0) {
+        clothingItems.push(...post.postItems.map((item: any) => item.closetItem));
+      }
+      
+      // Add single closet item if it exists (backward compatibility)
+      if (post.closetItem) {
+        clothingItems.push(post.closetItem);
+      }
+      
+      // If we have clothing items, store them as inspiration
+      if (clothingItems.length > 0) {
+        await storeLikedOutfit(userId, clothingItems);
+      }
+    } catch (error) {
+      // Don't fail the like operation if inspiration generation fails
+      console.error('Failed to generate inspiration from liked post:', error);
+    }
   }
 
   async unlikePost(postId: string, userId: string) {

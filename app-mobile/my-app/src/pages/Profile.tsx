@@ -456,7 +456,7 @@ const Profile = () => {
                               // src={prefixed(it.imageUrl)}
                               src = {absolutize(it.imageUrl, API_BASE)}
                               alt={`Outfit ${outfit.id} ${it.layerCategory}`}
-                              className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
+                              className="w-5 h-5 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
                             />
                           ))}
                       </div>

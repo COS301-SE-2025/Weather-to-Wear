@@ -4,6 +4,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { loginUser, applyAuthToken } from '../services/auth';
 import Toast from '../components/Toast';
+import { useAuth } from '../contexts/AuthContext';
 
 import landingImg from '../assets/landing.jpg';
 
@@ -11,6 +12,8 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+    const [errors, setErrors] = useState<string[]>([]);
+  
 
   const [expiredMsg, setExpiredMsg] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -19,6 +22,7 @@ export default function Login() {
   const [showLoggedOutToast, setShowLoggedOutToast] = useState(loggedOut);
 
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   useEffect(() => {
     try {
@@ -37,17 +41,24 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors([]); 
     try {
-      const res = await loginUser(email, password);
-      if (res?.token) applyAuthToken(res.token);
-      if (res?.user) localStorage.setItem('user', JSON.stringify(res.user));
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        navigate('/dashboard', { replace: true });
-      }, 1000);
+      const res = await loginUser(email, password);      
+      if (res?.token && res?.user) {
+        login(res.token, res.user);
+        
+        applyAuthToken(res.token);
+        
+        setShowToast(true);
+        
+        setTimeout(() => {
+          const from = location.state?.from?.pathname || '/dashboard';
+          navigate(from, { replace: true });
+        }, 3000);
+      }
     } catch (err: any) {
-      alert(err?.message || 'Login failed');
+      setErrors([err.message || 'Login failed.']);
+
     }
   };
 
@@ -74,16 +85,94 @@ export default function Login() {
         <div className="absolute inset-0 bg-black/10" />
       </div>
 
-      {/* Right: content */}
-      <div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 min-h-screen lg:min-h-0">
-        {/* Mobile: white rounded box; Desktop: transparent */}
-        <div className="
-          w-full max-w-sm sm:max-w-md 
-          bg-white/95 dark:bg-gray-800/95 rounded-2xl shadow-xl p-6 sm:p-8 backdrop-blur
-          lg:bg-transparent lg:dark:bg-transparent lg:shadow-none lg:backdrop-blur-0 lg:p-8
-        ">
-          {/* Desktop: center logo, typed title under it */}
-          <div className="flex flex-col items-center mb-6">
+{/* Right: content */}
+<div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 min-h-screen lg:min-h-0">
+  {/* Mobile: white rounded box; Desktop: transparent */}
+  <div
+    className="
+      w-full max-w-sm sm:max-w-md 
+      bg-white/95 dark:bg-gray-800/95 rounded-2xl shadow-xl p-6 sm:p-8 backdrop-blur
+      lg:bg-transparent lg:dark:bg-transparent lg:shadow-none lg:backdrop-blur-0 lg:p-8
+    "
+  >
+    {/* Desktop: center logo, typed title under it */}
+    <div className="flex flex-col items-center mb-6">
+      {/* (optional logo / tagline area) */}
+    </div>
+
+    <form onSubmit={handleLogin} className="w-full">
+      <h2 className="text-3xl font-light mb-4 text-center lg:text-left text-black dark:text-gray-100">
+        Login
+      </h2>
+
+      {expiredMsg && (
+        <div
+          className="mb-4 rounded-md bg-yellow-100 text-yellow-900 px-3 py-2 text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          {expiredMsg}
+        </div>
+      )}
+
+      {/* Error Popup */}
+      {errors.length > 0 && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900 border-l-4 border-rose-500 dark:border-rose-300 rounded-lg shadow-md animate-fade-in">
+          {errors.map((err, idx) => (
+            <div
+              key={idx}
+              className="flex items-center text-rose-600 dark:text-rose-300 text-sm font-medium mb-2 last:mb-0"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>{err}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input
+        type="text"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full mb-4 px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
+        required
+      />
+
+      <div className="relative mb-4">
+        <input
+          type={showPassword ? "text" : "password"}
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-4 py-2 rounded-full bg-white dark:bg-gray-700 border border-black dark:border-gray-600 text-black dark:text-gray-100 focus:outline-none"
+          required
+        />
+        {/* (optional visibility toggle button could go here) */}
+      </div>
+
+      <button
+        type="submit"
+        className="w-full py-2 rounded-full bg-black text-white dark:bg-gray-100 dark:text-gray-900 font-medium"
+      >
+        Sign in
+      </button>
+    </form>
+  </div>
+</div>
             <img
               src="/logo-nobg.png"   /* from public/ */
               alt="Logo"

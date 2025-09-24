@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
 import { signupUser } from '../services/auth';
+// ! Merge Bemo
+//import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 
 // ✅ same image as Login (import from src/assets)
@@ -22,6 +24,7 @@ export default function Signup() {
   const [showToast, setShowToast] = useState(false);
 
   const navigate = useNavigate();
+  //const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -56,6 +59,11 @@ export default function Signup() {
         formData.email,
         formData.password
       );
+      
+      // ! Merge Bemo
+      // Use AuthContext login method instead of direct localStorage
+      //login(res.token, res.user);
+      //navigate('/dashboard');
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify(res.user));
 
@@ -63,7 +71,7 @@ export default function Signup() {
       setTimeout(() => {
         setShowToast(false);
         navigate('/dashboard');
-      }, 3000);
+      }, 30);
     } catch (err: any) {
       setErrors([err.message || 'Signup failed.']);
     }
