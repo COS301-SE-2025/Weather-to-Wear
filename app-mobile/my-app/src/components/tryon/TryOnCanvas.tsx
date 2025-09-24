@@ -52,8 +52,8 @@ export default function TryOnCanvas({
 }) {
     const hostRef = useRef<HTMLDivElement>(null);
 
-    const DEBUG_ANCHORS = true;
-    const DEBUG_GRID = true;
+    const DEBUG_ANCHORS = false;
+    const DEBUG_GRID = false;
 
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
