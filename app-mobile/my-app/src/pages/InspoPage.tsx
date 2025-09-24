@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw } from 'lucide-react';
+import { API_BASE } from '../config';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { absolutize } from '../utils/url';
 
 interface WeatherCondition {
   minTemp: number;
@@ -44,12 +48,16 @@ interface GenerateInspoRequest {
   limit?: number;
 }
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// Create API endpoint from the imported API_BASE
+const API_ENDPOINT = `${API_BASE}/api`;
 
 // API Functions
-const generateInspoOutfits = async (request: GenerateInspoRequest): Promise<InspoOutfit[]> => {
-  const token = localStorage.getItem('authToken');
-  const response = await fetch(`${API_BASE}/inspo/generate`, {
+const generateInspoOutfits = async (request: GenerateInspoRequest, token: string): Promise<InspoOutfit[]> => {
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+  
+  const response = await fetch(`${API_ENDPOINT}/inspo/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -66,9 +74,12 @@ const generateInspoOutfits = async (request: GenerateInspoRequest): Promise<Insp
   return response.json();
 };
 
-const getUserInspoOutfits = async (): Promise<InspoOutfit[]> => {
-  const token = localStorage.getItem('authToken');
-  const response = await fetch(`${API_BASE}/inspo`, {
+const getUserInspoOutfits = async (token: string): Promise<InspoOutfit[]> => {
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_ENDPOINT}/inspo`, {
     headers: {
       'Authorization': `Bearer ${token}`,
     },
@@ -81,9 +92,12 @@ const getUserInspoOutfits = async (): Promise<InspoOutfit[]> => {
   return response.json();
 };
 
-const deleteInspoOutfit = async (id: string): Promise<void> => {
-  const token = localStorage.getItem('authToken');
-  const response = await fetch(`${API_BASE}/inspo/${id}`, {
+const deleteInspoOutfit = async (id: string, token: string): Promise<void> => {
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+  
+  const response = await fetch(`${API_ENDPOINT}/inspo/${id}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -163,7 +177,7 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
               <div key={item.closetItemId} className="relative group">
                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                   <img
-                    src={item.imageUrl || '/api/placeholder/150/150'}
+                    src={item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'}
                     alt={item.category}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
@@ -348,45 +362,99 @@ const FilterPanel = ({
 
 // Main InspoPage Component
 const InspoPage = () => {
-  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 10 });
+  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 5 }); // Fixed limit to 5
   const queryClient = useQueryClient();
+  const { token, isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
 
-  // Query for existing inspo outfits
-  const { data: existingOutfits, isLoading: isLoadingExisting } = useQuery({
-    queryKey: ['inspo-outfits'],
-    queryFn: getUserInspoOutfits,
-  });
-
-  // Query for generated outfits (starts empty)
+  // State for generated outfits (like dashboard - only show these)
   const [generatedOutfits, setGeneratedOutfits] = useState<InspoOutfit[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false); // Track if user has generated outfits
 
   // Generate new outfits mutation
   const generateMutation = useMutation({
-    mutationFn: generateInspoOutfits,
+    mutationFn: (request: GenerateInspoRequest) => {
+      if (!token) return Promise.reject(new Error('Authentication required'));
+      return generateInspoOutfits(request, token);
+    },
     onSuccess: (data) => {
-      setGeneratedOutfits(data);
+      setGeneratedOutfits(data); // Replace old outfits with new ones (max 5)
+      setHasGenerated(true);
+    },
+    onError: (error) => {
+      console.error('Failed to generate outfits:', error);
+      setHasGenerated(true); // Still mark as generated attempt
     },
   });
 
   // Delete outfit mutation
   const deleteMutation = useMutation({
-    mutationFn: deleteInspoOutfit,
+    mutationFn: (id: string) => {
+      if (!token) return Promise.reject(new Error('Authentication required'));
+      return deleteInspoOutfit(id, token);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inspo-outfits'] });
     },
   });
 
+  // Auto-generate outfits when page first loads (like dashboard)
+  useEffect(() => {
+    if (isAuthenticated && token && !hasGenerated && generatedOutfits.length === 0) {
+      console.log('Auto-generating initial outfits...');
+      generateMutation.mutate(filters);
+    }
+  }, [isAuthenticated, token, hasGenerated]);
+
   const handleGenerate = () => {
+    if (!token) {
+      navigate('/login', { state: { from: '/inspo' } });
+      return;
+    }
     generateMutation.mutate(filters);
   };
 
   const handleDelete = (id: string) => {
+    if (!token) {
+      navigate('/login', { state: { from: '/inspo' } });
+      return;
+    }
+    
     if (window.confirm('Are you sure you want to delete this inspiration outfit?')) {
       deleteMutation.mutate(id);
     }
   };
 
-  const allOutfits = [...generatedOutfits, ...(existingOutfits || [])];
+  // Only show generated outfits (max 5, like dashboard)
+  const allOutfits = generatedOutfits;
+
+  // Auto-generate outfits when page first loads (like dashboard)
+  useEffect(() => {
+    if (isAuthenticated && token && !hasGenerated && generatedOutfits.length === 0) {
+      console.log('Auto-generating initial outfits...');
+      generateMutation.mutate(filters);
+    }
+  }, [isAuthenticated, token, hasGenerated]);
+
+  // If not authenticated, show login prompt
+  if (!isAuthenticated || !token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white shadow-xl rounded-lg p-8 max-w-md w-full">
+          <h2 className="text-2xl font-bold text-center mb-4">Authentication Required</h2>
+          <p className="text-gray-600 mb-6 text-center">
+            Please log in to view and generate outfit inspiration.
+          </p>
+          <button
+            onClick={() => navigate('/login', { state: { from: '/inspo' } })}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -413,7 +481,20 @@ const InspoPage = () => {
               {(generateMutation.error as Error)?.message || 'Failed to generate inspiration outfits'}
             </p>
             <p className="text-sm text-red-600 mt-1">
-              Try liking some items from the social feed or rating your outfits to get better recommendations.
+              Try liking some items from the social feed to get outfit recommendations.
+              Inspo only uses items you've liked, not your personal closet items.
+            </p>
+          </div>
+        )}
+        
+        {generateMutation.isSuccess && generatedOutfits.length === 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <p className="text-amber-700 font-medium">
+              No inspiration outfits could be generated
+            </p>
+            <p className="text-sm text-amber-600 mt-1">
+              The inspo feature creates outfit combinations using only items you've liked from social posts.
+              Please like some posts with outfit items to generate inspiration outfits.
             </p>
           </div>
         )}
@@ -427,10 +508,10 @@ const InspoPage = () => {
         )}
 
         {/* Loading State */}
-        {isLoadingExisting && (
+        {generateMutation.isPending && (
           <div className="text-center py-8">
             <RefreshCw className="animate-spin mx-auto mb-4 text-gray-400" size={32} />
-            <p className="text-gray-500">Loading your inspiration outfits...</p>
+            <p className="text-gray-500">Generating your inspiration outfits...</p>
           </div>
         )}
 
@@ -438,7 +519,7 @@ const InspoPage = () => {
         {allOutfits.length > 0 ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">
-              Your Inspiration Outfits ({allOutfits.length})
+              Generated Inspiration Outfits ({allOutfits.length})
             </h2>
             {allOutfits.map((outfit) => (
               <OutfitCard
@@ -448,14 +529,16 @@ const InspoPage = () => {
               />
             ))}
           </div>
-        ) : !isLoadingExisting && (
+        ) : !generateMutation.isPending && hasGenerated && (
           <div className="text-center py-12">
             <div className="mb-4">
               <Sun className="mx-auto text-gray-400" size={64} />
             </div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No inspiration outfits yet</h3>
             <p className="text-gray-500 mb-4">
-              Start by liking some items from the social feed or generate new recommendations based on your style.
+              Start by liking some outfit posts from the social feed. 
+              The inspo feature creates new outfit combinations using only items you've liked, 
+              not items from your personal closet.
             </p>
             <button
               onClick={handleGenerate}
