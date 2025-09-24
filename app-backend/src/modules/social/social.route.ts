@@ -76,26 +76,12 @@ router.post('/__debug/mod-text', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all notifications of follow requests, likes and comments
-router.get(
-  '/notifications',
-  authenticateToken,
-  asyncHandler(socialController.getNotifications)
-);
+// Notifications
+router.get('/notifications', authenticateToken, asyncHandler(socialController.getNotifications));
 
-// Accept a follow request
-router.post(
-  '/follow/accept/:requestId',
-  authenticateToken,
-  asyncHandler(socialController.acceptFollowRequest)
-);
-
-// Reject a follow request
-router.post(
-  '/follow/reject/:requestId',
-  authenticateToken,
-  asyncHandler(socialController.rejectFollowRequest)
-);
+// Accept / Reject follow requests
+router.post('/follow/:followId/accept', authenticateToken, asyncHandler(socialController.acceptFollowRequest));
+router.post('/follow/:followId/reject', authenticateToken, asyncHandler(socialController.rejectFollowRequest));
 
 
 export default router;

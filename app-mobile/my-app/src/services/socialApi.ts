@@ -4,6 +4,21 @@ import { API_BASE } from '../config';
 
 const API_URL = `${API_BASE}/api/social`;
 
+export interface User {
+  id: string;
+  name: string;
+  profilePhoto?: string;
+  isPrivate?: boolean;
+}
+
+export interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+}
+
 export async function createPost(data: {
   image?: File;
   caption?: string;
@@ -127,9 +142,23 @@ export async function followUser(userId: string) {
     throw new Error(errorData.message || "Failed to follow user");
   }
 
-  return response.json(); // Returns { follow: {...} } with status 'pending' or 'accepted'
+  return response.json() as Promise<{ follow: Follow }>;
 }
 
+export async function unfollowUser(userId: string) {
+  const response = await fetchWithAuth(`${API_URL}/${userId}/unfollow`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to unfollow user");
+  }
+
+  return response.json();
+}
+
+// Notifications
 export async function getNotifications() {
   const response = await fetchWithAuth(`${API_URL}/notifications`, {
     method: "GET",
@@ -140,79 +169,63 @@ export async function getNotifications() {
     throw new Error(errorData.message || "Failed to get notifications");
   }
 
-  return response.json(); 
-  // Returns { notifications: { followRequests: [...], likes: [...], comments: [...] } }
+  return response.json() as Promise<{ notifications: Notification[] }>;
 }
 
 export async function acceptFollowRequest(requestId: string) {
-  const response = await fetchWithAuth(`${API_URL}/follow/accept/${requestId}`, {
-    method: "POST",
-  });
+  const response = await fetchWithAuth(
+    `${API_URL}/follow/accept/${requestId}`,
+    { method: "POST" }
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to accept follow request");
   }
 
-  return response.json(); // Returns { follow: {...} } with updated status 'accepted'
+  return response.json() as Promise<{ follow: Follow }>;
 }
 
 export async function rejectFollowRequest(requestId: string) {
-  const response = await fetchWithAuth(`${API_URL}/follow/reject/${requestId}`, {
-    method: "POST",
-  });
+  const response = await fetchWithAuth(
+    `${API_URL}/follow/reject/${requestId}`,
+    { method: "POST" }
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to reject follow request");
   }
 
-  return response.json(); // Returns { follow: {...} } with status 'rejected'
-}
-
-export async function unfollowUser(userId: string) {
-  const response = await fetchWithAuth(`${API_URL}/${userId}/unfollow`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Failed to unfollow user");
-  }
-
-  return response.json(); // Returns { message: 'User unfollowed successfully' }
+  return response.json() as Promise<{ follow: Follow }>;
 }
 
 export async function getFollowing(userId: string, limit = 20, offset = 0) {
   const response = await fetchWithAuth(
     `${API_URL}/${userId}/following?limit=${limit}&offset=${offset}`,
-    {
-      method: "GET",
-    }
+    { method: "GET" }
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to fetch following");
   }
 
-  return response.json(); // Returns { following: [...] }
+  return response.json() as Promise<{ following: User[] }>;
 }
 
 export async function getFollowers(userId: string, limit = 20, offset = 0) {
   const response = await fetchWithAuth(
     `${API_URL}/${userId}/followers?limit=${limit}&offset=${offset}`,
-    {
-      method: "GET",
-    }
+    { method: "GET" }
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to fetch followers");
   }
 
-  return response.json(); // Returns { followers: [...] }
+  return response.json() as Promise<{ followers: User[] }>;
 }
 
 export async function searchUsers(q: string, limit = 10, offset = 0) {

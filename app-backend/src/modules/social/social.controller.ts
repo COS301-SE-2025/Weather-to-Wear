@@ -23,6 +23,10 @@ async function fileBuffer(f: Express.Multer.File): Promise<Buffer> {
   throw new Error('No file buffer or path provided by Multer');
 }
 
+// interface AuthenticatedRequest extends Request {
+//   user?: { id: string };
+// }
+
 class SocialController {
   // createPost = async (
   //   req: Request,
@@ -332,125 +336,46 @@ class SocialController {
     }
   };
 
-  followUser = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest;
-    const { userId } = req.params;
-    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
-    if (user.id === userId) return res.status(400).json({ message: "You cannot follow yourself" });
-
-    const follow = await socialService.followUser(user.id, userId);
-    const msg = follow.status === "pending"
-      ? "Follow request sent successfully"
-      : "User followed successfully";
-
-    res.status(200).json({ message: msg, follow });
-  } catch (err: any) {
-    if (["Already following this user", "Follow request already pending"].includes(err.message)) {
-      return res.status(400).json({ message: err.message });
-    }
-    if (err.message === "User not found") {
-      return res.status(404).json({ message: err.message });
-    }
-    next(err);
+ async followUser(req: AuthenticatedRequest, res: Response) {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    const follow = await socialService.followUser(req.user.id, req.params.userId);
+    return res.json({ follow });
   }
-};
 
-getNotifications = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest;
-    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
-
-    const notifications = await socialService.getNotifications(user.id);
-    res.status(200).json({ message: "Notifications retrieved successfully", notifications });
-  } catch (err) {
-    next(err);
+  async unfollowUser(req: AuthenticatedRequest, res: Response) {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    await socialService.unfollowUser(req.user.id, req.params.userId);
+    return res.json({ message: "User unfollowed successfully" });
   }
-};
 
-acceptFollowRequest = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest;
-    const { requestId } = req.params;
-    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
-
-    const follow = await socialService.acceptFollowRequest(user.id, requestId);
-    res.status(200).json({ message: "Follow request accepted", follow });
-  } catch (err: any) {
-    if (err.message === "Follow request not found") {
-      return res.status(404).json({ message: err.message });
-    }
-    if (err.message === "Unauthorized") {
-      return res.status(403).json({ message: err.message });
-    }
-    next(err);
+  async getFollowers(req: Request, res: Response) {
+    const followers = await socialService.getFollowers(req.params.userId);
+    return res.json({ followers });
   }
-};
 
-rejectFollowRequest = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest;
-    const { requestId } = req.params;
-    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
-
-    const follow = await socialService.rejectFollowRequest(user.id, requestId);
-    res.status(200).json({ message: "Follow request rejected", follow });
-  } catch (err: any) {
-    if (err.message === "Follow request not found") {
-      return res.status(404).json({ message: err.message });
-    }
-    if (err.message === "Unauthorized") {
-      return res.status(403).json({ message: err.message });
-    }
-    next(err);
+  async getFollowing(req: Request, res: Response) {
+    const following = await socialService.getFollowing(req.params.userId);
+    return res.json({ following });
   }
-};
 
-  unfollowUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { user } = req as AuthenticatedRequest;
-      const { userId } = req.params;
-      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
 
-      await socialService.unfollowUser(user.id, userId);
-      res.status(200).json({ message: 'User unfollowed successfully' });
-    } catch (err: any) {
-      if (err.message === 'Follow relationship not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      next(err);
-    }
-  };
+async getNotifications(req: AuthenticatedRequest, res: Response) {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    const notifications = await socialService.getNotifications(req.user.id);
+    return res.json({ notifications });
+  }
 
-  getFollowers = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req.params;
-      const { limit = 20, offset = 0 } = req.query;
+  async acceptFollowRequest(req: AuthenticatedRequest, res: Response) {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    const updated = await socialService.acceptFollowRequest(req.params.followerId, req.user.id);
+    return res.json({ follow: updated });
+  }
 
-      const followers = await socialService.getFollowers(userId, Number(limit), Number(offset));
-      res.status(200).json({ message: 'Followers retrieved successfully', followers });
-    } catch (err: any) {
-      if (err.message === 'User not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      next(err);
-    }
-  };
-
-  getFollowing = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req.params;
-      const { limit = 20, offset = 0 } = req.query;
-
-      const following = await socialService.getFollowing(userId, Number(limit), Number(offset));
-      res.status(200).json({ message: 'Following users retrieved successfully', following });
-    } catch (err: any) {
-      if (err.message === 'User not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      next(err);
-    }
-  };
+  async rejectFollowRequest(req: AuthenticatedRequest, res: Response) {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    const removed = await socialService.rejectFollowRequest(req.params.followerId, req.user.id);
+    return res.json({ follow: removed });
+  }
 
   searchUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
