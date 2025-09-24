@@ -72,6 +72,7 @@ model User {
   phoneNumber  String?
   location     String?
   profilePhoto String?
+  isPrivate    Boolean @default(false) 
 
   closetItems ClosetItem[]
   outfits     Outfit[]
@@ -221,6 +222,7 @@ model Follow {
   followingId String
   following   User     @relation("Followers", fields: [followingId], references: [id])
   createdAt   DateTime @default(now())
+  status      String   @default("pending") 
 
   @@unique([followerId, followingId])
 }
