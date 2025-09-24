@@ -240,101 +240,18 @@ export async function generateInspoOutfits(
     }
   });
   
-  // Get all user's closet items
-  const allClosetItems = await prisma.closetItem.findMany({
-    where: { ownerId: userId }
-  });
+  // CRITICAL FIX: Inspo recommendations should ONLY use explicitly liked items from social posts
+  // NO relation to user's personal closet or outfits whatsoever!
   
-  if (allClosetItems.length === 0) {
-    // User has no closet items at all
+  console.log(`Found ${likedItems.length} total liked inspo outfits for user ${userId}`);
+  
+  if (likedItems.length === 0) {
+    // No liked items from social posts - return empty with clear message
+    console.log('No liked items available for inspo generation - user needs to like items from social feed');
     return [];
   }
-  
-  // If no liked items, try to use highly rated outfits as inspiration
-  if (likedItems.length === 0) {
-    // Fallback: use highly rated outfits as inspiration
-    const userOutfits = await prisma.outfit.findMany({
-      where: { 
-        userId,
-        userRating: { gte: 4 } // Only well-rated outfits
-      },
-      include: {
-        outfitItems: {
-          include: {
-            closetItem: true
-          }
-        }
-      },
-      orderBy: { userRating: 'desc' },
-      take: 10
-    });
 
-    if (userOutfits.length === 0) {
-      // No liked items or highly rated outfits, just generate random outfits
-      const userPref = await prisma.userPreference.findUnique({ where: { userId } });
-      const preferredStyle = request.styleFilter ? 
-        (request.styleFilter as Style) : 
-        (userPref?.style || Style.Casual);
-        
-      // Extract weather information from request
-      const avgTemp = request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp 
-        ? (request.weatherFilter.minTemp + request.weatherFilter.maxTemp) / 2
-        : undefined;
-      const conditions = request.weatherFilter?.conditions || [];
-      
-      return generateRandomOutfits(
-        allClosetItems,
-        [], // No preferred tags yet
-        preferredStyle,
-        Math.min(5, request.limit || 5),
-        avgTemp,
-        conditions
-      );
-    }
 
-    // Convert existing outfits to inspiration format
-    const recommendations: InspoOutfitRecommendation[] = userOutfits.map((outfit) => {
-      const totalWarmth = outfit.outfitItems.reduce((sum, item) => 
-        sum + (item.closetItem.warmthFactor || 0), 0
-      );
-      const hasWaterproof = outfit.outfitItems.some(item => 
-        item.closetItem.waterproof
-      );
-      
-      const weatherRec = calculateWeatherRecommendations(totalWarmth, hasWaterproof);
-      
-      // Extract tags from outfit items
-      const tags = outfit.outfitItems.flatMap(item => 
-        extractTagsFromItem(item.closetItem)
-      );
-
-      return {
-        id: `inspiration-${outfit.id}`,
-        overallStyle: outfit.overallStyle,
-        warmthRating: totalWarmth,
-        waterproof: hasWaterproof,
-        tags: [...new Set(tags)], // Remove duplicates
-        recommendedWeather: weatherRec,
-        score: outfit.userRating || 0,
-        inspoItems: outfit.outfitItems.map((item) => ({
-          closetItemId: item.closetItemId,
-          imageUrl: item.closetItem.filename ? `/api/uploads/${item.closetItem.filename}` : '',
-          layerCategory: item.layerCategory,
-          category: item.closetItem.category,
-          style: item.closetItem.style?.toString(),
-          colorHex: item.closetItem.colorHex || undefined,
-          warmthFactor: item.closetItem.warmthFactor || undefined,
-          waterproof: item.closetItem.waterproof || undefined,
-          dominantColors: Array.isArray(item.closetItem.dominantColors)
-            ? (item.closetItem.dominantColors as string[])
-            : [item.closetItem.colorHex || '#000000'],
-          sortOrder: item.sortOrder
-        }))
-      };
-    });
-
-    return applyWeatherFilter(recommendations, request);
-  }
   
   // Extract all tags from liked items
   const allTags = likedItems.flatMap((outfit: any) => outfit.tags);
@@ -365,6 +282,14 @@ export async function generateInspoOutfits(
       outfit.inspoItems.map(item => item.closetItem)
     );
     
+    // CRITICAL FIX: Remove items that belong to the current user
+    // Inspo should ONLY use items from OTHER users' posts, never your own closet items
+    const beforeOwnFilter = likedClosetItems.length;
+    likedClosetItems = likedClosetItems.filter(item => 
+      item && item.ownerId !== userId
+    );
+    console.log(`Filtered out ${beforeOwnFilter - likedClosetItems.length} own items, ${likedClosetItems.length} items from others remaining`);
+    
     // Remove duplicates to prevent bias toward frequently liked items
     likedClosetItems = likedClosetItems.filter((item, index, self) =>
       index === self.findIndex((i) => i.id === item.id)
@@ -377,7 +302,7 @@ export async function generateInspoOutfits(
     likedClosetItems = likedClosetItems.sort(() => Math.random() - 0.5);
     
     if (likedClosetItems.length > 0) {
-      console.log(`Generating outfits based on ${likedClosetItems.length} liked items`);
+      console.log(`Generating outfits based on ${likedClosetItems.length} liked items from OTHER users (excluding own items)`);
       
       // Extract weather information from request
       const avgTemp = request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp 
@@ -385,8 +310,8 @@ export async function generateInspoOutfits(
         : undefined;
       const conditions = request.weatherFilter?.conditions || [];
       
-      // CRITICAL FIX: ONLY use liked items, NOT the user's personal closet
-      // Instead of searching for similar items, we'll create outfits from the liked items directly
+      // CRITICAL FIX: ONLY use liked items from OTHER users, NOT the user's personal closet
+      // Generate outfits directly from these external liked items
       recommendations = generateOutfitsFromLikedItemsOnly(
         likedClosetItems,
         topTags,
@@ -396,9 +321,9 @@ export async function generateInspoOutfits(
         conditions
       );
     } else {
-      // If no liked items, display a clear message to the user
-      console.log('No liked items available for inspo generation');
-      return []; // Return empty array, front-end will show the prompt to like items
+      // If no liked items from other users, display a clear message
+      console.log('No liked items from other users available for inspo generation - user needs to like items from other users posts');
+      return []; // Return empty array, front-end will show the prompt to like items from others
     }
   } catch (err) {
     console.error('Error generating outfits with inspoRecommender:', err);
@@ -408,86 +333,10 @@ export async function generateInspoOutfits(
   // If we couldn't generate any recommendations with the new method, 
   // we should not fall back to using the user's personal closet items
   if (recommendations.length === 0) {
-    console.log('No recommendations could be generated from liked items');
-    // Return empty array - we don't want to use personal closet items
+    console.log('No recommendations could be generated from liked items from other users');
+    // Return empty array - inspo should never use personal closet items
     return [];
-    
-    // The following legacy code has been disabled to prevent using personal closet items
-    /*
-    // Create synthetic weather for outfit generation (we'll override this later)
-    const syntheticWeather = { avgTemp: 20, minTemp: 15, willRain: false };
-    
-    // Partition closet by layer
-    const partitioned = partitionClosetByLayer(allClosetItems);
-    const requiredLayers = ['base_top', 'base_bottom', 'footwear']; // Basic layers
-    
-    // Get candidate outfits
-    const rawCandidates = getCandidateOutfits(
-      partitioned, 
-      requiredLayers, 
-      preferredStyle, 
-      syntheticWeather
-    );
-    */
-    
-    // Legacy code has been disabled to prevent using personal closet items
-    /*
-    const scoredOutfits = rawCandidates.map(outfit => {
-      const outfitTags = outfit.flatMap(item => extractTagsFromItem(item));
-      
-      // Calculate similarity to liked tags
-      const tagMatchScore = outfitTags.reduce((score, tag) => {
-        return score + (tagFrequency[tag] || 0);
-      }, 0);
-      
-      // Calculate warmth and waterproof
-      const totalWarmth = outfit.reduce((sum, item) => sum + (item.warmthFactor || 0), 0);
-      const hasWaterproof = outfit.some(item => item.waterproof);
-      
-      return {
-        items: outfit,
-        score: tagMatchScore,
-        warmthRating: totalWarmth,
-        waterproof: hasWaterproof,
-        tags: [...new Set(outfitTags)] // Remove duplicates
-      };
-    });
-    
-    // Sort by score and take top results
-    const topOutfits = scoredOutfits
-      .sort((a, b) => b.score - a.score)
-      .slice(0, request.limit || 5);
-    
-    // Convert to InspoOutfitRecommendation format
-    recommendations = topOutfits.map((outfit, index) => {
-      const weatherRec = calculateWeatherRecommendations(outfit.warmthRating, outfit.waterproof);
-      
-      return {
-        id: `generated-${index}`,
-        overallStyle: preferredStyle,
-        warmthRating: outfit.warmthRating,
-        waterproof: outfit.waterproof,
-        tags: outfit.tags,
-        recommendedWeather: weatherRec,
-        score: outfit.score,
-        inspoItems: outfit.items.map((item, itemIndex) => ({
-          closetItemId: item.id,
-          imageUrl: item.filename ? `/api/uploads/${item.filename}` : '',
-          layerCategory: item.layerCategory,
-          category: item.category,
-          style: item.style?.toString(),
-          colorHex: item.colorHex || undefined,
-          warmthFactor: item.warmthFactor || undefined,
-          waterproof: item.waterproof || undefined,
-          dominantColors: Array.isArray(item.dominantColors) 
-            ? (item.dominantColors as string[])
-            : [item.colorHex || '#000000'],
-          sortOrder: itemIndex + 1
-        }))
-      };
-    });
-    */
-  }
+    }
   
   // Before filtering, make sure we have recommendations
   if (recommendations.length === 0) {
@@ -496,42 +345,26 @@ export async function generateInspoOutfits(
     return [];
   }
   
-  // Apply weather filtering and add final safety check
+  // Apply weather filtering with debugging
+  console.log(`Generated ${recommendations.length} recommendations before weather filtering`);
   const filteredRecommendations = applyWeatherFilter(recommendations, request);
+  console.log(`${filteredRecommendations.length} recommendations after weather filtering`);
   
-  // CRITICAL FINAL CHECK: Remove any outfits that still contain inappropriate items for hot weather
-  if (request.weatherFilter && request.weatherFilter.maxTemp && request.weatherFilter.maxTemp > 20) {
-    const finalFiltered = filteredRecommendations.filter(outfit => {
-      const hasInappropriateItems = outfit.inspoItems.some(item => {
-        const category = item.category?.toLowerCase() || '';
-        const layer = item.layerCategory;
-        const warmth = item.warmthFactor || 0;
-        
-        // If temperature is >20°C, block warm items and inappropriate categories
-        if (request.weatherFilter!.maxTemp! > 20) {
-          // Block by warmth factor
-          if (request.weatherFilter!.maxTemp! > 25 && warmth >= 5) return true;
-          if (request.weatherFilter!.maxTemp! > 20 && warmth >= 6) return true;
-          
-          // Block by layer and category
-          if (layer === 'outerwear' || layer === 'mid_top') return true;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('sweatshirt') || category.includes('jacket') || 
-              category.includes('coat')) return true;
-        }
-        
-        return false;
+  if (filteredRecommendations.length === 0 && recommendations.length > 0) {
+    console.log('Weather filtering removed all recommendations. Filter criteria:', JSON.stringify(request.weatherFilter));
+    // Log the first few recommendations that were filtered out for debugging
+    recommendations.slice(0, 2).forEach((rec, index) => {
+      console.log(`Filtered out recommendation ${index + 1}:`, {
+        id: rec.id,
+        warmthRating: rec.warmthRating,
+        recommendedWeather: rec.recommendedWeather,
+        items: rec.inspoItems.map(item => ({
+          category: item.category,
+          layerCategory: item.layerCategory,
+          warmthFactor: item.warmthFactor
+        }))
       });
-      
-      if (hasInappropriateItems) {
-        console.log(`Final filter removed outfit with inappropriate items for temp ${request.weatherFilter!.maxTemp}°C`);
-        return false;
-      }
-      
-      return true;
     });
-    
-    return finalFiltered;
   }
   
   return filteredRecommendations;
@@ -545,28 +378,36 @@ function applyWeatherFilter(
   // Apply weather filtering if requested
   if (request.weatherFilter) {
     const { weatherFilter } = request;
-    return recommendations.filter(rec => {
+    const filtered = recommendations.filter(rec => {
       const { recommendedWeather } = rec;
       
-      if (weatherFilter.minTemp !== undefined && recommendedWeather.maxTemp < weatherFilter.minTemp) {
+      // Make temperature filtering more lenient - allow some overlap
+      if (weatherFilter.minTemp !== undefined && recommendedWeather.maxTemp < (weatherFilter.minTemp - 5)) {
         return false;
       }
-      if (weatherFilter.maxTemp !== undefined && recommendedWeather.minTemp > weatherFilter.maxTemp) {
+      if (weatherFilter.maxTemp !== undefined && recommendedWeather.minTemp > (weatherFilter.maxTemp + 5)) {
         return false;
       }
-      if (weatherFilter.conditions) {
+      
+      // Make condition filtering more lenient - if no conditions specified, allow all
+      if (weatherFilter.conditions && weatherFilter.conditions.length > 0) {
         const hasMatchingCondition = weatherFilter.conditions.some(condition => 
           recommendedWeather.conditions.includes(condition)
         );
-        if (!hasMatchingCondition) return false;
+        // Also allow generic conditions like 'sunny' and 'cloudy' as fallbacks
+        const hasGenericMatch = recommendedWeather.conditions.some(condition => 
+          ['sunny', 'cloudy'].includes(condition)
+        );
+        if (!hasMatchingCondition && !hasGenericMatch) return false;
       }
       
       return true;
     });
+    
+    return filtered.slice(0, request.limit || 5);
   }
   
   // Return exactly the requested number of recommendations (max 5)
-  // These are temporary and will be replaced on the next generation
   return recommendations.slice(0, request.limit || 5);
 }
 
