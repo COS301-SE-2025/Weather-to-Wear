@@ -221,7 +221,8 @@ function calculateWeatherRecommendations(warmthRating: number, waterproof: boole
   return { minTemp, maxTemp, conditions };
 }
 
-// Generate inspiration outfits based on liked items
+// Generate temporary inspiration outfit recommendations based on liked items
+// NOTE: These are NOT stored in the database - they are temporary recommendations that replace previous ones
 export async function generateInspoOutfits(
   userId: string, 
   request: GenerateInspoRequest
@@ -275,11 +276,19 @@ export async function generateInspoOutfits(
         (request.styleFilter as Style) : 
         (userPref?.style || Style.Casual);
         
+      // Extract weather information from request
+      const avgTemp = request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp 
+        ? (request.weatherFilter.minTemp + request.weatherFilter.maxTemp) / 2
+        : undefined;
+      const conditions = request.weatherFilter?.conditions || [];
+      
       return generateRandomOutfits(
         allClosetItems,
         [], // No preferred tags yet
         preferredStyle,
-        Math.min(20, request.limit || 10)
+        Math.min(5, request.limit || 5),
+        avgTemp,
+        conditions
       );
     }
 
@@ -370,13 +379,21 @@ export async function generateInspoOutfits(
     if (likedClosetItems.length > 0) {
       console.log(`Generating outfits based on ${likedClosetItems.length} liked items`);
       
+      // Extract weather information from request
+      const avgTemp = request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp 
+        ? (request.weatherFilter.minTemp + request.weatherFilter.maxTemp) / 2
+        : undefined;
+      const conditions = request.weatherFilter?.conditions || [];
+      
       // CRITICAL FIX: ONLY use liked items, NOT the user's personal closet
       // Instead of searching for similar items, we'll create outfits from the liked items directly
       recommendations = generateOutfitsFromLikedItemsOnly(
         likedClosetItems,
         topTags,
         preferredStyle,
-        Math.min(20, request.limit || 10)
+        Math.min(5, request.limit || 5),
+        avgTemp,
+        conditions
       );
     } else {
       // If no liked items, display a clear message to the user
@@ -439,7 +456,7 @@ export async function generateInspoOutfits(
     // Sort by score and take top results
     const topOutfits = scoredOutfits
       .sort((a, b) => b.score - a.score)
-      .slice(0, request.limit || 20);
+      .slice(0, request.limit || 5);
     
     // Convert to InspoOutfitRecommendation format
     recommendations = topOutfits.map((outfit, index) => {
@@ -479,7 +496,45 @@ export async function generateInspoOutfits(
     return [];
   }
   
-  return applyWeatherFilter(recommendations, request);
+  // Apply weather filtering and add final safety check
+  const filteredRecommendations = applyWeatherFilter(recommendations, request);
+  
+  // CRITICAL FINAL CHECK: Remove any outfits that still contain inappropriate items for hot weather
+  if (request.weatherFilter && request.weatherFilter.maxTemp && request.weatherFilter.maxTemp > 20) {
+    const finalFiltered = filteredRecommendations.filter(outfit => {
+      const hasInappropriateItems = outfit.inspoItems.some(item => {
+        const category = item.category?.toLowerCase() || '';
+        const layer = item.layerCategory;
+        const warmth = item.warmthFactor || 0;
+        
+        // If temperature is >20°C, block warm items and inappropriate categories
+        if (request.weatherFilter!.maxTemp! > 20) {
+          // Block by warmth factor
+          if (request.weatherFilter!.maxTemp! > 25 && warmth >= 5) return true;
+          if (request.weatherFilter!.maxTemp! > 20 && warmth >= 6) return true;
+          
+          // Block by layer and category
+          if (layer === 'outerwear' || layer === 'mid_top') return true;
+          if (category.includes('hoodie') || category.includes('sweater') || 
+              category.includes('sweatshirt') || category.includes('jacket') || 
+              category.includes('coat')) return true;
+        }
+        
+        return false;
+      });
+      
+      if (hasInappropriateItems) {
+        console.log(`Final filter removed outfit with inappropriate items for temp ${request.weatherFilter!.maxTemp}°C`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    return finalFiltered;
+  }
+  
+  return filteredRecommendations;
 }
 
 // Helper function to apply weather filtering
@@ -510,7 +565,9 @@ function applyWeatherFilter(
     });
   }
   
-  return recommendations.slice(0, request.limit || 10);
+  // Return exactly the requested number of recommendations (max 5)
+  // These are temporary and will be replaced on the next generation
+  return recommendations.slice(0, request.limit || 5);
 }
 
 // Get all stored inspo outfits for a user

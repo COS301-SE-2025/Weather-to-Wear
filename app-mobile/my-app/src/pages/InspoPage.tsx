@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw } from 'lucide-react';
 import { API_BASE } from '../config';
@@ -362,23 +362,14 @@ const FilterPanel = ({
 
 // Main InspoPage Component
 const InspoPage = () => {
-  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 10 });
+  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 5 }); // Fixed limit to 5
   const queryClient = useQueryClient();
   const { token, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Query for existing inspo outfits
-  const { data: existingOutfits, isLoading: isLoadingExisting } = useQuery({
-    queryKey: ['inspo-outfits'],
-    queryFn: () => {
-      if (!token) return Promise.resolve([]);
-      return getUserInspoOutfits(token);
-    },
-    enabled: !!token && isAuthenticated, // Only run query if authenticated
-  });
-
-  // Query for generated outfits (starts empty)
+  // State for generated outfits (like dashboard - only show these)
   const [generatedOutfits, setGeneratedOutfits] = useState<InspoOutfit[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false); // Track if user has generated outfits
 
   // Generate new outfits mutation
   const generateMutation = useMutation({
@@ -387,7 +378,12 @@ const InspoPage = () => {
       return generateInspoOutfits(request, token);
     },
     onSuccess: (data) => {
-      setGeneratedOutfits(data);
+      setGeneratedOutfits(data); // Replace old outfits with new ones (max 5)
+      setHasGenerated(true);
+    },
+    onError: (error) => {
+      console.error('Failed to generate outfits:', error);
+      setHasGenerated(true); // Still mark as generated attempt
     },
   });
 
@@ -401,6 +397,14 @@ const InspoPage = () => {
       queryClient.invalidateQueries({ queryKey: ['inspo-outfits'] });
     },
   });
+
+  // Auto-generate outfits when page first loads (like dashboard)
+  useEffect(() => {
+    if (isAuthenticated && token && !hasGenerated && generatedOutfits.length === 0) {
+      console.log('Auto-generating initial outfits...');
+      generateMutation.mutate(filters);
+    }
+  }, [isAuthenticated, token, hasGenerated]);
 
   const handleGenerate = () => {
     if (!token) {
@@ -421,7 +425,16 @@ const InspoPage = () => {
     }
   };
 
-  const allOutfits = [...generatedOutfits, ...(existingOutfits || [])];
+  // Only show generated outfits (max 5, like dashboard)
+  const allOutfits = generatedOutfits;
+
+  // Auto-generate outfits when page first loads (like dashboard)
+  useEffect(() => {
+    if (isAuthenticated && token && !hasGenerated && generatedOutfits.length === 0) {
+      console.log('Auto-generating initial outfits...');
+      generateMutation.mutate(filters);
+    }
+  }, [isAuthenticated, token, hasGenerated]);
 
   // If not authenticated, show login prompt
   if (!isAuthenticated || !token) {
@@ -495,10 +508,10 @@ const InspoPage = () => {
         )}
 
         {/* Loading State */}
-        {isLoadingExisting && (
+        {generateMutation.isPending && (
           <div className="text-center py-8">
             <RefreshCw className="animate-spin mx-auto mb-4 text-gray-400" size={32} />
-            <p className="text-gray-500">Loading your inspiration outfits...</p>
+            <p className="text-gray-500">Generating your inspiration outfits...</p>
           </div>
         )}
 
@@ -506,7 +519,7 @@ const InspoPage = () => {
         {allOutfits.length > 0 ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">
-              Your Inspiration Outfits ({allOutfits.length})
+              Generated Inspiration Outfits ({allOutfits.length})
             </h2>
             {allOutfits.map((outfit) => (
               <OutfitCard
@@ -516,7 +529,7 @@ const InspoPage = () => {
               />
             ))}
           </div>
-        ) : !isLoadingExisting && (
+        ) : !generateMutation.isPending && hasGenerated && (
           <div className="text-center py-12">
             <div className="mb-4">
               <Sun className="mx-auto text-gray-400" size={64} />

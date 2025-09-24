@@ -56,7 +56,7 @@ class InspoController {
     }
   };
 
-  // Generate inspiration outfits based on liked items
+  // Generate inspiration outfits based on liked items (temporary recommendations)
   // POST /api/inspo/generate
   generateOutfits = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -66,22 +66,33 @@ class InspoController {
         return; 
       }
 
-      const recommendations = await generateInspoOutfits(user.id, req.body);
+      // Force limit to exactly 5 outfits per generation (replaces previous recommendations)
+      const requestWithLimit = { ...req.body, limit: 5 };
+      console.log(`[INSPO] Generating outfits for user ${user.id} with limit: ${requestWithLimit.limit}`);
+      const recommendations = await generateInspoOutfits(user.id, requestWithLimit);
+      console.log(`[INSPO] Generated ${recommendations.length} recommendations`);
       
       if (recommendations.length === 0) {
         res.status(404).json({ 
           error: 'No recommendations available', 
-          message: 'Try liking some items from the social feed or rating your outfits to get better recommendations.' 
+          message: 'Try liking some items from the social feed to get inspiration outfits.' 
         });
         return;
       }
       
-      res.status(200).json(recommendations.map(mapInspoOutfitForClient));
+      // Mark these as temporary recommendations (not stored)
+      const tempRecommendations = recommendations.map(rec => ({
+        ...mapInspoOutfitForClient(rec),
+        isTemporary: true, // Flag to indicate these are temporary recommendations
+        generatedAt: new Date().toISOString()
+      }));
+      
+      res.status(200).json(tempRecommendations);
     } catch (err: any) {
       console.error('Error generating outfits:', err);
       res.status(400).json({ 
         error: 'Failed to generate recommendations',
-        message: 'Try liking some items from the social feed or rating your outfits to get better recommendations.'
+        message: 'Try liking some items from the social feed to get inspiration outfits.'
       });
     }
   };
