@@ -333,23 +333,78 @@ class SocialController {
   };
 
   followUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { user } = req as AuthenticatedRequest;
-      const { userId } = req.params;
-      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { userId } = req.params;
+    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (user.id === userId) return res.status(400).json({ message: "You cannot follow yourself" });
 
-      const follow = await socialService.followUser(user.id, userId);
-      res.status(200).json({ message: 'User followed successfully', follow });
-    } catch (err: any) {
-      if (err.message === 'You cannot follow yourself' || err.message === 'Already following this user') {
-        return res.status(400).json({ message: err.message });
-      }
-      if (err.message === 'User not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      next(err);
+    const follow = await socialService.followUser(user.id, userId);
+    const msg = follow.status === "pending"
+      ? "Follow request sent successfully"
+      : "User followed successfully";
+
+    res.status(200).json({ message: msg, follow });
+  } catch (err: any) {
+    if (["Already following this user", "Follow request already pending"].includes(err.message)) {
+      return res.status(400).json({ message: err.message });
     }
-  };
+    if (err.message === "User not found") {
+      return res.status(404).json({ message: err.message });
+    }
+    next(err);
+  }
+};
+
+getNotifications = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    const notifications = await socialService.getNotifications(user.id);
+    res.status(200).json({ message: "Notifications retrieved successfully", notifications });
+  } catch (err) {
+    next(err);
+  }
+};
+
+acceptFollowRequest = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { requestId } = req.params;
+    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    const follow = await socialService.acceptFollowRequest(user.id, requestId);
+    res.status(200).json({ message: "Follow request accepted", follow });
+  } catch (err: any) {
+    if (err.message === "Follow request not found") {
+      return res.status(404).json({ message: err.message });
+    }
+    if (err.message === "Unauthorized") {
+      return res.status(403).json({ message: err.message });
+    }
+    next(err);
+  }
+};
+
+rejectFollowRequest = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const { requestId } = req.params;
+    if (!user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    const follow = await socialService.rejectFollowRequest(user.id, requestId);
+    res.status(200).json({ message: "Follow request rejected", follow });
+  } catch (err: any) {
+    if (err.message === "Follow request not found") {
+      return res.status(404).json({ message: err.message });
+    }
+    if (err.message === "Unauthorized") {
+      return res.status(403).json({ message: err.message });
+    }
+    next(err);
+  }
+};
 
   unfollowUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
