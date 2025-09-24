@@ -1,5 +1,4 @@
 // src/components/NavBar.tsx
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 // import Toast from './Toast';
@@ -20,7 +19,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 const NavBar: React.FC = () => {
   const location = useLocation();
-  const[showToast, setShowToast] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
   const currentPath = location.pathname;
@@ -40,12 +38,13 @@ const NavBar: React.FC = () => {
   const profileRefDesktop = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => currentPath === path;
+
   const toggleMenu = () => {
-    setMenuOpen((o) => !o);
+    setMenuOpen(o => !o);
     setProfileOpen(false);
   };
   const toggleProfile = () => {
-    setProfileOpen((o) => !o);
+    setProfileOpen(o => !o);
     setMenuOpen(false);
   };
 
@@ -97,23 +96,18 @@ const NavBar: React.FC = () => {
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (!profileOpen) return;
-
       const target = e.target as Node;
       const inMobile = profileRefMobile.current?.contains(target);
       const inDesktop = profileRefDesktop.current?.contains(target);
-
-      if (!inMobile && !inDesktop) {
-        setProfileOpen(false);
-      }
+      if (!inMobile && !inDesktop) setProfileOpen(false);
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [profileOpen]);
 
-
   return (
     <>
+      {/* Fixed top bar */}
       <div className="fixed top-0 left-0 w-full bg-white dark:bg-gray-900 z-50">
         {/* Top Banner */}
         <div className="bg-black dark:bg-gray-800 text-white py-2 px-4">
@@ -124,9 +118,9 @@ const NavBar: React.FC = () => {
               <h1 className="hidden lg:block text-2xl md:text-4xl font-sephir font-semibold tracking-tight">
                 WeatherToWear
               </h1>
-
             </div>
 
+            {/* Mobile top-right actions */}
             {isMobile && (
               <div className="flex items-center gap-2 relative" ref={profileRefMobile}>
                 <button
@@ -136,7 +130,6 @@ const NavBar: React.FC = () => {
                 >
                   <HelpCircle className="text-white w-5 h-5" />
                 </button>
-
                 <button
                   onClick={toggleProfile}
                   className="w-8 h-8 flex items-center justify-center rounded-full border border-white"
@@ -144,14 +137,12 @@ const NavBar: React.FC = () => {
                 >
                   <User className="text-white w-5 h-5" />
                 </button>
-
                 <button
                   onClick={handleLogout}
                   className="px-3 py-1 rounded-full border border-white text-white hover:bg-white hover:text-black transition-all font-livvic text-sm"
                 >
                   log out
                 </button>
-
 
                 {profileOpen && (
                   <div className="absolute top-full right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-50">
@@ -173,8 +164,6 @@ const NavBar: React.FC = () => {
                 )}
               </div>
             )}
-
-
           </div>
         </div>
 
@@ -185,9 +174,7 @@ const NavBar: React.FC = () => {
             <div className="bg-black dark:bg-gray-800 rounded-full flex items-center px-8 py-1 gap-4 absolute left-1/2 -translate-x-1/2">
               <Link
                 to="/dashboard"
-                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${isActive("/dashboard")
-                  ? "bg-[#3F978F]"
-                  : "hover:bg-[#304946]"
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${isActive("/dashboard") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                   } text-white`}
               >
                 Home
@@ -202,8 +189,8 @@ const NavBar: React.FC = () => {
               <button
                 onClick={toggleMenu}
                 className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isAddRoute
-                  ? "bg-[#3F978F] text-white"
-                  : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-[#304946]"
+                    ? "bg-[#3F978F] text-white"
+                    : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-[#304946]"
                   }`}
                 aria-label="Add options"
               >
@@ -211,9 +198,7 @@ const NavBar: React.FC = () => {
               </button>
               <Link
                 to="/calendar"
-                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${isActive("/calendar")
-                  ? "bg-[#3F978F]"
-                  : "hover:bg-[#304946]"
+                className={`flex items-center justify-center px-3 py-1 rounded-full transition-colors ${isActive("/calendar") ? "bg-[#3F978F]" : "hover:bg-[#304946]"
                   } text-white`}
               >
                 Calendar
@@ -246,6 +231,7 @@ const NavBar: React.FC = () => {
               <button
                 onClick={toggleProfile}
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-black dark:border-gray-100"
+                aria-label="Profile"
               >
                 <User className="text-black dark:text-gray-100 w-5 h-5" />
               </button>
@@ -306,16 +292,17 @@ const NavBar: React.FC = () => {
             </div>
           )}
         </nav>
-
-        {/* Mobile Nav Menu */}
-        {/* on mobile only: Help, Profile & Logout */}
-
-
       </div>
 
+      {/* FLOW SPACERS (outside the fixed header) */}
+      {/* Desktop: proper spacing for fixed header */}
+      <div className="hidden lg:block !h-[0px]" aria-hidden />
+      {/* Mobile: proper spacing for fixed header */}
+      <div className="block lg:hidden !h-[0px]" aria-hidden />
+      {/* Mobile bottom nav */}
       {isMobile && (
         <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 py-2 px-4 z-40">
-          {/* Mobile Add Dropdown (opens UP so it isn't cut off) */}
+          {/* Mobile Add Dropdown (opens up) */}
           {menuOpen && (
             <div className="mb-2 flex flex-col space-y-2">
               <Link
@@ -363,8 +350,8 @@ const NavBar: React.FC = () => {
             <button
               onClick={toggleMenu}
               className={`p-1 rounded-full w-8 h-8 transition-colors ${isAddRoute
-                ? "bg-[#3F978F] text-white"
-                : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-[#304946]"
+                  ? "bg-[#3F978F] text-white"
+                  : "bg-white dark:bg-gray-800 text-black dark:text-gray-100 hover:bg-[#304946]"
                 }`}
               aria-label="Add options"
             >
@@ -394,7 +381,6 @@ const NavBar: React.FC = () => {
           </nav>
         </div>
       )}
-
     </>
   );
 };
