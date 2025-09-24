@@ -8,10 +8,13 @@ import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { fetchAllEvents } from '../services/eventsApi';
 import { getPackingList } from '../services/packingApi';
+import TryOnViewer from "../components/tryon/TryOnViewer";
 
 import EditOutfitModal from "../components/EditOutfitModal";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+
+import "../styles/ClosetPage.css";
 
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
@@ -107,6 +110,8 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
+
+
 type Item = {
   id: string;
   name: string;
@@ -159,6 +164,9 @@ export default function ClosetPage() {
   const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
+
+  const [showTryOnModal, setShowTryOnModal] = useState(false); // New state for separate try-on modal
+  const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
 
   // Global popup (Success/Error)
   const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
@@ -438,32 +446,28 @@ export default function ClosetPage() {
   }
 
   return (
-    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4 -mt-16">
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
       {/* Header Image Section */}
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
-        style={{
-          backgroundImage: `url(/header.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-1rem'
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-bodoni font-light text-center text-white"
-            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
-          >
-            MY CLOSET
-          </h1>
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/header.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              MY CLOSET
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      <div className="max-w-screen-sm mx-auto px-4 pb-12">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl pb-12">
         {/* Filters & Search */}
         <div className="flex flex-wrap justify-center gap-4 my-4">
           <select
@@ -543,7 +547,7 @@ export default function ClosetPage() {
 
             {favView === 'items' ? (
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {items.filter(i => i.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
                   ) : (
@@ -556,6 +560,7 @@ export default function ClosetPage() {
                               alt={entry.name}
                               onClick={() => setActiveDetailsItem(entry)}
                               className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+                              
                             />
                             <button
                               onClick={() => {
@@ -594,14 +599,19 @@ export default function ClosetPage() {
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {outfits.filter(o => o.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
                     outfits.filter(o => o.favourite).map(entry => (
                       <div
-                        key={entry.id}
-                        className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                        className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                         onClick={() => setActiveDetailsOutfit(entry)}
                       >
                         <button
@@ -686,12 +696,12 @@ export default function ClosetPage() {
           </div>
         ) : (
           // NORMAL GRID FOR ITEMS / OUTFITS TAB
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
                 return (
                   <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                    <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                    <div className="hover:shadow-2xl hover:shadow-black/20 bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
                       <div className="flex-grow relative">
                         <img
                           src={entry.image}
@@ -737,8 +747,13 @@ export default function ClosetPage() {
               } else if (isUIOutfit(entry)) {
                 return (
                   <div
-                    key={entry.id}
-                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                     onClick={() => setActiveDetailsOutfit(entry)}
                   >
                     <button
@@ -781,7 +796,7 @@ export default function ClosetPage() {
                       {/* bottoms */}
                       <div className="flex justify-center space-x-1">
                         {entry.outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
+                          .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                           .map(it => (
                             <img
                               key={it.closetItemId}
@@ -826,6 +841,7 @@ export default function ClosetPage() {
           </div>
         )}
 
+        {/* Outfit Details Modal (always shows thumbnails, no try-on toggle) */}
         <AnimatePresence>
           {activeDetailsOutfit && (
             <motion.div
@@ -838,12 +854,12 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl min-w-0 p-8 relative flex flex-col gap-4"
               >
                 {/* Close Button */}
                 <button
                   onClick={() => setActiveDetailsOutfit(null)}
-                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-30"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -859,7 +875,7 @@ export default function ClosetPage() {
                   />
                 </button>
 
-                {/* Outfit Images */}
+                {/* Static thumbnails */}
                 <div className="flex justify-center mb-2">
                   <div className="space-y-1">
                     {/* headwear + accessory */}
@@ -891,7 +907,7 @@ export default function ClosetPage() {
                     {/* bottoms */}
                     <div className="flex justify-center space-x-1">
                       {activeDetailsOutfit.outfitItems
-                        .filter(it => it.layerCategory === 'base_bottom')
+                        .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                         .map(it => (
                           <img
                             key={it.closetItemId}
@@ -939,6 +955,18 @@ export default function ClosetPage() {
                 <div className="flex justify-end gap-2 pt-6">
                   <button
                     onClick={() => {
+                      if (activeDetailsOutfit) {
+                        setTryOnOutfit(activeDetailsOutfit); // Store the outfit data
+                        setShowTryOnModal(true);
+                        setActiveDetailsOutfit(null); // Close details modal
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+                  >
+                    Try On
+                  </button>
+                  <button
+                    onClick={() => {
                       if (!activeDetailsOutfit) return;
                       setEditingOutfit(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
@@ -957,6 +985,65 @@ export default function ClosetPage() {
                   >
                     Delete
                   </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Separate Try-On Modal */}
+        <AnimatePresence>
+          {showTryOnModal && tryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowTryOnModal(false);
+                setTryOnOutfit(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col"
+                style={{
+                  width: 'min(95vw, 1200px)',
+                  height: 'min(95vh, 800px)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setShowTryOnModal(false);
+                    setTryOnOutfit(null);
+                  }}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[101]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Try-On Viewer - SIMPLIFIED CONTAINER */}
+                <div
+                  className="flex-1 relative"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px'
+                  }}
+                >
+                  <TryOnViewer
+                    mannequinUrl="/mannequins/front_v1.png"
+                    poseId="front_v1"
+                    outfitItems={tryOnOutfit.outfitItems.map(it => ({
+                      closetItemId: it.closetItemId,
+                      imageUrl: it.imageUrl,
+                      layerCategory: it.layerCategory as any,
+                    }))}
+                  />
                 </div>
               </motion.div>
             </motion.div>

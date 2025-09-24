@@ -57,7 +57,7 @@ const LandingPage: React.FC = () => {
         <div className="hidden lg:block absolute top-0 right-20 h-56 w-56 bg-teal-800 rounded-full translate-x-1/4 -translate-y-1/4" />
 
         {/* Image */}
-        <div className="w-full lg:w-1/3 flex justify-center lg:justify-end mt-6 lg:mt-0 pr-4 sm:pr-8 lg:pr-16 relative z-10">
+        <div className="w-full lg:w-1/3 flex justify-center lg:justify-end mt-6 lg:mt-0 pr-4 sm:pr-8 lg:pr-16 relative z-30">
           <div className="w-52 sm:w-64 lg:w-72 max-w-[280px]">
             <img
               src="/LPcloset.jpg"
@@ -70,8 +70,8 @@ const LandingPage: React.FC = () => {
 
       {/* What is W2W */}
       <section
-        className="relative bg-cover bg-center bg-no-repeat py-12 sm:py-14 lg:py-16 lg:sticky lg:top-0 lg:z-20"
-        style={{ backgroundImage: "url('/header.jpg')" }}
+        className="relative bg-cover bg-center bg-no-repeat py-12 sm:py-14 lg:py-16 lg:sticky lg:top-0 lg:z-20 -mt-16 lg:-mt-24"
+        style={{ backgroundImage: "url('/landing.jpg')" }}
       >
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 text-center">
@@ -90,15 +90,15 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Features */}
-      <section className="py-14 sm:py-16 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 lg:sticky lg:top-0 lg:z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="py-14 sm:py-16 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 lg:sticky lg:top-0 lg:z-20 ">
+        <div className=" max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="mb-4">
             <div className="inline-block relative group">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bodoni font-light text-black dark:text-white">Features</h2>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bodoni font-light text-black dark:text-white -mt-16 lg:-mt-24">Features</h2>
               <span className="absolute left-1/2 -bottom-1 w-0 h-[2px] bg-black dark:bg-white group-hover:left-0 group-hover:w-full transition-all duration-300" />
             </div>
           </div>
-          <p className="mt-2 sm:mt-3 text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          <p className="mt-2 sm:mt-3 text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto -mt-8 lg:-mt-16">
             Everything you need to look and feel great in any weather.
           </p>
 
@@ -111,12 +111,23 @@ const LandingPage: React.FC = () => {
             ].map((feature, i) => (
               <motion.div
                 key={feature.title}
-                className="relative bg-white dark:bg-gray-800 rounded-3xl shadow-md p-6 sm:p-8 flex flex-col items-center text-center hover:shadow-lg transition"
+                className="
+    group relative bg-white dark:bg-gray-800 rounded-3xl shadow-md p-6 sm:p-8
+    flex flex-col items-center text-center transition
+    hover:shadow-lg
+
+    /* Neon glow via pseudo-layer */
+    before:content-[''] before:absolute before:inset-0 before:rounded-3xl
+    before:opacity-0 before:transition before:duration-500 before:pointer-events-none
+    group-hover:before:opacity-100
+    before:shadow-[0_0_36px_10px_rgba(53,92,87,0.75)]
+  "
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: i * 0.15 }}
                 viewport={{ once: true }}
               >
+                
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-100 to-transparent opacity-20 rounded-3xl pointer-events-none" />
                 <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden mb-5">
                   <img src={feature.img} alt={feature.title} className="w-full h-full object-cover" />
@@ -134,15 +145,15 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="bg-stone-200 w-full py-12 sm:py-16 lg:sticky lg:top-0 lg:z-30">
+      <section className="bg-black w-full py-12 sm:py-16 lg:sticky lg:top-0 lg:z-30">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
           <div className="mb-4">
             <div className="inline-block relative group">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bodoni font-light text-black">Testimonials</h2>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bodoni font-light text-white">Testimonials</h2>
               <span className="absolute left-1/2 -bottom-1 w-0 h-[2px] bg-black group-hover:left-0 group-hover:w-full transition-all duration-300" />
             </div>
           </div>
-          <p className="mt-2 sm:mt-4 mb-4 text-base sm:text-lg text-gray-700 max-w-2xl mx-auto">
+          <p className="mt-2 sm:mt-4 mb-4 text-base sm:text-lg text-white max-w-2xl mx-auto">
             Our main goal is to make your life easier and more stylish. Here’s what our users say:
           </p>
 
@@ -196,31 +207,31 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* How It Works */}
-      <section className="py-16 sm:py-20 bg-white dark:bg-gray-800 lg:sticky lg:top-0 lg:z-40">
+      <section
+        className="relative bg-cover bg-center bg-no-repeat py-12 sm:py-14 lg:py-16 lg:sticky lg:top-0 lg:z-20 "
+        style={{ backgroundImage: "url('/background.jpg')" }}
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-4">
             <div className="inline-block relative group">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bodoni font-light text-black dark:text-white">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bodoni font-light text-black dark:text-white -mt-16 lg:-mt-24 ">
                 How It Works
               </h2>
-              <span className="absolute left-1/2 -bottom-1 w-0 h-[2px] bg-black dark:bg-white group-hover:left-0 group-hover:w-full transition-all duration-300" />
             </div>
           </div>
-          <p className="text-center mt-2 sm:mt-3 text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Confused about how to get started? Here’s a quick guide:
-          </p>
 
-          <div className="relative mt-10 sm:mt-14">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
+
+          <div className="relative mt-10 sm:mt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 justify-items-center sm:mt-8">
               {[
-                { n: "1", color: "#3F978F", title: "Set Your Location", text: "Allow location access or enter your city." },
-                { n: "2", color: "#304946", title: "Add Wardrobe", text: "Save your clothing items for suggestions." },
-                { n: "3", color: "#3F978F", title: "Get Outfit Ideas", text: "Receive weather-based outfit recommendations." },
+                { n: "1", color: "#355c57ff", title: "Set Your Location", text: "Allow location access or enter your city." },
+                { n: "2", color: "#355c57ff", title: "Add Wardrobe", text: "Save your clothing items for suggestions." },
+                { n: "3", color: "#355c57ff", title: "Get Outfit Ideas", text: "Receive weather-based outfit recommendations." },
               ].map((s) => (
                 <div key={s.n} className="relative group flex items-center justify-center">
                   {/* hide circle on mobile to avoid overlap */}
                   <div className="hidden sm:block absolute w-[240px] h-[240px] rounded-full shadow-md transition-all duration-300 -z-0"
-                       style={{ backgroundColor: s.color }} />
+                    style={{ backgroundColor: s.color }} />
                   <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-md p-5 text-center hover:shadow-lg transition z-10 w-[220px]">
                     <div className="text-3xl sm:text-4xl font-bold" style={{ color: s.color }}>{s.n}</div>
                     <p className="text-lg font-semibold font-livvic text-gray-900 dark:text-white mt-1">{s.title}</p>
@@ -232,7 +243,7 @@ const LandingPage: React.FC = () => {
           </div>
 
           <div className="w-full mt-14">
-            <Footer />
+
           </div>
         </div>
       </section>

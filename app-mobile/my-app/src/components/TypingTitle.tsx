@@ -37,9 +37,9 @@ export default function TypingTitle({ text, highlight = '' }: TypingTitleProps) 
   const afterHighlight = displayText.slice(highlightStart + highlight.length);
 
   return (
-    <h1 className="text-white text-3xl sm:text-4xl mb-4 font-sephir tracking-wide text-center">
+    <h1 className="text-black text-3xl sm:text-4xl mb-4 font-sephir tracking-wide text-center">
       {beforeHighlight}
-      <span style={{ color: '#FFFFFF' }}>{highlighted}</span>
+      <span style={{ color: '#3F978F' }}>{highlighted}</span>
       {afterHighlight}
       <span className="animate-pulse">|</span>
     </h1>

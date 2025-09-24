@@ -2,6 +2,7 @@
 import React from 'react';
 import { MapPin } from 'lucide-react';
 import { WeatherData } from '../hooks/useWeather';
+import { formatMonthDay } from '../utils/date';
 
 interface WeatherDisplayProps {
   weather: WeatherData;
