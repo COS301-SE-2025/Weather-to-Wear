@@ -1,8 +1,6 @@
 // src/services/socialApi.ts
 import { fetchWithAuth } from "./fetchWithAuth";
 import { API_BASE } from '../config';
-import { SocialNotification, NotificationsResponse } from "../types/social";
-
 const API_URL = `${API_BASE}/api/social`;
 
 export interface User {
@@ -161,6 +159,23 @@ export async function unfollowUser(userId: string) {
 
 // Notifications
 // services/socialApi.ts
+export type NotificationAPIItem = {
+  id: string;
+  type: "like" | "comment" | "follow";
+  fromUser: {
+    id: string;
+    name: string;
+    profilePhoto?: string | null;
+  };
+  postId?: string | null;
+  postContent?: string | null;
+  createdAt: string; // ISO string
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationAPIItem[];
+};
+
 export async function getNotifications(): Promise<NotificationsResponse> {
   try {
     const token = localStorage.getItem('token'); // your JWT
@@ -193,9 +208,6 @@ export async function getNotifications(): Promise<NotificationsResponse> {
     return { notifications: [] }; // ✅ return object
   }
 }
-
-
-
 
 export async function acceptFollowRequest(requestId: string) {
   const response = await fetchWithAuth(

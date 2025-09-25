@@ -251,37 +251,32 @@ class SocialService {
     });
   }
 
-  // ────────────── NOTIFICATIONS ──────────────
-  async getLikesNotifications(userId: string) {
-    return prisma.like.findMany({
-      where: { post: { userId } },
-      include: {
-        user: { select: { id: true, name: true, profilePhoto: true } },
-        post: { select: { id: true, caption: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
-  async getCommentsNotifications(userId: string) {
-    return prisma.comment.findMany({
-      where: { post: { userId } },
-      include: {
-        user: { select: { id: true, name: true, profilePhoto: true } },
-        post: { select: { id: true, caption: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
+  // ────────────── NOTIFICATIONS (DYNAMIC) ──────────────
   async getNotifications(userId: string): Promise<NotificationAPIItem[]> {
-    const [followRequests, likes, comments] = await Promise.all([
+    // Get latest comments, likes, and follow requests on user's posts
+    const [likes, comments, followRequests] = await Promise.all([
+      prisma.like.findMany({
+        where: { post: { userId }, NOT: { userId } },
+        include: {
+          user: { select: { id: true, name: true, profilePhoto: true } },
+          post: { select: { id: true, caption: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.comment.findMany({
+        where: { post: { userId }, NOT: { userId } },
+        include: {
+          user: { select: { id: true, name: true, profilePhoto: true } },
+          post: { select: { id: true, caption: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
       this.getFollowRequests(userId),
-      this.getLikesNotifications(userId),
-      this.getCommentsNotifications(userId),
     ]);
 
-    const mapped: NotificationAPIItem[] = [
+    const notifications: NotificationAPIItem[] = [
       ...likes.map((l) => ({
         id: l.id,
         type: "like" as const,
@@ -320,7 +315,10 @@ class SocialService {
       })),
     ];
 
-    return mapped.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    // Sort by newest first
+    notifications.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    return notifications;
   }
 
   // ────────────── SEARCH ──────────────
