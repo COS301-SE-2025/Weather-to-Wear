@@ -470,7 +470,6 @@ const FeedPage: React.FC = () => {
                     <div className="text-xs text-gray-500 dark:text-gray-400">{post.date}</div>
                   </div>
                 </div>
-
                 <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{post.content}</p>
                 {post.imageUrl && (
                   <div className="-mx-5 md:-mx-5 bg-gray-100 dark:bg-gray-700">
