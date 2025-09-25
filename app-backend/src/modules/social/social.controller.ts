@@ -330,15 +330,37 @@ getCommentsForPostHandler = async (req: Request, res: Response, next: NextFuncti
     });
   }
 
+  // followUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  //   try {
+  //     if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+  //     const follow = await socialService.followUser(req.user.id, req.params.userId);
+  //     res.status(201).json({ message: 'Follow request sent', follow });
+  //   } catch (err) {
+  //     next(err);
+  //   }
+  // };
+
   followUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
-      const follow = await socialService.followUser(req.user.id, req.params.userId);
-      res.status(201).json({ message: 'Follow request sent', follow });
-    } catch (err) {
-      next(err);
-    }
-  };
+  try {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    const follow = await socialService.followUser(req.user.id, req.params.userId);
+
+    // Explicitly include status so frontend can decide "Following" vs "Requested"
+    res.status(201).json({
+      message: "Follow request processed",
+      follow: {
+        id: follow.id,
+        followerId: follow.followerId,
+        followingId: follow.followingId,
+        status: follow.status,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
   unfollowUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {

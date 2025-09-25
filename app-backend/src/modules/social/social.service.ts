@@ -206,18 +206,46 @@ class SocialService {
   //   });
   // }
 
+  // async followUser(followerId: string, followingId: string) {
+  //   const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
+  //   if (!targetUser) throw new Error("User not found");
+
+  //   const status = targetUser.isPrivate ? "pending" : "accepted";
+
+  //   const follow = await prisma.follow.create({
+  //     data: { followerId, followingId, status },
+  //   });
+
+  //   return follow; // frontend can display request notification manually
+  // }
+
   async followUser(followerId: string, followingId: string) {
-    const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
-    if (!targetUser) throw new Error("User not found");
+  // Check if target user exists
+  const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
+  if (!targetUser) throw new Error("User not found");
 
-    const status = targetUser.isPrivate ? "pending" : "accepted";
+  // Determine follow status based on privacy
+  const status = targetUser.isPrivate ? "pending" : "accepted";
 
-    const follow = await prisma.follow.create({
-      data: { followerId, followingId, status },
-    });
+  // Check if follow already exists (prevent duplicate)
+  const existingFollow = await prisma.follow.findUnique({
+    where: { followerId_followingId: { followerId, followingId } },
+  });
 
-    return follow; // frontend can display request notification manually
+  if (existingFollow) {
+    // If follow exists, maybe return it as-is
+    return existingFollow;
   }
+
+  // Create new follow
+  const follow = await prisma.follow.create({
+    data: { followerId, followingId, status },
+  });
+
+  // Return only needed info to frontend
+  return { id: follow.id, followerId, followingId, status };
+}
+
 
   async unfollowUser(followerId: string, followingId: string) {
     await prisma.follow.delete({

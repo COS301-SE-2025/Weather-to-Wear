@@ -181,6 +181,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
     : "Follow"}
 </button>
 
+
             </div>
           ))}
 
@@ -409,38 +410,53 @@ useEffect(() => {
   //   }
   // };
 
-  // In FeedPage.tsx
-const toggleFollowFromSearch = async (userId: string, user: UserResult) => {
+  const toggleFollowFromSearch = async (userId: string, user: UserResult) => {
   try {
     if (user.isFollowing || user.followRequested) {
-      // Unfollow or cancel request
+      // Unfollow or cancel pending request
       await unfollowUser(userId);
-      setSearchResults((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? { ...u, isFollowing: false, followRequested: false }
-            : u
+
+      // Update search results
+      setSearchResults(prev =>
+        prev.map(u =>
+          u.id === userId ? { ...u, isFollowing: false, followRequested: false } : u
         )
       );
+
+      // Remove from following list if it was accepted
+      setFollowing(prev => prev.filter(f => f.id !== userId));
+
     } else {
-      // Follow
-      await followUser(userId);
-      setSearchResults((prev) =>
-        prev.map((u) =>
+      // Send follow request
+      const { follow } = await followUser(userId);
+
+      // Update search results with status
+      setSearchResults(prev =>
+        prev.map(u =>
           u.id === userId
             ? {
                 ...u,
-                isFollowing: user.isPrivate ? false : true, // only true if public
-                followRequested: user.isPrivate ? true : false, // only true if private
+                isFollowing: follow.status === "accepted",
+                followRequested: follow.status === "pending",
               }
             : u
         )
       );
+
+      // If follow is accepted, add to following list
+      if (follow.status === "accepted") {
+        setFollowing(prev => [
+          ...prev,
+          { id: userId, username: user.name, profilePhoto: user.profilePhoto || undefined },
+        ]);
+      }
     }
   } catch (err: any) {
     setError(err.message || "Follow action failed");
   }
 };
+
+
 
   // Search and infinite scrolling logic remains unchanged
   useEffect(() => {

@@ -157,6 +157,19 @@ export async function unlikePost(postId: string) {
   return response.json(); // Returns { message: 'Post unliked successfully' }
 }
 
+// export async function followUser(userId: string) {
+//   const response = await fetchWithAuth(`${API_URL}/${userId}/follow`, {
+//     method: "POST",
+//   });
+
+//   if (!response.ok) {
+//     const errorData = await response.json().catch(() => ({}));
+//     throw new Error(errorData.message || "Failed to follow user");
+//   }
+
+//   return response.json() as Promise<{ follow: Follow }>;
+// }
+
 export async function followUser(userId: string) {
   const response = await fetchWithAuth(`${API_URL}/${userId}/follow`, {
     method: "POST",
@@ -167,8 +180,10 @@ export async function followUser(userId: string) {
     throw new Error(errorData.message || "Failed to follow user");
   }
 
-  return response.json() as Promise<{ follow: Follow }>;
+  // The returned JSON now includes { follow: { status: "pending" | "accepted" } }
+  return response.json() as Promise<{ follow: { id: string; followerId: string; followingId: string; status: string } }>;
 }
+
 
 export async function unfollowUser(userId: string) {
   const response = await fetchWithAuth(`${API_URL}/${userId}/unfollow`, {
