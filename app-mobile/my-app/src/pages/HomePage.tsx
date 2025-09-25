@@ -1518,7 +1518,7 @@ useEffect(() => {
                   daySel?.items?.length ? (
                     // ---------- SINGLE-OUTFIT VIEW (when a day is selected) ----------
                     <div className="w-full flex flex-col items-center">
-                      <div className="max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16 w-full">
+                      <div className="max-w-[60vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16 w-full">
                         <OutfitImagesCard
                           outfit={selectedOutfitFromDaySel!}
                           controls={
