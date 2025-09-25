@@ -125,6 +125,17 @@ async function fashnRun(inputs: Record<string, any>): Promise<string> {
   throw new Error('FASHN try-on timed out');
 }
 
+const LAYER_ORDER: Record<string, number> = {
+  base_top: 10,
+  mid_top: 20,
+  outerwear: 30,
+  base_bottom: 40,
+  mid_bottom: 50,
+  headwear: 90,
+  footwear: 95,
+  accessory: 99,
+};
+
 function mapLayerToFashnCategory(layer: string, categoryEnum?: string): FashnCategory {
   if (layer.includes('top') || layer === 'outerwear') return 'tops';
   if (layer.includes('bottom')) return 'bottoms';
@@ -133,14 +144,11 @@ function mapLayerToFashnCategory(layer: string, categoryEnum?: string): FashnCat
 }
 
 function layeringOrder(a: RunTryOnStep, b: RunTryOnStep) {
-  const rank = (s?: RunTryOnStep) => {
-    const c = s?.category || 'auto';
-    if (c === 'tops') return 10;
-    if (c === 'one-pieces') return 15;
-    if (c === 'bottoms') return 20;
-    return 30;
-  };
-  return rank(a) - rank(b);
+  const ra = LAYER_ORDER[a.layerHint || 'zzz'] ?? 999;
+  const rb = LAYER_ORDER[b.layerHint || 'zzz'] ?? 999;
+  if (ra !== rb) return ra - rb;
+  const ca = (a.category || 'auto') < (b.category || 'auto') ? -1 : 1;
+  return ca;
 }
 
 async function downloadToBuffer(urlOrData: string): Promise<Buffer> {
@@ -184,6 +192,8 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
 
   let steps: RunTryOnStep[] = [];
   const skipped: string[] = [];
+  const includeFootwear = req.includeFootwear === true;
+  const includeHeadwear = req.includeHeadwear === true;
 
   if (req.steps?.length) {
     steps = req.steps.slice();
@@ -198,11 +208,15 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
         skipped.push(it.id);
         continue;
       }
+      if (it.layerCategory === 'accessory') { skipped.push(it.id); continue; }
+      if (it.layerCategory === 'footwear' && !includeFootwear) { skipped.push(it.id); continue; }
+      if (it.layerCategory === 'headwear' && !includeHeadwear) { skipped.push(it.id); continue; }
       const url = cdnUrlFor(it.filename);
       steps.push({
         garmentImageUrl: url,
         category: mapLayerToFashnCategory(it.layerCategory, it.category),
         garmentPhotoType: 'flat-lay',
+        layerHint: it.layerCategory as any,
       });
     }
   }
