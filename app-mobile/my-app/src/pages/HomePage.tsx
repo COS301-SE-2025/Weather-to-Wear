@@ -3,12 +3,14 @@ import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 import { Plus, RefreshCw } from 'lucide-react';
 import Footer from '../components/Footer';
-import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import StarRating from '../components/StarRating';
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
 import { motion } from 'framer-motion';
+import { getDaySelection, upsertDaySelection, deleteDaySelection, type DaySelectionDTO } from '../services/daySelectionApi';
+import { fetchAllItems } from '../services/closetApi';
+
 
 import {
   fetchRecommendedOutfits,
@@ -38,6 +40,30 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
+
+function getOutfitKeyFromDaySel(sel: DaySelectionDTO | null): string | null {
+  if (!sel?.items?.length) return null;
+  return sel.items.map(i => i.closetItemId).sort().join('-');
+}
+
+
+function toYYYYMMDD(isoOrDate: string | Date) {
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  return d.toISOString().slice(0, 10);
+}
+
+function buildWeatherSnapshot(s?: WeatherSummary | null) {
+  if (!s) return null;
+  return {
+    avgTemp: Number(s.avgTemp ?? 0),
+    minTemp: Number(s.minTemp ?? s.avgTemp ?? 0),
+    maxTemp: Number(s.maxTemp ?? s.avgTemp ?? 0),
+    willRain: Boolean(s.willRain),
+    mainCondition: String(s.mainCondition || ''),
+  };
+}
+
+
 // Map style → image in /public/events/*.jpg (e.g. /events/business.jpg)
 function eventImageFor(style?: string) {
   const slug = (style || 'other').toLowerCase();
@@ -57,24 +83,6 @@ function formatTimeAmPm(iso: string) {
 // put this near the top of HomePage.tsx (or in a utils file)
 const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
 
-function normalizeIcon(raw?: string) {
-  if (!raw) return '';
-  const s = raw.trim();
-
-  // already correct
-  if (s.startsWith('https://') || s.startsWith('http://')) return s;
-
-  // common typos / schemeless forms
-  if (s.startsWith('https//')) return 'https://' + s.slice('https//'.length);
-  if (s.startsWith('http//')) return 'http://' + s.slice('http//'.length);
-  if (s.startsWith('//')) return 'https:' + s;
-
-  // basmilius filename only (e.g. "partly-cloudy-day")
-  if (!s.includes('/')) return `${WI_BASE}/${s}.svg`;
-
-  // path without scheme (e.g. "basmilius.github.io/weather-icons/…")
-  return `https://${s.replace(/^\/+/, '')}`;
-}
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
@@ -144,6 +152,9 @@ const TypingSlogan = () => {
     };
   }, []);
 
+
+
+
   useEffect(() => {
     const handleTyping = () => {
       if (!isDeleting && index < slogan.length) {
@@ -200,38 +211,68 @@ const THEME = {
   light: 38,
 };
 
-function TempRangeBar({
-  min, max, weekMin, weekMax,
-}: { min: number; max: number; weekMin: number; weekMax: number }) {
-  const span = Math.max(1, weekMax - weekMin);
-  const left = ((min - weekMin) / span) * 100;
-  const width = Math.max(4, ((max - min) / span) * 100);
+// ---- Weather-based adjustment helpers ----
 
-  const tempColor = (t: number) => {
-    const lo = Math.min(weekMin, weekMax);
-    const hi = Math.max(weekMin, weekMax);
-    const clamped = Math.max(lo, Math.min(hi, t));
-    const r = hi === lo ? 0.5 : (clamped - lo) / (hi - lo);
-    const hue = THEME.coldHue + (THEME.hotHue - THEME.coldHue) * r;
-    return `hsl(${Math.round(hue)}, ${THEME.sat}%, ${THEME.light}%)`;
-  };
+type AdjReason =
+  | { kind: 'rain_on'; steps: 1 }
+  | { kind: 'warming'; steps: number }
+  | { kind: 'cooling'; steps: number };
 
-  const c1 = tempColor(min);
-  const c2 = tempColor(max);
+type ClosetItemDTO = {
+  id: string;
+  layerCategory?: string;     // API may omit this → optional here
+  waterproof?: boolean;
+  colorHex?: string;
+  dominantColors?: string[];
+};
 
-  return (
-    <div className="relative w-40 sm:w-48 md:w-56 h-0.5">
-      <div
-        className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full opacity-90"
-        style={{
-          left: `${left}%`,
-          width: `${width}%`,
-          background: `linear-gradient(to right, ${c1}, ${c2})`,
-        }}
-      />
-    </div>
-  );
+function computeAdjustmentNeed(
+  saved: { avgTemp: number; willRain: boolean },
+  current: { avgTemp: number; willRain: boolean }
+): AdjReason[] {
+  const out: AdjReason[] = [];
+
+  // Rain newly expected?
+  if (!saved.willRain && current.willRain) {
+    out.push({ kind: 'rain_on', steps: 1 });
+  }
+
+  // Temperature steps: ~10°C per layer add/remove
+  const delta = current.avgTemp - saved.avgTemp; // + = warmer, - = cooler
+  const STEP = 10; // °C per step
+  const steps = Math.floor(Math.abs(delta) / STEP);
+  if (steps > 0) {
+    out.push({ kind: delta >= 0 ? 'warming' : 'cooling', steps });
+  }
+
+  return out;
 }
+
+// ---- Closet pick helpers ----
+
+// Simple neutral set (matches your plan)
+const NEUTRAL_COLORS = new Set(['black', 'white', 'grey', 'gray', 'navy', 'beige']);
+
+type ClosetBasic = {
+  id: string;
+  layerCategory: string;
+  waterproof?: boolean;
+  colorHex?: string | null;
+  dominantColors?: string[]; // server sends string names
+};
+
+/**
+ * Pick a candidate, preferring neutral-colored items if any.
+ * Falls back to the first item if no neutrals exist.
+ */
+function pickNeutralFirst<T extends ClosetBasic>(candidates: T[]): T | undefined {
+  if (!candidates?.length) return undefined;
+  const neutrals = candidates.filter(c =>
+    (c.dominantColors || []).some(dc => NEUTRAL_COLORS.has((dc || '').toLowerCase()))
+  );
+  return neutrals[0] || candidates[0];
+}
+
 
 // ---------- HomePage ----------
 export default function HomePage() {
@@ -253,7 +294,11 @@ export default function HomePage() {
     dateTo: '',
     style: 'CASUAL',
   });
-
+  const [toast, setToast] = useState<{ msg: string } | null>(null);
+  function showToast(msg: string) {
+    setToast({ msg });
+    setTimeout(() => setToast(null), 2200);
+  }
   const [currentIndex, setCurrentIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -278,6 +323,11 @@ export default function HomePage() {
   const loadingWeather = weatherQuery.isLoading || weatherQuery.isFetching;
 
   const locationLabel = (city?.trim() || weather?.location || '').trim();
+  const [daySel, setDaySel] = useState<DaySelectionDTO | null>(null);
+  const [weatherAlert, setWeatherAlert] = useState<null | { reason: string; suggestions: string[] }>(null);
+
+
+
 
   // seed location if server returns one
   useEffect(() => {
@@ -286,6 +336,52 @@ export default function HomePage() {
       localStorage.setItem('selectedCity', weather.location);
     }
   }, [city, weather?.location]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!selectedDate) { setDaySel(null); return; }
+      try {
+        const sel = await getDaySelection(selectedDate);
+        if (!cancelled) setDaySel(sel ?? null);
+      } catch (e) {
+        console.error('load day selection failed', e);
+        if (!cancelled) setDaySel(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDate, locationLabel]);
+
+  // derive a "selectedOutfit" from daySel for rendering
+  const selectedOutfitFromDaySel: RecommendedOutfit | null = useMemo(() => {
+    if (!daySel?.items?.length) return null;
+    // Create a faux outfit object for display (image URLs come from outfit recs or from saved outfit id if fetched)
+    return {
+      id: daySel.outfitId || 'local-selected',
+      outfitItems: daySel.items.map((it) => ({
+        closetItemId: it.closetItemId,
+        // we may not have imageUrl here; if you want, optionally hydrate via fetchOutfitById(daySel.outfitId)
+        imageUrl: '', // will be absolutized downstream if needed
+        layerCategory: it.layerCategory,
+        category: '',
+        colorHex: '',
+        style: selectedStyle,
+      })),
+      overallStyle: selectedStyle,
+      score: 0,
+      warmthRating: 0,
+      waterproof: false,
+      userRating: (daySel as any).userRating ?? 0,
+      weatherSummary: {
+        avgTemp: daySel.weatherAvg ?? 0,
+        minTemp: daySel.weatherMin ?? daySel.weatherAvg ?? 0,
+        maxTemp: daySel.weatherMax ?? daySel.weatherAvg ?? 0,
+        willRain: !!daySel.willRain,
+        mainCondition: daySel.mainCondition ?? '',
+      },
+    } as RecommendedOutfit;
+  }, [daySel, selectedStyle]);
+
 
   const weekQuery = useQuery({
     queryKey: ['weather-week', locationLabel || 'pending'],
@@ -317,6 +413,8 @@ export default function HomePage() {
   const week = weekQuery.data;
   const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
   const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
+
+
 
   // default selected date = first available day
   useEffect(() => {
@@ -354,12 +452,270 @@ export default function HomePage() {
     [selectedDayHoursRaw]
   );
 
+  const [adjustProposal, setAdjustProposal] = useState<null | {
+    before: DaySelectionDTO['items'];
+    after: DaySelectionDTO['items'];
+    message: string; // e.g. "Added waterproof jacket…", "Removed mid layer (warming)…"
+  }>(null);
+
+  async function applyAdjustment(after: DaySelectionDTO['items'], message: string) {
+    if (!selectedDate) return;
+    try {
+      // 1) create a new Outfit from the adjusted items (so we keep a snapshot)
+      const created = await createOutfit({
+        outfitItems: after.map((i, idx) => ({
+          closetItemId: i.closetItemId,
+          layerCategory: i.layerCategory,
+          sortOrder: idx,
+        })),
+        warmthRating: 0,
+        waterproof: false,
+        overallStyle: selectedStyle,
+        weatherSummary: JSON.stringify({
+          temperature: (selectedDaySummary || weather?.summary)?.avgTemp ?? 0,
+          condition: (selectedDaySummary || weather?.summary)?.mainCondition ?? '',
+        }),
+        userRating: (() => {
+          const key = daySel ? daySel.items.map(i => i.closetItemId).sort().join('-') : '';
+          return ratings[key] || 0;
+        })(),
+      });
+
+      // 2) persist the updated selection with the NEW snapshot
+      const newSnap = buildWeatherSnapshot(selectedDaySummary || weather?.summary)!;
+      await upsertDaySelection({
+        date: selectedDate,
+        location: (locationLabel || undefined),
+        style: selectedStyle,
+        items: after,
+        weather: newSnap,
+        outfitId: created.id,
+      });
+
+      // 3) refresh local state and notify
+      const fresh = await getDaySelection(selectedDate);
+      setDaySel(fresh);
+      showToast(message || 'Updated your selected outfit based on the latest forecast.');
+    } catch (e) {
+      console.error(e);
+      showToast('Could not auto-adjust the outfit.');
+    }
+  }
+
+  // runs on city/selectedDate/week refetch + when daySel exists
+  useEffect(() => {
+    (async () => {
+      if (!daySel || !selectedDate) return;
+      const current = buildWeatherSnapshot(selectedDaySummary || weather?.summary || null);
+      if (!current) return;
+
+      const saved = {
+        avgTemp: daySel.weatherAvg ?? 0,
+        willRain: !!daySel.willRain,
+      };
+
+      // thresholds & reasons
+      const reasons = computeAdjustmentNeed(
+        { avgTemp: saved.avgTemp, willRain: saved.willRain },
+        { avgTemp: current.avgTemp, willRain: current.willRain }
+      );
+      if (reasons.length === 0) return;
+
+      // Retrieve closet
+      // Retrieve closet
+      const closetResp = await fetchAllItems();
+
+      // 1) read as the loose DTO
+      const raw: ClosetItemDTO[] = (closetResp.data || []) as ClosetItemDTO[];
+
+      // 2) keep only items with a layerCategory and normalize fields
+      const closet: Array<{
+        id: string;
+        layerCategory: string;
+        waterproof?: boolean;
+        colorHex?: string;
+        dominantColors?: string[];
+      }> = raw
+        .filter((c): c is ClosetItemDTO & { layerCategory: string } => !!c.layerCategory)
+        .map(c => ({
+          id: String(c.id),
+          layerCategory: c.layerCategory!, // safe after filter
+          waterproof: !!c.waterproof,
+          colorHex: c.colorHex ?? undefined,
+          dominantColors: c.dominantColors ?? [],
+        }));
+
+
+      // build "after" starting from "before"
+      let after = [...daySel.items];
+      let messages: string[] = [];
+
+      // 1) rain_on → add waterproof outerwear if not present
+      if (reasons.some(r => r.kind === 'rain_on')) {
+        const hasWaterproofOuter = after.some(sel => {
+          if (sel.layerCategory !== 'outerwear') return false;
+          const closetMatch = closet.find(c => c.id === sel.closetItemId);
+          return closetMatch?.waterproof === true;
+        });
+        if (!hasWaterproofOuter) {
+          const candidates = closet.filter(c => c.layerCategory === 'outerwear' && c.waterproof === true);
+          const pick = pickNeutralFirst(candidates);
+          if (pick) {
+            after = after.concat([{
+              closetItemId: pick.id,
+              layerCategory: 'outerwear',
+              sortOrder: after.length,
+            }]);
+            messages.push('Added waterproof jacket due to rain forecast.');
+          } else {
+            // no item → notify-only
+            showToast('Rain expected, but no waterproof outerwear found in your closet.');
+          }
+        }
+      }
+
+      // 2) temperature steps
+      for (const r of reasons) {
+        if (r.kind === 'cooling') {
+          for (let step = 0; step < r.steps; step++) {
+            // prefer mid_top first, else outerwear
+            const mid = pickNeutralFirst(closet.filter(c => c.layerCategory === 'mid_top'));
+            const out = pickNeutralFirst(closet.filter(c => c.layerCategory === 'outerwear'));
+            const candidate = mid || out;
+            if (candidate) {
+              // if the same item already in outfit, skip that candidate and try the other
+              const already = after.some(i => i.closetItemId === candidate.id);
+              if (already && mid && out && candidate.id === mid.id) {
+                if (!after.some(i => i.closetItemId === out.id)) {
+                  after = after.concat([{ closetItemId: out.id, layerCategory: 'outerwear', sortOrder: after.length }]);
+                  messages.push('Added outer layer due to cooling.');
+                  continue;
+                }
+              }
+              if (!already) {
+                after = after.concat([{
+                  closetItemId: candidate.id,
+                  layerCategory: candidate.layerCategory,
+                  sortOrder: after.length,
+                }]);
+                messages.push('Added layer due to cooling.');
+              }
+            } else {
+              showToast('Cooling detected, but no suitable extra layer found.');
+              break;
+            }
+          }
+        }
+        if (r.kind === 'warming') {
+          for (let step = 0; step < r.steps; step++) {
+            const hasMid = after.find(i => i.layerCategory === 'mid_top');
+            const hasOut = after.find(i => i.layerCategory === 'outerwear');
+            if (!hasMid && !hasOut) {
+              showToast('Warming detected, but no layers to remove.');
+              break;
+            }
+            let removeId = hasMid?.closetItemId || hasOut?.closetItemId;
+            if (hasMid && hasOut) {
+              // 50/50 random choice
+              removeId = Math.random() < 0.5 ? hasMid.closetItemId : hasOut.closetItemId;
+            }
+            after = after.filter(i => i.closetItemId !== removeId);
+            // re-sequence sortOrder
+            after = after.map((i, idx) => ({ ...i, sortOrder: idx }));
+            messages.push('Removed a layer due to warming.');
+          }
+        }
+      }
+
+      // Stage proposal only if changed
+      const changed = JSON.stringify(after.map(i => i.closetItemId).sort()) !==
+        JSON.stringify(daySel.items.map(i => i.closetItemId).sort());
+      if (changed) {
+        await applyAdjustment(after, messages.join(' '));
+      }
+    })();
+    // triggers:
+  }, [city, selectedDate, weekQuery.data, daySel, selectedDaySummary, weather?.summary]);
+
+  useEffect(() => {
+    if (!daySel) { setWeatherAlert(null); return; }
+    const current = buildWeatherSnapshot(selectedDaySummary || weather?.summary || null);
+    if (!current) return;
+
+    const then = {
+      avgTemp: daySel.weatherAvg ?? 0,
+      minTemp: daySel.weatherMin ?? daySel.weatherAvg ?? 0,
+      maxTemp: daySel.weatherMax ?? daySel.weatherAvg ?? 0,
+      willRain: !!daySel.willRain,
+      mainCondition: daySel.mainCondition ?? '',
+    };
+
+    const reasons: string[] = [];
+    const suggestions = new Set<string>();
+    const TEMP_DELTA = 3;
+
+    const rainChanged = then.willRain !== current.willRain;
+    const tempChanged = Math.abs(then.avgTemp - current.avgTemp) >= TEMP_DELTA;
+    const condChanged =
+      (then.mainCondition || '').toLowerCase() !== (current.mainCondition || '').toLowerCase();
+
+    if (rainChanged) {
+      if (current.willRain) {
+        reasons.push('Rain is now expected.');
+        suggestions.add('Add a waterproof jacket');
+        suggestions.add('Consider water-resistant shoes');
+        suggestions.add('Pack an umbrella');
+      } else {
+        reasons.push('Rain is no longer expected.');
+        suggestions.add('You can remove waterproof layers');
+      }
+    }
+
+    if (tempChanged) {
+      const diff = Math.round(Math.abs(current.avgTemp - then.avgTemp));
+      const warmer = current.avgTemp > then.avgTemp;
+      reasons.push(`Temperature changed by ~${diff}°C.`);
+      if (warmer) {
+        suggestions.add('Remove an outer layer');
+        suggestions.add('Swap heavy jacket for a lighter one');
+      } else {
+        suggestions.add('Add a warm mid-layer');
+        suggestions.add('Consider gloves/hat if it’s chilly');
+      }
+    }
+
+    if (condChanged && !rainChanged) {
+      reasons.push(`Conditions changed: ${then.mainCondition || '—'} → ${current.mainCondition || '—'}.`);
+    }
+
+    setWeatherAlert(reasons.length ? { reason: reasons.join(' '), suggestions: Array.from(suggestions).slice(0, 4) } : null);
+  }, [daySel, selectedDaySummary, weather?.summary]);
+
+
 
   // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
-  const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
+
+  const outfits: RecommendedOutfit[] = outfitsQuery.data ?? [];
   const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
+
+  // Reorder outfits so the saved DaySelection (if any) is always first.
+  const chosenKey = useMemo(() => getOutfitKeyFromDaySel(daySel), [daySel]);
+
+  const outfitsOrdered: RecommendedOutfit[] = useMemo(() => {
+    if (!outfits?.length || !chosenKey) return outfits;
+    const idx = outfits.findIndex(o => getOutfitKey(o) === chosenKey);
+    if (idx < 0) return outfits; // saved outfit not in today's recs
+    return [outfits[idx], ...outfits.slice(0, idx), ...outfits.slice(idx + 1)];
+  }, [outfits, chosenKey]);
+
+  // Ensure the carousel lands on the chosen outfit (now at index 0) when data changes
+  useEffect(() => {
+    if (outfitsOrdered.length && chosenKey) {
+      setCurrentIndex(0);
+    }
+  }, [outfitsOrdered.length, chosenKey]);
 
   const error =
     (weatherQuery.isError && 'Failed to fetch weather data.') ||
@@ -367,6 +723,7 @@ export default function HomePage() {
     null;
 
   // ---------- City enter/refresh handlers ----------
+
   const handleEnterCity = () => {
     const next = cityInput.trim();
     if (submittingRef.current) return;       // guard: ignore re-entrancy
@@ -382,7 +739,7 @@ export default function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
-    setSelectedDate(null);
+
     // release the guard on next tick (after state flush)
     queueMicrotask(() => { submittingRef.current = false; });
   };
@@ -417,6 +774,36 @@ export default function HomePage() {
     }
   };
 
+  async function ensureOutfitSavedFor(outfit: RecommendedOutfit) {
+    // use the same key you already use elsewhere
+    const key = getOutfitKey(outfit);
+
+    // if we already created it this session, reuse
+    if (outfitIdMap[key]) return outfitIdMap[key];
+
+    // otherwise create it now
+    const payload: SaveOutfitPayload = {
+      outfitItems: outfit.outfitItems.map((i, idx) => ({
+        closetItemId: i.closetItemId,
+        layerCategory: i.layerCategory,
+        sortOrder: idx, // keep order consistent with the carousel layout
+      })),
+      warmthRating: outfit.warmthRating,
+      waterproof: outfit.waterproof,
+      overallStyle: outfit.overallStyle,
+      weatherSummary: JSON.stringify({
+        temperature: outfit.weatherSummary.avgTemp,
+        condition: outfit.weatherSummary.mainCondition,
+      }),
+      userRating: ratings[key] || 0, // if the user has rated already, keep it
+    };
+
+    const created = await createOutfit(payload);
+    setOutfitIdMap(prev => ({ ...prev, [key]: created.id }));
+    return created.id;
+  }
+
+
   // ---------- Boot-up effects ----------
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -435,11 +822,19 @@ export default function HomePage() {
       .catch(err => console.error('Error loading events on mount:', err));
   }, []);
 
-  const prevIndex = outfits.length ? (currentIndex - 1 + outfits.length) % outfits.length : 0;
-  const nextIndex = outfits.length ? (currentIndex + 1) % outfits.length : 0;
+  const prevIndex = outfitsOrdered.length
+    ? (currentIndex - 1 + outfitsOrdered.length) % outfitsOrdered.length
+    : 0;
+
+  const nextIndex = outfitsOrdered.length
+    ? (currentIndex + 1) % outfitsOrdered.length
+    : 0;
 
   const slideTo = (dir: -1 | 1) =>
-    setCurrentIndex(i => (i + dir + outfits.length) % outfits.length);
+    setCurrentIndex(i => {
+      const n = outfitsOrdered.length;
+      return n ? (i + dir + n) % n : 0;
+    });
 
   // ---------- Event modal: outfit recommendation with caching ----------
   const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
@@ -534,7 +929,7 @@ export default function HomePage() {
 
   // ---------- Rating save ----------
   const handleSaveRating = async (rating: number) => {
-    const outfit = outfits[currentIndex];
+    const outfit = outfitsOrdered[currentIndex];
     if (!outfit) return;
 
     const key = getOutfitKey(outfit);
@@ -544,10 +939,10 @@ export default function HomePage() {
         await updateOutfit(outfitIdMap[key], { userRating: rating });
       } else {
         const payload: SaveOutfitPayload = {
-          outfitItems: outfit.outfitItems.map(i => ({
+          outfitItems: outfit.outfitItems.map((i, idx) => ({
             closetItemId: i.closetItemId,
             layerCategory: i.layerCategory,
-            sortOrder: 0,
+            sortOrder: idx,
           })),
           warmthRating: outfit.warmthRating,
           waterproof: outfit.waterproof,
@@ -777,6 +1172,10 @@ export default function HomePage() {
     const next = orderedDays[(idx + (dir === 1 ? 1 : -1) + orderedDays.length) % orderedDays.length];
     pickDay(next);
   };
+
+  const currentOutfit = outfitsOrdered[currentIndex];
+  const isCurrentChosen =
+    !!chosenKey && currentOutfit && getOutfitKey(currentOutfit) === chosenKey;
 
 
   return (
@@ -1088,108 +1487,247 @@ export default function HomePage() {
                   </select>
                 </div>
                 {!loadingOutfits && outfits.length > 0 && (
-                  <>
-                    {/* Carousel — centered, no extra margins */}
-                    <div
-                      className="
-                      
-    relative mb-2 w-full
-    max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16
-    mx-0 sm:mx-auto            /* don't center on mobile */
-    -ml-3                      /* pull left on mobile */
-    sm:ml-0 sm:-ml-8           /* bigger pull starting at sm if you want */
-    overflow-visible
-    sm:mr-16 lg:mr-32
-  "
-                    >
-                      {/* Reserve height so absolute stage can sit on top */}
-                      <div className="
-                      invisible
-  w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
-  mx-auto
-                ">
-                        <OutfitImagesCard outfit={outfits[currentIndex]} />
+                  daySel?.items?.length ? (
+                    // ---------- SINGLE-OUTFIT VIEW (when a day is selected) ----------
+                    <div className="w-full flex flex-col items-center">
+                      <div className="max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16 w-full">
+                        <OutfitImagesCard
+                          outfit={selectedOutfitFromDaySel!}
+                          controls={
+                            <div className="flex flex-col items-center gap-2 sm:gap-3">
+                              <StarRating
+                                disabled={saving}
+                                onSelect={async (rating) => {
+                                  try {
+                                    const key = getOutfitKey(selectedOutfitFromDaySel!);
+                                    setSaving(true);
+                                    let targetId = daySel!.outfitId || outfitIdMap[key];
+
+                                    if (!targetId) {
+                                      // create outfit from current selection
+                                      const created = await createOutfit({
+                                        outfitItems: daySel!.items.map((i, idx) => ({
+                                          closetItemId: i.closetItemId,
+                                          layerCategory: i.layerCategory,
+                                          sortOrder: idx,
+                                        })),
+                                        warmthRating: 0,
+                                        waterproof: false,
+                                        overallStyle: selectedStyle,
+                                        weatherSummary: JSON.stringify({
+                                          temperature: selectedOutfitFromDaySel!.weatherSummary.avgTemp,
+                                          condition: selectedOutfitFromDaySel!.weatherSummary.mainCondition,
+                                        }),
+                                        userRating: rating,
+                                      });
+                                      targetId = created.id;
+                                      setOutfitIdMap(prev => ({ ...prev, [key]: targetId! }));
+
+                                      // persist link back on the day selection with fresh snapshot
+                                      await upsertDaySelection({
+                                        date: selectedDate!,
+                                        location: locationLabel || undefined,
+                                        style: selectedStyle,
+                                        items: daySel!.items,
+                                        weather: buildWeatherSnapshot(selectedDaySummary || weather?.summary)!,
+                                        outfitId: targetId,
+                                      });
+                                      const fresh = await getDaySelection(selectedDate!);
+                                      setDaySel(fresh);
+                                    } else {
+                                      await updateOutfit(targetId, { userRating: rating });
+                                    }
+
+                                    setRatings(prev => ({ ...prev, [key]: rating }));
+                                  } finally {
+                                    setSaving(false);
+                                  }
+                                }}
+                                value={(() => {
+                                  const key = selectedOutfitFromDaySel ? getOutfitKey(selectedOutfitFromDaySel) : '';
+                                  return ratings[key] || 0;
+                                })()}
+                              />
+
+                              <button
+                                onClick={async () => {
+                                  if (!selectedDate) return;
+                                  await deleteDaySelection(selectedDate);
+                                  setDaySel(null);
+                                  setCurrentIndex(0);
+                                  queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                                  showToast('Unselected. Showing new recommendations.');
+                                }}
+                                className="px-4 py-2 rounded-full border border-red-500 text-red-500 hover:bg-red-50"
+                              >
+                                Unselect
+                              </button>
+                            </div>
+                          }
+                        />
                       </div>
-                      {/* stage (full area), with a centered "rail" that everything aligns to */}
-                      <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center"> {/* the centering rail */}
+                    </div>
+                  ) : (
+                    // ---------- CAROUSEL (no selection saved yet) ----------
+                    <>
+                      <div
+                        className="
+          relative mb-2 w-full
+          max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16
+          mx-0 sm:mx-auto
+          -ml-3
+          sm:ml-0 sm:-ml-8
+          overflow-visible
+          sm:mr-16 lg:mr-32
+        "
+                      >
+                        {/* Reserve height so absolute stage can sit on top */}
                         <div className="
-                         relative
-    w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
-                  ">
+          invisible
+          w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
+          mx-auto
+        ">
+                          <OutfitImagesCard outfit={outfitsOrdered[currentIndex]} />
+                        </div>
 
-                          {/* LEFT (prev) */}
-                          {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(-1)}
-                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                            initial={false}
-                            animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity: 1 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
+                        {/* stage (full area), with a centered rail */}
+                        <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center">
+                          <div className="
+            relative
+            w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
+          ">
+                            {/* LEFT (prev) */}
+                            {outfits.length > 1 && (
+                              <motion.button
+                                type="button"
+                                onClick={() => slideTo(-1)}
+                                className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                                initial={false}
+                                animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                                whileHover={{ scale: 0.84, opacity: 1 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                              >
+                                <OutfitImagesCard outfit={outfitsOrdered[prevIndex]} />
+                              </motion.button>
+                            )}
 
-                            <OutfitImagesCard outfit={outfits[prevIndex]} />
-                          </motion.button>)}
+                            {/* RIGHT (next) */}
+                            {outfits.length > 1 && (
+                              <motion.button
+                                type="button"
+                                onClick={() => slideTo(1)}
+                                className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                                initial={false}
+                                animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                                whileHover={{ scale: 0.84, opacity: 1 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                              >
+                                <OutfitImagesCard outfit={outfitsOrdered[nextIndex]} />
+                              </motion.button>
+                            )}
 
+                            {/* CENTER (current) */}
+                            <motion.div
+                              className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                              initial={false}
+                              animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                              transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                              drag="x"
+                              dragConstraints={{ left: 0, right: 0 }}
+                              onDragEnd={(_, info) => {
+                                const goRight = info.offset.x < -70 || info.velocity.x < -300;
+                                const goLeft = info.offset.x > 70 || info.velocity.x > 300;
+                                if (goRight) slideTo(1);
+                                else if (goLeft) slideTo(-1);
+                              }}
+                            >
+                              <OutfitImagesCard
+                                outfit={outfitsOrdered[currentIndex]}
+                                controls={
+                                  <div className="flex flex-col items-center gap-2 sm:gap-3">
+                                    <div className="flex items-center justify-center gap-2 sm:gap-3">
+                                      <div className="scale-125 sm:scale-100 transform origin-center">
+                                        <StarRating
+                                          disabled={saving}
+                                          onSelect={handleSaveRating}
+                                          value={currentOutfit ? (ratings[getOutfitKey(currentOutfit)] || 0) : 0}
+                                        />
+                                      </div>
 
-                          {/* RIGHT (next) */}
-                          {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(1)}
-                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                            initial={false}
-                            animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
-                            whileHover={{ scale: 0.84, opacity: 1 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
-                            <OutfitImagesCard outfit={outfits[nextIndex]} /> </motion.button>)}
+                                      <button
+                                        onClick={handleRefresh}
+                                        className="p-2 rounded-full text-[#3F978F] hover:text-[#2f716b] -translate-y-1"
+                                        aria-label="Refresh recommendations"
+                                        title="Refresh recommendations"
+                                      >
+                                        <RefreshCw className="w-6 h-6 align-middle" />
+                                      </button>
+                                    </div>
 
-                          {/* CENTER (current) */}
-                          <motion.div
-                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
-                            initial={false}
-                            animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                            drag="x"
-                            dragConstraints={{ left: 0, right: 0 }}
-                            onDragEnd={(_, info) => { const goRight = info.offset.x < -70 || info.velocity.x < -300; const goLeft = info.offset.x > 70 || info.velocity.x > 300; if (goRight) slideTo(1); else if (goLeft) slideTo(-1); }} >
-                            <OutfitImagesCard
-                              outfit={outfits[currentIndex]}
-                              controls={
-                                <div className="flex items-center justify-center gap-2 sm:gap-3">
-                                  {/* Stars — bigger on mobile, normal from sm+ */}
-                                  <div className="scale-125 sm:scale-100 transform origin-center">
-                                    <StarRating
-                                      disabled={saving}
-                                      onSelect={handleSaveRating}
-                                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                                    />
+                                    <button
+                                      onClick={async () => {
+                                        if (isCurrentChosen) return;
+                                        if (!selectedDate) { showToast('Pick a day first'); return; }
+                                        const outfit = outfitsOrdered[currentIndex];
+                                        if (!outfit) { showToast('No outfit to save'); return; }
+
+                                        const snap = buildWeatherSnapshot(selectedDaySummary || weather?.summary || null);
+                                        if (!snap) { showToast('Weather not ready, try again'); return; }
+
+                                        try {
+                                          const savedOutfitId = await ensureOutfitSavedFor(outfit);
+                                          const created = await upsertDaySelection({
+                                            date: selectedDate,
+                                            location: locationLabel || undefined,
+                                            style: selectedStyle,
+                                            items: outfit.outfitItems.map((i, idx) => ({
+                                              closetItemId: i.closetItemId,
+                                              layerCategory: i.layerCategory,
+                                              sortOrder: idx,
+                                            })),
+                                            weather: snap,
+                                            outfitId: savedOutfitId,
+                                          });
+                                          setDaySel(created);
+                                          showToast('Saved outfit for the day!');
+                                          setCurrentIndex(0);
+                                        } catch (e) {
+                                          console.error(e);
+                                          showToast('Could not save. Try again.');
+                                        }
+                                      }}
+                                      disabled={isCurrentChosen}
+                                      className={[
+                                        "px-4 py-2 rounded-full border transition",
+                                        isCurrentChosen
+                                          ? "border-gray-300 text-gray-400 cursor-default"
+                                          : "border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F]/10"
+                                      ].join(' ')}
+                                    >
+                                      {isCurrentChosen
+                                        ? 'Chosen'
+                                        : daySel
+                                          ? 'Update Selection'
+                                          : 'Save for this Day'}
+                                    </button>
                                   </div>
-
-                                  {/* Refresh — sits right next to stars on mobile & desktop */}
-                                  <button
-                                    onClick={handleRefresh}
-                                    className="p-2 rounded-full text-[#3F978F] hover:text-[#2f716b]
-             transform -translate-y-2 sm:-translate-y-2"
-                                    aria-label="Refresh recommendations"
-                                    title="Refresh recommendations"
-                                  >
-                                    <RefreshCw className="w-6 h-6 align-middle" />
-                                  </button>
-
-
-                                </div>
-                              }
-
-                            />
-
-                          </motion.div> </div>
+                                }
+                              />
+                            </motion.div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
-
-                    {/* Counter — same width + centered, snug under the card */}
-                    <div className="md:ml-32 text-center text-sm mb-2 mt-32 w-full
-  w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,560px)] lg:w-[min(92%,680px)] xl:w-[min(92%,760px)]
-  mx-auto">
-                      {currentIndex + 1} / {outfits.length}
-                    </div>
-                  </>
+                      {/* Counter for carousel only */}
+                      <div className="md:ml-32 text-center text-sm mb-2 mt-32 w-full
+        w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,560px)] lg:w-[min(92%,680px)] xl:w-[min(92%,760px)]
+        mx-auto">
+                        {outfitsOrdered.length ? `${currentIndex + 1} / ${outfitsOrdered.length}` : '0 / 0'}
+                      </div>
+                    </>
+                  )
                 )}
+
               </div>
             </div>
           </div>
@@ -1402,6 +1940,14 @@ export default function HomePage() {
         </div>
       )}
 
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[70]">
+          <div className="bg-black text-white text-sm px-4 py-2 rounded-full shadow">
+            {toast.msg}
+          </div>
+        </div>
+      )}
+
       {/* Detail / Edit Event Modal */}
       {showDetailModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1476,6 +2022,46 @@ export default function HomePage() {
                 <p className="text-sm mb-4">
                   <strong>Where:</strong> {selectedEvent.location}
                 </p>
+
+                {weatherAlert && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-md">
+                      <div className="flex items-start justify-between gap-4">
+                        <h3 className="text-lg font-semibold">Weather Update</h3>
+                        <button
+                          onClick={() => setWeatherAlert(null)}
+                          className="text-2xl leading-none"
+                          aria-label="Close"
+                        >×</button>
+                      </div>
+                      <p className="mt-2 text-sm">{weatherAlert.reason}</p>
+                      {!!weatherAlert.suggestions.length && (
+                        <ul className="mt-3 list-disc list-inside text-sm space-y-1">
+                          {weatherAlert.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+                        </ul>
+                      )}
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button
+                          onClick={() => setWeatherAlert(null)}
+                          className="px-4 py-2 rounded-full border border-black dark:border-white"
+                        >
+                          Dismiss
+                        </button>
+                        <button
+                          onClick={() => {
+                            // TODO: optionally navigate to a “Adjust Outfit” flow or open wardrobe
+                            setWeatherAlert(null);
+                          }}
+                          className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                        >
+                          Adjust Outfit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
 
                 {selectedEvent.weather &&
                   (() => {

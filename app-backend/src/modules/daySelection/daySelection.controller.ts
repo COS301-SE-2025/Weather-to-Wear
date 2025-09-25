@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
-import { upsertForDay, getForDay } from './daySelection.service';
+import { upsertForDay, getForDay, patchById } from './daySelection.service';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
+import { deleteByDate } from './daySelection.service';
+
 
 export async function createOrUpdate(req: Request, res: Response) {
     const { user } = req as AuthenticatedRequest;
@@ -32,13 +34,19 @@ export async function getOne(req: Request, res: Response) {
 }
 
 export async function patchOne(req: Request, res: Response) {
-    const { user } = req as AuthenticatedRequest;
-    if (!user?.id) return res.status(401).json({ error: 'Unauthorized' });
-    const { id } = req.params;
-    const rec = await patchById(user.id, id, req.body || {});
-    res.status(200).json(rec);
-}
-function patchById(id: string, id1: string, arg2: any) {
-    throw new Error('Function not implemented.');
+  const { user } = req as AuthenticatedRequest;
+  if (!user?.id) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  const rec = await patchById(user.id, id, req.body || {});
+  res.status(200).json(rec);
 }
 
+export async function deleteOneByDate(req: Request, res: Response) {
+  const { user } = req as AuthenticatedRequest;
+  if (!user?.id) return res.status(401).json({ error: 'Unauthorized' });
+  const { date } = req.params as { date: string };
+  if (!date) return res.status(400).json({ error: 'date path param is required' });
+
+  await deleteByDate(user.id, date);
+  res.status(204).end();
+}

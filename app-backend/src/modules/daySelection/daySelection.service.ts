@@ -58,3 +58,11 @@ export async function patchById(userId: string, id: string, patch: any) {
     data: patch,
   });
 }
+
+export async function deleteByDate(userId: string, dateISO: string) {
+  const dateStart = new Date(dateISO + 'T00:00:00.000Z');
+  // There's a composite unique on (userId, date); if not found, no-op is fine
+  await prisma.daySelection.delete({
+    where: { userId_date: { userId, date: dateStart } },
+  }).catch(() => {});
+}

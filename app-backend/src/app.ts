@@ -13,6 +13,7 @@ import outfitRoutes from './modules/outfit/outfit.routes';
 import socialRoutes from './modules/social/social.route';
 import packingRoutes from './modules/packing/packing.route';
 import usersRoutes from './modules/users/users.routes';
+import daySelectionRoutes from './modules/daySelection/daySelection.routes'
 import fs from 'fs';
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use('/api/outfits', outfitRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/packing', packingRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/day-selections', daySelectionRoutes);
 
 // health check
 const healthz: RequestHandler = (_req, res) => {
