@@ -1,4 +1,3 @@
-// src/pages/FeedPage.tsx
 import { Heart, Loader2, Search } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
@@ -41,7 +40,13 @@ interface Notification {
   date: string;
 }
 
-interface UserResult {
+interface Account {
+  id: string;
+  username: string;
+  profilePhoto?: string;
+}
+
+type UserResult = {
   id: string;
   name: string;
   profilePhoto?: string | null;
@@ -49,58 +54,189 @@ interface UserResult {
   isFollowing: boolean;
   followersCount: number;
   followingCount: number;
-}
+};
 
-// Frontend types for notifications API
-export type NotificationAPIItem = {
+interface NotificationAPIItem {
   id: string;
   type: "like" | "comment" | "follow";
   fromUser: {
     id: string;
     name: string;
-    profilePhoto?: string;
+    profilePhoto?: string | null;
   };
-  postId?: string | null;
-  postContent?: string | null;
+  postId?: string;
+  postContent?: string;
   createdAt: string;
+}
+
+interface NotificationsApiResult {
+  notifications: NotificationAPIItem[];
+}
+
+// Alias for convenience
+type NotificationsResponse = NotificationAPIItem[];
+
+const API_URL = `${API_BASE}`;
+
+type SearchUsersCardProps = {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  searchLoading: boolean;
+  searchError: string | null;
+  searchResults: UserResult[];
+  searchHasMore: boolean;
+  onLoadMore: () => void;
+  onToggleFollow: (id: string, isFollowing: boolean) => void;
 };
 
-type NotificationsResponse = {
-  notifications: NotificationAPIItem[];
-};
+const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
+  ({
+    searchQuery,
+    setSearchQuery,
+    searchLoading,
+    searchError,
+    searchResults,
+    searchHasMore,
+    onLoadMore,
+    onToggleFollow,
+  }) => {
+    return (
+      <div>
+        <div className="relative mb-3 md:mb-6 left-3 md:left-0 -right-4 md:right-3 mr-6 md:mr-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+          />
+        </div>
+
+        {searchError && <div className="mt-3 text-xs text-red-500">{searchError}</div>}
+
+        <div className="space-y-3">
+          {searchLoading && searchResults.length === 0 && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+            </div>
+          )}
+
+          {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+          )}
+
+          {searchResults.map((u) => (
+            <div
+              key={u.id}
+              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+            >
+              <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+                {u.profilePhoto ? (
+                  <img
+                    src={absolutize(u.profilePhoto, API_BASE)}
+                    alt={u.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+                    }}
+                  />
+                ) : null}
+                <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {u.location || "—"} • {u.followersCount} followers
+                </span>
+              </div>
+
+              <button
+                onClick={() => onToggleFollow(u.id, u.isFollowing)}
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                  u.isFollowing
+                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                    : "bg-[#3F978F] text-white"
+                }`}
+              >
+                {u.isFollowing ? "Following" : "Follow"}
+              </button>
+            </div>
+          ))}
+
+          {searchHasMore && (
+            <button
+              onClick={onLoadMore}
+              className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+              disabled={searchLoading}
+            >
+              {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+);
 
 const FeedPage: React.FC = () => {
-  const location = useLocation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
+  const [following, setFollowing] = useState<Account[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<UserResult[]>([]);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const pageSize = 2;
   const [offset, setOffset] = useState(0);
-  const pageSize = 5;
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const location = useLocation();
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [activeLeftTab, setActiveLeftTab] = useState<"search" | "notifications">("search");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
-  // decode token to get current user
+  useEffect(() => {
+    if (location.state?.postSuccess) {
+      setShowSuccessPopup(true);
+      const timer = setTimeout(() => setShowSuccessPopup(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      setCurrentUserId(payload.id);
-    } catch (err) {
-      setError("Failed to decode token");
+    if (token) {
+      try {
+        const tokenParts = token.split(".");
+        if (tokenParts.length !== 3) throw new Error("Invalid token format");
+        const rawPayload = atob(tokenParts[1]);
+        const user = JSON.parse(rawPayload);
+        setCurrentUserId(user.id);
+        setUsername(user.name || user.username || "Unknown");
+      } catch (err) {
+        setError("Failed to decode authentication token. Please log in again.");
+      }
+    } else {
+      setError("No authentication token found. Please log in.");
     }
   }, []);
 
-  // ─────────── FETCH POSTS ───────────
   const fetchNext = useCallback(async () => {
-    if (!currentUserId || !hasMore) return;
+    if (!currentUserId || loadingMore || !hasMore) return;
+    setLoadingMore(true);
     try {
       const resp = await getPosts(pageSize, offset, ["user", "comments", "comments.user", "likes"]);
       const batch = (resp.posts ?? []).map((post: any) => ({
@@ -123,51 +259,44 @@ const FeedPage: React.FC = () => {
         weather: post.weather,
         closetItem: post.closetItem,
       }));
+
       setPosts((prev) => [...prev, ...batch]);
       setOffset((prev) => prev + pageSize);
       setHasMore(batch.length === pageSize);
-    } catch (err: any) {
-      setError(err.message || "Failed to load posts");
+    } catch (e: any) {
+      setError(e.message || "Failed to load posts");
+    } finally {
+      setLoadingMore(false);
     }
-  }, [currentUserId, offset, hasMore]);
+  }, [currentUserId, offset, hasMore, loadingMore]);
 
-  useEffect(() => {
-    if (currentUserId) fetchNext();
-  }, [currentUserId]);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) fetchNext();
-      },
-      { rootMargin: "600px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [fetchNext]);
-
-  // ─────────── FETCH NOTIFICATIONS ───────────
- const fetchNotifications = useCallback(async () => {
+  // Replace your fetchNotifs / fetchNotifications logic with this:
+const fetchNotifications = useCallback(async () => {
   if (!currentUserId) return;
+
   setLoadingNotifications(true);
   setNotificationsError(null);
 
   try {
-    const response = await getNotifications(); // response from socialApi
-    const mapped: Notification[] = (response.notifications ?? []).map((n) => ({
+    const response = await getNotifications();
+
+    const notificationsArray: Notification[] = (response.notifications ?? []).map((n) => ({
       id: n.id,
       type: n.type,
       fromUser: {
-        ...n.fromUser,
-        profilePhoto: n.fromUser.profilePhoto ?? undefined, // normalize null → undefined
+        id: n.fromUser.id,
+        name: n.fromUser.name,
+        profilePhoto: n.fromUser.profilePhoto ?? undefined,
       },
       postId: n.postId ?? undefined,
       postContent: n.postContent ?? undefined,
-      date: new Date(n.createdAt).toLocaleString(),
+      date: n.createdAt ?? new Date().toISOString(),
     }));
-    setNotifications(mapped);
+
+    // optional: sort by newest first
+    notificationsArray.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    setNotifications(notificationsArray);
   } catch (err: any) {
     setNotificationsError(err.message || "Failed to load notifications");
   } finally {
@@ -176,22 +305,36 @@ const FeedPage: React.FC = () => {
 }, [currentUserId]);
 
 
+
+// Auto-refresh notifications every 5s
+useEffect(() => {
+  if (!currentUserId || activeLeftTab !== "notifications") return;
+
+  fetchNotifications();
+  const interval = setInterval(fetchNotifications, 5000);
+  return () => clearInterval(interval);
+}, [currentUserId, activeLeftTab, fetchNotifications]);
+
+
+
   useEffect(() => {
     if (currentUserId && activeLeftTab === "notifications") fetchNotifications();
   }, [currentUserId, activeLeftTab, fetchNotifications]);
 
-  // ─────────── LIKE / COMMENT HANDLERS ───────────
-  const toggleLike = async (postId: string) => {
-    const post = posts.find((p) => p.id === postId);
+  const toggleLike = async (id: string) => {
+    const post = posts.find((p) => p.id === id);
     if (!post) return;
     try {
       if (post.liked) {
-        await unlikePost(postId);
-        setPosts(posts.map((p) => (p.id === postId ? { ...p, liked: false, likes: p.likes - 1 } : p)));
+        await unlikePost(id);
+        setPosts(posts.map((p) => (p.id === id ? { ...p, liked: false, likes: p.likes - 1 } : p)));
       } else {
-        await likePost(postId);
-        setPosts(posts.map((p) => (p.id === postId ? { ...p, liked: true, likes: p.likes + 1 } : p)));
+        await likePost(id);
+        setPosts(posts.map((p) => (p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p)));
       }
+
+      // Refresh notifications
+      fetchNotifications();
     } catch (err: any) {
       setError(err.message);
     }
@@ -200,6 +343,7 @@ const FeedPage: React.FC = () => {
   const addCommentHandler = async (postId: string) => {
     const content = (newComment[postId] || "").trim();
     if (!content) return;
+
     try {
       const { comment: c } = await addComment(postId, content);
       const newComm = {
@@ -213,13 +357,106 @@ const FeedPage: React.FC = () => {
       );
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
+
+      // Refresh notifications
+      fetchNotifications();
     } catch (err: any) {
       setError(err.message || "Failed to add comment");
     }
   };
 
+  const toggleFollowFromSearch = async (userId: string, isFollowing: boolean) => {
+    try {
+      if (isFollowing) await unfollowUser(userId);
+      else await followUser(userId);
+
+      setSearchResults((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
+      );
+      if (isFollowing) setFollowing((prev) => prev.filter((f) => f.id !== userId));
+      else setFollowing((prev) => [...prev, { id: userId, username: "New User", profilePhoto: "U" }]);
+    } catch (err: any) {
+      setError(err.message || "Follow action failed");
+    }
+  };
+
+  // Search and infinite scrolling logic remains unchanged
+  useEffect(() => {
+    if (!currentUserId) return;
+    setPosts([]);
+    setOffset(0);
+    setHasMore(true);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    fetchNext();
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting) fetchNext();
+      },
+      { rootMargin: "600px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [fetchNext]);
+
+  useEffect(() => {
+    let timer: number | undefined;
+
+    async function run() {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        setSearchHasMore(false);
+        setSearchError(null);
+        return;
+      }
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const data = await searchUsers(searchQuery, pageSize, 0);
+        setSearchResults(data.results || []);
+        setSearchOffset(pageSize);
+        setSearchHasMore((data.results || []).length === pageSize);
+      } catch (e: any) {
+        setSearchError(e.message || "Failed to search");
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    timer = window.setTimeout(run, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadMoreSearch = async () => {
+    if (!searchHasMore || !searchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const data = await searchUsers(searchQuery, pageSize, searchOffset);
+      const newResults: UserResult[] = data.results || [];
+      setSearchResults((prev) => [...prev, ...newResults]);
+      setSearchOffset((prev) => prev + pageSize);
+      setSearchHasMore(newResults.length === pageSize);
+    } catch (e: any) {
+      setSearchError(e.message || "Failed to load more");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-screen-md mx-auto px-2 md:px-0 py-4 flex flex-col gap-4">
+      {showSuccessPopup && (
+        <div className="p-2 bg-green-500 text-white rounded-md text-sm">Post created successfully!</div>
+      )}
+
       <div className="flex gap-2 justify-center">
         <button
           className={`px-4 py-1 rounded-full ${activeLeftTab === "search" ? "bg-[#3F978F] text-white" : "bg-gray-200 dark:bg-gray-700"}`}
@@ -235,13 +472,22 @@ const FeedPage: React.FC = () => {
         </button>
       </div>
 
-      {activeLeftTab === "notifications" ? (
+      {activeLeftTab === "search" ? (
+        <SearchUsersCard
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchLoading={searchLoading}
+          searchError={searchError}
+          searchResults={searchResults}
+          searchHasMore={searchHasMore}
+          onLoadMore={loadMoreSearch}
+          onToggleFollow={toggleFollowFromSearch}
+        />
+      ) : (
         <div>
           {loadingNotifications && <Loader2 className="animate-spin w-5 h-5" />}
           {notificationsError && <div className="text-red-500 text-sm">{notificationsError}</div>}
-          {!loadingNotifications && notifications.length === 0 && (
-            <div className="text-gray-500 text-sm">No notifications.</div>
-          )}
+          {!loadingNotifications && notifications.length === 0 && <div className="text-gray-500 text-sm">No notifications.</div>}
           <div className="space-y-2 mt-2">
             {notifications.map((n) => (
               <div key={n.id} className="p-2 border rounded-md">
@@ -254,9 +500,8 @@ const FeedPage: React.FC = () => {
             ))}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* POSTS */}
       <div className="space-y-6 mt-4">
         {posts.map((post) => (
           <div key={post.id} className="p-3 border rounded-xl">
@@ -270,19 +515,60 @@ const FeedPage: React.FC = () => {
               </div>
               <span className="font-medium">{post.username}</span>
             </div>
+
             <div className="text-sm mb-2">{post.content}</div>
             {post.imageUrl && <img src={post.imageUrl} alt="Post" className="w-full rounded-xl mb-2" />}
+
             <div className="flex items-center gap-4 text-sm mb-2">
               <button className="flex items-center gap-1" onClick={() => toggleLike(post.id)}>
                 <Heart className={`w-4 h-4 ${post.liked ? "text-red-500" : "text-gray-400"}`} />
                 {post.likes}
               </button>
             </div>
+
+            <div className="mt-2">
+              {post.comments.slice(0, expandedComments[post.id] ? undefined : 2).map((c) => (
+                <div key={c.id} className="text-sm mb-1">
+                  <span className="font-semibold">{c.username}: </span>
+                  {c.content}
+                </div>
+              ))}
+
+              {post.comments.length > 2 && !expandedComments[post.id] && (
+                <button
+                  className="text-xs text-gray-500"
+                  onClick={() => setExpandedComments((prev) => ({ ...prev, [post.id]: true }))}
+                >
+                  View all comments
+                </button>
+              )}
+
+              <div className="mt-1 flex gap-2">
+                <input
+                  type="text"
+                  value={newComment[post.id] || ""}
+                  onChange={(e) => setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))}
+                  placeholder="Add a comment..."
+                  className="flex-1 border rounded-full px-2 py-1 text-sm"
+                />
+                <button
+                  className="px-3 py-1 bg-[#3F978F] text-white rounded-full text-xs"
+                  onClick={() => addCommentHandler(post.id)}
+                >
+                  Post
+                </button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
       <div ref={sentinelRef} className="h-4" />
+      {loadingMore && (
+        <div className="flex justify-center py-2">
+          <Loader2 className="w-5 h-5 animate-spin" />
+        </div>
+      )}
     </div>
   );
 };

@@ -252,74 +252,78 @@ class SocialService {
   }
 
   // ────────────── NOTIFICATIONS (DYNAMIC) ──────────────
-  async getNotifications(userId: string): Promise<NotificationAPIItem[]> {
-    // Get latest comments, likes, and follow requests on user's posts
-    const [likes, comments, followRequests] = await Promise.all([
-      prisma.like.findMany({
-        where: { post: { userId }, NOT: { userId } },
-        include: {
-          user: { select: { id: true, name: true, profilePhoto: true } },
-          post: { select: { id: true, caption: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      }),
-      prisma.comment.findMany({
-        where: { post: { userId }, NOT: { userId } },
-        include: {
-          user: { select: { id: true, name: true, profilePhoto: true } },
-          post: { select: { id: true, caption: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      }),
-      this.getFollowRequests(userId),
-    ]);
+ async getNotifications(userId: string): Promise<NotificationAPIItem[]> {
+  const [likes, comments, followRequests] = await Promise.all([
+    prisma.like.findMany({
+      where: {
+        post: { userId },
+        AND: { userId: { not: userId } },
+      },
+      include: {
+        user: { select: { id: true, name: true, profilePhoto: true } },
+        post: { select: { id: true, caption: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    prisma.comment.findMany({
+      where: {
+        post: { userId },
+        AND: { userId: { not: userId } },
+      },
+      include: {
+        user: { select: { id: true, name: true, profilePhoto: true } },
+        post: { select: { id: true, caption: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    this.getFollowRequests(userId),
+  ]);
 
-    const notifications: NotificationAPIItem[] = [
-      ...likes.map((l) => ({
-        id: l.id,
-        type: "like" as const,
-        fromUser: {
-          id: l.user.id,
-          name: l.user.name,
-          profilePhoto: l.user.profilePhoto,
-        },
-        postId: l.postId,
-        postContent: l.post?.caption ?? null,
-        createdAt: l.createdAt.toISOString(),
-      })),
-      ...comments.map((c) => ({
-        id: c.id,
-        type: "comment" as const,
-        fromUser: {
-          id: c.user.id,
-          name: c.user.name,
-          profilePhoto: c.user.profilePhoto,
-        },
-        postId: c.postId,
-        postContent: c.post?.caption ?? null,
-        createdAt: c.createdAt.toISOString(),
-      })),
-      ...followRequests.map((f) => ({
-        id: f.id,
-        type: "follow" as const,
-        fromUser: {
-          id: f.follower.id,
-          name: f.follower.name,
-          profilePhoto: f.follower.profilePhoto,
-        },
-        postId: null,
-        postContent: null,
-        createdAt: f.createdAt.toISOString(),
-      })),
-    ];
+  const notifications: NotificationAPIItem[] = [
+  ...likes.map((l) => ({
+    id: l.id,
+    type: "like" as const, // <--- tell TS this is the literal "like"
+    fromUser: {
+      id: l.user.id,
+      name: l.user.name,
+      profilePhoto: l.user.profilePhoto || undefined,
+    },
+    postId: l.postId || undefined,
+    postContent: l.post?.caption || undefined,
+    createdAt: l.createdAt.toISOString(),
+  })),
+  ...comments.map((c) => ({
+    id: c.id,
+    type: "comment" as const, // <--- literal type
+    fromUser: {
+      id: c.user.id,
+      name: c.user.name,
+      profilePhoto: c.user.profilePhoto || undefined,
+    },
+    postId: c.postId || undefined,
+    postContent: c.post?.caption || undefined,
+    createdAt: c.createdAt.toISOString(),
+  })),
+  ...followRequests.map((f) => ({
+    id: f.id,
+    type: "follow" as const, // <--- literal type
+    fromUser: {
+      id: f.follower.id,
+      name: f.follower.name,
+      profilePhoto: f.follower.profilePhoto || undefined,
+    },
+    postId: undefined,
+    postContent: undefined,
+    createdAt: f.createdAt.toISOString(),
+  })),
+];
 
-    // Sort by newest first
-    notifications.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // sort newest first
+  return notifications.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
 
-    return notifications;
-  }
 
   // ────────────── SEARCH ──────────────
   async searchUsers(currentUserId: string, q: string, limit = 20, offset = 0) {

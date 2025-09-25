@@ -368,7 +368,7 @@ getCommentsForPostHandler = async (req: Request, res: Response, next: NextFuncti
     }
   };
 
-  getNotifications = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+ getNotifications = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
     const notifications = await socialService.getNotifications(req.user.id);
@@ -377,6 +377,7 @@ getCommentsForPostHandler = async (req: Request, res: Response, next: NextFuncti
     next(err);
   }
 };
+
 
 
   acceptFollowRequest = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

@@ -178,36 +178,26 @@ export type NotificationsResponse = {
 
 export async function getNotifications(): Promise<NotificationsResponse> {
   try {
-    const token = localStorage.getItem('token'); // your JWT
-    if (!token) return { notifications: [] }; // ✅ return object, not array
+    const res = await fetchWithAuth(`${API_URL}/notifications`, { method: "GET" });
 
-    const res = await fetch("/api/social/notifications", {
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // if backend returns non-JSON (HTML error page), catch it
     if (!res.ok) {
-      const text = await res.text();
-      console.error("Failed to fetch notifications:", text);
-      return { notifications: [] }; // ✅ return object
+      console.error("Failed to fetch notifications:", res.statusText);
+      return { notifications: [] };
     }
 
-    // try parsing JSON, fall back to empty array if it fails
-    try {
-      const data = await res.json();
-      return data as NotificationsResponse;
-    } catch (jsonErr) {
-      console.error("Failed to parse notifications JSON:", jsonErr);
-      return { notifications: [] }; // ✅ return object
-    }
+    // Parse JSON
+    const data = (await res.json()) as NotificationsResponse;
+
+    // Ensure notifications array exists
+    return {
+      notifications: data.notifications ?? [],
+    };
   } catch (err) {
     console.error("Error fetching notifications:", err);
-    return { notifications: [] }; // ✅ return object
+    return { notifications: [] };
   }
 }
+
 
 export async function acceptFollowRequest(requestId: string) {
   const response = await fetchWithAuth(
