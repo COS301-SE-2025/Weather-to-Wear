@@ -1,6 +1,10 @@
 import { API_BASE } from "../config";
 import { fetchWithAuth } from "./fetchWithAuth";
 
+// -------------------------
+//    Try On Avatar
+// -------------------------
+
 export async function getItemFits(poseId: string, itemIds: string[]) {
     const params = new URLSearchParams({ poseId, itemIds: itemIds.join(",") });
     const res = await fetchWithAuth(`${API_BASE}/api/tryon/fits?${params.toString()}`);
@@ -23,21 +27,87 @@ export async function saveItemFit(payload: {
     return res.json();
 }
 
-export async function runTryOnSelf(payload: {
-  useProfilePhoto?: boolean;
+// -------------------------
+//    Try on Yourself
+// -------------------------
+
+export type TryOnMode = 'performance' | 'balanced' | 'quality';
+
+export interface RunTryOnPayload {
+  useTryOnPhoto?: boolean;
   modelImageUrl?: string;
   closetItemIds?: string[];
-  mode?: 'performance'|'balanced'|'quality';
+  mode?: TryOnMode;
   returnBase64?: boolean;
-  numSamples?: 1|2|3|4;
+  numSamples?: 1 | 2 | 3 | 4;
   seed?: number;
-}) {
-  return fetchWithAuth('/tryon-self/run', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
 }
 
-export async function getTryOnCredits() {
-  return fetchWithAuth('/tryon-self/credits', { method: 'GET' });
+export interface RunTryOnResponse {
+  finalUrl?: string;
+  finalBase64?: string;
+  stepOutputs: string[];
+  skipped: string[];
+}
+
+export interface TryOnCredits {
+  total: number;
+  subscription: number;
+  on_demand: number;
+}
+
+export interface TryOnPhotoResponse {
+  tryOnPhoto: string | null;
+}
+
+function assertOk(res: Response) {
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function runTryOnSelf(payload: RunTryOnPayload): Promise<RunTryOnResponse> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  assertOk(res as Response);
+  return (await (res as Response).json()) as RunTryOnResponse;
+}
+
+export async function getTryOnCredits(): Promise<TryOnCredits> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/credits`, { method: 'GET' });
+  assertOk(res as Response);
+  return (await (res as Response).json()) as TryOnCredits;
+}
+
+export async function setTryOnPhotoBase64(imageBase64: string): Promise<TryOnPhotoResponse> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/photo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64 }),
+  });
+  assertOk(res as Response);
+  return (await (res as Response).json()) as TryOnPhotoResponse;
+}
+
+export async function setTryOnPhotoUrl(imageUrl: string): Promise<TryOnPhotoResponse> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/photo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageUrl }),
+  });
+  assertOk(res as Response);
+  return (await (res as Response).json()) as TryOnPhotoResponse;
+}
+
+export async function getTryOnPhoto(): Promise<TryOnPhotoResponse> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/photo`, { method: 'GET' });
+  assertOk(res as Response);
+  return (await (res as Response).json()) as TryOnPhotoResponse;
+}
+
+export async function deleteTryOnPhoto(): Promise<{ ok: boolean }> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/photo`, { method: 'DELETE' });
+  assertOk(res as Response);
+  return (await (res as Response).json()) as { ok: boolean };
 }

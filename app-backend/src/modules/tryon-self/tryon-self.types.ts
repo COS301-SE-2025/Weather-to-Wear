@@ -9,8 +9,8 @@ export interface RunTryOnStep {
 }
 
 export interface RunTryOnRequest {
-  useProfilePhoto?: boolean;
-  modelImageUrl?: string;
+  useTryOnPhoto?: boolean;
+  modelImageUrl?: string; 
   closetItemIds?: string[];
   steps?: RunTryOnStep[];
   mode?: TryOnMode;

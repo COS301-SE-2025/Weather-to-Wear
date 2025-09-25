@@ -1,9 +1,11 @@
 // app-backend/src/modules/tryon-self/tryon-self.service.ts
 import prisma from '../../prisma';
 import { randomUUID } from 'crypto';
-import { RunTryOnRequest, RunTryOnResponse, RunTryOnStep, FashnCategory, TryOnMode } from './tryon-self.types';
+import {
+  RunTryOnRequest, RunTryOnResponse, RunTryOnStep,
+  FashnCategory, TryOnMode
+} from './tryon-self.types';
 import { cdnUrlFor, putBufferSmart } from '../../utils/s3';
-import logger from '../../utils/logger';
 
 const FASHN_API_KEY = process.env.FASHN_API_KEY!;
 const BASE_URL = process.env.FASHN_BASE_URL || 'https://api.fashn.ai/v1';
@@ -15,37 +17,18 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function fashnRun(inputs: Record<string, any>): Promise<string> {
   const runRes = await fetch(`${BASE_URL}/run`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${FASHN_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model_name: 'tryon-v1.6',
-      inputs,
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${FASHN_API_KEY}` },
+    body: JSON.stringify({ model_name: 'tryon-v1.6', inputs }),
   });
-
-  if (!runRes.ok) {
-    const text = await runRes.text();
-    throw new Error(`FASHN run error: ${runRes.status} ${text}`);
-  }
+  if (!runRes.ok) throw new Error(`FASHN run error: ${runRes.status} ${await runRes.text()}`);
   const { id } = await runRes.json() as { id: string };
   if (!id) throw new Error('FASHN run did not return an id');
 
-  // poll status
   for (let i = 0; i < 60; i++) {
-    const st = await fetch(`${BASE_URL}/status/${id}`, {
-      headers: { Authorization: `Bearer ${FASHN_API_KEY}` },
-    });
+    const st = await fetch(`${BASE_URL}/status/${id}`, { headers: { Authorization: `Bearer ${FASHN_API_KEY}` } });
     const data = await st.json() as any;
-
-    if (data.status === 'completed' && data.output?.length) {
-      return data.output[0]; // URL or base64 depending on return_base64
-    }
-    if (data.status === 'failed') {
-      const msg = data?.error?.message || JSON.stringify(data.error || {});
-      throw new Error(`FASHN status failed: ${msg}`);
-    }
+    if (data.status === 'completed' && data.output?.length) return data.output[0];
+    if (data.status === 'failed') throw new Error(`FASHN status failed: ${data?.error?.message ?? JSON.stringify(data.error || {})}`);
     await sleep(3000);
   }
   throw new Error('FASHN try-on timed out');
@@ -80,13 +63,25 @@ async function downloadToBuffer(urlOrData: string): Promise<Buffer> {
   return Buffer.from(ab);
 }
 
+export async function saveTryOnPhoto(userId: string, imageBuf: Buffer, contentType: string = 'image/png'): Promise<string> {
+  const key = `users/${userId}/tryon/self-${Date.now()}-${randomUUID()}.png`;
+  const { key: storedKey } = await putBufferSmart({ key, contentType, body: imageBuf });
+  const url = cdnUrlFor(storedKey);
+  await prisma.user.update({ where: { id: userId }, data: { tryOnPhoto: url } });
+  return url;
+}
+
+export async function removeTryOnPhoto(userId: string): Promise<void> {
+  await prisma.user.update({ where: { id: userId }, data: { tryOnPhoto: null } });
+}
+
 export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promise<RunTryOnResponse> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   let modelImage = req.modelImageUrl;
-  if (req.useProfilePhoto) {
-    if (!user?.profilePhoto) throw new Error('No profile photo on account');
-    modelImage = user.profilePhoto;
+  if (req.useTryOnPhoto) {
+    if (!user?.tryOnPhoto) throw new Error('No try-on photo on account');
+    modelImage = user.tryOnPhoto;
   }
   if (!modelImage) throw new Error('No modelImageUrl provided');
 
@@ -137,7 +132,7 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
 
     const out = await fashnRun(inputs);
     stepOutputs.push(out);
-    modelImage = out; // chain
+    modelImage = out;
   }
 
   let finalUrl: string | undefined;
@@ -148,11 +143,7 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
   } else {
     const buf = await downloadToBuffer(modelImage!);
     const key = `users/${userId}/tryon/${Date.now()}-${randomUUID()}.png`;
-    const { key: storedKey } = await putBufferSmart({
-      key,
-      contentType: 'image/png',
-      body: buf,
-    });
+    const { key: storedKey } = await putBufferSmart({ key, contentType: 'image/png', body: buf });
     finalUrl = cdnUrlFor(storedKey);
   }
 
@@ -160,9 +151,7 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
 }
 
 export async function getCredits(): Promise<{ total: number; subscription: number; on_demand: number }> {
-  const res = await fetch(`${BASE_URL}/credits`, {
-    headers: { Authorization: `Bearer ${FASHN_API_KEY}` },
-  });
+  const res = await fetch(`${BASE_URL}/credits`, { headers: { Authorization: `Bearer ${FASHN_API_KEY}` } });
   if (!res.ok) throw new Error(`FASHN credits error: ${res.status}`);
   const json = await res.json() as any;
   return {

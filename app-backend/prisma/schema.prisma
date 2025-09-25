@@ -84,6 +84,7 @@ model User {
   phoneNumber  String?
   location     String?
   profilePhoto String?
+  tryOnPhoto   String?
 
   closetItems ClosetItem[]
   outfits     Outfit[]
