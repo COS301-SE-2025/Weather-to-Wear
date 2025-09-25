@@ -57,6 +57,8 @@ export default function TryOnCanvas({
 
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
+    const requestLayout = useRef<null | (() => void)>(null);
+
     useEffect(() => {
         const hostEl = hostRef.current;
         if (!hostEl) return;
@@ -117,6 +119,8 @@ export default function TryOnCanvas({
                 pw: b.w * manW,
                 ph: b.h * manH,
             });
+
+            requestLayout.current = layoutAll;
 
             // ===== garments (non-footwear)
             items
@@ -194,69 +198,72 @@ export default function TryOnCanvas({
                     const tex = PIXI.Texture.from(it.url);
                     if (!tex || tex.width === 0 || tex.height === 0) return;
 
-                    const lb = boxToStage(pose.boxes.LEFT_SHOE_BOX);
-                    const rb = boxToStage(pose.boxes.RIGHT_SHOE_BOX);
+                    const lb = boxToStage(FRONT_V1.boxes.LEFT_SHOE_BOX);
+                    const rb = boxToStage(FRONT_V1.boxes.RIGHT_SHOE_BOX);
 
                     const leftId = `${it.id}|L`;
                     const rightId = `${it.id}|R`;
 
-                    const ensureShoe = (id: string, box: typeof lb, mirrored = false) => {
+                    // one base fit (db or local), mirrored to the other foot
+                    const baseFit = getEffectiveFit(it.id, it.fit) || { x: 0, y: 0, scale: 1, rotationDeg: 0 };
+
+                    const place = (id: string, box: typeof lb, mirrorX: boolean) => {
                         let spr = nodeById.get(id) as PIXI.Sprite | undefined;
                         if (!spr) {
                             spr = new PIXI.Sprite(tex);
                             spr.anchor.set(0.5);
                             spr.name = id;
+                            spr.zIndex = FRONT_V1.layerDefaults.footwear.z;
                             spr.eventMode = editable ? "static" : "none";
                             spr.cursor = editable ? "grab" : "default";
-                            spr.zIndex = zFor("footwear");
-                            if (mirrored) spr.scale.x = -1; // mirror horizontally
                             app!.stage.addChild(spr);
                             nodeById.set(id, spr);
 
-                            // selection + start drag immediately
+                            // Selecting either shoe edits the **left** id (the base) so both move together
                             spr.on("pointerdown", (e: PIXI.FederatedPointerEvent) => {
                                 if (!editable) return;
                                 e.stopPropagation();
-                                setSelectedId(id);
-                                drawGizmo(id, e);
+                                setSelectedId(leftId);        // always edit the left/base id
+                                drawGizmo(leftId, e);
                             });
                         } else {
+                            spr.zIndex = FRONT_V1.layerDefaults.footwear.z;
                             spr.eventMode = editable ? "static" : "none";
                             spr.cursor = editable ? "grab" : "default";
-                            spr.zIndex = zFor("footwear");
                         }
 
-                        // base placement at its box center
                         const base = Math.min(box.pw / tex.width, box.ph / tex.height);
-                        const baseSign = mirrored ? -1 : 1;
-                        const effFit = getEffectiveFit(id, it.fit); // local shoe fit takes precedence
-                        const norm =
-                            effFit && typeof effFit.x === "number" && typeof effFit.y === "number"
-                                ? ensureNormalized(effFit.x, effFit.y)
-                                : { nx: 0, ny: 0 };
+                        const norm = ensureNormalized(baseFit.x ?? 0, baseFit.y ?? 0);
 
-                        spr.x = box.cx + norm.nx * manW;
-                        spr.y = box.cy + norm.ny * manH;
+                        // mirror X for the right shoe by flipping the offset sign
+                        const nx = mirrorX ? -norm.nx : norm.nx;
+                        const ny = norm.ny;
 
-                        const newS = (effFit?.scale ?? 1) * base;
-                        spr.scale.set(baseSign * newS, newS);
-                        spr.rotation = rad(effFit?.rotationDeg ?? 0);
+                        spr.x = box.cx + nx * manW;
+                        spr.y = box.cy + ny * manH;
 
-                        // store per-shoe info for commit()
-                        spriteInfo.set(id, {
-                            baseScale: base,
-                            anchorCenter: { x: box.cx, y: box.cy },
-                            stageX: spr.x,
-                            stageY: spr.y,
-                            stageScale: newS,
-                            stageRotation: spr.rotation,
-                        });
+                        const sMag = (baseFit.scale ?? 1) * base;
+                        spr.scale.set((mirrorX ? -1 : 1) * sMag, sMag);
 
-                        return spr;
+                        // keep rotation value; the negative scale on X mirrors its visual orientation
+                        spr.rotation = rad(baseFit.rotationDeg ?? 0);
+
+                        // store info for the **left** id (we commit with leftId)
+                        if (!mirrorX) {
+                            spriteInfo.set(leftId, {
+                                baseScale: base,
+                                anchorCenter: { x: box.cx, y: box.cy },
+                                stageX: spr.x,
+                                stageY: spr.y,
+                                stageScale: sMag,
+                                stageRotation: spr.rotation,
+                            });
+                        }
                     };
 
-                    ensureShoe(leftId, lb, /*mirrored*/ false);
-                    ensureShoe(rightId, rb, /*mirrored*/ true);
+                    // left = base; right = mirrored
+                    place(leftId, lb, false);
+                    place(rightId, rb, true);
                 });
 
             // ===== occlusion (forearms) — unchanged
@@ -491,9 +498,8 @@ export default function TryOnCanvas({
         };
 
         const commit = (id: string) => {
-            if (destroyed || !app) return;
             const spr = nodeById.get(id) as any;
-            const info = spriteInfo.get(id);
+            const info = spriteInfo.get(id.includes("|") ? `${id.split("|")[0]}|L` : id); // shoe: use left
             if (!spr || !info || !mannequin) return;
 
             const dx = spr.x - info.anchorCenter.x;
@@ -501,20 +507,20 @@ export default function TryOnCanvas({
             const nx = dx / Math.max(1, manW);
             const ny = dy / Math.max(1, manH);
             const relScale = spr.scale.x / Math.max(1e-6, info.baseScale);
+            // NOTE: if scale.x is negative (right shoe), relScale could be negative; use magnitude for saving:
+            const relScaleAbs = Math.abs(relScale);
             const rotationDeg = (spr.rotation * 180) / Math.PI;
 
-            const t: FitTransform = { x: nx, y: ny, scale: relScale, rotationDeg };
+            const t: FitTransform = { x: nx, y: ny, scale: relScaleAbs, rotationDeg };
 
-            // If this is a shoe sub-id, keep it local (backend can't store L/R independently yet)
-            if (id.includes("|L") || id.includes("|R")) {
-                localFits.set(id, t);
-                return; // prevent “snap back” from parent refresh
-            }
+            // if this was a shoe, save under the **base** itemId (no schema change)
+            const baseId = id.includes("|") ? id.split("|")[0] : id;
 
-            // Normal items: let parent persist
-            onChangeFit?.(id, t);
-            // Also keep a local echo so even immediate re-layout stays consistent
-            localFits.set(id, t);
+            // Persist normal items and footwear the same way:
+            onChangeFit?.(baseId, t);
+
+            // Keep a local echo so immediate re-layout is stable
+            localFits.set(baseId, t);
         };
 
         const setStageHitArea = () => {
@@ -523,7 +529,6 @@ export default function TryOnCanvas({
             const r = app.renderer;
             stage.eventMode = "static";
             stage.hitArea = new PIXI.Rectangle(0, 0, r.width, r.height);
-            // Deselect when clicking empty space (sprite/handle handlers stopPropagation)
             stage.removeAllListeners("pointerdown");
             stage.on("pointerdown", () => {
                 if (!editable) return;
@@ -570,8 +575,8 @@ export default function TryOnCanvas({
             await localApp.init({
                 backgroundAlpha: 0,
                 antialias: true,
-                autoDensity: true,               // ⬅️ hi-DPI fix
-                resolution: DPR,                 // ⬅️ hi-DPI fix
+                autoDensity: true,
+                resolution: DPR,
                 powerPreference: "high-performance",
             });
             if (destroyed) {
@@ -735,7 +740,7 @@ export default function TryOnCanvas({
                 const fromStageNy = (sy2: number) => (sy2 - mannequin!.y) / manH + 0.5;
 
                 stage.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
-                // stage.on("globalpointermove", (e: PIXI.FederatedPointerEvent) => {
+                    // stage.on("globalpointermove", (e: PIXI.FederatedPointerEvent) => {
                     const { x: sx, y: sy } = e.global;
 
                     const nx = Math.max(0, Math.min(1, fromStageNx(sx)));
@@ -801,7 +806,11 @@ export default function TryOnCanvas({
                 } catch { }
             }
         };
-    }, [mannequinUrl, items, poseId, responsive, editable, onChangeFit]);
+    }, [mannequinUrl, poseId, responsive, editable, onChangeFit]);
+
+    useEffect(() => {
+        requestLayout.current?.();
+    }, [items]);
 
     return (
         <div
