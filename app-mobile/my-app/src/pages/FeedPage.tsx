@@ -11,6 +11,8 @@ import {
   unfollowUser,
   searchUsers,
   getNotifications,
+  acceptFollowRequest,
+  rejectFollowRequest,
 } from "../services/socialApi";
 import { API_BASE } from "../config";
 import { absolutize } from "../utils/url";
@@ -38,7 +40,9 @@ interface Notification {
   postId?: string;
   postContent?: string;
   date: string;
+  followStatus?: "pending" | "accepted" | "rejected"; // add this
 }
+
 
 interface Account {
   id: string;
@@ -51,23 +55,31 @@ type UserResult = {
   name: string;
   profilePhoto?: string | null;
   location?: string | null;
-  isFollowing: boolean;
+  isFollowing: boolean;      // true if following or follow accepted
+  followRequested?: boolean; // true if follow request is pending
+  isPrivate: boolean;        // needed to know if user is private
   followersCount: number;
   followingCount: number;
 };
 
-interface NotificationAPIItem {
-  id: string;
-  type: "like" | "comment" | "follow";
-  fromUser: {
-    id: string;
-    name: string;
-    profilePhoto?: string | null;
-  };
-  postId?: string;
-  postContent?: string;
-  createdAt: string;
-}
+
+export type NotificationAPIItem =
+  | {
+      id: string;
+      type: "like" | "comment";
+      fromUser: { id: string; name: string; profilePhoto?: string | null };
+      postId?: string;
+      postContent?: string;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "follow";
+      fromUser: { id: string; name: string; profilePhoto?: string | null };
+      createdAt: string;
+      status: "pending" | "accepted" | "rejected"; // ✅ Add status here
+    };
+
 
 interface NotificationsApiResult {
   notifications: NotificationAPIItem[];
@@ -86,7 +98,8 @@ type SearchUsersCardProps = {
   searchResults: UserResult[];
   searchHasMore: boolean;
   onLoadMore: () => void;
-  onToggleFollow: (id: string, isFollowing: boolean) => void;
+  // Change this line:
+  onToggleFollow: (id: string, user: UserResult) => void;
 };
 
 const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
@@ -154,15 +167,20 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
               </div>
 
               <button
-                onClick={() => onToggleFollow(u.id, u.isFollowing)}
-                className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                  u.isFollowing
-                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                    : "bg-[#3F978F] text-white"
-                }`}
-              >
-                {u.isFollowing ? "Following" : "Follow"}
-              </button>
+  onClick={() => onToggleFollow(u.id, u)}
+  className={`ml-auto text-xs px-3 py-1 rounded-full ${
+    u.isFollowing || u.followRequested
+      ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+      : "bg-[#3F978F] text-white"
+  }`}
+>
+  {u.isFollowing
+    ? "Following"
+    : u.followRequested
+    ? "Requested"
+    : "Follow"}
+</button>
+
             </div>
           ))}
 
@@ -271,6 +289,13 @@ const FeedPage: React.FC = () => {
   }, [currentUserId, offset, hasMore, loadingMore]);
 
   // Replace your fetchNotifs / fetchNotifications logic with this:
+// Type guard for "follow" notifications
+function isFollowNotification(
+  n: NotificationAPIItem
+): n is Extract<NotificationAPIItem, { type: "follow" }> {
+  return n.type === "follow";
+}
+
 const fetchNotifications = useCallback(async () => {
   if (!currentUserId) return;
 
@@ -278,8 +303,9 @@ const fetchNotifications = useCallback(async () => {
   setNotificationsError(null);
 
   try {
-    const response = await getNotifications();
+    const response = await getNotifications(); // returns { notifications: NotificationAPIItem[] }
 
+    // Map API notifications to frontend Notification type
     const notificationsArray: Notification[] = (response.notifications ?? []).map((n) => ({
       id: n.id,
       type: n.type,
@@ -288,12 +314,13 @@ const fetchNotifications = useCallback(async () => {
         name: n.fromUser.name,
         profilePhoto: n.fromUser.profilePhoto ?? undefined,
       },
-      postId: n.postId ?? undefined,
-      postContent: n.postContent ?? undefined,
-      date: n.createdAt ?? new Date().toISOString(),
+      postId: n.type !== "follow" ? n.postId : undefined,
+      postContent: n.type !== "follow" ? n.postContent : undefined,
+      date: n.createdAt,
+      followStatus: n.type === "follow" ? n.status : undefined,
     }));
 
-    // optional: sort by newest first
+    // Optional: sort by newest first
     notificationsArray.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     setNotifications(notificationsArray);
@@ -303,6 +330,8 @@ const fetchNotifications = useCallback(async () => {
     setLoadingNotifications(false);
   }
 }, [currentUserId]);
+
+
 
 
 
@@ -365,20 +394,53 @@ useEffect(() => {
     }
   };
 
-  const toggleFollowFromSearch = async (userId: string, isFollowing: boolean) => {
-    try {
-      if (isFollowing) await unfollowUser(userId);
-      else await followUser(userId);
+  // const toggleFollowFromSearch = async (userId: string, isFollowing: boolean) => {
+  //   try {
+  //     if (isFollowing) await unfollowUser(userId);
+  //     else await followUser(userId);
 
+  //     setSearchResults((prev) =>
+  //       prev.map((u) => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
+  //     );
+  //     if (isFollowing) setFollowing((prev) => prev.filter((f) => f.id !== userId));
+  //     else setFollowing((prev) => [...prev, { id: userId, username: "New User", profilePhoto: "U" }]);
+  //   } catch (err: any) {
+  //     setError(err.message || "Follow action failed");
+  //   }
+  // };
+
+  // In FeedPage.tsx
+const toggleFollowFromSearch = async (userId: string, user: UserResult) => {
+  try {
+    if (user.isFollowing || user.followRequested) {
+      // Unfollow or cancel request
+      await unfollowUser(userId);
       setSearchResults((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, isFollowing: false, followRequested: false }
+            : u
+        )
       );
-      if (isFollowing) setFollowing((prev) => prev.filter((f) => f.id !== userId));
-      else setFollowing((prev) => [...prev, { id: userId, username: "New User", profilePhoto: "U" }]);
-    } catch (err: any) {
-      setError(err.message || "Follow action failed");
+    } else {
+      // Follow
+      await followUser(userId);
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                isFollowing: user.isPrivate ? false : true, // only true if public
+                followRequested: user.isPrivate ? true : false, // only true if private
+              }
+            : u
+        )
+      );
     }
-  };
+  } catch (err: any) {
+    setError(err.message || "Follow action failed");
+  }
+};
 
   // Search and infinite scrolling logic remains unchanged
   useEffect(() => {
@@ -490,14 +552,49 @@ useEffect(() => {
           {!loadingNotifications && notifications.length === 0 && <div className="text-gray-500 text-sm">No notifications.</div>}
           <div className="space-y-2 mt-2">
             {notifications.map((n) => (
-              <div key={n.id} className="p-2 border rounded-md">
-                <span className="font-semibold">{n.fromUser.name}</span>{" "}
-                {n.type === "like" && "liked your post"}
-                {n.type === "comment" && "commented on your post"}
-                {n.type === "follow" && "started following you"}
-                {n.postContent && <div className="mt-1 text-gray-700 dark:text-gray-300">{n.postContent}</div>}
-              </div>
-            ))}
+  <div key={n.id} className="p-2 border rounded-md flex flex-col gap-1">
+    <span className="font-semibold">{n.fromUser.name}</span>
+    {n.type === "like" && <span>liked your post</span>}
+    {n.type === "comment" && <span>commented on your post</span>}
+
+    {n.type === "follow" && n.followStatus === "pending" && (
+      <div className="flex gap-2 mt-1">
+        <button
+          className="px-2 py-1 text-xs bg-green-500 text-white rounded"
+          onClick={async () => {
+            try {
+              await acceptFollowRequest(n.id);
+              fetchNotifications(); // refresh
+            } catch (err: any) {
+              setNotificationsError(err.message || "Failed to accept request");
+            }
+          }}
+        >
+          Accept
+        </button>
+        <button
+          className="px-2 py-1 text-xs bg-red-500 text-white rounded"
+          onClick={async () => {
+            try {
+              await rejectFollowRequest(n.id);
+              fetchNotifications(); // refresh
+            } catch (err: any) {
+              setNotificationsError(err.message || "Failed to reject request");
+            }
+          }}
+        >
+          Reject
+        </button>
+      </div>
+    )}
+
+    {n.type === "follow" && n.followStatus === "accepted" && <span>accepted your follow request</span>}
+    {n.type === "follow" && n.followStatus === "rejected" && <span>rejected your follow request</span>}
+
+    {n.postContent && <div className="mt-1 text-gray-700 dark:text-gray-300">{n.postContent}</div>}
+  </div>
+))}
+
           </div>
         </div>
       )}

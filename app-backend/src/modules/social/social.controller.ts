@@ -383,7 +383,7 @@ getCommentsForPostHandler = async (req: Request, res: Response, next: NextFuncti
   acceptFollowRequest = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
-      const updated = await socialService.acceptFollowRequest(req.params.followerId, req.user.id);
+      const updated = await socialService.acceptFollowRequest(req.user.id, req.params.followId);
       res.status(200).json({ message: 'Follow request accepted', follow: updated });
     } catch (err) {
       next(err);
@@ -393,7 +393,7 @@ getCommentsForPostHandler = async (req: Request, res: Response, next: NextFuncti
   rejectFollowRequest = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
-      const removed = await socialService.rejectFollowRequest(req.params.followerId, req.user.id);
+      const removed = await socialService.rejectFollowRequest(req.user.id, req.params.followId);
       res.status(200).json({ message: 'Follow request rejected', follow: removed });
     } catch (err) {
       next(err);

@@ -18,6 +18,32 @@ export interface Follow {
   createdAt: string;
 }
 
+export type Notification =
+  | {
+      id: string;
+      type: "like" | "comment";
+      fromUser: {
+        id: string;
+        name: string;
+        profilePhoto?: string | null;
+      };
+      postId?: string;
+      postContent?: string;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "follow";
+      fromUser: {
+        id: string;
+        name: string;
+        profilePhoto?: string | null;
+      };
+      postId?: undefined;
+      postContent?: undefined;
+      createdAt: string;
+    };
+
 export async function createPost(data: {
   image?: File;
   caption?: string;
@@ -159,49 +185,79 @@ export async function unfollowUser(userId: string) {
 
 // Notifications
 // services/socialApi.ts
-export type NotificationAPIItem = {
-  id: string;
-  type: "like" | "comment" | "follow";
-  fromUser: {
-    id: string;
-    name: string;
-    profilePhoto?: string | null;
-  };
-  postId?: string | null;
-  postContent?: string | null;
-  createdAt: string; // ISO string
-};
+export type NotificationAPIItem =
+  | {
+      id: string;
+      type: "like" | "comment";
+      fromUser: {
+        id: string;
+        name: string;
+        profilePhoto?: string | null;
+      };
+      postId?: string;
+      postContent?: string;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "follow";
+      fromUser: {
+        id: string;
+        name: string;
+        profilePhoto?: string | null;
+      };
+      createdAt: string;
+      status: "pending" | "accepted" | "rejected"; // ✅ status is required here
+    };
+
+export interface NotificationsApiResult {
+  notifications: NotificationAPIItem[];
+}
+
 
 export type NotificationsResponse = {
   notifications: NotificationAPIItem[];
 };
 
-export async function getNotifications(): Promise<NotificationsResponse> {
-  try {
-    const res = await fetchWithAuth(`${API_URL}/notifications`, { method: "GET" });
+// export async function getNotifications(): Promise<NotificationsResponse> {
+//   try {
+//     const res = await fetchWithAuth(`${API_URL}/notifications`, { method: "GET" });
 
-    if (!res.ok) {
-      console.error("Failed to fetch notifications:", res.statusText);
-      return { notifications: [] };
-    }
+//     if (!res.ok) {
+//       console.error("Failed to fetch notifications:", res.statusText);
+//       return { notifications: [] };
+//     }
 
-    // Parse JSON
-    const data = (await res.json()) as NotificationsResponse;
+//     // Parse JSON
+//     const data = (await res.json()) as NotificationsResponse;
 
-    // Ensure notifications array exists
-    return {
-      notifications: data.notifications ?? [],
-    };
-  } catch (err) {
-    console.error("Error fetching notifications:", err);
-    return { notifications: [] };
+//     // Ensure notifications array exists
+//     return {
+//       notifications: data.notifications ?? [],
+//     };
+//   } catch (err) {
+//     console.error("Error fetching notifications:", err);
+//     return { notifications: [] };
+//   }
+// }
+
+export async function getNotifications(): Promise<NotificationsApiResult> {
+  const response = await fetchWithAuth(`${API_URL}/notifications`, { method: "GET" });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch notifications");
   }
+
+  const data = (await response.json()) as NotificationsApiResult;
+  return data;
 }
 
 
-export async function acceptFollowRequest(requestId: string) {
+
+export async function acceptFollowRequest(followId: string) {
   const response = await fetchWithAuth(
-    `${API_URL}/follow/accept/${requestId}`,
+    `${API_URL}/follow/${followId}/accept`,
     { method: "POST" }
   );
 
@@ -213,9 +269,9 @@ export async function acceptFollowRequest(requestId: string) {
   return response.json() as Promise<{ follow: Follow }>;
 }
 
-export async function rejectFollowRequest(requestId: string) {
+export async function rejectFollowRequest(followId: string) {
   const response = await fetchWithAuth(
-    `${API_URL}/follow/reject/${requestId}`,
+    `${API_URL}/follow/${followId}/reject`,
     { method: "POST" }
   );
 
