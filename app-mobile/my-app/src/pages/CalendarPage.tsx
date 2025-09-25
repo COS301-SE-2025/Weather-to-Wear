@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ReactElement, useCallback } from 'react';
+import React, { useEffect, useState, ReactElement, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, CalendarPlus, Luggage, RefreshCw } from 'lucide-react';
 import { fetchAllEvents, createEvent, deleteEvent, updateEvent } from '../services/eventsApi';
 import { fetchAllItems } from '../services/closetApi';
@@ -6,7 +6,6 @@ import { fetchAllOutfits, fetchRecommendedOutfits, type RecommendedOutfit } from
 import { getPackingList, createPackingList, updatePackingList, deletePackingList } from '../services/packingApi';
 import { API_BASE } from '../config';
 import axios from 'axios';
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '../queryClient';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
@@ -68,9 +67,18 @@ const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.get
 const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', o).format(d);
 const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const monthEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
-const MAX_FORECAST_DAYS = 14;
+
+// UI helpers
 const ROW_GAP_PX = 2;
 const isNarrow = () => (typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+
+// Upcoming list still uses 14 days
+const UPCOMING_DAYS = 14;
+
+// Open-Meteo daily forecast horizon (typical): 16 days.
+// If your backend limits to fewer, reduce this value.
+const OPEN_METEO_MAX_DAYS = 16;
+
 const normalizeUrl = (u?: string | null) => {
   if (!u) return null;
   return u.startsWith('http') ? u : `${API_BASE}${u}`;
@@ -96,8 +104,8 @@ async function geocodeCity(query: string, count = 5): Promise<Array<{ label: str
   const data = await res.json();
   const results = (data?.results || []) as Array<any>;
   return results.map(r => ({
-    label: [r.name, r.admin1, r.country].filter(Boolean).join(', '), // what we show
-    city: r.name as string,                                          // what we save
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+    city: r.name as string,
   }));
 }
 
@@ -105,7 +113,7 @@ async function validateAndStandardizeLocation(raw: string): Promise<string | nul
   const q = (raw || '').trim();
   if (!q) return null;
   const matches = await geocodeCity(q, 1);
-  return matches[0]?.city ?? null; // canonical city
+  return matches[0]?.city ?? null;
 }
 
 export default function CalendarPage() {
@@ -127,6 +135,21 @@ export default function CalendarPage() {
     dateTo: '',
     style: 'Casual' as Style,
   });
+
+  // Location autocomplete (Create)
+  const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
+  const [locError, setLocError] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+
+  // Location autocomplete (Edit)
+  const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
+  const [locErrorE, setLocErrorE] = useState<string | null>(null);
+  const [locLoadingE, setLocLoadingE] = useState(false);
+
+  // Location autocomplete (Trip create)
+  const [locSuggestT, setLocSuggestT] = useState<Array<{ label: string; city: string }>>([]);
+  const [locErrorT, setLocErrorT] = useState<string | null>(null);
+  const [locLoadingT, setLocLoadingT] = useState(false);
 
   // Debounced suggestions while user types (Create)
   useEffect(() => {
@@ -170,23 +193,6 @@ export default function CalendarPage() {
     };
   }, [newTrip.location]);
 
-
-  // Location autocomplete (Create)
-  const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
-  const [locError, setLocError] = useState<string | null>(null);
-  const [locLoading, setLocLoading] = useState(false);
-
-  // Location autocomplete (Edit)
-  const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
-  const [locErrorE, setLocErrorE] = useState<string | null>(null);
-  const [locLoadingE, setLocLoadingE] = useState(false);
-
-  // Location autocomplete (Trip create)
-  const [locSuggestT, setLocSuggestT] = useState<Array<{ label: string; city: string }>>([]);
-  const [locErrorT, setLocErrorT] = useState<string | null>(null);
-  const [locLoadingT, setLocLoadingT] = useState(false);
-
-
   // Recommended outfit (for selected event)
   const [eventOutfit, setEventOutfit] = useState<RecommendedOutfit | null>(null);
   const [eventOutfitLoading, setEventOutfitLoading] = useState(false);
@@ -195,13 +201,16 @@ export default function CalendarPage() {
 
   // ---- Plan Outfit (per trip-day) ----
   type DayChoice =
-    | { kind: 'outfit'; outfitId: string }                // user picked one of the packed outfits
-    | { kind: 'items'; items: OutfitItemPreview[] };      // user set a generated combo (list of items)
+    | { kind: 'outfit'; outfitId: string }
+    | { kind: 'items'; items: OutfitItemPreview[] };
 
   const [planModal, setPlanModal] = useState<{ open: boolean; date: Date | null; trip: Event | null }>({
     open: false, date: null, trip: null
   });
   const [planTab, setPlanTab] = useState<'landing' | 'pick' | 'generate' | 'chosen'>('landing');
+
+  // Weather/forecast horizon guard for the selected trip-day
+  const [forecastTooFar, setForecastTooFar] = useState(false);
 
   const [suitcaseItems, setSuitcaseItems] = useState<ClothingItem[]>([]);
   const [suitcaseOutfits, setSuitcaseOutfits] = useState<Outfit[]>([]);
@@ -229,7 +238,7 @@ export default function CalendarPage() {
   const [maxLanes, setMaxLanes] = useState<number>(isNarrow() ? 1 : 2);
   const [rowPx, setRowPx] = useState<number>(isNarrow() ? 14 : 16);
 
-  // Popup + Confirm (Add page style)
+  // Popup + Confirm
   const [popup, setPopup] = useState<PopupState>({ open: false, variant: 'success', message: '' });
   const notify = (variant: PopupState['variant'], message: string) => setPopup({ open: true, variant, message });
 
@@ -296,58 +305,51 @@ export default function CalendarPage() {
   );
 
   // Toggle a single closet item in/out of the suitcase
-    const toggleItemInPack = (item: ClothingItem) => {
-      setPackItems(prev => {
-        const exists = prev.some(p => p.closetItemId === item.id);
-        const next = exists
-          ? prev.filter(p => p.closetItemId !== item.id)
-          : [
-              ...prev,
-              {
-                closetItemId: item.id,
-                name: item.name,
-                imageUrl: normalizeUrl(item.imageUrl),
-                checked: false,
-              },
-            ];
-        syncOutfitsFromItems(next);
-        return next;
-      });
-    };
+  const toggleItemInPack = (item: ClothingItem) => {
+    setPackItems(prev => {
+      const exists = prev.some(p => p.closetItemId === item.id);
+      const next = exists
+        ? prev.filter(p => p.closetItemId !== item.id)
+        : [
+            ...prev,
+            {
+              closetItemId: item.id,
+              name: item.name,
+              imageUrl: normalizeUrl(item.imageUrl),
+              checked: false,
+            },
+          ];
+      syncOutfitsFromItems(next);
+      return next;
+    });
+  };
 
   // Toggle an outfit entry in the suitcase (never removes items on deselect)
-    const toggleOutfitInPack = (o: Outfit) => {
-      if (!o.outfitItems || o.outfitItems.length === 0) return;
+  const toggleOutfitInPack = (o: Outfit) => {
+    if (!o.outfitItems || o.outfitItems.length === 0) return;
 
-      setPackOutfits(prev => {
-        const isSaved = prev.some(p => p.outfitId === o.id);
-        return isSaved
-          ? prev.filter(p => p.outfitId !== o.id) // deselect outfit; keep items
-          : [
-              ...prev,
-              {
-                outfitId: o.id,
-                name: o.name,
-                imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
-                checked: false,
-              },
-            ];
-      });
+    setPackOutfits(prev => {
+      const isSaved = prev.some(p => p.outfitId === o.id);
+      return isSaved
+        ? prev.filter(p => p.outfitId !== o.id)
+        : [
+            ...prev,
+            {
+              outfitId: o.id,
+              name: o.name,
+              imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
+              checked: false,
+            },
+          ];
+    });
 
-      // If we are adding the outfit, make sure all its items are present.
-      // (On deselect we intentionally keep items.)
-      const adding = !packOutfits.some(p => p.outfitId === o.id);
-      if (adding) (o.outfitItems ?? []).forEach(it => addPackItemIfMissing(it.closetItemId, undefined, it.imageUrl));
-    };
+    const adding = !packOutfits.some(p => p.outfitId === o.id);
+    if (adding) (o.outfitItems ?? []).forEach(it => addPackItemIfMissing(it.closetItemId, undefined, it.imageUrl));
+  };
 
+  const packedItemIds = useMemo(() => new Set(packItems.map(p => p.closetItemId)), [packItems]);
 
-  // helper sets for styling selections in the Outfit grid
-  const packedItemIds = React.useMemo(
-    () => new Set(packItems.map(p => p.closetItemId)),
-    [packItems]
-  );
-
-  const outfitFullyInList = React.useCallback(
+  const outfitFullyInList = useCallback(
     (o: Outfit) => {
       const parts = (o.outfitItems ?? []).map(it => it.closetItemId);
       return parts.length > 0 && parts.every(id => packedItemIds.has(id));
@@ -509,7 +511,7 @@ export default function CalendarPage() {
       return;
     }
 
-    // Validate & standardize the city (matches Dashboard behavior)
+    // Validate & standardize the city
     const standardized = src.location ? await validateAndStandardizeLocation(src.location) : '';
     if (src.location && !standardized) {
       if (kind === 'event') setLocError('Please select a real city (use the suggestions).');
@@ -606,7 +608,7 @@ export default function CalendarPage() {
       const payload = {
         id: selectedEvent.id,
         name: editEventData.name || selectedEvent.name,
-        location: standardized, // save canonical city
+        location: standardized,
         style: editEventData.style || selectedEvent.style,
         dateFrom: new Date(
           editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent.dateFrom)
@@ -620,7 +622,6 @@ export default function CalendarPage() {
       const updated = await updateEvent(payload as any);
       const mapped = mapEventDto(updated);
 
-      // Rebuild weather (for the possibly new city)
       await rebuildEventWeatherAndRecs(mapped);
       queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
 
@@ -640,7 +641,6 @@ export default function CalendarPage() {
     if (!ok) return;
 
     try {
-      // If it’s a trip, remove its packing list first to satisfy FK
       if (isTripEvent(selectedEvent)) {
         try {
           const existing = await getPackingList(selectedEvent.id);
@@ -648,7 +648,7 @@ export default function CalendarPage() {
             await deletePackingList(existing.id);
           }
         } catch {
-          // swallow 404/no-list cases, we only need to ensure nothing remains
+          // ignore 404/no-list
         }
       }
 
@@ -689,8 +689,7 @@ export default function CalendarPage() {
           : [],
       }));
 
-      // ❗ Remove outfit parts that point to deleted/missing closet items.
-      // Then drop any outfits that are now empty.
+      // Remove outfit parts that point to deleted/missing closet items; drop now-empty outfits.
       const ciIds = new Set(ciList.map(c => c.id));
       const cleanedOutfits: Outfit[] = outfitsList
         .map(o => ({
@@ -849,20 +848,31 @@ export default function CalendarPage() {
   useEffect(() => {
     if (!planModal.open || planTab !== 'generate' || !planModal.trip || !planModal.date) return;
     if (genLoading) return;
+    if (forecastTooFar) return; // guard
     if (genOutfits.length === 0) {
       generateTwoSuitcaseRecs(planModal.trip, planModal.date, genStyle);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planModal.open, planTab, planModal.trip, planModal.date, suitcaseItems.length]);
+  }, [planModal.open, planTab, planModal.trip, planModal.date, suitcaseItems.length, forecastTooFar]);
 
   // Always start at slide 0 when fresh results arrive
   useEffect(() => {
     setGenIndex(0);
   }, [genOutfits.length]);
 
-
   async function generateTwoSuitcaseRecs(trip: Event, d: Date, style: Style) {
-    // try to ensure there is weather for the selected day (handles changed locations)
+    // Check weather availability again (defense in depth)
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const daysAhead = Math.floor((new Date(d).getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
+    if (daysAhead > OPEN_METEO_MAX_DAYS) {
+      setGenOutfits([]);
+      setGenError('Weather is unavailable that far in advance.');
+      notify('error', 'Unable to generate outfit — too far in advance / can’t fetch the weather.');
+      return;
+    }
+
+    // ensure there is weather for the selected day
     let summary = summaryForTripDay(trip, d);
     if (!summary) {
       const refreshed = await rebuildEventWeatherAndRecs(trip);
@@ -887,7 +897,7 @@ export default function CalendarPage() {
       const uniqueKey = (o: RecommendedOutfit) =>
         (o.outfitItems || []).map(i => i.closetItemId).sort().join(',');
 
-      while (picks.length < 2 && attempts < 3) {
+      while (picks.length < 1 && attempts < 3) {
         attempts += 1;
         let recs = await fetchRecommendedOutfits(summary, style, trip.id);
         recs = (recs || [])
@@ -899,21 +909,19 @@ export default function CalendarPage() {
             return true;
           });
 
-        // randomize and take what we need
         recs = shuffle(recs);
         for (const r of recs) {
-          if (picks.length >= 2) break;
+          if (picks.length >= 1) break;
           picks.push(r);
         }
       }
 
-      // If we still have nothing, clear memory once and try again
       if (!picks.length) {
         seen.clear();
         let recs = await fetchRecommendedOutfits(summary, style, trip.id);
         recs = shuffle((recs || [])
           .filter(r => (r.outfitItems || []).every(it => poolIds.has(it.closetItemId))));
-        picks = recs.slice(0, 2);
+        picks = recs.slice(0, 1);
       }
 
       setGenOutfits(picks);
@@ -929,8 +937,6 @@ export default function CalendarPage() {
       setGenLoading(false);
     }
   }
-
-
 
   const addClothingToPack = (item: ClothingItem) => {
     setPackItems(prev => {
@@ -950,8 +956,7 @@ export default function CalendarPage() {
   };
 
   const addOutfitToPack = (o: Outfit) => {
-    if (!o.outfitItems || o.outfitItems.length === 0) return; // safety: ignore empty outfits
-
+    if (!o.outfitItems || o.outfitItems.length === 0) return;
     if (!packOutfits.some(p => p.outfitId === o.id)) {
       const thumb = o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null);
       setPackOutfits(prev => [...prev, { outfitId: o.id, name: o.name, imageUrl: thumb, checked: false }]);
@@ -1225,6 +1230,17 @@ export default function CalendarPage() {
                   const trips = eventsOnDay(dd).filter(isTripEvent);
                   if (trips.length) {
                     const trip = trips[0];
+
+                    // Forecast horizon guard
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+                    const daysAhead = Math.floor((dd.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
+                    const tooFar = daysAhead > OPEN_METEO_MAX_DAYS;
+                    setForecastTooFar(tooFar);
+                    if (tooFar) {
+                      notify('error', 'Unable to generate outfit — too far in advance / can’t fetch the weather.');
+                    }
+
                     setPlanModal({ open: true, date: dd, trip });
                     setPlanTab(getTripDayChoice(trip.id, toDateKey(dd)) ? 'chosen' : 'landing');
                     setChosenDraft(null);
@@ -1333,7 +1349,7 @@ export default function CalendarPage() {
   function renderUpcomingEvents() {
     const now = new Date();
     const in14 = new Date();
-    in14.setDate(now.getDate() + 14);
+    in14.setDate(now.getDate() + UPCOMING_DAYS);
     const upcoming = events
       .filter(ev => {
         const start = parseISO(ev.dateFrom);
@@ -1368,6 +1384,21 @@ export default function CalendarPage() {
       </div>
     );
   }
+
+  // Small badge for weather display in the trip outfit modal
+  const TripDayWeatherBadge: React.FC<{ trip: Event; date: Date }> = ({ trip, date }) => {
+    const s = summaryForTripDay(trip, date);
+    if (!s) {
+      return <div className="text-xs text-gray-500">Weather not available yet.</div>;
+    }
+    const range = `${Math.round(s.minTemp)}–${Math.round(s.maxTemp)}°C`;
+    return (
+      <div className="text-xs text-gray-700">
+        <span className="font-medium">Weather:</span>{' '}
+        {s.mainCondition || '—'} · {range}{s.willRain ? ' · rain likely' : ''}
+      </div>
+    );
+  };
 
   return (
     <div className="p-4 max-w-4xl mx-auto -mt-16 md:mt-8">
@@ -1421,7 +1452,7 @@ export default function CalendarPage() {
                           type="button"
                           className="w-full text-left px-3 py-2 hover:bg-gray-100"
                           onClick={() => {
-                            setNewEvent(prev => ({ ...prev, location: opt.city })); // save only city
+                            setNewEvent(prev => ({ ...prev, location: opt.city }));
                             setLocSuggest([]);
                             setLocError(null);
                           }}
@@ -1473,7 +1504,7 @@ export default function CalendarPage() {
                           type="button"
                           className="w-full text-left px-3 py-2 hover:bg-gray-100"
                           onClick={() => {
-                            setNewTrip(prev => ({ ...prev, location: opt.city })); // save only city
+                            setNewTrip(prev => ({ ...prev, location: opt.city }));
                             setLocSuggestT([]);
                             setLocErrorT(null);
                           }}
@@ -1531,7 +1562,7 @@ export default function CalendarPage() {
                             type="button"
                             className="w-full text-left px-3 py-2 hover:bg-gray-100"
                             onClick={() => {
-                              setEditEventData(d => ({ ...d, location: opt.city })); // save only city
+                              setEditEventData(d => ({ ...d, location: opt.city }));
                               setLocSuggestE([]);
                               setLocErrorE(null);
                             }}
@@ -1626,314 +1657,283 @@ export default function CalendarPage() {
         </div>
       )}
 
-        {/* ---- Plan Your Outfit (per trip-day) ---- */}
-        {planModal.open && planModal.trip && planModal.date && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg shadow-lg relative max-h-[90vh] overflow-y-auto">
-              <button
-                className="absolute top-4 right-4 text-xl"
-                onClick={() => setPlanModal({ open: false, date: null, trip: null })}
-              >
-                ×
-              </button>
+      {/* ---- Plan Your Outfit (per trip-day) ---- */}
+      {planModal.open && planModal.trip && planModal.date && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg shadow-lg relative max-h-[90vh] overflow-y-auto">
+            <button
+              className="absolute top-4 right-4 text-xl"
+              onClick={() => setPlanModal({ open: false, date: null, trip: null })}
+            >
+              ×
+            </button>
 
-              <h2 className="text-2xl mb-1 font-livvic">Plan Your Outfit</h2>
-              <div className="text-sm text-gray-600 mb-4">
-                {fmt(planModal.date, { weekday: 'short', month: 'long', day: 'numeric' })}
-              </div>
+            <h2 className="text-2xl mb-1 font-livvic">Plan Your Outfit</h2>
+            <div className="text-sm text-gray-600 mb-3">
+              {fmt(planModal.date, { weekday: 'short', month: 'long', day: 'numeric' })}
+            </div>
 
-              {/* If already chosen for this day, show it */}
-              {(() => {
-                const saved = getTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!));
-                if (saved && planTab === 'chosen') {
-                  return (
-                    <div className="space-y-4">
-                      <div className="font-medium">Your outfit for this day</div>
-                      <div className="flex justify-center flex-wrap gap-2">
-                        {saved.kind === 'outfit'
-                          ? (suitcaseOutfits.find(o => o.id === saved.outfitId)?.outfitItems ?? []).map(it => (
-                              <img
-                                key={it.closetItemId}
-                                src={normalizeUrl(it.imageUrl) || ''}
-                                className="w-16 h-16 object-contain rounded"
-                              />
-                            ))
-                          : saved.items.map(it => (
-                              <img
-                                key={it.closetItemId}
-                                src={normalizeUrl(it.imageUrl) || ''}
-                                className="w-16 h-16 object-contain rounded"
-                              />
-                            ))}
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
-                          Change
-                        </button>
-                        <button
-                          className="px-4 py-2 rounded bg-red-500 text-white"
-                          onClick={() => {
-                            deleteTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!));
-                            setPlanTab('landing');
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
+            {/* Weather summary for this trip-day */}
+            {(() => {
+              const s = summaryForTripDay(planModal.trip!, planModal.date!);
+              return (
+                <div className="mb-4 rounded-md bg-gray-50 border p-3">
+                  <div className="text-sm">
+                    <div className="font-medium">
+                      {planModal.trip!.location || 'Destination'}
                     </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Landing: choose Pick vs Generate */}
-              {planTab === 'landing' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      disabled={suitcaseOutfits.length === 0}
-                      onClick={() => {
-                        setChosenDraft(null);
-                        setPlanTab('pick');
-                      }}
-                      className={`p-4 rounded-lg border ${
-                        suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                      }`}
-                    >
-                      Pick an Outfit
-                      <div className="text-xs text-gray-500 mt-1">From the outfits you packed</div>
-                    </button>
-                    <button
-                      disabled={suitcaseItems.length === 0}
-                      onClick={() => {
-                        setChosenDraft(null);
-                        setGenOutfits([]);
-                        generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
-                        setPlanTab('generate');
-                      }}
-                      className={`p-4 rounded-lg border ${
-                        suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                      }`}
-                    >
-                      Generate Your Outfit
-                      <div className="text-xs text-gray-500 mt-1">Weather-aware, from suitcase items</div>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Pick an Outfit */}
-              {planTab === 'pick' && (
-                <div className="mt-2 space-y-3">
-                  <div className="text-sm text-gray-600">Packed outfits</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {suitcaseOutfits.map(o => {
-                      const isChosen = chosenDraft?.kind === 'outfit' && chosenDraft.outfitId === o.id;
-                      return (
-                        <button
-                          key={o.id}
-                          onClick={() => setChosenDraft({ kind: 'outfit', outfitId: o.id })}
-                          className={`border rounded-lg p-2 bg-white hover:bg-gray-50 ${
-                            isChosen ? 'border-[#3F978F] ring-2 ring-[#3F978F]' : 'border-gray-200'
-                          }`}
-                        >
-                          <div className="flex justify-center gap-1 flex-wrap">
-                            {(o.outfitItems ?? []).map(it => (
-                              <img
-                                key={it.closetItemId}
-                                src={normalizeUrl(it.imageUrl) || ''}
-                                className="w-12 h-12 object-contain rounded"
-                              />
-                            ))}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex justify-between mt-3">
-                    <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
-                      Back
-                    </button>
-                    <button
-                      disabled={!chosenDraft}
-                      onClick={() => {
-                        if (!chosenDraft) return;
-                        saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), chosenDraft);
-                        setPlanTab('chosen');
-                      }}
-                      className={`px-4 py-2 rounded ${
-                        chosenDraft ? 'bg-[#3F978F] text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      Set Outfit
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Generate Your Outfit — centered carousel + circular refresh */}
-              {planTab === 'generate' && (
-                <div className="mt-2 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm">Style:</label>
-                    <select
-                      className="p-2 border rounded"
-                      value={genStyle}
-                      onChange={(e) => {
-                        const s = e.target.value as Style;
-                        setGenStyle(s);
-                        setGenOutfits([]);
-                        generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, s);
-                      }}
-                    >
-                      <option value="Casual">Casual</option>
-                      <option value="Formal">Formal</option>
-                      <option value="Athletic">Athletic</option>
-                      <option value="Party">Party</option>
-                      <option value="Business">Business</option>
-                      <option value="Outdoor">Outdoor</option>
-                    </select>
-
-                    {/* circular regenerate like the Home card */}
-                    <button
-                      className="ml-auto w-10 h-10 rounded-full border shadow flex items-center justify-center"
-                      title="Regenerate"
-                      onClick={() => {
-                        setGenOutfits([]);
-                        generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
-                      }}
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {genError && <div className="text-sm text-red-500">{genError}</div>}
-
-                  <div className="relative">
-                    {/* centered, fixed-height viewport */}
-                    <div className="overflow-hidden rounded-2xl border bg-white h-96">
-                      <div
-                        className="flex h-full transition-transform duration-300"
-                        style={{
-                          transform: `translateX(-${genIndex * 100}%)`,
-                          width: `${Math.max(genOutfits.length, 1) * 100}%`,
-                        }}
-                      >
-                        {(genOutfits.length ? genOutfits : [null]).map((rec, idx) => (
-                          <div
-                            key={idx}
-                            className="w-full h-full shrink-0 flex items-center justify-center"
-                          >
-                            {!rec ? (
-                              <div className="text-sm text-gray-500 text-center">
-                                No outfits yet. Click “Regenerate”.
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="flex flex-col items-center gap-2">
-                                  {rec.outfitItems
-                                    .filter(it =>
-                                      ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory)
-                                    )
-                                    .map(it => (
-                                      <img
-                                        key={it.closetItemId}
-                                        src={normalizeUrl(it.imageUrl) || ''}
-                                        className="h-24 w-auto object-contain"
-                                      />
-                                    ))}
-                                </div>
-                                <div className="flex justify-center">
-                                  {rec.outfitItems
-                                    .filter(it => it.layerCategory === 'base_bottom')
-                                    .map(it => (
-                                      <img
-                                        key={it.closetItemId}
-                                        src={normalizeUrl(it.imageUrl) || ''}
-                                        className="h-24 w-auto object-contain"
-                                      />
-                                    ))}
-                                </div>
-                                <div className="flex justify-center">
-                                  {rec.outfitItems
-                                    .filter(it => it.layerCategory === 'footwear')
-                                    .map(it => (
-                                      <img
-                                        key={it.closetItemId}
-                                        src={normalizeUrl(it.imageUrl) || ''}
-                                        className="h-16 w-auto object-contain"
-                                      />
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                    {s ? (
+                      <div className="text-gray-700">
+                        {s.mainCondition}{' '}
+                        • {Math.round(Number(s.minTemp))}–{Math.round(Number(s.maxTemp))}°C
+                        {' '}• avg {Math.round(Number(s.avgTemp))}°C
+                        {s.willRain ? ' • rain expected' : ''}
                       </div>
-                    </div>
-
-                    {/* Carousel controls + dots */}
-                    {genOutfits.length > 1 && (
-                      <>
-                        <button
-                          className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full border bg-white shadow flex items-center justify-center"
-                          onClick={() => setGenIndex(i => Math.max(0, i - 1))}
-                          aria-label="Previous"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full border bg-white shadow flex items-center justify-center"
-                          onClick={() => setGenIndex(i => Math.min(genOutfits.length - 1, i + 1))}
-                          aria-label="Next"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                        <div className="flex justify-center gap-2 mt-2">
-                          {genOutfits.map((_, i) => (
-                            <span
-                              key={i}
-                              className={`h-2 w-2 rounded-full ${
-                                i === genIndex ? 'bg-gray-800' : 'bg-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </>
+                    ) : (
+                      <div className="text-gray-500">Weather not available for this day yet.</div>
                     )}
                   </div>
-
-                  <div className="flex justify-between">
-                    <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
-                      Back
-                    </button>
-                    <button
-                      disabled={!genOutfits.length}
-                      onClick={() => {
-                        if (!genOutfits.length) return;
-                        const rec = genOutfits[genIndex];
-                        saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), {
-                          kind: 'items',
-                          items: rec.outfitItems,
-                        });
-                        setPlanTab('chosen');
-                      }}
-                      className={`px-4 py-2 rounded ${
-                        genOutfits.length
-                          ? 'bg-[#3F978F] text-white'
-                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      Set Outfit
-                    </button>
-                  </div>
                 </div>
-              )}
-            </div> 
-          </div>   
-        )}         
-     
-        {showPackingModal && selectedEvent && (
+              );
+            })()}
+
+            {/* If already chosen for this day, show it */}
+            {(() => {
+              const saved = getTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!));
+              if (saved && planTab === 'chosen') {
+                return (
+                  <div className="space-y-4">
+                    <div className="font-medium">Your outfit for this day</div>
+                    <div className="flex justify-center flex-wrap gap-2">
+                      {saved.kind === 'outfit'
+                        ? (suitcaseOutfits.find(o => o.id === saved.outfitId)?.outfitItems ?? []).map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={normalizeUrl(it.imageUrl) || ''}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))
+                        : saved.items.map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={normalizeUrl(it.imageUrl) || ''}
+                              className="w-16 h-16 object-contain rounded"
+                            />
+                          ))}
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
+                        Change
+                      </button>
+                      <button
+                        className="px-4 py-2 rounded bg-red-500 text-white"
+                        onClick={() => {
+                          deleteTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!));
+                          setPlanTab('landing');
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Landing: choose Pick vs Generate */}
+            {planTab === 'landing' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    disabled={suitcaseOutfits.length === 0}
+                    onClick={() => {
+                      setChosenDraft(null);
+                      setPlanTab('pick');
+                    }}
+                    className={`p-4 rounded-lg border ${
+                      suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    Pick an Outfit
+                    <div className="text-xs text-gray-500 mt-1">From the outfits you packed</div>
+                  </button>
+                  <button
+                    disabled={suitcaseItems.length === 0}
+                    onClick={() => {
+                      setChosenDraft(null);
+                      setGenOutfits([]);
+                      generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
+                      setPlanTab('generate');
+                    }}
+                    className={`p-4 rounded-lg border ${
+                      suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    Generate Your Outfit
+                    <div className="text-xs text-gray-500 mt-1">Weather-aware, from suitcase items</div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Pick an Outfit */}
+            {planTab === 'pick' && (
+              <div className="mt-2 space-y-3">
+                <div className="text-sm text-gray-600">Packed outfits</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {suitcaseOutfits.map(o => {
+                    const isChosen = (chosenDraft?.kind === 'outfit' && chosenDraft.outfitId === o.id);
+                    return (
+                      <button
+                        key={o.id}
+                        onClick={() => setChosenDraft({ kind: 'outfit', outfitId: o.id })}
+                        className={`border rounded-lg p-2 bg-white hover:bg-gray-50 ${isChosen ? 'border-[#3F978F] ring-2 ring-[#3F978F]' : 'border-gray-200'}`}
+                        title={o.name}
+                      >
+                        <div className="flex justify-center gap-1 flex-wrap">
+                          {(o.outfitItems ?? []).map(it => (
+                            <img key={it.closetItemId} src={normalizeUrl(it.imageUrl) || ''} className="w-12 h-12 object-contain rounded" />
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-3">
+                  <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>Back</button>
+                  <button
+                    disabled={!chosenDraft}
+                    onClick={() => {
+                      if (!chosenDraft) return;
+                      saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), chosenDraft);
+                      setPlanTab('chosen');
+                    }}
+                    className={`px-4 py-2 rounded ${chosenDraft ? 'bg-[#3F978F] text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    Set Outfit
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Generate Your Outfit — centered carousel + circular refresh */}
+            {planTab === 'generate' && (
+              <div className="mt-2 space-y-4">
+                {/* Weather shown while generating/choosing */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm">Style:</label>
+                  <select
+                    className="p-2 border rounded"
+                    value={genStyle}
+                    onChange={(e) => {
+                      const s = e.target.value as Style;
+                      setGenStyle(s);
+                      setGenOutfits([]);            // reset so it doesn’t show stale slides
+                      generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, s);
+                    }}
+                  >
+                    <option value="Casual">Casual</option>
+                    <option value="Formal">Formal</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
+                  </select>
+
+                  {/* circular regenerate like the Home card */}
+                  <button
+                    className="ml-auto w-10 h-10 rounded-full border shadow flex items-center justify-center"
+                    title="Regenerate"
+                    onClick={() => {
+                      setGenOutfits([]);
+                      generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
+                    }}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {genError && <div className="text-sm text-red-500">{genError}</div>}
+
+                {/* Single recommendation */}
+                <div className="rounded-2xl border bg-white h-96 flex items-center justify-center">
+                  {!genOutfits.length ? (
+                    <div className="text-sm text-gray-500 text-center px-4">
+                      No outfit yet. Click “Regenerate”.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <div className="flex items-end justify-center gap-3">
+                        {genOutfits[0].outfitItems
+                          .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={normalizeUrl(it.imageUrl) || ''}
+                              className="h-24 w-auto object-contain"
+                            />
+                          ))}
+                      </div>
+                      <div className="flex justify-center">
+                        {genOutfits[0].outfitItems
+                          .filter(it => it.layerCategory === 'base_bottom')
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={normalizeUrl(it.imageUrl) || ''}
+                              className="h-24 w-auto object-contain"
+                            />
+                          ))}
+                      </div>
+                      <div className="flex justify-center">
+                        {genOutfits[0].outfitItems
+                          .filter(it => it.layerCategory === 'footwear')
+                          .map(it => (
+                            <img
+                              key={it.closetItemId}
+                              src={normalizeUrl(it.imageUrl) || ''}
+                              className="h-16 w-auto object-contain"
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+
+                <div className="flex justify-between">
+                  <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
+                    Back
+                  </button>
+                  <button
+                    disabled={!genOutfits.length}
+                    onClick={() => {
+                      if (!genOutfits.length) return;
+                      const rec = genOutfits[0];
+                      saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), {
+                        kind: 'items',
+                        items: rec.outfitItems,
+                      });
+                      setPlanTab('chosen');
+                    }}
+                    className={`px-4 py-2 rounded ${
+                      genOutfits.length
+                        ? 'bg-[#3F978F] text-white'
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Set Outfit
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showPackingModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg shadow-lg relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-4 right-4 text-xl" onClick={() => setShowPackingModal(false)}>×</button>
@@ -1981,7 +1981,7 @@ export default function CalendarPage() {
                     {Array.from(
                       new Set(
                         outfits
-                          .filter(o => (o.outfitItems?.length ?? 0) > 0) // only non-empty outfits
+                          .filter(o => (o.outfitItems?.length ?? 0) > 0)
                           .map(o => (o.style ?? 'Other'))
                       )
                     ).map(style => (
@@ -1989,47 +1989,45 @@ export default function CalendarPage() {
                         <h4 className="font-medium mb-1">{String(style)}</h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {outfits
-                            .filter(o => (o.outfitItems?.length ?? 0) > 0 && (o.style ?? 'Other') === style) // only non-empty outfits
+                            .filter(o => (o.outfitItems?.length ?? 0) > 0 && (o.style ?? 'Other') === style)
                             .map(o => {
-                            const anyItemChosen = o.outfitItems?.some(it => packItems.some(pi => pi.closetItemId === it.closetItemId));
-                            const selected = packOutfits.some(p => p.outfitId === o.id) || !!anyItemChosen;
-                            return (
-                              <button
-                                key={o.id}
-                                onClick={() => toggleOutfitInPack(o)}
-                                className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${
-                                  packOutfits.some(p => p.outfitId === o.id)
-                                    ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
-                                    : 'border-gray-200'
-                                }`}
-                                title={o.name}
-                              >
-
-                                <div className="space-y-1">
-                                  <div className={`${o.outfitItems?.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
-                                    {o.outfitItems?.filter(it => ['headwear', 'accessory'].includes(it.layerCategory)).map(it => (
-                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
-                                    ))}
+                              const anyItemChosen = o.outfitItems?.some(it => packItems.some(pi => pi.closetItemId === it.closetItemId));
+                              return (
+                                <button
+                                  key={o.id}
+                                  onClick={() => toggleOutfitInPack(o)}
+                                  className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${
+                                    packOutfits.some(p => p.outfitId === o.id)
+                                      ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
+                                      : 'border-gray-200'
+                                  }`}
+                                  title={o.name}
+                                >
+                                  <div className="space-y-1">
+                                    <div className={`${o.outfitItems?.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
+                                      {o.outfitItems?.filter(it => ['headwear', 'accessory'].includes(it.layerCategory)).map(it => (
+                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                                      ))}
+                                    </div>
+                                    <div className="flex justify-center space-x-1">
+                                      {o.outfitItems?.filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory)).map(it => (
+                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                                      ))}
+                                    </div>
+                                    <div className="flex justify-center space-x-1">
+                                      {o.outfitItems?.filter(it => it.layerCategory === 'base_bottom').map(it => (
+                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
+                                      ))}
+                                    </div>
+                                    <div className="flex justify-center space-x-1">
+                                      {o.outfitItems?.filter(it => it.layerCategory === 'footwear').map(it => (
+                                        <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-10 h-10 object-contain rounded" />
+                                      ))}
+                                    </div>
                                   </div>
-                                  <div className="flex justify-center space-x-1">
-                                    {o.outfitItems?.filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory)).map(it => (
-                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
-                                    ))}
-                                  </div>
-                                  <div className="flex justify-center space-x-1">
-                                    {o.outfitItems?.filter(it => it.layerCategory === 'base_bottom').map(it => (
-                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-12 h-12 object-contain rounded" />
-                                    ))}
-                                  </div>
-                                  <div className="flex justify-center space-x-1">
-                                    {o.outfitItems?.filter(it => it.layerCategory === 'footwear').map(it => (
-                                      <img key={it.closetItemId} src={it.imageUrl || ''} alt="" className="w-10 h-10 object-contain rounded" />
-                                    ))}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                                </button>
+                              );
+                            })}
                         </div>
                       </div>
                     ))}
@@ -2168,3 +2166,5 @@ export default function CalendarPage() {
     </div>
   );
 }
+
+
