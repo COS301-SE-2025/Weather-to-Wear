@@ -11,4 +11,5 @@ export default {
       where: { id },
       select: { id: true, name: true, email: true, profilePhoto: true, location: true },
     }),
+
 };

@@ -284,31 +284,31 @@ class SocialService {
   const notifications: NotificationAPIItem[] = [
   ...likes.map((l) => ({
     id: l.id,
-    type: "like" as const, // <--- tell TS this is the literal "like"
+    type: "like" as const,
     fromUser: {
       id: l.user.id,
       name: l.user.name,
       profilePhoto: l.user.profilePhoto || undefined,
     },
     postId: l.postId || undefined,
-    postContent: l.post?.caption || undefined,
+    postContent: l.post?.caption || undefined, // keep post caption for likes
     createdAt: l.createdAt.toISOString(),
   })),
   ...comments.map((c) => ({
     id: c.id,
-    type: "comment" as const, // <--- literal type
+    type: "comment" as const,
     fromUser: {
       id: c.user.id,
       name: c.user.name,
       profilePhoto: c.user.profilePhoto || undefined,
     },
     postId: c.postId || undefined,
-    postContent: c.post?.caption || undefined,
+    postContent: c.content || undefined, // <-- CHANGE: use the actual comment text
     createdAt: c.createdAt.toISOString(),
   })),
   ...followRequests.map((f) => ({
     id: f.id,
-    type: "follow" as const, // <--- literal type
+    type: "follow" as const,
     fromUser: {
       id: f.follower.id,
       name: f.follower.name,
