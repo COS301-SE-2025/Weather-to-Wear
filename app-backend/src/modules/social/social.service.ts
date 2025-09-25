@@ -14,6 +14,7 @@ export type NotificationAPIItem = {
   postId?: string | null;
   postContent?: string | null;
   createdAt: string; // ISO string
+  followId?: string; 
 };
 
 class SocialService {
@@ -373,6 +374,8 @@ class SocialService {
     postId: undefined,
     postContent: undefined,
     createdAt: f.createdAt.toISOString(),
+    status: f.status as "pending" | "accepted" | "rejected", // ✅ include status
+    followId: f.id, // ✅ include followId for accept/reject
   })),
 ];
 

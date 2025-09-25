@@ -41,6 +41,7 @@ interface Notification {
   postContent?: string;
   date: string;
   followStatus?: "pending" | "accepted" | "rejected"; // add this
+  followId: string;
 }
 
 
@@ -71,6 +72,7 @@ export type NotificationAPIItem =
       postId?: string;
       postContent?: string;
       createdAt: string;
+      followId: string;
     }
   | {
       id: string;
@@ -319,6 +321,7 @@ const fetchNotifications = useCallback(async () => {
       postContent: n.type !== "follow" ? n.postContent : undefined,
       date: n.createdAt,
       followStatus: n.type === "follow" ? n.status : undefined,
+      followId: n.type === "follow" ? (n as any).followId : undefined,
     }));
 
     // Optional: sort by newest first
@@ -574,33 +577,57 @@ useEffect(() => {
     {n.type === "comment" && <span>commented on your post</span>}
 
     {n.type === "follow" && n.followStatus === "pending" && (
-      <div className="flex gap-2 mt-1">
-        <button
-          className="px-2 py-1 text-xs bg-green-500 text-white rounded"
-          onClick={async () => {
-            try {
-              await acceptFollowRequest(n.id);
-              fetchNotifications(); // refresh
-            } catch (err: any) {
-              setNotificationsError(err.message || "Failed to accept request");
-            }
-          }}
-        >
-          Accept
-        </button>
-        <button
-          className="px-2 py-1 text-xs bg-red-500 text-white rounded"
-          onClick={async () => {
-            try {
-              await rejectFollowRequest(n.id);
-              fetchNotifications(); // refresh
-            } catch (err: any) {
-              setNotificationsError(err.message || "Failed to reject request");
-            }
-          }}
-        >
-          Reject
-        </button>
+  <div className="flex gap-2 mt-1">
+    <button
+      className="px-2 py-1 text-xs bg-green-500 text-white rounded"
+      onClick={async () => {
+        try {
+          if (!n.followId) throw new Error("Missing followId");
+          const acceptedFollow = await acceptFollowRequest(n.followId);
+
+          setFollowing(prev => [
+            ...prev,
+            {
+              id: n.fromUser.id,
+              username: n.fromUser.name,
+              profilePhoto: n.fromUser.profilePhoto || undefined,
+            },
+          ]);
+
+          // Optimistically mark as accepted
+          setNotifications(prev =>
+            prev.map(notif =>
+              notif.id === n.id ? { ...notif, followStatus: "accepted" } : notif
+            )
+          );
+        } catch (err: any) {
+          setNotificationsError(err.message || "Failed to accept request");
+        }
+      }}
+    >
+      Accept
+    </button>
+
+       <button
+      className="px-2 py-1 text-xs bg-red-500 text-white rounded"
+      onClick={async () => {
+        try {
+          if (!n.followId) throw new Error("Missing followId");
+          await rejectFollowRequest(n.followId);
+
+          // Optimistically mark as rejected
+          setNotifications(prev =>
+            prev.map(notif =>
+              notif.id === n.id ? { ...notif, followStatus: "rejected" } : notif
+            )
+          );
+        } catch (err: any) {
+          setNotificationsError(err.message || "Failed to reject request");
+        }
+      }}
+    >
+      Reject
+    </button>
       </div>
     )}
 
