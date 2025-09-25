@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -48,6 +48,14 @@ interface GenerateInspoRequest {
   styleFilter?: string;
   limit?: number;
 }
+
+type ConfirmState = {
+  open: boolean;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  resolve?: (ok: boolean) => void;
+};
 
 // Create API endpoint from the imported API_BASE
 const API_ENDPOINT = `${API_BASE}/api`;
@@ -122,11 +130,51 @@ const WeatherIcon = ({ condition, size = 16 }: { condition: string; size?: numbe
     warm: <Sun size={size} className="text-yellow-400" />,
     mild: <Sun size={size} className="text-yellow-300" />,
     cool: <Cloud size={size} className="text-blue-300" />,
-    cold: <Cloud size={size} className="text-blue-500" />,
-    freezing: <Cloud size={size} className="text-blue-700" />,
+    cold: <CloudSnow size={size} className="text-blue-600" />,
+    freezing: <Snowflake size={size} className="text-blue-800" />,
   };
   
   return icons[condition as keyof typeof icons] || <Sun size={size} className="text-gray-400" />;
+};
+
+// Helper function to get weather icon based on temperature
+const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = [], size = 16) => {
+  // Check if specific weather conditions are present that should override temperature
+  const hasRain = conditions.some(c => c.toLowerCase().includes('rain') || c.toLowerCase().includes('drizzle'));
+  const hasWind = conditions.some(c => c.toLowerCase().includes('wind'));
+  
+  if (hasRain) {
+    return <CloudRain size={size} className="text-blue-500" />;
+  }
+  
+  // Temperature-based icons
+  if (avgTemp >= 30) {
+    // Very hot - bright orange sun
+    return <Sun size={size} className="text-orange-600" />;
+  } else if (avgTemp >= 24) {
+    // Hot - orange/yellow sun
+    return <Sun size={size} className="text-orange-500" />;
+  } else if (avgTemp >= 22) {
+    // Warm - yellow sun
+    return <Sun size={size} className="text-yellow-500" />;
+  } else if (avgTemp >= 12) {
+    // Moderate/partly cloudy weather (12-22°C) - show both sun and cloud
+    return (
+      <div className="flex items-center space-x-1">
+        <Sun size={size} className="text-yellow-400" />
+        <Cloud size={size} className="text-gray-400" />
+      </div>
+    );
+  } else if (avgTemp >= 10) {
+    // Cool - cloudy
+    return <Cloud size={size} className="text-gray-400" />;
+  } else if (avgTemp >= 0) {
+    // Cold - cold cloud with possible snow
+    return <CloudSnow size={size} className="text-blue-500" />;
+  } else {
+    // Freezing - snowflake
+    return <Snowflake size={size} className="text-blue-700" />;
+  }
 };
 
 // Outfit Card Component
@@ -161,9 +209,31 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             </div>
           )}
           <div className="flex items-center space-x-1">
-            {outfit.recommendedWeather.conditions.slice(0, 3).map((condition, index) => (
-              <WeatherIcon key={index} condition={condition} size={14} />
-            ))}
+            {(() => {
+              const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
+              const primaryIcon = getWeatherIconForTemperature(avgTemp, outfit.recommendedWeather.conditions, 16);
+              
+              // Show up to 2 additional condition-based icons if they're different from temperature-based icon
+              const additionalIcons = outfit.recommendedWeather.conditions
+                .slice(0, 2)
+                .map(condition => condition.toLowerCase())
+                .filter(condition => {
+                  // Only show if it's a specific weather condition (not temperature-based)
+                  return ['rainy', 'drizzle', 'windy'].includes(condition) || 
+                         condition.includes('rain') || condition.includes('wind');
+                })
+                .slice(0, 2)
+                .map((condition, index) => (
+                  <WeatherIcon key={`additional-${index}`} condition={condition} size={14} />
+                ));
+              
+              return (
+                <>
+                  {primaryIcon}
+                  {additionalIcons}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -198,39 +268,42 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
 
         {/* Temperature Suitability Bar */}
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-600">Temperature Suitability</span>
-            <span className="text-xs text-gray-500">
-              {outfit.recommendedWeather.minTemp}°C - {outfit.recommendedWeather.maxTemp}°C
-            </span>
+          <div className="relative px-32">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-600">Temperature Suitability</span>
+              <span className="text-xs text-gray-500">
+                {outfit.recommendedWeather.minTemp}°C - {outfit.recommendedWeather.maxTemp}°C
+              </span>
+            </div>
           </div>
           
           {(() => {
             // Calculate average temperature for the outfit
             const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
+            console.log(`Temperature: ${avgTemp}°C (${outfit.recommendedWeather.minTemp}°C - ${outfit.recommendedWeather.maxTemp}°C)`);
             
             // Determine bar color and fill based on temperature
             let barColor, fillPercentage, tempLabel;
             
-            if (avgTemp >= 24) {
-              // Hot weather - red/orange bar, high fill
+            if (avgTemp >= 22) {
+              // Hot weather - red/orange bar, high fill (60-85%)
               barColor = 'from-orange-400 to-red-500';
-              fillPercentage = Math.min(95, 60 + ((avgTemp - 24) / 12) * 35); // 60-95% fill for 24-36°C
+              fillPercentage = Math.min(85, 60 + ((avgTemp - 22) / 14) * 25); // 60-85% fill for 22-36°C
               tempLabel = 'Hot Weather';
-            } else if (avgTemp >= 15) {
-              // Moderate weather - yellow/green bar, medium fill
-              barColor = 'from-yellow-400 to-green-500';
-              fillPercentage = 30 + ((avgTemp - 15) / 9) * 30; // 30-60% fill for 15-24°C
+            } else if (avgTemp >= 12) {
+              // Moderate weather - yellow/orange bar, medium fill (35-55%)
+              barColor = 'from-yellow-400 to-orange-400';
+              fillPercentage = 35 + ((avgTemp - 12) / 10) * 20; // 35-55% fill for 12-22°C
               tempLabel = 'Moderate Weather';
             } else {
-              // Cold weather - blue bar, low fill
+              // Cold weather - blue bar, low fill (10-30%)
               barColor = 'from-blue-400 to-blue-600';
-              fillPercentage = Math.max(5, 30 - ((15 - avgTemp) / 25) * 25); // 5-30% fill for -10-15°C
+              fillPercentage = Math.max(10, 30 - ((12 - avgTemp) / 22) * 20); // 10-30% fill for -10-12°C
               tempLabel = 'Cold Weather';
             }
             
             return (
-              <div className="relative">
+              <div className="relative px-32">
                 <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                   <div 
                     className={`h-full bg-gradient-to-r ${barColor} transition-all duration-500 ease-out rounded-full`}
@@ -248,23 +321,117 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
         </div>
 
         {/* Tags */}
-        {outfit.tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1">
-            {outfit.tags.slice(0, 8).map((tag, index) => (
-              <span
-                key={index}
-                className="px-2 py-1 bg-[#3F978F]/10 text-[#3F978F] text-xs rounded-full"
-              >
-                {tag.replace(':', ': ').replace('_', ' ')}
+        <div className="mt-4 flex justify-center flex-wrap gap-2">
+          {/* Warmth Factor Tag */}
+          {(() => {
+            const rating = outfit.warmthRating;
+            let warmthLabel, warmthIcon, bgColor, textColor;
+            
+            if (rating >= 25) {
+              warmthLabel = 'Extreme Warmth';
+              warmthIcon = '🔥';
+              bgColor = 'bg-red-200';
+              textColor = 'text-red-900';
+            } else if (rating >= 20) {
+              warmthLabel = 'Very Warm';
+              warmthIcon = '🔥';
+              bgColor = 'bg-red-100';
+              textColor = 'text-red-800';
+            } else if (rating >= 15) {
+              warmthLabel = 'Warm';
+              warmthIcon = '🌡️';
+              bgColor = 'bg-orange-100';
+              textColor = 'text-orange-800';
+            } else if (rating >= 10) {
+              warmthLabel = 'Moderate';
+              warmthIcon = '🌤️';
+              bgColor = 'bg-yellow-100';
+              textColor = 'text-yellow-800';
+            } else if (rating >= 6) {
+              warmthLabel = 'Cool';
+              warmthIcon = '🌬️';
+              bgColor = 'bg-blue-100';
+              textColor = 'text-blue-800';
+            } else {
+              warmthLabel = 'Cold';
+              warmthIcon = '❄️';
+              bgColor = 'bg-indigo-100';
+              textColor = 'text-indigo-800';
+            }
+            
+            return (
+              <span className={`px-3 py-1 ${bgColor} ${textColor} text-xs rounded-full font-medium flex items-center gap-1`}>
+                <span>{warmthIcon}</span>
+                {warmthLabel}
               </span>
-            ))}
-            {outfit.tags.length > 8 && (
-              <span className="px-2 py-1 bg-gray-200 text-gray-500 text-xs rounded-full">
-                +{outfit.tags.length - 8} more
+            );
+          })()}
+
+          {/* Weather Condition Tag */}
+          {(() => {
+            const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
+            const primaryIcon = getWeatherIconForTemperature(avgTemp, outfit.recommendedWeather.conditions, 14);
+            
+            let weatherLabel;
+            if (avgTemp >= 30) {
+              weatherLabel = 'Very Hot';
+            } else if (avgTemp >= 24) {
+              weatherLabel = 'Hot';
+            } else if (avgTemp >= 22) {
+              weatherLabel = 'Warm';
+            } else if (avgTemp >= 12) {
+              weatherLabel = 'Partly Cloudy';
+            } else if (avgTemp >= 10) {
+              weatherLabel = 'Cool';
+            } else if (avgTemp >= 0) {
+              weatherLabel = 'Cold';
+            } else {
+              weatherLabel = 'Freezing';
+            }
+            
+            return (
+              <span className="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1">
+                {primaryIcon}
+                <span>{weatherLabel}</span>
               </span>
-            )}
-          </div>
-        )}
+            );
+          })()}
+
+          {/* Color Scheme Tag */}
+          {(() => {
+            // Collect all dominant colors from outfit items
+            const allColors = outfit.inspoItems
+              .flatMap(item => item.dominantColors || (item.colorHex ? [item.colorHex] : []))
+              .filter(Boolean);
+            
+            // Get unique colors (remove duplicates)
+            const uniqueColors = Array.from(new Set(allColors)).slice(0, 4); // Show max 4 colors
+            
+            if (uniqueColors.length > 0) {
+              return (
+                <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium flex items-center gap-2">
+                  <span>Colors</span>
+                  <div className="flex gap-1">
+                    {uniqueColors.map((color, index) => (
+                      <div
+                        key={index}
+                        className="w-3 h-3 rounded-full border border-white shadow-sm"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </span>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Style Tag */}
+          <span className="px-3 py-1 bg-[#3F978F]/10 text-[#3F978F] text-xs rounded-full font-medium capitalize">
+            {outfit.overallStyle} Style
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -455,6 +622,13 @@ const InspoPage = () => {
   const [generatedOutfits, setGeneratedOutfits] = useState<InspoOutfit[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false); // Track if user has generated outfits
 
+  // Confirm dialog state and helper
+  const [confirmState, setConfirmState] = useState<ConfirmState>({ open: false, message: '' });
+  const askConfirm = (message: string, confirmLabel = 'Delete', cancelLabel = 'Cancel') =>
+    new Promise<boolean>((resolve) => {
+      setConfirmState({ open: true, message, confirmLabel, cancelLabel, resolve });
+    });
+
   // Enable full bleed layout like HomePage
   useEffect(() => {
     document.body.classList.add('home-fullbleed');
@@ -506,13 +680,14 @@ const InspoPage = () => {
     generateMutation.mutate(filters);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!token) {
       navigate('/login', { state: { from: '/inspo' } });
       return;
     }
     
-    if (window.confirm('Are you sure you want to delete this inspiration outfit?')) {
+    const confirmed = await askConfirm('Are you sure you want to delete this inspiration outfit?', 'Delete', 'Cancel');
+    if (confirmed) {
       deleteMutation.mutate(id);
     }
   };
@@ -679,6 +854,35 @@ const InspoPage = () => {
           )}
         </div>
       </main>
+
+      {/* Confirm dialog (replaces window.confirm) */}
+      {confirmState.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full mx-4 text-center shadow-lg">
+            <p className="mb-6 text-gray-700 dark:text-gray-300">{confirmState.message}</p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => {
+                  confirmState.resolve?.(false);
+                  setConfirmState(cs => ({ ...cs, open: false, resolve: undefined }));
+                }}
+                className="px-5 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                {confirmState.cancelLabel ?? 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  confirmState.resolve?.(true);
+                  setConfirmState(cs => ({ ...cs, open: false, resolve: undefined }));
+                }}
+                className="px-5 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
+              >
+                {confirmState.confirmLabel ?? 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

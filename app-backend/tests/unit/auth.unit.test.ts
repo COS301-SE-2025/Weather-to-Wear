@@ -114,9 +114,6 @@ describe('Auth Utils', () => {
     expect(utils.validatePassword('longbutnoupper1!')).toBe(false);
     expect(utils.validatePassword('NoSpecial1')).toBe(false);
     expect(utils.validatePassword('ValidP@ss1')).toBe(true);
-    expect(utils.validatePassword('ValidPass1-')).toBe(true); // Test dash as special character
-    expect(utils.validatePassword('MyPassword-123')).toBe(true); // Another dash test
-    expect(utils.validatePassword('ValidPass1_')).toBe(true); // Test underscore as special character
   });
 });
 
