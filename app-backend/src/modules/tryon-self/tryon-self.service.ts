@@ -6,6 +6,16 @@ import {
   FashnCategory, TryOnMode
 } from './tryon-self.types';
 import { cdnUrlFor, putBufferSmart } from '../../utils/s3';
+import path from 'path';
+import fs from 'fs/promises';
+
+const PUBLIC_BASE_URL =
+  process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 5001}`;
+const INLINE_IMAGES = String(process.env.FASHN_DEV_INLINE_IMAGES || 'false') === 'true';
+
+const DIST_ROOT = path.join(__dirname, '../../..');
+const UPLOADS_FS_ROOT = path.join(DIST_ROOT, 'uploads'); // matches app.ts
+const UPLOADS_PREFIX = '/uploads/';
 
 const FASHN_API_KEY = process.env.FASHN_API_KEY!;
 const BASE_URL = process.env.FASHN_BASE_URL || 'https://api.fashn.ai/v1';
@@ -14,21 +24,102 @@ const DEFAULT_RETURN_BASE64 = String(process.env.FASHN_PRIVACY_RETURN_BASE64 || 
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+function toAbsUrl(u?: string): string {
+  if (!u) return '';
+  if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) return u;
+  if (!u.startsWith('/')) u = `/${u}`;
+  return `${PUBLIC_BASE_URL}${u}`;
+}
+
+async function toDataUri(absUrl: string): Promise<string> {
+  try {
+    // If this URL points to our own /uploads/ path, read from disk directly
+    const afterBase = absUrl.startsWith(PUBLIC_BASE_URL)
+      ? absUrl.slice(PUBLIC_BASE_URL.length)
+      : absUrl;
+
+    if (afterBase.startsWith(UPLOADS_PREFIX)) {
+      const relPath = afterBase.replace(/^\//, ''); // remove leading slash
+      const fsPath = path.join(DIST_ROOT, relPath); // e.g., dist/uploads/users/...
+      const buf = await fs.readFile(fsPath);
+
+      // infer a content-type
+      const lower = fsPath.toLowerCase();
+      const mime =
+        lower.endsWith('.jpg') || lower.endsWith('.jpeg') ? 'image/jpeg'
+          : lower.endsWith('.webp') ? 'image/webp'
+            : 'image/png';
+
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    }
+
+    // Otherwise, fetch externally (e.g., FASHN URLs)
+    const r = await fetch(absUrl);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const ct = r.headers.get('content-type') || 'image/png';
+    const buf = Buffer.from(await r.arrayBuffer());
+    const mime = ct.split(';')[0];
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  } catch (e: any) {
+    throw new Error(`inline failed for ${absUrl}: ${e.message}`);
+  }
+}
+
+// dev: inline; prod: leave as URL 
+async function externalize(u: string): Promise<string> {
+  if (!u) return u;
+  if (u.startsWith('data:')) return u;
+  const abs = toAbsUrl(u);
+  return INLINE_IMAGES ? await toDataUri(abs) : abs;
+}
+
 async function fashnRun(inputs: Record<string, any>): Promise<string> {
-  const runRes = await fetch(`${BASE_URL}/run`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${FASHN_API_KEY}` },
-    body: JSON.stringify({ model_name: 'tryon-v1.6', inputs }),
-  });
-  if (!runRes.ok) throw new Error(`FASHN run error: ${runRes.status} ${await runRes.text()}`);
-  const { id } = await runRes.json() as { id: string };
-  if (!id) throw new Error('FASHN run did not return an id');
+  let runRes: Response;
+  try {
+    runRes = await fetch(`${BASE_URL}/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${FASHN_API_KEY}`,
+      },
+      body: JSON.stringify({ model_name: 'tryon-v1.6', inputs }),
+    });
+  } catch (e: any) {
+    throw new Error(`FASHN /run fetch failed: ${e.message}`);
+  }
+
+  if (!runRes.ok) {
+    const text = await runRes.text().catch(() => '');
+    throw new Error(`FASHN /run error: ${runRes.status} ${text}`);
+  }
+
+  let id: string | undefined;
+  try {
+    ({ id } = (await runRes.json()) as { id?: string });
+  } catch {
+    throw new Error('FASHN /run returned non-JSON');
+  }
+  if (!id) throw new Error('FASHN /run did not return an id');
 
   for (let i = 0; i < 60; i++) {
-    const st = await fetch(`${BASE_URL}/status/${id}`, { headers: { Authorization: `Bearer ${FASHN_API_KEY}` } });
-    const data = await st.json() as any;
-    if (data.status === 'completed' && data.output?.length) return data.output[0];
-    if (data.status === 'failed') throw new Error(`FASHN status failed: ${data?.error?.message ?? JSON.stringify(data.error || {})}`);
+    let st: Response;
+    try {
+      st = await fetch(`${BASE_URL}/status/${id}`, {
+        headers: { Authorization: `Bearer ${FASHN_API_KEY}` },
+      });
+    } catch (e: any) {
+      throw new Error(`FASHN /status fetch failed: ${e.message}`);
+    }
+
+    const data = (await st.json().catch(() => ({}))) as any;
+
+    if (data.status === 'completed' && data.output?.length) {
+      return data.output[0];
+    }
+    if (data.status === 'failed') {
+      const msg = data?.error?.message || JSON.stringify(data.error || {});
+      throw new Error(`FASHN status failed: ${msg}`);
+    }
     await sleep(3000);
   }
   throw new Error('FASHN try-on timed out');
@@ -67,8 +158,9 @@ export async function saveTryOnPhoto(userId: string, imageBuf: Buffer, contentTy
   const key = `users/${userId}/tryon/self-${Date.now()}-${randomUUID()}.png`;
   const { key: storedKey } = await putBufferSmart({ key, contentType, body: imageBuf });
   const url = cdnUrlFor(storedKey);
-  await prisma.user.update({ where: { id: userId }, data: { tryOnPhoto: url } });
-  return url;
+  const abs = toAbsUrl(url);
+  await prisma.user.update({ where: { id: userId }, data: { tryOnPhoto: abs } });
+  return abs;
 }
 
 export async function removeTryOnPhoto(userId: string): Promise<void> {
@@ -84,6 +176,11 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
     modelImage = user.tryOnPhoto;
   }
   if (!modelImage) throw new Error('No modelImageUrl provided');
+
+  // ensure absolute URL for external fetchers
+  if (!modelImage.startsWith('data:')) {
+    modelImage = toAbsUrl(modelImage);
+  }
 
   let steps: RunTryOnStep[] = [];
   const skipped: string[] = [];
@@ -117,9 +214,12 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
   const stepOutputs: string[] = [];
 
   for (const step of steps) {
+    const modelRef = await externalize(modelImage);
+    const garmentRef = await externalize(step.garmentImageUrl);
+
     const inputs = {
-      model_image: modelImage,
-      garment_image: step.garmentImageUrl,
+      model_image: modelRef,
+      garment_image: garmentRef,
       category: step.category || 'auto',
       garment_photo_type: step.garmentPhotoType || 'auto',
       mode,
@@ -132,7 +232,7 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
 
     const out = await fashnRun(inputs);
     stepOutputs.push(out);
-    modelImage = out;
+    modelImage = out; // chain output to next step
   }
 
   let finalUrl: string | undefined;
@@ -160,3 +260,4 @@ export async function getCredits(): Promise<{ total: number; subscription: numbe
     on_demand: json?.credits?.on_demand ?? 0,
   };
 }
+

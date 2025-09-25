@@ -472,6 +472,13 @@ export default function ClosetPage() {
   // -------------------------- 
   //  Virtual Try on Yourself 
   // --------------------------
+
+  function resolveImgSrc(u?: string): string {
+    if (!u) return '';
+    if (u.startsWith('data:') || u.startsWith('http://') || u.startsWith('https://')) return u;
+    return absolutize(u, API_BASE);
+  }
+
   async function resizeToDataUrl(file: File, maxW = 1280, maxH = 1280): Promise<string> {
     const img = document.createElement('img');
     const url = URL.createObjectURL(file);
@@ -491,7 +498,7 @@ export default function ClosetPage() {
     ctx.drawImage(img, 0, 0, w, h);
 
     URL.revokeObjectURL(url);
-    return canvas.toDataURL('image/jpeg', 0.9); // quality tweakable
+    return canvas.toDataURL('image/jpeg', 0.9);
   }
 
   function fileToBase64(file: File): Promise<string> {
@@ -1282,7 +1289,7 @@ export default function ClosetPage() {
                     {selfPhotoPreview ? (
                       <div className="relative">
                         <img
-                          src={selfPhotoPreview}
+                          src={resolveImgSrc(selfPhotoPreview || '')}
                           alt="Your try-on photo"
                           className="w-full max-h-80 object-contain rounded-lg border"
                         />
@@ -1378,7 +1385,7 @@ export default function ClosetPage() {
                     {finalImageUrl ? (
                       <div className="space-y-3">
                         <img
-                          src={absolutize(finalImageUrl, API_BASE)}
+                          src={resolveImgSrc(finalImageUrl)}
                           alt="Final try-on"
                           className="w-full max-h-[520px] object-contain rounded-lg border"
                         />
@@ -1389,7 +1396,7 @@ export default function ClosetPage() {
                               {stepImages.map((s, idx) => (
                                 <img
                                   key={idx}
-                                  src={absolutize(s, API_BASE)}
+                                  src={resolveImgSrc(s)}
                                   alt={`Step ${idx + 1}`}
                                   className="w-24 h-24 object-contain rounded border"
                                   title={`Step ${idx + 1}`}
