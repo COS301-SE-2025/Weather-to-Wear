@@ -352,6 +352,34 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [selectedDate, locationLabel]);
 
+  const [closetIndex, setClosetIndex] = useState<
+  Record<string, { imageUrl?: string; category?: string }>
+>({});
+
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      const resp = await fetchAllItems();
+      const rows = Array.isArray(resp.data) ? resp.data : [];
+      const index: Record<string, { imageUrl?: string; category?: string }> = {};
+      for (const row of rows) {
+        const id = String(row.id);
+        // Adjust these field names if your API uses different casing
+        index[id] = {
+          imageUrl: (row as any).imageUrl || (row as any).image_url || '',
+          category: (row as any).category || '',
+        };
+      }
+      if (!cancelled) setClosetIndex(index);
+    } catch (e) {
+      console.error('closet index load failed', e);
+    }
+  })();
+  return () => { cancelled = true; };
+}, []);
+
+
   // derive a "selectedOutfit" from daySel for rendering
   const selectedOutfitFromDaySel: RecommendedOutfit | null = useMemo(() => {
     if (!daySel?.items?.length) return null;
@@ -361,7 +389,7 @@ export default function HomePage() {
       outfitItems: daySel.items.map((it) => ({
         closetItemId: it.closetItemId,
         // we may not have imageUrl here; if you want, optionally hydrate via fetchOutfitById(daySel.outfitId)
-        imageUrl: '', // will be absolutized downstream if needed
+        imageUrl: closetIndex[it.closetItemId]?.imageUrl || '', // will be absolutized downstream if needed
         layerCategory: it.layerCategory,
         category: '',
         colorHex: '',
