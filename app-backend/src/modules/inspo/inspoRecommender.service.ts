@@ -180,42 +180,82 @@ function calculateWeatherRecommendationWeighted(
 ): WeatherCondition {
   const totalWeightedWarmth = calculateWeightedOutfitWarmth(items);
   
-  // Find the temperature range that matches this weighted warmth level
-  let minTemp = -10;
-  let maxTemp = 35;
+  // Define consistent, user-friendly temperature ranges based on weighted warmth
+  // These ranges align with rebalanced warmth factors and frontend temperature categories
+  // Logic: Higher weighted warmth = Colder weather, Lower weighted warmth = Warmer weather
+  let minTemp: number, maxTemp: number;
   
-  // Find closest warmth point and derive temperature range
-  for (let i = 0; i < TEMP_WARMTH_POINTS.length; i++) {
-    const [temp, warmth] = TEMP_WARMTH_POINTS[i];
-    
-    if (Math.abs(totalWeightedWarmth - warmth) <= 3) {
-      // Found close match - set temperature range around this point
-      const tolerance = getWarmthTolerance(temp);
-      minTemp = temp - tolerance;
-      maxTemp = temp + tolerance;
-      break;
+  if (totalWeightedWarmth >= 28) {
+    // Very heavy outfits (heavy coats + layers) for freezing weather
+    minTemp = -10;
+    maxTemp = 0;
+  } else if (totalWeightedWarmth >= 24) {
+    // Heavy outfits (jackets) for very cold weather  
+    minTemp = 0;
+    maxTemp = 8;
+  } else if (totalWeightedWarmth >= 20) {
+    // Warm outfits (light jackets, heavy sweaters) for cold weather
+    minTemp = 8;
+    maxTemp = 15;
+  } else if (totalWeightedWarmth >= 16) {
+    // Moderate-warm outfits (hoodies, sweaters) for cool weather
+    minTemp = 15;
+    maxTemp = 22;
+  } else if (totalWeightedWarmth >= 12) {
+    // Light-moderate outfits (light sweaters, cardigans) for mild weather  
+    minTemp = 22;
+    maxTemp = 28;
+  } else if (totalWeightedWarmth >= 8) {
+    // Light outfits (base layers with light layer) for warm weather
+    minTemp = 28;
+    maxTemp = 32;
+  } else {
+    // Very light outfits (minimal clothing) for hot weather
+    minTemp = 32;
+    maxTemp = 40;
+  }
+  
+  // Calculate average temperature for primary weather condition
+  const avgTemp = (minTemp + maxTemp) / 2;
+  
+  // Determine primary weather condition based on temperature and waterproof status
+  const conditions: string[] = [];
+  
+  if (hasWaterproof) {
+    // If outfit is waterproof, prioritize rainy conditions
+    if (avgTemp <= 0) {
+      conditions.push('freezing', 'rainy');
+    } else if (avgTemp <= 15) {
+      conditions.push('rainy', 'cool', 'cloudy');
+    } else {
+      conditions.push('rainy', 'drizzle', 'cloudy');
+    }
+  } else {
+    // Temperature-based weather conditions (prioritize most relevant icon first)
+    if (avgTemp >= 30) {
+      // Very hot weather - clear sunny skies
+      conditions.push('hot', 'sunny');
+    } else if (avgTemp >= 25) {
+      // Warm weather - mostly sunny
+      conditions.push('sunny', 'warm');
+    } else if (avgTemp >= 18) {
+      // Mild weather - partly cloudy but pleasant
+      conditions.push('mild', 'sunny', 'cloudy');
+    } else if (avgTemp >= 10) {
+      // Cool weather - more clouds than sun
+      conditions.push('cool', 'cloudy');
+    } else if (avgTemp >= 2) {
+      // Cold weather - overcast and cold
+      conditions.push('cold', 'cloudy');
+    } else {
+      // Freezing weather - snow/ice conditions
+      conditions.push('freezing', 'cold');
     }
   }
   
-  // Ensure reasonable bounds
-  minTemp = Math.max(minTemp, -10);
-  maxTemp = Math.min(maxTemp, 40);
-  
-  const conditions: string[] = ['sunny', 'cloudy'];
-  
-  // Add temperature-specific conditions
-  if (maxTemp <= 10) {
-    conditions.push('freezing', 'cold');
-  } else if (maxTemp <= 20) {
-    conditions.push('cool', 'mild');
-  } else if (minTemp >= 20) {
-    conditions.push('warm', 'hot');
-  } else {
-    conditions.push('mild');
-  }
-  
-  if (hasWaterproof) {
-    conditions.push('rainy', 'drizzle');
+  // Add windy condition for certain temperature ranges
+  if (avgTemp >= 10 && avgTemp <= 20 && !hasWaterproof) {
+    conditions.push('windy');
   }
   
   return { minTemp, maxTemp, conditions };
@@ -432,32 +472,48 @@ function generateRandomOutfitsWeighted(
   return outfits;
 }
 
-// Helper function to get default warmth factor (same as before but extracted)
+// Helper function to get default warmth factor (balanced for proper temperature alignment)
 function getDefaultWarmthFactor(item: ClosetItem): number {
   const category = item.category?.toLowerCase() || '';
   const layerCategory = item.layerCategory;
   
+  // According to TEMP_WARMTH_POINTS mapping and layer weights:
+  // 30°C = warmth 5, 25°C = warmth 7, 20°C = warmth 10, 15°C = warmth 14, 10°C = warmth 20, 5°C = warmth 24, 0°C = warmth 28
+  // Layer weights: base=1.0, mid_top=1.2, outerwear=1.6, footwear=0.4, headwear=0.2, accessory=0.1
+  
+  if (category.includes('jacket') || category.includes('coat')) {
+    // Heavy outerwear for cold weather (0-5°C range)
+    // Target weighted warmth ~24-28, with outerwear weight 1.6: 24/1.6 = 15, 28/1.6 = 17.5
+    return Math.max(item.warmthFactor || 16, 16);
+  }
+  
   if (category.includes('hoodie') || category.includes('sweatshirt')) {
-    return Math.max(item.warmthFactor || 7, 7);
+    // Warm mid-layer for cool weather (15°C range)
+    // Target weighted warmth ~14, with mid_top weight 1.2: 14/1.2 = 11.7
+    return Math.max(item.warmthFactor || 12, 12);
   }
   
   if (category.includes('sweater') || category.includes('pullover')) {
-    return Math.max(item.warmthFactor || 6, 6);
-  }
-  
-  if (category.includes('jacket') || category.includes('coat')) {
-    return Math.max(item.warmthFactor || 8, 8);
+    // Moderate warmth for cool weather (15-20°C range)
+    // Target weighted warmth ~10-14, with mid_top weight 1.2: 10/1.2 = 8.3, 14/1.2 = 11.7
+    return Math.max(item.warmthFactor || 10, 10);
   }
   
   if (layerCategory === 'outerwear') {
-    return Math.max(item.warmthFactor || 7, 7);
+    // General outerwear for cold weather
+    // Target weighted warmth ~20-24, with outerwear weight 1.6: 20/1.6 = 12.5, 24/1.6 = 15
+    return Math.max(item.warmthFactor || 14, 14);
   }
   
   if (layerCategory === 'mid_top') {
-    return Math.max(item.warmthFactor || 6, 6);
+    // Mid-layer for cool weather (15-20°C range)
+    // Target weighted warmth ~10-14, with mid_top weight 1.2: 10/1.2 = 8.3, 14/1.2 = 11.7
+    return Math.max(item.warmthFactor || 9, 9);
   }
   
-  return item.warmthFactor || 5;
+  // Base layers and light items for warm weather (20-30°C range = warmth 5-10)
+  // Base layer weight 1.0, so direct mapping
+  return item.warmthFactor || 7;
 }
 
 // ======= ORIGINAL FUNCTIONS FOR BACKWARD COMPATIBILITY =======

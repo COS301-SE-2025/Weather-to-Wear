@@ -17,7 +17,6 @@ export function generateToken(payload: object): string {
 }
 
 export function validatePassword(password: string): boolean {
-  // Updated regex to explicitly include dash (-), underscore (_), and other common special characters
-  const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>_+=\[\]\\/'`~-]).{8,}$/;
+  const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}$/;
   return re.test(password);
 }
