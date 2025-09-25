@@ -65,7 +65,17 @@ function getWarmthTolerance(temperature: number): number {
   return 3;
 }
 
-// Enhanced weather-aware item scoring with weighted warmth
+// Helper function to check if a temperature falls within any of the selected ranges
+function isTemperatureInRanges(temperature: number, temperatureRanges: { minTemp: number; maxTemp: number }[]): boolean {
+  if (!temperatureRanges || temperatureRanges.length === 0) return true;
+  
+  return temperatureRanges.some(range => {
+    const tolerance = 3; // Small tolerance for edge cases
+    return temperature >= (range.minTemp - tolerance) && temperature <= (range.maxTemp + tolerance);
+  });
+}
+
+// Enhanced weather-aware item scoring with multiple temperature ranges support
 function scoreItemForWeatherWeighted(item: ClosetItem, temperature?: number, weatherConditions: string[] = []): number {
   let score = 1.0;
   

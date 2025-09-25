@@ -305,9 +305,19 @@ export async function generateInspoOutfits(
       console.log(`Generating outfits based on ${likedClosetItems.length} liked items from OTHER users (excluding own items)`);
       
       // Extract weather information from request
-      const avgTemp = request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp 
-        ? (request.weatherFilter.minTemp + request.weatherFilter.maxTemp) / 2
-        : undefined;
+      // Handle temperature from new temperatureRanges or legacy minTemp/maxTemp
+      let avgTemp: number | undefined;
+      if (request.weatherFilter?.temperatureRanges && request.weatherFilter.temperatureRanges.length > 0) {
+        // Calculate average temperature across all selected ranges
+        const totalMin = request.weatherFilter.temperatureRanges.reduce((sum, range) => sum + range.minTemp, 0);
+        const totalMax = request.weatherFilter.temperatureRanges.reduce((sum, range) => sum + range.maxTemp, 0);
+        avgTemp = (totalMin + totalMax) / (request.weatherFilter.temperatureRanges.length * 2);
+        console.log(`Using multiple temperature ranges, calculated avgTemp: ${avgTemp}°C`);
+      } else if (request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp) {
+        // Legacy single range calculation
+        avgTemp = (request.weatherFilter.minTemp + request.weatherFilter.maxTemp) / 2;
+        console.log(`Using legacy temperature range, calculated avgTemp: ${avgTemp}°C`);
+      }
       const conditions = request.weatherFilter?.conditions || [];
       
       // CRITICAL FIX: ONLY use liked items from OTHER users, NOT the user's personal closet
@@ -381,12 +391,23 @@ function applyWeatherFilter(
     const filtered = recommendations.filter(rec => {
       const { recommendedWeather } = rec;
       
-      // Make temperature filtering more lenient - allow some overlap
-      if (weatherFilter.minTemp !== undefined && recommendedWeather.maxTemp < (weatherFilter.minTemp - 5)) {
-        return false;
-      }
-      if (weatherFilter.maxTemp !== undefined && recommendedWeather.minTemp > (weatherFilter.maxTemp + 5)) {
-        return false;
+      // Handle new temperatureRanges array (multiple temperature ranges)
+      if (weatherFilter.temperatureRanges && weatherFilter.temperatureRanges.length > 0) {
+        const matchesAnyRange = weatherFilter.temperatureRanges.some(range => {
+          // Check if outfit's temperature range overlaps with any selected range (with tolerance)
+          const tolerance = 5; // ±5°C tolerance for more lenient filtering
+          return !(recommendedWeather.maxTemp < (range.minTemp - tolerance) || 
+                   recommendedWeather.minTemp > (range.maxTemp + tolerance));
+        });
+        if (!matchesAnyRange) return false;
+      } else {
+        // Fallback to legacy minTemp/maxTemp logic for backward compatibility
+        if (weatherFilter.minTemp !== undefined && recommendedWeather.maxTemp < (weatherFilter.minTemp - 5)) {
+          return false;
+        }
+        if (weatherFilter.maxTemp !== undefined && recommendedWeather.minTemp > (weatherFilter.maxTemp + 5)) {
+          return false;
+        }
       }
       
       // Make condition filtering more lenient - if no conditions specified, allow all
@@ -403,6 +424,14 @@ function applyWeatherFilter(
       
       return true;
     });
+    
+    console.log(`Weather filtering: ${recommendations.length} recommendations -> ${filtered.length} after filtering`);
+    if (weatherFilter.temperatureRanges) {
+      console.log(`Applied temperature ranges: ${JSON.stringify(weatherFilter.temperatureRanges)}`);
+    }
+    if (weatherFilter.conditions) {
+      console.log(`Applied weather conditions: ${JSON.stringify(weatherFilter.conditions)}`);
+    }
     
     return filtered.slice(0, request.limit || 5);
   }

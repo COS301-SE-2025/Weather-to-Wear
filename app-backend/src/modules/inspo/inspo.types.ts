@@ -35,6 +35,7 @@ export interface GenerateInspoRequest {
     minTemp?: number;
     maxTemp?: number;
     conditions?: string[];
+    temperatureRanges?: { minTemp: number; maxTemp: number }[];
   };
   styleFilter?: string;
   limit?: number;
