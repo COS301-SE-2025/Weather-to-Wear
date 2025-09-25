@@ -13,4 +13,8 @@ router.post('/photo', authenticateToken, tryonSelfController.setPhoto);
 router.get('/photo', authenticateToken, tryonSelfController.getPhoto);
 router.delete('/photo', authenticateToken, tryonSelfController.deletePhoto);
 
+// cache try-on result for an outfit
+router.get('/result/:outfitId', authenticateToken, tryonSelfController.getResult);
+router.delete('/result/:outfitId', authenticateToken, tryonSelfController.deleteResult);
+
 export default router;

@@ -1,6 +1,13 @@
 // app-backend/src/modules/tryon-self/tryon-self.controller.ts
 import { Request, Response } from 'express';
-import { runTryOnSelf, getCredits, saveTryOnPhoto, removeTryOnPhoto } from './tryon-self.service';
+import {
+  runTryOnSelf,
+  getCredits,
+  saveTryOnPhoto,
+  removeTryOnPhoto,
+  findCachedTryOn,
+  clearCachedTryOnForOutfit
+} from './tryon-self.service';
 
 const tryonSelfController = {
   async run(req: Request, res: Response): Promise<void> {
@@ -72,6 +79,31 @@ const tryonSelfController = {
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to delete try-on photo' });
+    }
+  },
+
+  async getResult(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id || req.query.userId;
+      if (!userId) { res.status(401).json({ error: 'Unauthenticated' }); return; }
+      const { outfitId } = req.params;
+      const hit = await findCachedTryOn(String(userId), String(outfitId));
+      if (!hit) { res.status(204).send(); return; }
+      res.json(hit);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to get cached result' });
+    }
+  },
+
+  async deleteResult(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id || req.body.userId;
+      if (!userId) { res.status(401).json({ error: 'Unauthenticated' }); return; }
+      const { outfitId } = req.params;
+      const ok = await clearCachedTryOnForOutfit(String(userId), String(outfitId));
+      res.json({ ok });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to delete cached result' });
     }
   },
 };

@@ -1,6 +1,6 @@
 // app-backend/src/modules/tryon-self/tryon-self.service.ts
 import prisma from '../../prisma';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import {
   RunTryOnRequest, RunTryOnResponse, RunTryOnStep,
   FashnCategory, TryOnMode
@@ -29,6 +29,11 @@ function toAbsUrl(u?: string): string {
   if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) return u;
   if (!u.startsWith('/')) u = `/${u}`;
   return `${PUBLIC_BASE_URL}${u}`;
+}
+
+function itemsHashFromIds(ids: string[]) {
+  const joined = ids.map(String).sort().join(',');
+  return createHash('sha1').update(joined).digest('hex');
 }
 
 async function toDataUri(absUrl: string): Promise<string> {
@@ -185,7 +190,6 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
   }
   if (!modelImage) throw new Error('No modelImageUrl provided');
 
-  // ensure absolute URL for external fetchers
   if (!modelImage.startsWith('data:')) {
     modelImage = toAbsUrl(modelImage);
   }
@@ -246,7 +250,7 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
 
     const out = await fashnRun(inputs);
     stepOutputs.push(out);
-    modelImage = out; // chain output to next step
+    modelImage = out; // chain
   }
 
   let finalUrl: string | undefined;
@@ -261,8 +265,48 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
     finalUrl = cdnUrlFor(storedKey);
   }
 
+  // ===== Cache to Outfit if outfitId provided =====
+  if (req.outfitId) {
+    let idsForHash: string[] = [];
+    if (req.closetItemIds?.length) {
+      idsForHash = req.closetItemIds;
+    } else {
+      const o = await prisma.outfit.findUnique({
+        where: { id: req.outfitId },
+        include: { outfitItems: true },
+      });
+      idsForHash = (o?.outfitItems || []).map((oi: { closetItemId: string }) => oi.closetItemId);
+    }
+    const itemsHash = itemsHashFromIds(idsForHash);
+
+    if (!finalUrl) {
+      const buf = await downloadToBuffer(finalBase64!);
+      const keyDet = `users/${userId}/tryon/results/${req.outfitId}/final-${itemsHash}.png`;
+      const { key: storedKeyDet } = await putBufferSmart({ key: keyDet, contentType: 'image/png', body: buf });
+      finalUrl = cdnUrlFor(storedKeyDet);
+    } else {
+
+    }
+
+    try {
+      await prisma.outfit.update({
+        where: { id: req.outfitId },
+        data: {
+          tryOnFinalUrl: finalUrl,
+          tryOnItemsHash: itemsHash,
+          tryOnGeneratedAt: new Date(),
+          tryOnStepImageUrls: stepOutputs as any,
+        },
+      });
+    } catch (e) {
+      // non-fatal
+      console.error('Failed to update Outfit try-on cache:', e);
+    }
+  }
+
   return { finalUrl, finalBase64, stepOutputs, skipped };
 }
+
 
 export async function getCredits(): Promise<{ total: number; subscription: number; on_demand: number }> {
   const res = await fetch(`${BASE_URL}/credits`, { headers: { Authorization: `Bearer ${FASHN_API_KEY}` } });
@@ -275,3 +319,35 @@ export async function getCredits(): Promise<{ total: number; subscription: numbe
   };
 }
 
+export async function findCachedTryOn(userId: string, outfitId: string) {
+  const outfit = await prisma.outfit.findUnique({
+    where: { id: outfitId },
+    include: { outfitItems: true },
+  });
+  if (!outfit || outfit.userId !== userId) return null;
+  const ids = (outfit.outfitItems || []).map((oi: { closetItemId: string }) => oi.closetItemId);
+  if (!ids.length) return null;
+  const hash = itemsHashFromIds(ids);
+  if (!outfit.tryOnFinalUrl || outfit.tryOnItemsHash !== hash) return null;
+  return {
+    finalImageUrl: outfit.tryOnFinalUrl,   // stored as CDN absolute URL
+    createdAt: outfit.tryOnGeneratedAt ?? outfit.createdAt,
+    itemsHash: hash,
+    stepImageUrls: outfit.tryOnStepImageUrls ?? [],
+  };
+}
+
+export async function clearCachedTryOnForOutfit(userId: string, outfitId: string) {
+  const outfit = await prisma.outfit.findUnique({ where: { id: outfitId } });
+  if (!outfit || outfit.userId !== userId) return false;
+  await prisma.outfit.update({
+    where: { id: outfitId },
+    data: {
+      tryOnFinalUrl: null,
+      tryOnItemsHash: null,
+      tryOnGeneratedAt: null,
+      tryOnStepImageUrls: [],
+    },
+  });
+  return true;
+}

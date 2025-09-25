@@ -9,7 +9,7 @@ import { useUploadQueue } from '../context/UploadQueueContext';
 import { fetchAllEvents } from '../services/eventsApi';
 import { getPackingList } from '../services/packingApi';
 import TryOnViewer from "../components/tryon/TryOnViewer";
-import { getTryOnPhoto, setTryOnPhotoBase64, runTryOnSelf, getTryOnCredits } from '../services/tryonApi';
+import { getTryOnPhoto, setTryOnPhotoBase64, runTryOnSelf, getTryOnCredits, getTryOnResult } from '../services/tryonApi';
 
 import EditOutfitModal from "../components/EditOutfitModal";
 import { API_BASE } from '../config';
@@ -190,6 +190,10 @@ export default function ClosetPage() {
   // show credits
   const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
 
+  const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
+  const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
+  const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
+
   // Global popup (Success/Error)
   const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
     open: false,
@@ -232,7 +236,7 @@ export default function ClosetPage() {
     };
 
     fetchItemsOnce();
-  }, [justFinished, queueLength]); // include queueLength to satisfy lint
+  }, [justFinished, queueLength]);
 
   // Fetch saved outfits
   useEffect(() => {
@@ -259,7 +263,6 @@ export default function ClosetPage() {
     }
   }, [showModal, showEditModal]);
 
-  // Rename handler to avoid name clash with imported api function
   const onToggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
     if (originTab === 'items') {
       try {
@@ -357,15 +360,13 @@ export default function ClosetPage() {
     setShowModal(true);
   };
 
-  // --- Quick guards (fast UX) ---
   const isItemInAnyOutfit = (closetItemId: string) =>
     outfits.some(o => o.outfitItems?.some(it => String(it.closetItemId) === String(closetItemId)));
 
-  // Best-effort quick check for packing lists (parallel, early exit)
   const isItemPackedAnywhere = async (closetItemId: string): Promise<boolean> => {
     try {
       const events = await fetchAllEvents();
-      const subset = events.slice(0, 12); // keep it light
+      const subset = events.slice(0, 12); 
       const checks = subset.map(async ev => {
         try {
           const list = await getPackingList(ev.id).catch(() => null);
@@ -387,7 +388,7 @@ export default function ClosetPage() {
 
   const confirmRemove = async () => {
     if (!itemToRemove) return;
-    const { id, tab } = itemToRemove; // removed unused `name`
+    const { id, tab } = itemToRemove;
 
     try {
       if (tab === 'outfits') {
@@ -397,7 +398,6 @@ export default function ClosetPage() {
         return;
       }
 
-      // From here: deleting a closet item
       if (isItemInAnyOutfit(id)) {
         showPopup('You can’t delete this item because it’s part of one or more outfits. Remove it from those outfits first.', 'error');
         return;
@@ -552,7 +552,7 @@ export default function ClosetPage() {
     const f = e.target.files?.[0];
     if (!f) return;
     // const b64 = await fileToBase64(f);
-    const b64 = await resizeToDataUrl(f, 1280, 1280); // smaller & faster than raw
+    const b64 = await resizeToDataUrl(f, 1280, 1280); // smaller and faster than raw
     setSelfPhotoPreview(b64);
   }
 
@@ -598,6 +598,7 @@ export default function ClosetPage() {
 
     try {
       const res = await runTryOnSelf({
+        outfitId: selfTryOnOutfit?.id,
         useTryOnPhoto: true,
         closetItemIds,
         mode: 'balanced',
@@ -624,6 +625,22 @@ export default function ClosetPage() {
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  async function openSelfTryOnOrPreview(outfit: UIOutfit) {
+    try {
+      const hit = await getTryOnResult(outfit.id);
+      if (hit?.finalImageUrl) {
+        setSelfPreviewUrl(hit.finalImageUrl);
+        setSelfPreviewDate(new Date(hit.createdAt).toLocaleString());
+        setSelfTryOnOutfit(outfit);
+        setShowSelfPreviewModal(true);
+        return;
+      }
+    } catch {
+      // ignore and fall through
+    }
+    await openSelfTryOn(outfit);
   }
 
   return (
@@ -1139,9 +1156,9 @@ export default function ClosetPage() {
                   <button
                     onClick={() => {
                       if (activeDetailsOutfit) {
-                        setTryOnOutfit(activeDetailsOutfit); // Store the outfit data
+                        setTryOnOutfit(activeDetailsOutfit); 
                         setShowTryOnModal(true);
-                        setActiveDetailsOutfit(null); // Close details modal
+                        setActiveDetailsOutfit(null); 
                       }
                     }}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
@@ -1153,7 +1170,8 @@ export default function ClosetPage() {
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
-                      openSelfTryOn(activeDetailsOutfit);
+                      // openSelfTryOn(activeDetailsOutfit);
+                      openSelfTryOnOrPreview(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
                     }}
                     className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
@@ -1412,6 +1430,65 @@ export default function ClosetPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Last Try-On */}
+        <AnimatePresence>
+          {showSelfPreviewModal && selfPreviewUrl && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[115] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSelfPreviewModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl p-4 w-[min(95vw,900px)]"
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Last Try-On</h3>
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {selfPreviewDate && (
+                  <div className="text-xs text-gray-500 mb-2">Generated: {selfPreviewDate}</div>
+                )}
+
+                <img
+                  src={resolveImgSrc(selfPreviewUrl)}
+                  alt="Cached try-on"
+                  className="w-full max-h-[70vh] object-contain rounded border"
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSelfPreviewModal(false);
+                      openSelfTryOn(selfTryOnOutfit); 
+                    }}
+                    className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
+                  >
+                    Generate Again
+                  </button>
                 </div>
               </motion.div>
             </motion.div>

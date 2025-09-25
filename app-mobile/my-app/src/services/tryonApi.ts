@@ -6,41 +6,64 @@ import { fetchWithAuth } from "./fetchWithAuth";
 // -------------------------
 
 export async function getItemFits(poseId: string, itemIds: string[]) {
-    const params = new URLSearchParams({ poseId, itemIds: itemIds.join(",") });
-    const res = await fetchWithAuth(`${API_BASE}/api/tryon/fits?${params.toString()}`);
-    if (!res.ok) throw new Error("Failed to fetch fits");
-    return res.json(); // { fits: [...] }
+  const params = new URLSearchParams({ poseId, itemIds: itemIds.join(",") });
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon/fits?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch fits");
+  return res.json(); 
 }
 
 export async function saveItemFit(payload: {
-    itemId: string;
-    poseId: string;
-    transform: { x: number; y: number; scale: number; rotationDeg: number };
-    mesh?: { x: number; y: number }[];
+  itemId: string;
+  poseId: string;
+  transform: { x: number; y: number; scale: number; rotationDeg: number };
+  mesh?: { x: number; y: number }[];
 }) {
-    const res = await fetchWithAuth(`${API_BASE}/api/tryon/fits`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("Failed to save fit");
-    return res.json();
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon/fits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to save fit");
+  return res.json();
 }
 
 // -------------------------
 //    Try on Yourself
 // -------------------------
 
+export interface CachedTryOn {
+  finalImageUrl: string;
+  createdAt: string;
+  itemsHash: string;
+  stepImageUrls?: string[];
+}
+
+export async function getTryOnResult(outfitId: string): Promise<CachedTryOn | null> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/result/${outfitId}`, { method: 'GET' });
+  if (res.status === 204) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+export async function deleteTryOnResult(outfitId: string): Promise<{ ok: boolean }> {
+  const res = await fetchWithAuth(`${API_BASE}/api/tryon-self/result/${outfitId}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
 export type TryOnMode = 'performance' | 'balanced' | 'quality';
 
 export interface RunTryOnPayload {
   useTryOnPhoto?: boolean;
   modelImageUrl?: string;
+  outfitId?: string;
   closetItemIds?: string[];
   mode?: TryOnMode;
   returnBase64?: boolean;
   numSamples?: 1 | 2 | 3 | 4;
   seed?: number;
+  includeFootwear?: boolean;
+  includeHeadwear?: boolean;
 }
 
 export interface RunTryOnResponse {
