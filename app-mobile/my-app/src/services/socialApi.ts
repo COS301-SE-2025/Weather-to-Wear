@@ -1,6 +1,7 @@
 // src/services/socialApi.ts
 import { fetchWithAuth } from "./fetchWithAuth";
 import { API_BASE } from '../config';
+import { SocialNotification, NotificationsResponse } from "../types/social";
 
 const API_URL = `${API_BASE}/api/social`;
 
@@ -159,18 +160,42 @@ export async function unfollowUser(userId: string) {
 }
 
 // Notifications
-export async function getNotifications() {
-  const response = await fetchWithAuth(`${API_URL}/notifications`, {
-    method: "GET",
-  });
+// services/socialApi.ts
+export async function getNotifications(): Promise<NotificationsResponse> {
+  try {
+    const token = localStorage.getItem('token'); // your JWT
+    if (!token) return { notifications: [] }; // ✅ return object, not array
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to get notifications");
+    const res = await fetch("/api/social/notifications", {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // if backend returns non-JSON (HTML error page), catch it
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Failed to fetch notifications:", text);
+      return { notifications: [] }; // ✅ return object
+    }
+
+    // try parsing JSON, fall back to empty array if it fails
+    try {
+      const data = await res.json();
+      return data as NotificationsResponse;
+    } catch (jsonErr) {
+      console.error("Failed to parse notifications JSON:", jsonErr);
+      return { notifications: [] }; // ✅ return object
+    }
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+    return { notifications: [] }; // ✅ return object
   }
-
-  return response.json() as Promise<{ notifications: Notification[] }>;
 }
+
+
+
 
 export async function acceptFollowRequest(requestId: string) {
   const response = await fetchWithAuth(

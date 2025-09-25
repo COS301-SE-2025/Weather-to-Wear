@@ -42,7 +42,7 @@ router.post(
   nsfwText('content'),                    
   socialController.addComment
 );
-router.get('/posts/:postId/comments', socialController.getCommentsForPost);
+router.get('/posts/:postId/comments', asyncHandler(socialController.getCommentsForPostHandler));
 router.put('/comments/:id', authenticateToken, nsfwText('content'), socialController.updateComment);
 router.delete('/comments/:id', authenticateToken, socialController.deleteComment);
 

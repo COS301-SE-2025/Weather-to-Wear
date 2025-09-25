@@ -1,9 +1,23 @@
 // src/modules/social/social.service.ts
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+export type NotificationAPIItem = {
+  id: string;
+  type: "like" | "comment" | "follow";
+  fromUser: {
+    id: string;
+    name: string;
+    profilePhoto?: string | null;
+  };
+  postId?: string | null;
+  postContent?: string | null;
+  createdAt: string; // ISO string
+};
 
 class SocialService {
-  private prisma = new PrismaClient();
-
+  // ────────────── POSTS ──────────────
   async createPost(
     userId: string,
     data: {
@@ -14,9 +28,7 @@ class SocialService {
       closetItemId?: string;
     }
   ) {
-
-
-    return this.prisma.post.create({
+    return prisma.post.create({
       data: {
         userId,
         imageUrl: data.imageUrl,
@@ -28,339 +40,302 @@ class SocialService {
     });
   }
 
-  async getPosts(options: { currentUserId: string; limit: number; offset: number; include: string[]; }) {
+  async getPosts(options: {
+    currentUserId: string;
+    limit: number;
+    offset: number;
+    include: string[];
+  }) {
     const { currentUserId, limit, offset, include } = options;
-    const inc = (include ?? []).map(s => s.toLowerCase());
-    const incUser = inc.includes('user');
-    const incComments = inc.includes('comments');
-    const incCommentUser = inc.includes('comments.user');   // NEW
-    const incLikes = inc.includes('likes');
-    const incClosetItem = inc.includes('closetitem');
+    const inc = (include ?? []).map((s) => s.toLowerCase());
 
-    const following = await this.prisma.follow.findMany({
-      where: { followerId: currentUserId },
+    const following = await prisma.follow.findMany({
+      where: { followerId: currentUserId, status: "accepted" },
       select: { followingId: true },
     });
-    const followingIds = [...following.map(f => f.followingId), currentUserId];
+    const followingIds = [...following.map((f) => f.followingId), currentUserId];
 
-    return this.prisma.post.findMany({
+    return prisma.post.findMany({
       where: { userId: { in: followingIds } },
       take: Number(limit),
       skip: Number(offset),
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: {
-        user: incUser ? { select: { id: true, name: true, profilePhoto: true } } : undefined,
-        comments: incComments
-          ? {
-            orderBy: { createdAt: 'asc' },
-            include: incCommentUser
-              ? { user: { select: { id: true, name: true, profilePhoto: true } } }
-              : undefined,
-          }
+        user: inc.includes("user")
+          ? { select: { id: true, name: true, profilePhoto: true } }
           : undefined,
-        likes: incLikes ? true : undefined,
-        closetItem: incClosetItem ? true : undefined,
+        comments: inc.includes("comments")
+          ? {
+              orderBy: { createdAt: "asc" },
+              include: inc.includes("comments.user")
+                ? { user: { select: { id: true, name: true, profilePhoto: true } } }
+                : undefined,
+            }
+          : undefined,
+        likes: inc.includes("likes") ? true : undefined,
+        closetItem: inc.includes("closetitem") ? true : undefined,
       },
     });
   }
-
-
 
   async getPostById(id: string, include: string[]) {
-    const inc = (include ?? []).map(s => s.toLowerCase());
-    const incUser = inc.includes('user');
-    const incComments = inc.includes('comments');
-    const incCommentUser = inc.includes('comments.user');   // NEW
-    const incLikes = inc.includes('likes');
-    const incClosetItem = inc.includes('closetitem');
-
-    return this.prisma.post.findUnique({
+    const inc = (include ?? []).map((s) => s.toLowerCase());
+    return prisma.post.findUnique({
       where: { id },
       include: {
-        user: incUser ? { select: { id: true, name: true, profilePhoto: true } } : undefined,
-        comments: incComments
-          ? {
-            orderBy: { createdAt: 'asc' },
-            include: incCommentUser
-              ? { user: { select: { id: true, name: true, profilePhoto: true } } }
-              : undefined,
-          }
+        user: inc.includes("user")
+          ? { select: { id: true, name: true, profilePhoto: true } }
           : undefined,
-        likes: incLikes ? true : undefined,
-        closetItem: incClosetItem ? true : undefined,
+        comments: inc.includes("comments")
+          ? {
+              orderBy: { createdAt: "asc" },
+              include: inc.includes("comments.user")
+                ? { user: { select: { id: true, name: true, profilePhoto: true } } }
+                : undefined,
+            }
+          : undefined,
+        likes: inc.includes("likes") ? true : undefined,
+        closetItem: inc.includes("closetitem") ? true : undefined,
       },
     });
   }
-
 
   async updatePost(
     id: string,
     userId: string,
-    data: {
-      imageUrl?: string;
-      caption?: string;
-      location?: string;
-      weather?: any;
-    }
+    data: { imageUrl?: string; caption?: string; location?: string; weather?: any }
   ) {
-    const existing = await this.prisma.post.findUnique({ where: { id } });
-    if (!existing) {
-      throw new Error('Post not found');
-    }
+    const existing = await prisma.post.findUnique({ where: { id } });
+    if (!existing) throw new Error("Post not found");
+    if (existing.userId !== userId) throw new Error("Forbidden");
 
-    if (existing.userId !== userId) {
-      throw new Error('Forbidden, token incorrect');
-    }
-    return this.prisma.post.update({
-      where: { id },
-      data,
-    });
+    return prisma.post.update({ where: { id }, data });
   }
 
   async deletePost(id: string, userId: string) {
-    const existing = await this.prisma.post.findUnique({ where: { id } });
+    const existing = await prisma.post.findUnique({ where: { id } });
+    if (!existing) throw new Error("Post not found");
+    if (existing.userId !== userId) throw new Error("Forbidden");
 
-    if (!existing) {
-      throw new Error('Post not found');
-    }
-
-    if (existing.userId !== userId) {
-      throw new Error('Forbidden, token incorrect');
-    }
-
-    await this.prisma.post.delete({ where: { id } });
+    await prisma.post.delete({ where: { id } });
   }
 
+  // ────────────── COMMENTS ──────────────
   async addComment(postId: string, userId: string, content: string) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
-    if (!post) throw new Error('Post not found');
-    if (!content || content.trim() === '') throw new Error('Content is required');
-
-    return this.prisma.comment.create({
+    if (!content.trim()) throw new Error("Content is required");
+    return prisma.comment.create({
       data: { postId, userId, content },
       include: { user: { select: { id: true, name: true, profilePhoto: true } } },
     });
   }
 
-
-  async getCommentsForPost(postId: string, limit = 20, offset = 0, include: string[] = []) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
-    if (!post) throw new Error('Post not found');
-
-    const wantUser = include.includes('user');
-
-    return this.prisma.comment.findMany({
+  async getCommentsForPost(postId: string, limit = 20, offset = 0) {
+    return prisma.comment.findMany({
       where: { postId },
       take: limit,
       skip: offset,
-      orderBy: { createdAt: 'asc' },
-      include: wantUser
-        ? { user: { select: { id: true, name: true, profilePhoto: true } } }
-        : undefined,
+      orderBy: { createdAt: "asc" },
+      include: { user: { select: { id: true, name: true, profilePhoto: true } } },
     });
   }
 
-
   async updateComment(id: string, userId: string, content: string) {
-    const comment = await this.prisma.comment.findUnique({ where: { id } });
-    if (!comment) throw new Error('Comment not found');
-    if (comment.userId !== userId) throw new Error('Forbidden');
-    if (!content || content.trim() === '') throw new Error('Content is required');
+    const comment = await prisma.comment.findUnique({ where: { id } });
+    if (!comment) throw new Error("Comment not found");
+    if (comment.userId !== userId) throw new Error("Forbidden");
+    if (!content.trim()) throw new Error("Content is required");
 
-    return this.prisma.comment.update({
-      where: { id },
-      data: { content },
-    });
+    return prisma.comment.update({ where: { id }, data: { content } });
   }
 
   async deleteComment(id: string, userId: string) {
-    const comment = await this.prisma.comment.findUnique({ where: { id } });
-    if (!comment) throw new Error('Comment not found');
-    if (comment.userId !== userId) throw new Error('Forbidden');
+    const comment = await prisma.comment.findUnique({ where: { id } });
+    if (!comment) throw new Error("Comment not found");
+    if (comment.userId !== userId) throw new Error("Forbidden");
 
-    await this.prisma.comment.delete({ where: { id } });
+    await prisma.comment.delete({ where: { id } });
   }
 
-  // Like endpoints
+  // ────────────── LIKES ──────────────
   async likePost(postId: string, userId: string) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
-    if (!post) throw new Error('Post not found');
-
-    const existingLike = await this.prisma.like.findUnique({
+    const existingLike = await prisma.like.findUnique({
       where: { postId_userId: { postId, userId } },
     });
-    if (existingLike) throw new Error('User already liked this post');
+    if (existingLike) throw new Error("Already liked");
 
-    return this.prisma.like.create({ data: { userId, postId } });
+    return prisma.like.create({ data: { postId, userId } });
   }
 
   async unlikePost(postId: string, userId: string) {
-    const existingLike = await this.prisma.like.findUnique({
+    const existingLike = await prisma.like.findUnique({
       where: { postId_userId: { postId, userId } },
     });
-    if (!existingLike) throw new Error('Like not found');
+    if (!existingLike) throw new Error("Like not found");
 
-    await this.prisma.like.delete({
-      where: { postId_userId: { postId, userId } },
-    });
+    await prisma.like.delete({ where: { postId_userId: { postId, userId } } });
   }
 
-  async getLikesForPost(postId: string, limit = 20, offset = 0, includeUser = false) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
-    if (!post) throw new Error('Post not found');
-
-    return this.prisma.like.findMany({
+  async getLikesForPost(postId: string, limit = 20, offset = 0) {
+    return prisma.like.findMany({
       where: { postId },
       skip: offset,
       take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: includeUser ? { user: { select: { id: true, name: true } } } : undefined,
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { id: true, name: true, profilePhoto: true } } },
     });
   }
 
-  // follow endpoints
- async followUser(followerId: string, followingId: string) {
-    if (followerId === followingId) throw new Error("You cannot follow yourself");
+  // ────────────── FOLLOWS ──────────────
+  async followUser(followerId: string, followingId: string) {
+    if (followerId === followingId) throw new Error("Cannot follow yourself");
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: followingId },
-      select: {
-        id: true,
-        name: true,
-        profilePhoto: true,
-        isPrivate: true,
-      } as any, // bypass TS
-    });
-
+    const existingUser = await prisma.user.findUnique({ where: { id: followingId } });
     if (!existingUser) throw new Error("User not found");
 
-    const alreadyFollowing = await this.prisma.follow.findUnique({
+    const alreadyFollowing = await prisma.follow.findUnique({
       where: { followerId_followingId: { followerId, followingId } },
     });
+    if (alreadyFollowing) throw new Error("Already following");
 
-    if (alreadyFollowing) throw new Error("Already following this user");
-
-    const follow = await this.prisma.follow.create({
+    return prisma.follow.create({
       data: {
         followerId,
         followingId,
         status: existingUser.isPrivate ? "pending" : "accepted",
-      } as any, // bypass TS
-      select: {
-        id: true,
-        followerId: true,
-        followingId: true,
-        status: true,
-      } as any,
+      },
     });
-
-    return follow;
   }
 
-  // Unfollow a user
   async unfollowUser(followerId: string, followingId: string) {
-    await this.prisma.follow.delete({
+    await prisma.follow.delete({
       where: { followerId_followingId: { followerId, followingId } },
     });
   }
 
-  // Get followers
   async getFollowers(userId: string, limit = 20, offset = 0) {
-    return this.prisma.follow.findMany({
-      where: { followingId: userId },
+    return prisma.follow.findMany({
+      where: { followingId: userId, status: "accepted" },
       skip: offset,
       take: limit,
-      include: {
-        follower: {
-          select: {
-            id: true,
-            name: true,
-            profilePhoto: true,
-            isPrivate: true,
-          } as any,
-        },
-      },
+      include: { follower: { select: { id: true, name: true, profilePhoto: true } } },
     });
   }
 
-  // Get following
   async getFollowing(userId: string, limit = 20, offset = 0) {
-    return this.prisma.follow.findMany({
-      where: { followerId: userId },
+    return prisma.follow.findMany({
+      where: { followerId: userId, status: "accepted" },
       skip: offset,
       take: limit,
-      include: {
-        following: {
-          select: {
-            id: true,
-            name: true,
-            profilePhoto: true,
-            isPrivate: true,
-          } as any,
-        },
-      },
+      include: { following: { select: { id: true, name: true, profilePhoto: true } } },
     });
   }
 
-async getNotifications(userId: string) {
-    return this.prisma.follow.findMany({
-      where: { followingId: userId, status: "pending" } as any,
+  async getFollowRequests(userId: string) {
+    return prisma.follow.findMany({
+      where: { followingId: userId, status: "pending" },
+      include: { follower: { select: { id: true, name: true, profilePhoto: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async acceptFollowRequest(followerId: string, followingId: string) {
+    return prisma.follow.update({
+      where: { followerId_followingId: { followerId, followingId } },
+      data: { status: "accepted" },
+    });
+  }
+
+  async rejectFollowRequest(followerId: string, followingId: string) {
+    return prisma.follow.delete({
+      where: { followerId_followingId: { followerId, followingId } },
+    });
+  }
+
+  // ────────────── NOTIFICATIONS ──────────────
+  async getLikesNotifications(userId: string) {
+    return prisma.like.findMany({
+      where: { post: { userId } },
       include: {
-        follower: {
-          select: {
-            id: true,
-            name: true,
-            profilePhoto: true,
-            isPrivate: true,
-          } as any,
-        },
+        user: { select: { id: true, name: true, profilePhoto: true } },
+        post: { select: { id: true, caption: true } },
       },
       orderBy: { createdAt: "desc" },
     });
   }
 
-async acceptFollowRequest(followerId: string, followingId: string) {
-    return this.prisma.follow.update({
-      where: { followerId_followingId: { followerId, followingId } },
-      data: { status: "accepted" } as any,
-      select: {
-        id: true,
-        followerId: true,
-        followingId: true,
-        status: true,
-      } as any,
+  async getCommentsNotifications(userId: string) {
+    return prisma.comment.findMany({
+      where: { post: { userId } },
+      include: {
+        user: { select: { id: true, name: true, profilePhoto: true } },
+        post: { select: { id: true, caption: true } },
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 
-  async rejectFollowRequest(followerId: string, followingId: string) {
-    return this.prisma.follow.delete({
-      where: { followerId_followingId: { followerId, followingId } },
-      select: {
-        id: true,
-        followerId: true,
-        followingId: true,
-      } as any,
-    });
+  async getNotifications(userId: string): Promise<NotificationAPIItem[]> {
+    const [followRequests, likes, comments] = await Promise.all([
+      this.getFollowRequests(userId),
+      this.getLikesNotifications(userId),
+      this.getCommentsNotifications(userId),
+    ]);
+
+    const mapped: NotificationAPIItem[] = [
+      ...likes.map((l) => ({
+        id: l.id,
+        type: "like" as const,
+        fromUser: {
+          id: l.user.id,
+          name: l.user.name,
+          profilePhoto: l.user.profilePhoto,
+        },
+        postId: l.postId,
+        postContent: l.post?.caption ?? null,
+        createdAt: l.createdAt.toISOString(),
+      })),
+      ...comments.map((c) => ({
+        id: c.id,
+        type: "comment" as const,
+        fromUser: {
+          id: c.user.id,
+          name: c.user.name,
+          profilePhoto: c.user.profilePhoto,
+        },
+        postId: c.postId,
+        postContent: c.post?.caption ?? null,
+        createdAt: c.createdAt.toISOString(),
+      })),
+      ...followRequests.map((f) => ({
+        id: f.id,
+        type: "follow" as const,
+        fromUser: {
+          id: f.follower.id,
+          name: f.follower.name,
+          profilePhoto: f.follower.profilePhoto,
+        },
+        postId: null,
+        postContent: null,
+        createdAt: f.createdAt.toISOString(),
+      })),
+    ];
+
+    return mapped.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  // ────────────── SEARCH ──────────────
+  async searchUsers(currentUserId: string, q: string, limit = 20, offset = 0) {
+    if (!q.trim()) return [];
 
-  async searchUsers(
-    currentUserId: string,
-    q: string,
-    limit = 20,
-    offset = 0
-  ) {
-    if (!q || !q.trim()) return [];
-
-    const users = await this.prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where: {
         AND: [
-          { id: { not: currentUserId } }, // exclude self
+          { id: { not: currentUserId } },
           {
             OR: [
-              { name: { contains: q, mode: 'insensitive' } },
-              { email: { contains: q, mode: 'insensitive' } },
-              { location: { contains: q, mode: 'insensitive' } },
+              { name: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+              { location: { contains: q, mode: "insensitive" } },
             ],
           },
         ],
@@ -370,20 +345,15 @@ async acceptFollowRequest(followerId: string, followingId: string) {
         name: true,
         profilePhoto: true,
         location: true,
-        // Is the current user already following this user?
-        followers: {
-          where: { followerId: currentUserId }, // relation "Followers": followingId -> this user
-          select: { id: true },
-        },
-        // (Optional) quick social proof if you want to show counts
+        followers: { where: { followerId: currentUserId }, select: { id: true } },
         _count: { select: { followers: true, following: true } },
       },
-      take: Number(limit),
-      skip: Number(offset),
-      orderBy: { name: 'asc' },
+      skip: offset,
+      take: limit,
+      orderBy: { name: "asc" },
     });
 
-    return users.map(u => ({
+    return users.map((u) => ({
       id: u.id,
       name: u.name,
       profilePhoto: u.profilePhoto,
@@ -393,8 +363,6 @@ async acceptFollowRequest(followerId: string, followingId: string) {
       followingCount: u._count.following,
     }));
   }
-
-
 }
 
 export default new SocialService();
