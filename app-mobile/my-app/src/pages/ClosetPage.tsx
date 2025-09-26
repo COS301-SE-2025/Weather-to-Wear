@@ -1,5 +1,5 @@
 // src/pages/ClosetPage.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
@@ -8,10 +8,14 @@ import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { fetchAllEvents } from '../services/eventsApi';
 import { getPackingList } from '../services/packingApi';
+import TryOnViewer from "../components/tryon/TryOnViewer";
+import { getTryOnPhoto, setTryOnPhotoBase64, runTryOnSelf, getTryOnCredits, getTryOnResult } from '../services/tryonApi';
 
 import EditOutfitModal from "../components/EditOutfitModal";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+
+import "../styles/ClosetPage.css";
 
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
@@ -35,31 +39,35 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
     { value: 'TSHIRT', label: 'T-shirt' },
     { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+    { value: 'SLEEVELESS', label: 'Sleeveless' },
   ],
   base_bottom: [
     { value: 'PANTS', label: 'Pants' },
     { value: 'JEANS', label: 'Jeans' },
     { value: 'SHORTS', label: 'Shorts' },
+    { value: 'SKIRT', label: 'Skirt' },
   ],
   mid_top: [
     { value: 'SWEATER', label: 'Sweater' },
     { value: 'HOODIE', label: 'Hoodie' },
   ],
   outerwear: [
+    { value: 'COAT', label: 'Coat' },
+    { value: 'BLAZER', label: 'Blazer' },
     { value: 'JACKET', label: 'Jacket' },
     { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'COAT', label: 'Coat' },
   ],
   footwear: [
     { value: 'SHOES', label: 'Shoes' },
     { value: 'BOOTS', label: 'Boots' },
+    { value: 'SANDALS', label: 'Sandals' },
+    { value: 'HEELS', label: 'Heels' },
   ],
   headwear: [
     { value: 'BEANIE', label: 'Beanie' },
     { value: 'HAT', label: 'Hat' },
-  ],
-  accessory: [
-    { value: 'SCARF', label: 'Scarf' },
-    { value: 'GLOVES', label: 'Gloves' },
   ],
 };
 
@@ -81,6 +89,11 @@ const MATERIAL_OPTIONS = [
   { value: "Leather", label: "Leather" },
   { value: "Nylon", label: "Nylon" },
   { value: "Fleece", label: "Fleece" },
+  { value: "Denim", label: "Denim" },
+  { value: "Linen", label: "Linen" },
+  { value: "Silk", label: "Silk" },
+  { value: "Suede", label: "Suede" },
+  { value: "Fabric", label: "Fabric" },
 ];
 
 const COLOR_PALETTE = [
@@ -97,6 +110,8 @@ const COLOR_PALETTE = [
   { hex: "#000000", label: "Black" },
   { hex: "#FFFDD0", label: "Cream" },
 ];
+
+
 
 type Item = {
   id: string;
@@ -132,7 +147,6 @@ export default function ClosetPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; tab: TabType; name: string } | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [showEditSuccess, setShowEditSuccess] = useState(false);
 
@@ -152,12 +166,42 @@ export default function ClosetPage() {
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
+  // Try-On (Mannequin)
+  const [showTryOnModal, setShowTryOnModal] = useState(false); // New state for separate try-on modal
+  const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
+
+  // Try-On (Yourself) modal & state
+  const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
+  const [selfTryOnOutfit, setSelfTryOnOutfit] = useState<UIOutfit | null>(null);
+
+  // Stored / selected photo
+  const [storedTryOnPhoto, setStoredTryOnPhoto] = useState<string | null>(null);
+  const [selfPhotoPreview, setSelfPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Generation
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState('Waiting…');
+  const [stepImages, setStepImages] = useState<string[]>([]);
+  const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  const progressTimer = useRef<number | null>(null);
+
+  // show credits
+  const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
+
+  const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
+  const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
+  const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
+
   // Global popup (Success/Error)
   const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
     open: false,
     message: '',
     variant: 'success',
   });
+
+  const prettyDate = (s?: string) => (s ? new Date(s).toLocaleString() : "—");
 
   const showPopup = (message: string, variant: 'success' | 'error' = 'success') =>
     setPopup({ open: true, message, variant });
@@ -192,7 +236,7 @@ export default function ClosetPage() {
     };
 
     fetchItemsOnce();
-  }, [justFinished, queueLength]); // include queueLength to satisfy lint
+  }, [justFinished, queueLength]);
 
   // Fetch saved outfits
   useEffect(() => {
@@ -212,14 +256,13 @@ export default function ClosetPage() {
   }, []);
 
   useEffect(() => {
-    if (showModal || showEditModal || previewImage) {
+    if (showModal || showEditModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-  }, [showModal, showEditModal, previewImage]);
+  }, [showModal, showEditModal]);
 
-  // Rename handler to avoid name clash with imported api function
   const onToggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
     if (originTab === 'items') {
       try {
@@ -268,7 +311,7 @@ export default function ClosetPage() {
         try {
           const body = await (res as any).json?.();
           errMsg += ` — ${JSON.stringify(body)}`;
-        } catch {}
+        } catch { }
         throw new Error(errMsg);
       }
 
@@ -292,13 +335,13 @@ export default function ClosetPage() {
           prev.map(o =>
             o.id === updated.id
               ? {
-                  ...o,
-                  category: updated.category,
-                  colorHex: updated.colorHex,
-                  warmthRating: updated.warmthFactor,
-                  waterproof: updated.waterproof,
-                  overallStyle: updated.style,
-                }
+                ...o,
+                category: updated.category,
+                colorHex: updated.colorHex,
+                warmthRating: updated.warmthFactor,
+                waterproof: updated.waterproof,
+                overallStyle: updated.style,
+              }
               : o
           )
         );
@@ -317,15 +360,13 @@ export default function ClosetPage() {
     setShowModal(true);
   };
 
-  // --- Quick guards (fast UX) ---
   const isItemInAnyOutfit = (closetItemId: string) =>
     outfits.some(o => o.outfitItems?.some(it => String(it.closetItemId) === String(closetItemId)));
 
-  // Best-effort quick check for packing lists (parallel, early exit)
   const isItemPackedAnywhere = async (closetItemId: string): Promise<boolean> => {
     try {
       const events = await fetchAllEvents();
-      const subset = events.slice(0, 12); // keep it light
+      const subset = events.slice(0, 12); 
       const checks = subset.map(async ev => {
         try {
           const list = await getPackingList(ev.id).catch(() => null);
@@ -347,7 +388,7 @@ export default function ClosetPage() {
 
   const confirmRemove = async () => {
     if (!itemToRemove) return;
-    const { id, tab } = itemToRemove; // removed unused `name`
+    const { id, tab } = itemToRemove;
 
     try {
       if (tab === 'outfits') {
@@ -357,7 +398,6 @@ export default function ClosetPage() {
         return;
       }
 
-      // From here: deleting a closet item
       if (isItemInAnyOutfit(id)) {
         showPopup('You can’t delete this item because it’s part of one or more outfits. Remove it from those outfits first.', 'error');
         return;
@@ -392,8 +432,8 @@ export default function ClosetPage() {
         /outfit/i.test(raw)
           ? 'You can’t delete this item because it’s part of an outfit. Remove it from the outfit first.'
           : /pack/i.test(raw)
-          ? 'You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.'
-          : 'Delete failed. Try again.';
+            ? 'You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.'
+            : 'Delete failed. Try again.';
       showPopup(friendly, 'error');
     } finally {
       setShowModal(false);
@@ -411,8 +451,8 @@ export default function ClosetPage() {
       activeTab === 'items'
         ? items
         : activeTab === 'favourites'
-        ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
-        : outfits;
+          ? [...items.filter(i => i.favourite), ...outfits.filter(o => o.favourite)]
+          : outfits;
 
     if (activeCategory) {
       data = data.filter(i => i.category === activeCategory);
@@ -427,33 +467,205 @@ export default function ClosetPage() {
     return data;
   }
 
+
+
+  // -------------------------- 
+  //  Virtual Try on Yourself 
+  // --------------------------
+
+  function resolveImgSrc(u?: string): string {
+    if (!u) return '';
+    if (u.startsWith('data:') || u.startsWith('http://') || u.startsWith('https://')) return u;
+    return absolutize(u, API_BASE);
+  }
+
+  async function resizeToDataUrl(file: File, maxW = 1280, maxH = 1280): Promise<string> {
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(file);
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = rej;
+      img.src = url;
+    });
+
+    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    URL.revokeObjectURL(url);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function openSelfTryOn(outfit: UIOutfit) {
+    setSelfTryOnOutfit(outfit);
+    setShowSelfTryOnModal(true);
+    setFinalImageUrl(null);
+    setStepImages([]);
+    setProgress(0);
+    setProgressLabel('Checking your try-on photo…');
+
+    try {
+      const [photoRes, creditRes] = await Promise.allSettled([getTryOnPhoto(), getTryOnCredits()]);
+      if (photoRes.status === 'fulfilled') {
+        setStoredTryOnPhoto(photoRes.value?.tryOnPhoto ?? null);
+        setSelfPhotoPreview(photoRes.value?.tryOnPhoto ?? null);
+      }
+      if (creditRes.status === 'fulfilled') setCredits(creditRes.value);
+    } catch {
+      // non-blocking
+    } finally {
+      setProgressLabel('Ready');
+    }
+  }
+
+  function closeSelfTryOn() {
+    setShowSelfTryOnModal(false);
+    setSelfTryOnOutfit(null);
+    setSelfPhotoPreview(null);
+    setIsUploadingPhoto(false);
+    setIsGenerating(false);
+    setProgress(0);
+    setProgressLabel('Waiting…');
+    setFinalImageUrl(null);
+    setStepImages([]);
+    if (progressTimer.current) {
+      window.clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+  }
+
+  async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    // const b64 = await fileToBase64(f);
+    const b64 = await resizeToDataUrl(f, 1280, 1280); // smaller and faster than raw
+    setSelfPhotoPreview(b64);
+  }
+
+  async function saveTryOnPhoto() {
+    if (!selfPhotoPreview) return;
+    setIsUploadingPhoto(true);
+    try {
+      const res = await setTryOnPhotoBase64(selfPhotoPreview);
+      setStoredTryOnPhoto(res.tryOnPhoto || null);
+      setProgressLabel('Saved your try-on photo');
+      showPopup('Try-on photo saved.', 'success');
+    } catch (err) {
+      console.error(err);
+      showPopup('Failed to save try-on photo.', 'error');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  function startFakeProgress(maxBeforeFinish = 85) {
+    if (progressTimer.current) window.clearInterval(progressTimer.current);
+    setProgress(5);
+    progressTimer.current = window.setInterval(() => {
+      setProgress(p => {
+        const next = p + Math.random() * 4 + 1;
+        return next >= maxBeforeFinish ? maxBeforeFinish : next;
+      });
+    }, 500) as unknown as number;
+  }
+
+  async function startGeneration() {
+    if (!selfTryOnOutfit) return;
+    if (!storedTryOnPhoto) {
+      showPopup('Please upload and save a full-body photo first.', 'error');
+      return;
+    }
+
+    const closetItemIds = selfTryOnOutfit.outfitItems.map(it => it.closetItemId);
+
+    setIsGenerating(true);
+    setProgressLabel('Generating outfit…');
+    startFakeProgress(88);
+
+    try {
+      const res = await runTryOnSelf({
+        outfitId: selfTryOnOutfit?.id,
+        useTryOnPhoto: true,
+        closetItemIds,
+        mode: 'balanced',
+        returnBase64: false,
+      });
+
+      // Stop fake progress, finish to 100 after a short delay
+      if (progressTimer.current) {
+        window.clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+      setStepImages(res.stepOutputs || []);
+      setProgressLabel('Finalizing…');
+      setProgress(97);
+
+      const url = res.finalUrl || (res.finalBase64 ? res.finalBase64 : null);
+      setFinalImageUrl(url);
+      setTimeout(() => setProgress(100), 400);
+      setProgressLabel('Done');
+    } catch (err: any) {
+      console.error(err);
+      showPopup(err?.message || 'Try-on failed.', 'error');
+      setProgressLabel('Failed');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function openSelfTryOnOrPreview(outfit: UIOutfit) {
+    try {
+      const hit = await getTryOnResult(outfit.id);
+      if (hit?.finalImageUrl) {
+        setSelfPreviewUrl(hit.finalImageUrl);
+        setSelfPreviewDate(new Date(hit.createdAt).toLocaleString());
+        setSelfTryOnOutfit(outfit);
+        setShowSelfPreviewModal(true);
+        return;
+      }
+    } catch {
+      // ignore and fall through
+    }
+    await openSelfTryOn(outfit);
+  }
+
   return (
-    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4 -mt-16">
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
       {/* Header Image Section */}
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
-        style={{
-          backgroundImage: `url(/header.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-1rem'
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-bodoni font-light text-center text-white"
-            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
-          >
-            MY CLOSET
-          </h1>
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/header.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              MY CLOSET
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      <div className="max-w-screen-sm mx-auto px-4 pb-12">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl pb-12">
         {/* Filters & Search */}
         <div className="flex flex-wrap justify-center gap-4 my-4">
           <select
@@ -478,7 +690,7 @@ export default function ClosetPage() {
             className="px-4 py-2 border border-black text-black rounded-full disabled:opacity-50"
           >
             <option value="">All Categories</option>
-            { (CATEGORY_BY_LAYER[layerFilter] || []).map(opt => (
+            {(CATEGORY_BY_LAYER[layerFilter] || []).map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -533,7 +745,7 @@ export default function ClosetPage() {
 
             {favView === 'items' ? (
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {items.filter(i => i.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
                   ) : (
@@ -546,6 +758,7 @@ export default function ClosetPage() {
                               alt={entry.name}
                               onClick={() => setActiveDetailsItem(entry)}
                               className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+
                             />
                             <button
                               onClick={() => {
@@ -584,14 +797,20 @@ export default function ClosetPage() {
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {outfits.filter(o => o.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
                     outfits.filter(o => o.favourite).map(entry => (
                       <div
                         key={entry.id}
-                        className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                        className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                         onClick={() => setActiveDetailsOutfit(entry)}
                       >
                         <button
@@ -610,7 +829,7 @@ export default function ClosetPage() {
                                   key={it.closetItemId}
                                   src={absolutize(it.imageUrl, API_BASE)}
                                   alt=""
-                                  className="w-16 h-16 object-contain rounded"
+                                  className="w-8 h-8 object-contain rounded"
                                 />
                               ))}
                           </div>
@@ -676,12 +895,12 @@ export default function ClosetPage() {
           </div>
         ) : (
           // NORMAL GRID FOR ITEMS / OUTFITS TAB
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
                 return (
                   <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                    <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                    <div className="hover:shadow-2xl hover:shadow-black/20 bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
                       <div className="flex-grow relative">
                         <img
                           src={entry.image}
@@ -718,7 +937,7 @@ export default function ClosetPage() {
                         <button onClick={() => onToggleFavourite(entry, 'items')}>
                           <Heart
                             className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                           />
+                          />
                         </button>
                       </div>
                     </div>
@@ -728,7 +947,13 @@ export default function ClosetPage() {
                 return (
                   <div
                     key={entry.id}
-                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                     onClick={() => setActiveDetailsOutfit(entry)}
                   >
                     <button
@@ -751,7 +976,7 @@ export default function ClosetPage() {
                               key={it.closetItemId}
                               src={absolutize(it.imageUrl, API_BASE)}
                               alt=""
-                              className="w-16 h-16 object-contain rounded"
+                              className="w-8 h-8 object-contain rounded"
                             />
                           ))}
                       </div>
@@ -771,7 +996,7 @@ export default function ClosetPage() {
                       {/* bottoms */}
                       <div className="flex justify-center space-x-1">
                         {entry.outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
+                          .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                           .map(it => (
                             <img
                               key={it.closetItemId}
@@ -816,6 +1041,7 @@ export default function ClosetPage() {
           </div>
         )}
 
+        {/* Outfit Details Modal (always shows thumbnails, no try-on toggle) */}
         <AnimatePresence>
           {activeDetailsOutfit && (
             <motion.div
@@ -828,12 +1054,12 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl min-w-0 p-8 relative flex flex-col gap-4"
               >
                 {/* Close Button */}
                 <button
                   onClick={() => setActiveDetailsOutfit(null)}
-                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-30"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -849,7 +1075,7 @@ export default function ClosetPage() {
                   />
                 </button>
 
-                {/* Outfit Images */}
+                {/* Static thumbnails */}
                 <div className="flex justify-center mb-2">
                   <div className="space-y-1">
                     {/* headwear + accessory */}
@@ -861,7 +1087,7 @@ export default function ClosetPage() {
                             key={it.closetItemId}
                             src={absolutize(it.imageUrl, API_BASE)}
                             alt=""
-                            className="w-16 h-16 object-contain rounded"
+                            className="w-8 h-8 object-contain rounded"
                           />
                         ))}
                     </div>
@@ -881,7 +1107,7 @@ export default function ClosetPage() {
                     {/* bottoms */}
                     <div className="flex justify-center space-x-1">
                       {activeDetailsOutfit.outfitItems
-                        .filter(it => it.layerCategory === 'base_bottom')
+                        .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                         .map(it => (
                           <img
                             key={it.closetItemId}
@@ -925,8 +1151,34 @@ export default function ClosetPage() {
                   )}
                 </div>
 
-                {/* Actions */}
+                {/* Try On Avatar */}
                 <div className="flex justify-end gap-2 pt-6">
+                  <button
+                    onClick={() => {
+                      if (activeDetailsOutfit) {
+                        setTryOnOutfit(activeDetailsOutfit); 
+                        setShowTryOnModal(true);
+                        setActiveDetailsOutfit(null); 
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+                  >
+                    Try On Avatar
+                  </button>
+
+                  {/*Try On Yourself */}
+                  <button
+                    onClick={() => {
+                      if (!activeDetailsOutfit) return;
+                      // openSelfTryOn(activeDetailsOutfit);
+                      openSelfTryOnOrPreview(activeDetailsOutfit);
+                      setActiveDetailsOutfit(null);
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                  >
+                    Try On Yourself
+                  </button>
+
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
@@ -952,6 +1204,423 @@ export default function ClosetPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Try On Mannequin Modal */}
+        <AnimatePresence>
+          {showTryOnModal && tryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowTryOnModal(false);
+                setTryOnOutfit(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col"
+                style={{
+                  width: 'min(95vw, 1200px)',
+                  height: 'min(95vh, 800px)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setShowTryOnModal(false);
+                    setTryOnOutfit(null);
+                  }}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[101]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Try-On Viewer - SIMPLIFIED CONTAINER */}
+                <div
+                  className="flex-1 relative"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px'
+                  }}
+                >
+                  <TryOnViewer
+                    mannequinUrl="/mannequins/front_v1.png"
+                    poseId="front_v1"
+                    outfitItems={tryOnOutfit.outfitItems.map(it => ({
+                      closetItemId: it.closetItemId,
+                      imageUrl: it.imageUrl,
+                      layerCategory: it.layerCategory as any,
+                    }))}
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Try-On Yourself Modal */}
+        <AnimatePresence>
+          {showSelfTryOnModal && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeSelfTryOn}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col w-[min(95vw,1100px)] h-[min(95vh,820px)]"
+              >
+                {/* Close */}
+                <button
+                  onClick={closeSelfTryOn}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[111]"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header */}
+                <div className="px-5 pt-5">
+                  <h2 className="text-xl font-semibold">Try On Yourself</h2>
+                  <p className="text-sm text-gray-500">
+                    Use your stored full-body photo or upload a new one, then we’ll put this outfit on you.
+                  </p>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-5 overflow-hidden">
+                  {/* Left: Photo selection */}
+                  <div className="border rounded-xl p-4 overflow-auto">
+                    <h3 className="font-medium mb-2">1) Your full-body photo</h3>
+
+                    {selfPhotoPreview ? (
+                      <div className="relative">
+                        <img
+                          src={resolveImgSrc(selfPhotoPreview || '')}
+                          alt="Your try-on photo"
+                          className="w-full max-h-80 object-contain rounded-lg border"
+                        />
+                        <div className="flex gap-2 mt-3">
+                          <label className="px-3 py-1.5 border rounded-full cursor-pointer hover:bg-gray-50">
+                            Replace Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={handlePickPhoto}
+                            />
+                          </label>
+                          <button
+                            disabled={isUploadingPhoto}
+                            onClick={saveTryOnPhoto}
+                            className="px-3 py-1.5 rounded-full bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60"
+                          >
+                            {isUploadingPhoto ? 'Saving…' : 'Save as My Try-On Photo'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-dashed rounded-lg p-6 text-center">
+                        <p className="text-gray-600 mb-3">No photo yet. Upload or take one:</p>
+                        <label className="inline-block px-4 py-2 border rounded-full cursor-pointer hover:bg-gray-50">
+                          Choose Photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handlePickPhoto}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-xs text-gray-500">
+                      Tip: Stand straight, good lighting, no occlusions. Face & shoes visible if possible.
+                    </div>
+
+                    {credits && (
+                      <div className="mt-4 text-sm text-gray-600">
+                        <span className="font-medium">Credits:</span> {credits.total} total
+                        <span className="mx-2">•</span> sub: {credits.subscription}
+                        <span className="mx-2">•</span> on-demand: {credits.on_demand}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Generate & result */}
+                  <div className="border rounded-xl p-4 overflow-auto">
+                    <h3 className="font-medium mb-2">2) Generate</h3>
+
+                    {/* Progress */}
+                    <div className="mb-3">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-600 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{progressLabel}</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={startGeneration}
+                        disabled={!storedTryOnPhoto || isGenerating}
+                        className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 disabled:opacity-60"
+                      >
+                        {isGenerating ? 'Generating…' : 'Try On Outfit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFinalImageUrl(null);
+                          setStepImages([]);
+                          setProgress(0);
+                          setProgressLabel('Ready');
+                        }}
+                        className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+
+                    {/* Result */}
+                    {finalImageUrl ? (
+                      <div className="space-y-3">
+                        <img
+                          src={resolveImgSrc(finalImageUrl)}
+                          alt="Final try-on"
+                          className="w-full max-h-[520px] object-contain rounded-lg border"
+                        />
+                        {stepImages?.length > 1 && (
+                          <div>
+                            <div className="text-sm text-gray-600 mb-1">Construction (step-by-step)</div>
+                            <div className="flex flex-wrap gap-2">
+                              {stepImages.map((s, idx) => (
+                                <img
+                                  key={idx}
+                                  src={resolveImgSrc(s)}
+                                  alt={`Step ${idx + 1}`}
+                                  className="w-24 h-24 object-contain rounded border"
+                                  title={`Step ${idx + 1}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click <span className="font-medium">Try On Outfit</span> to generate your image. We’ll apply the outfit piece by piece and return the final composite.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Last Try-On */}
+        <AnimatePresence>
+          {showSelfPreviewModal && selfPreviewUrl && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[115] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSelfPreviewModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl p-4 w-[min(95vw,900px)]"
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Last Try-On</h3>
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {selfPreviewDate && (
+                  <div className="text-xs text-gray-500 mb-2">Generated: {selfPreviewDate}</div>
+                )}
+
+                <img
+                  src={resolveImgSrc(selfPreviewUrl)}
+                  alt="Cached try-on"
+                  className="w-full max-h-[70vh] object-contain rounded border"
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSelfPreviewModal(false);
+                      openSelfTryOn(selfTryOnOutfit); 
+                    }}
+                    className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
+                  >
+                    Generate Again
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Item Details Modal */}
+        <AnimatePresence>
+          {activeDetailsItem && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl
+            w-[85vw] sm:w-[70vw] max-w-sm p-4 sm:p-5"
+              >
+                {/* close */}
+                <button
+                  onClick={() => setActiveDetailsItem(null)}
+                  className="absolute top-3 right-3 text-gray-700 dark:text-gray-200 hover:text-black bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 rounded-full p-2 z-20"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* favourite (top-left) */}
+                <button
+                  onClick={() => onToggleFavourite(activeDetailsItem, 'items')}
+                  className="absolute top-3 left-3 z-20"
+                  aria-label={activeDetailsItem.favourite ? 'Unfavourite item' : 'Favourite item'}
+                >
+                  <Heart
+                    className={`w-5 h-5 sm:w-6 sm:h-6 transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-300'
+                      }`}
+                  />
+                </button>
+
+                {/* image */}
+                <div className="flex justify-center mb-3">
+                  <img
+                    src={activeDetailsItem.image}
+                    alt={activeDetailsItem.name}
+                    className="max-h-56 sm:max-h-64 object-contain rounded-lg bg-white"
+                  />
+                </div>
+
+                {/* info */}
+                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                  <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div>
+                  <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
+                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div>
+                  <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
+                  <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
+                  <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
+                  <div><span className="font-semibold">Waterproof:</span> {activeDetailsItem.waterproof ? 'Yes' : 'No'}</div>
+                  <div><span className="font-semibold">Added:</span> {prettyDate(activeDetailsItem.createdAt)}</div>
+
+                  {/* colors */}
+                  <div className="pt-1">
+                    <div className="font-semibold mb-1">Colors</div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {/* primary color */}
+                      {activeDetailsItem.colorHex && (
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: activeDetailsItem.colorHex }}
+                            title={activeDetailsItem.colorHex}
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-300">{activeDetailsItem.colorHex}</span>
+                        </div>
+                      )}
+
+                      {/* extracted dominant colors */}
+                      {(activeDetailsItem.dominantColors || []).slice(0, 12).map((hex) => (
+                        <div key={hex} className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: hex }}
+                            title={hex}
+                          />
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">{hex}</span>
+                        </div>
+                      ))}
+
+                      {!activeDetailsItem.colorHex && (!activeDetailsItem.dominantColors || activeDetailsItem.dominantColors.length === 0) && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">No colors detected</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* actions */}
+                <div className="flex justify-end gap-2 pt-5">
+                  <button
+                    onClick={() => {
+                      setItemToEdit({ ...activeDetailsItem, tab: 'items' });
+                      setEditedCategory(activeDetailsItem.category);
+                      setEditedColorHex(activeDetailsItem.colorHex || '');
+                      setEditedWarmthFactor(activeDetailsItem.warmthFactor || 0);
+                      setEditedWaterproof(!!activeDetailsItem.waterproof);
+                      setEditedStyle(activeDetailsItem.style || '');
+                      setEditedMaterial(activeDetailsItem.material || '');
+                      setShowEditModal(true);
+                      setActiveDetailsItem(null);
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setItemToRemove({ id: activeDetailsItem.id, tab: 'items', name: activeDetailsItem.name });
+                      setShowModal(true);
+                      setActiveDetailsItem(null);
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
 
         {/* Remove Confirmation */}
         <AnimatePresence>
@@ -982,20 +1651,6 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
-        {/* Preview Overlay */}
-        <AnimatePresence>
-          {previewImage && (
-            <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
-              <motion.img src={previewImage} alt="" className="max-w-3/4 max-h-3/4 object-contain" />
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="absolute top-4 right-4 text-white bg-gray-800 p-2 rounded-full"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Edit Modal */}
         <AnimatePresence>
@@ -1175,19 +1830,19 @@ export default function ClosetPage() {
                 prev.map(o =>
                   o.id === updated.id
                     ? {
-                        ...o,
-                        overallStyle: updated.overallStyle,
-                        userRating: updated.userRating ?? o.userRating,
-                        outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                          closetItemId: it.closetItemId,
-                          layerCategory: it.layerCategory,
-                          imageUrl:
-                            it.imageUrl && it.imageUrl.length > 0
-                              ? it.imageUrl
-                              : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
-                          category: it?.closetItem?.category ?? it.category,
-                        })),
-                      }
+                      ...o,
+                      overallStyle: updated.overallStyle,
+                      userRating: updated.userRating ?? o.userRating,
+                      outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                        closetItemId: it.closetItemId,
+                        layerCategory: it.layerCategory,
+                        imageUrl:
+                          it.imageUrl && it.imageUrl.length > 0
+                            ? it.imageUrl
+                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
+                        category: it?.closetItem?.category ?? it.category,
+                      })),
+                    }
                     : o
                 )
               );

@@ -50,6 +50,7 @@ export async function createPost(data: {
   location?: string;
   weather?: any;
   closetItemId?: string;
+  closetItemIds?: string[];
 }) {
   const formData = new FormData();
   if (data.image) formData.append("image", data.image);
@@ -57,6 +58,9 @@ export async function createPost(data: {
   if (data.location) formData.append("location", data.location);
   if (data.weather) formData.append("weather", JSON.stringify(data.weather));
   if (data.closetItemId) formData.append("closetItemId", data.closetItemId);
+  if (data.closetItemIds && data.closetItemIds.length > 0) {
+    formData.append("closetItemIds", JSON.stringify(data.closetItemIds));
+  }
 
   const response = await fetchWithAuth(`${API_URL}/posts`, {
     method: "POST",
@@ -335,4 +339,44 @@ export async function searchUsers(q: string, limit = 10, offset = 0) {
   }
   // { message, results: [...], pagination: {...} }
   return response.json();
+}
+
+export async function editPost(postId: string, data: {
+  caption?: string;
+  imageUrl?: string;
+  location?: string;
+  weather?: any;
+  closetItemId?: string;
+}) {
+  const formData = new FormData();
+  if (data.caption) formData.append("caption", data.caption);
+  if (data.imageUrl) formData.append("imageUrl", data.imageUrl);
+  if (data.location) formData.append("location", data.location);
+  if (data.weather) formData.append("weather", JSON.stringify(data.weather));
+  if (data.closetItemId) formData.append("closetItemId", data.closetItemId);
+
+  const response = await fetchWithAuth(`${API_URL}/posts/${postId}`, {
+    method: "PATCH",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to edit post");
+  }
+
+  return response.json(); // Returns { message: 'Post updated successfully', post: {...} }
+}
+
+export async function deletePost(postId: string) {
+  const response = await fetchWithAuth(`${API_URL}/posts/${postId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to delete post");
+  }
+
+  return response.json(); // Returns { message: 'Post deleted successfully' }
 }

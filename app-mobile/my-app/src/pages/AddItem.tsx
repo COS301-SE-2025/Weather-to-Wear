@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/AddItem.css";
 import { useImage } from "../components/ImageContext"; 
+import Toast from '../components/Toast';
 
 const AddItem = () => {
   const { image: uploadedImage } = useImage(); 
@@ -19,6 +20,7 @@ const AddItem = () => {
   const [selectedWeather, setSelectedWeather] = useState<string[]>([]);
   const [selectedSeasons, setSelectedSeasons] = useState<string[]>([]);
   const [showPopup, setShowPopup] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const navigate = useNavigate();
 
   const handleMultiSelect = (
@@ -52,6 +54,7 @@ const AddItem = () => {
       return;
     }
     setShowPopup(true);
+    setShowSuccessPopup(true);
     setTimeout(() => {
       setShowPopup(false);
       navigate("/dashboard");
@@ -179,11 +182,13 @@ const AddItem = () => {
         </div>
       </div>
 
-      {showPopup && (
+      {/* {showPopup && (
         <div className="popup-overlay">
           <div className="popup-content">Item successfully added to the closet</div>
         </div>
-      )}
+      )} */}
+            {showSuccessPopup && <Toast message="Preferences updated successfully!" />}
+      
     </div>
   );
 };

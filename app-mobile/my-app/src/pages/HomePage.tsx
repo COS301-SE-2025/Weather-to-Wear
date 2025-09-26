@@ -1,13 +1,14 @@
 // src/pages/HomePage.tsx
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import axios from 'axios';
-import { Plus, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import Footer from '../components/Footer';
 import WeatherDisplay from '../components/WeatherDisplay';
 import HourlyForecast from '../components/HourlyForecast';
 import StarRating from '../components/StarRating';
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+import { motion } from 'framer-motion';
 
 import {
   fetchRecommendedOutfits,
@@ -29,10 +30,50 @@ import { useWeatherQuery, type WeatherData, type WeatherSummary } from '../hooks
 import { useOutfitsQuery } from '../hooks/useOutfitsQuery';
 import { queryClient } from '../queryClient';
 import { useQuery } from '@tanstack/react-query';
+import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
+import { formatMonthDay } from '../utils/date';
 
 // ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
+}
+
+// Map style → image in /public/events/*.jpg (e.g. /events/business.jpg)
+function eventImageFor(style?: string) {
+  const slug = (style || 'other').toLowerCase();
+  // put images in public/events/<slug>.jpg
+  return `${slug}.jpg`;
+}
+
+function formatDateOnly(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTimeAmPm(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); // 3:05 PM
+}
+
+
+// put this near the top of HomePage.tsx (or in a utils file)
+const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
+
+function normalizeIcon(raw?: string) {
+  if (!raw) return '';
+  const s = raw.trim();
+
+  // already correct
+  if (s.startsWith('https://') || s.startsWith('http://')) return s;
+
+  // common typos / schemeless forms
+  if (s.startsWith('https//')) return 'https://' + s.slice('https//'.length);
+  if (s.startsWith('http//')) return 'http://' + s.slice('http//'.length);
+  if (s.startsWith('//')) return 'https:' + s;
+
+  // basmilius filename only (e.g. "partly-cloudy-day")
+  if (!s.includes('/')) return `${WI_BASE}/${s}.svg`;
+
+  // path without scheme (e.g. "basmilius.github.io/weather-icons/…")
+  return `https://${s.replace(/^\/+/, '')}`;
 }
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
@@ -69,14 +110,39 @@ function toEvent(dto: EventDto): Event {
   };
 }
 
+function parseHourTS(s: string) {
+  return new Date(s.includes('T') ? s : s.replace(' ', 'T'));
+}
+
+// --- Weather icon mapping ---
+function iconFor(conditionRaw: string | undefined) {
+  const c = (conditionRaw || '').toLowerCase();
+  if (!c) return '🌤️';
+  if (c.includes('thunder') || c.includes('storm')) return '⛈️';
+  if (c.includes('snow') || c.includes('sleet')) return '❄️';
+  if (c.includes('rain') || c.includes('drizzle') || c.includes('shower')) return '🌧️';
+  if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return '🌫️';
+  if (c.includes('cloud') || c.includes('overcast')) return '☁️';
+  if (c.includes('wind')) return '🌬️';
+  // clear/sunny fallback
+  return '☀️';
+}
+
 const TypingSlogan = () => {
-  const slogan = 'Style Made Simple.';
+  const slogan = 'Style Made\nSimple.';
   const tealWord = 'Simple.';
-  const tealStart = slogan.indexOf(tealWord);
+  const newlineIndex = slogan.indexOf('\n');
 
   const [displayText, setDisplayText] = useState('');
   const [index, setIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.add('home-fullbleed');
+    return () => {
+      document.body.classList.remove('home-fullbleed');
+    };
+  }, []);
 
   useEffect(() => {
     const handleTyping = () => {
@@ -93,28 +159,85 @@ const TypingSlogan = () => {
       }
     };
     const speed = isDeleting ? 60 : 120;
-    const timer = setTimeout(handleTyping, speed);
-    return () => clearTimeout(timer);
+    const t = setTimeout(handleTyping, speed);
+    return () => clearTimeout(t);
   }, [index, isDeleting, slogan]);
 
-  const beforeTeal = displayText.slice(0, Math.min(tealStart, displayText.length));
-  const tealVisibleLength =
-    displayText.length > tealStart ? Math.min(displayText.length - tealStart, tealWord.length) : 0;
-  const tealPart = tealWord.slice(0, tealVisibleLength);
+  const firstLine = displayText.slice(
+    0,
+    Math.min(displayText.length, newlineIndex === -1 ? displayText.length : newlineIndex)
+  );
+  const secondTyped = displayText.length > newlineIndex ? displayText.slice(newlineIndex + 1) : '';
+  const tealPart = tealWord.slice(0, Math.min(secondTyped.length, tealWord.length));
 
   return (
-    <h2 className="text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide text-center lg:text-left w-full">
-
-      {beforeTeal}
-      <span className="text-[#3F978F]">{tealPart}</span>
-      <span className="animate-pulse">|</span>
+    <h2
+      className="
+        text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 font-bodoni tracking-wide
+        text-center lg:text-left
+        whitespace-normal lg:whitespace-nowrap leading-tight overflow-hidden
+        min-h-[7rem] lg:min-h-[9rem]
+        lg:self-start lg:mr-auto lg:w-auto
+      "
+    >
+      <span>{firstLine}</span>
+      {displayText.length > newlineIndex && (
+        <>
+          <br />
+          <span className="text-[#3F978F]">{tealPart}</span>
+        </>
+      )}
+      <span className="inline-block w-[0.6ch] align-baseline animate-pulse">|</span>
     </h2>
   );
 };
 
+// ---------------- Temp range bar (single definition) ----------------
+const THEME = {
+  coldHue: 185, // teal-ish, near #3F978F
+  hotHue: 18,   // warm rust/orange
+  sat: 58,
+  light: 38,
+};
+
+function TempRangeBar({
+  min, max, weekMin, weekMax,
+}: { min: number; max: number; weekMin: number; weekMax: number }) {
+  const span = Math.max(1, weekMax - weekMin);
+  const left = ((min - weekMin) / span) * 100;
+  const width = Math.max(4, ((max - min) / span) * 100);
+
+  const tempColor = (t: number) => {
+    const lo = Math.min(weekMin, weekMax);
+    const hi = Math.max(weekMin, weekMax);
+    const clamped = Math.max(lo, Math.min(hi, t));
+    const r = hi === lo ? 0.5 : (clamped - lo) / (hi - lo);
+    const hue = THEME.coldHue + (THEME.hotHue - THEME.coldHue) * r;
+    return `hsl(${Math.round(hue)}, ${THEME.sat}%, ${THEME.light}%)`;
+  };
+
+  const c1 = tempColor(min);
+  const c2 = tempColor(max);
+
+  return (
+    <div className="relative w-40 sm:w-48 md:w-56 h-0.5">
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full opacity-90"
+        style={{
+          left: `${left}%`,
+          width: `${width}%`,
+          background: `linear-gradient(to right, ${c1}, ${c2})`,
+        }}
+      />
+    </div>
+  );
+}
+
 // ---------- HomePage ----------
 export default function HomePage() {
-  // Persist user-selected city as a small piece of UI state (not part of query cache)
+  const submittingRef = useRef(false);
+
+  // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
@@ -147,18 +270,97 @@ export default function HomePage() {
     style: '',
   });
 
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
+
   // ---------- Weather (React Query) ----------
   const weatherQuery = useWeatherQuery(city);
   const weather: WeatherData | null = weatherQuery.data ?? null;
   const loadingWeather = weatherQuery.isLoading || weatherQuery.isFetching;
 
-  // ---------- Outfits (React Query) ----------
-  const outfitsQuery = useOutfitsQuery(weather?.summary, selectedStyle);
-  // const outfits = outfitsQuery.data ?? [];
+  const locationLabel = (city?.trim() || weather?.location || '').trim();
+
+  // seed location if server returns one
+  useEffect(() => {
+    if (!city && weather?.location) {
+      setCity(weather.location);
+      localStorage.setItem('selectedCity', weather.location);
+    }
+  }, [city, weather?.location]);
+
+  const weekQuery = useQuery({
+    queryKey: ['weather-week', locationLabel || 'pending'],
+    enabled: Boolean(locationLabel),
+    queryFn: async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
+          params: { location: locationLabel, t: Date.now() },
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        return data as { forecast: H[]; location: string; summary: any; source: string };
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          return {
+            forecast: [],
+            location: locationLabel,
+            summary: { avgTemp: 0, minTemp: 0, maxTemp: 0, willRain: false, mainCondition: 'unknown' },
+            source: 'openMeteo',
+          };
+        }
+        console.error('week error', err?.response?.status, err?.response?.data);
+        throw err;
+      }
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const week = weekQuery.data;
+  const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
+  const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
+
+  // default selected date = first available day
+  useEffect(() => {
+    if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
+  }, [dayKeys, selectedDate]);
+
+  const selectedDayHoursRaw: H[] = useMemo(() => {
+    if (!selectedDate || !weekByDay[selectedDate]) return [];
+    const hours = weekByDay[selectedDate];
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    if (selectedDate === todayKey) {
+      const now = new Date();
+      return hours.filter(h => parseHourTS(h.time) >= now);
+    }
+    return hours;
+  }, [selectedDate, weekByDay]);
+
+  // strictly 8 items:
+  // - today: next 8 from "now"
+  // - other days: start at 05:00
+  const selectedDayHoursForDisplay: H[] = useMemo(() => {
+    if (!selectedDate) return [];
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    if (selectedDate === todayKey) {
+      return selectedDayHoursRaw.slice(0, 8);
+    }
+    const fromFiveAM = selectedDayHoursRaw.filter(h => parseHourTS(h.time).getHours() >= 5);
+    return fromFiveAM.slice(0, 8);
+  }, [selectedDate, selectedDayHoursRaw]);
+
+  const selectedDaySummary = useMemo(
+    () => (selectedDayHoursRaw.length ? summarizeDay(selectedDayHoursRaw) : null),
+    [selectedDayHoursRaw]
+  );
+
+
+  // Outfits (React Query)
+  const summaryForOutfits = selectedDaySummary || weather?.summary || null;
+  const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
   const outfits: RecommendedOutfit[] = outfitsQuery.data ?? ([] as RecommendedOutfit[]);
   const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
 
-  // One combined error message (optional)
   const error =
     (weatherQuery.isError && 'Failed to fetch weather data.') ||
     (outfitsQuery.isError && 'Could not load outfit recommendations.') ||
@@ -167,20 +369,30 @@ export default function HomePage() {
   // ---------- City enter/refresh handlers ----------
   const handleEnterCity = () => {
     const next = cityInput.trim();
+    if (submittingRef.current) return;       // guard: ignore re-entrancy
+    submittingRef.current = true;
+    // ignore no-op searches
+    if (!next || next === city) {
+      submittingRef.current = false;
+      return;
+    }
     setCity(next);
     localStorage.setItem('selectedCity', next);
     setCityInput('');
-    // Explicitly refresh both queries for the new city
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
+    setSelectedDate(null);
+    // release the guard on next tick (after state flush)
+    queueMicrotask(() => { submittingRef.current = false; });
   };
 
   const handleRefresh = () => {
-    // Manual refresh only (no auto refetch on navigation)
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
   };
-      
+
   const handleCreateEvent = async () => {
     if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
       alert('Please fill in name, style, and both dates.');
@@ -203,9 +415,9 @@ export default function HomePage() {
       const msg = err?.response?.data?.message || 'Failed to create event';
       alert(msg);
     }
-   };
+  };
 
-  // ---------- Boot-up effects (unchanged-ish) ----------
+  // ---------- Boot-up effects ----------
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
@@ -223,8 +435,13 @@ export default function HomePage() {
       .catch(err => console.error('Error loading events on mount:', err));
   }, []);
 
+  const prevIndex = outfits.length ? (currentIndex - 1 + outfits.length) % outfits.length : 0;
+  const nextIndex = outfits.length ? (currentIndex + 1) % outfits.length : 0;
+
+  const slideTo = (dir: -1 | 1) =>
+    setCurrentIndex(i => (i + dir + outfits.length) % outfits.length);
+
   // ---------- Event modal: outfit recommendation with caching ----------
-  // Build the "today" summary from selectedEvent.weather if available
   const selectedEventTodaySummary: WeatherSummary | undefined = useMemo(() => {
     if (!selectedEvent?.weather) return undefined;
     try {
@@ -275,7 +492,7 @@ export default function HomePage() {
   const detailLoading = eventOutfitQuery.isLoading || eventOutfitQuery.isFetching;
   const detailError = eventOutfitQuery.isError ? 'Could not load outfit recommendation.' : null;
 
-  // Keep edit form in sync when event changes
+  // pre-warm recommendations for near events
   useEffect(() => {
     const isWithin3Days = (d: Date) => {
       const now = new Date();
@@ -320,7 +537,6 @@ export default function HomePage() {
     const outfit = outfits[currentIndex];
     if (!outfit) return;
 
-
     const key = getOutfitKey(outfit);
     setSaving(true);
     try {
@@ -354,332 +570,734 @@ export default function HomePage() {
     }
   };
 
-  // ---------- Render ----------
-  return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out">
-      {/* Hero Background */}
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
-        style={{
-          backgroundImage: `url(/background.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-4rem',
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1 className="text-2xl font-bodoni font-light text-center text-white">
-            {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
-          </h1>
-        </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-      </div>
+  // global bounds for scaling the thin min→max bar
+  const { weekMin, weekMax } = useMemo(() => {
+    let mn = Infinity, mx = -Infinity;
+    for (const d of Object.keys(weekByDay)) {
+      const s = summarizeDay(weekByDay[d]);
+      mn = Math.min(mn, s.minTemp);
+      mx = Math.max(mx, s.maxTemp);
+    }
+    if (!isFinite(mn) || !isFinite(mx)) return { weekMin: 0, weekMax: 1 };
+    return { weekMin: Math.floor(mn), weekMax: Math.ceil(mx) };
+  }, [weekByDay]);
 
-      {/* Main Sections */}
-      <div className="flex flex-col gap-12 px-4 md:px-8 relative z-10">
-        <div className="flex flex-col lg:flex-row gap-8 justify-between">
-          {/* Typing Slogan */}
-          <div className="flex-1 flex flex-col items-center lg:items-start justify-center">
-            <TypingSlogan />
+  // ensure "today" is selected by default
+  useEffect(() => {
+    if (!dayKeys.length) return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    setSelectedDate(dayKeys.includes(todayKey) ? todayKey : dayKeys[0]);
+  }, [dayKeys]);
+
+  function OutfitImagesCard({
+    outfit,
+    controls,
+  }: {
+    outfit: RecommendedOutfit;
+    controls?: ReactNode;
+  }) {
+    return (
+      <div className="relative bg-white dark:bg-gray-800 border rounded-xl shadow-md p-2 sm:p-2.5">
+        <div className="space-y-1">
+          {/* headwear / accessory */}
+          <div
+            className={`flex justify-center space-x-1 transition-all ${outfit.outfitItems.some(
+              (i) => i.layerCategory === 'headwear' || i.layerCategory === 'accessory'
+            )
+              ? 'h-auto'
+              : 'h-0 overflow-hidden'
+              }`}
+          >
+            {outfit.outfitItems
+              .filter((i) => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
+              .map((item) => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="
+  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  sm:w-20 sm:h-20
+  md:w-24 md:h-24
+  lg:w-28 lg:h-28
+  xl:w-32 xl:h-32
+  object-contain rounded-lg
+"
+                />
+              ))}
           </div>
 
-          {/* Outfit Section */}
-          <div className="flex-1 flex flex-col items-center">
-            <div className="w-full max-w-[350px]">
-              <div className="flex justify-center mb-4">
-                <h1 className="text-xl border-2 border-black px-3 py-1">OUTFIT OF THE DAY</h1>
-              </div>
+          {/* tops */}
+          <div className="flex justify-center space-x-1">
+            {outfit.outfitItems
+              .filter((i) => ['base_top', 'mid_top', 'outerwear'].includes(i.layerCategory))
+              .map((item) => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="
+  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  sm:w-20 sm:h-20
+  md:w-24 md:h-24
+  lg:w-28 lg:h-28
+  xl:w-32 xl:h-32
+  object-contain rounded-lg
+"
+                />
+              ))}
+          </div>
 
-              {loadingOutfits && <p>Loading outfits…</p>}
-              {error && !loadingOutfits && <p className="text-red-500">{error}</p>}
-              {!loadingOutfits && outfits.length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400">
-                  Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
-                </p>
-              )}
+          {/* bottoms */}
+          <div className="flex justify-center space-x-1">
+            {outfit.outfitItems
+              .filter((i) => i.layerCategory === 'base_bottom')
+              .map((item) => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="
+  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  sm:w-20 sm:h-20
+  md:w-24 md:h-24
+  lg:w-28 lg:h-28
+  xl:w-32 xl:h-32
+  object-contain rounded-lg
+"
+                />
+              ))}
+          </div>
 
-              {/* Style Dropdown */}
-              <div className="mb-4 w-full text-center">
-                <label
-                  htmlFor="style-select"
-                  className="block text-sm font-medium mb-1 font-livvic text-black dark:text-gray-100"
-                >
-                  Choose Style:
-                </label>
-                <select
-                  id="style-select"
-                  value={selectedStyle}
-                  onChange={e => {
-                    setSelectedStyle(e.target.value);
-                    // Recompute outfits for new style
-                    queryClient.invalidateQueries({ queryKey: ['outfits'] });
-                  }}
-                  className="w-full max-w-xs mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
-                >
-                  <option value="Formal">Formal</option>
-                  <option value="Casual">Casual</option>
-                  <option value="Athletic">Athletic</option>
-                  <option value="Party">Party</option>
-                  <option value="Business">Business</option>
-                  <option value="Outdoor">Outdoor</option>
-                </select>
-              </div>
+          {/* footwear */}
+          <div className="flex justify-center space-x-1">
+            {outfit.outfitItems
+              .filter((i) => i.layerCategory === 'footwear')
+              .map((item) => (
+                <img
+                  key={item.closetItemId}
+                  src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
+                  alt={item.category}
+                  className="
+  w-14 h-14 max-[380px]:w-10 max-[380px]:h-10
+  sm:w-18 sm:h-18
+  md:w-20 md:h-20
+  lg:w-22 lg:h-22
+  xl:w-24 xl:h-24
+  object-contain rounded-lg
+"
+                />
+              ))}
+          </div>
+        </div>
 
-              {!loadingOutfits && outfits.length > 0 && (
-                <>
-                  {/* carousel controls */}
-                  <div className="flex justify-between items-center mb-2 w-full">
-                    <button
-                      onClick={() => setCurrentIndex(i => (i - 1 + outfits.length) % outfits.length)}
-                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
-                    >
-                      <ChevronLeft className="w-5 h-5 text-white" />
-                    </button>
-                    <span className="text-sm">
-                      {currentIndex + 1} / {outfits.length}
-                    </span>
-                    <button
-                      onClick={() => setCurrentIndex(i => (i + 1) % outfits.length)}
-                      className="p-2 bg-[#3F978F] rounded-full hover:bg-[#304946] transition"
-                    >
-                      <ChevronRight className="w-5 h-5 text-white" />
-                    </button>
-                  </div>
+        {/* Controls below the card so images aren’t covered */}
+        {controls && (
+          <div className="mt-3">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 bg-white/80 dark:bg-gray-900/70 backdrop-blur rounded-lg px-3 py-2 shadow-sm">
 
-                  <div className="mb-4 space-y-2">
-                    {/* headwear/accessory */}
-                    <div
-                      className={`flex justify-center space-x-2 transition-all ${outfits[currentIndex].outfitItems.some(
-                        i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory',
-                      )
-
-                          ? 'h-auto'
-                          : 'h-0 overflow-hidden'
-
-                        }`}
-                    >
-                      {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'headwear' || i.layerCategory === 'accessory')
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-
-                    {/* tops */}
-                    <div className="flex justify-center space-x-2">
-                      {outfits[currentIndex].outfitItems
-                        .filter(
-                          i =>
-                            i.layerCategory === 'base_top' ||
-                            i.layerCategory === 'mid_top' ||
-                            i.layerCategory === 'outerwear',
-                        )
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-
-                    {/* bottoms */}
-                    <div className="flex justify-center space-x-2">
-                      {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'base_bottom')
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-32 h-32 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-
-                    {/* footwear */}
-                    <div className="flex justify-center space-x-2">
-                      {outfits[currentIndex].outfitItems
-                        .filter(i => i.layerCategory === 'footwear')
-                        .map(item => (
-                          <img
-                            key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
-                            alt={item.category}
-                            className="w-28 h-28 object-contain rounded-2xl"
-                          />
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2">
-                    <StarRating
-                      disabled={saving}
-                      onSelect={handleSaveRating}
-                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
-                    />
-                    <button
-                      onClick={handleRefresh}
-                      className="p-2 bg-[#3F978F] text-white rounded-full hover:bg-[#304946] transition"
-                      aria-label="Refresh recommendations"
-                      title="Refresh recommendations"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </button>
-                  </div>
-                </>
-              )}
+              {controls}
             </div>
           </div>
+        )}
+      </div>
+    );
+  }
 
-          {/* Weather Section */}
-          <div className="flex-1 flex flex-col items-center">
-            <div className="w-full max-w-[280px]">
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Select City"
-                    value={cityInput}
-                    onChange={e => setCityInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleEnterCity();
+
+  // ------------------------------------------------------------------------------------------
+  // RENDER
+  // ------------------------------------------------------------------------------------------
+  // hero data: description + location + avg temp
+  const heroDescription =
+    selectedDaySummary?.mainCondition ||
+    weather?.summary?.mainCondition ||
+    (week?.summary?.mainCondition ?? '');
+
+  const heroAvgTemp =
+    typeof selectedDaySummary?.avgTemp === 'number'
+      ? Math.round(selectedDaySummary.avgTemp)
+      : typeof weather?.summary?.avgTemp === 'number'
+        ? Math.round(weather.summary.avgTemp)
+        : null;
+
+  // ----- HERO week UI helpers -----
+  // rotate dayKeys so the list starts at "today"
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const orderedDays = useMemo(() => {
+    if (!dayKeys.length) return [];
+    const i = Math.max(0, dayKeys.indexOf(todayIso));
+    return [...dayKeys.slice(i), ...dayKeys.slice(0, i)];
+  }, [dayKeys, todayIso]);
+
+
+
+  const orderedIdx = Math.max(0, orderedDays.indexOf(selectedDate || todayIso));
+  const nextDayIso = orderedDays[(orderedIdx + 1) % orderedDays.length];
+
+  const hoursForHourlyComponent =
+    selectedDate === todayIso
+      ? [
+        ...selectedDayHoursRaw,                     // today from now (you already filter past)
+        ...(weekByDay[nextDayIso] || []),           // add tomorrow’s hours
+      ]
+      : selectedDayHoursRaw;
+
+
+
+  // quick lookup of summaries for each day
+  const daySummaries = useMemo(() => {
+    const map: Record<string, ReturnType<typeof summarizeDay>> = {};
+    for (const d of dayKeys) {
+      map[d] = summarizeDay(weekByDay[d] || []);
+    }
+    return map;
+  }, [dayKeys, weekByDay]);
+
+  // formatter helpers
+  const shortDow = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { weekday: 'short' }); // Mon, Tue…
+
+  const avgFor = (iso: string) =>
+    daySummaries[iso] ? Math.round(daySummaries[iso].avgTemp) : null;
+
+  // change selectedDate and refetch outfits
+  const pickDay = (iso: string) => {
+    setSelectedDate(iso);
+    setCurrentIndex(0);
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  };
+
+  // mobile arrows
+  const stepDay = (dir: -1 | 1) => {
+    if (!orderedDays.length) return;
+    const idx = Math.max(0, orderedDays.indexOf(selectedDate || orderedDays[0]));
+    const next = orderedDays[(idx + (dir === 1 ? 1 : -1) + orderedDays.length) % orderedDays.length];
+    pickDay(next);
+  };
+
+
+  return (
+    <div
+      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
+      style={{ paddingTop: 0 }}
+    >
+
+      {/* ===================== HERO (reworked with week controls) ===================== */}
+
+      <header className="relative w-full overflow-hidden pb-16 sm:pb-20 mb-8">
+
+        {/* Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(/background.jpg)` }}
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+
+        {/* Content */}
+        <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-4 sm:py-6 lg:py-8">
+            {/* two columns at all sizes so left/right sit side by side on mobile too */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 items-start">
+              {/* LEFT: welcome + tag + description (mobile switcher pinned at bottom) */}
+              <div className="text-white relative pb-12 sm:pb-0">
+                {/* Top content */}
+                <p className="text-[13px] sm:text-xs uppercase tracking-wide opacity-90 mb-2">
+                  {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
+                </p>
+
+                <div className="hidden sm:inline-block backdrop-blur-2xl bg-white/10 rounded-2xl p-2 sm:p-2.5 -mb-2 mt-2">
+                  <p className="text-[14px] sm:text-xs font-medium tracking-wide">Weather Forecast</p>
+                </div>
+
+                {/* Your weather description; can grow/shrink freely */}
+                <h1 className="text-4xl sm:text-4xl md:text-6xl font-livvic font-semibold leading-snug mb-2 sm:mb-3">
+                  {heroDescription || '—'}
+                </h1>
+
+                {/* MOBILE day switcher — pinned to bottom of this block */}
+                {orderedDays.length > 0 && (
+                  <div className="sm:hidden absolute left-0 right-0 bottom-0 flex items-center gap-3 text-white">
+                    {/* left triangle (solid white) */}
+                    <button
+                      type="button"
+                      onClick={() => stepDay(-1)}
+                      aria-label="Previous day"
+                      className="shrink-0 active:scale-95"
+                    >
+                      <svg viewBox="0 0 10 10" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+                        <polygon points="7.5,1 2.5,5 7.5,9" />
+                      </svg>
+                    </button>
+
+                    {/* weekday + temp (same size, no background) */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-medium">
+                        {shortDow(selectedDate || orderedDays[0])}
+                      </span>
+                      <span className="text-base font-medium tabular-nums">
+                        {(() => {
+                          const d = selectedDate || orderedDays[0];
+                          const t = avgFor(d);
+                          return t !== null ? `${t}°C` : '—';
+                        })()}
+                      </span>
+                    </div>
+
+                    {/* right triangle (solid white) */}
+                    <button
+                      type="button"
+                      onClick={() => stepDay(1)}
+                      aria-label="Next day"
+                      className="shrink-0 active:scale-95"
+                    >
+                      <svg viewBox="0 0 10 10" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+                        <polygon points="2.5,1 7.5,5 2.5,9" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+
+              {/* RIGHT: location + temp card */}
+              <div className="justify-self-end self-center">
+                <div
+                  className={[
+                    "backdrop-blur-2xl bg-white/10 text-white rounded-2xl",
+                    "p-3 sm:p-4",
+                    "w-auto max-w-[85vw] xs:max-w-[70vw] sm:max-w-xs",
+                    "flex flex-col items-end gap-1",
+                    "text-right",
+                  ].join(" ")}
+                >
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleEnterCity();
                     }}
-                    className="w-full pl-10 pr-4 py-2 border border-black rounded-full focus:outline-none focus:ring-2 focus:ring-[#3F978F] dark:border-gray-600 dark:focus:ring-teal-500"
-                  />
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                    className="w-full"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+                    <div className="
+              relative
+              w-full
+              max-w-[90vw] sm:max-w-md
+              backdrop-blur-2xl bg-white/10
+              
+              rounded-full
+              pl-8 pr-3 py-1
+              focus-within:ring-2 focus-within:ring-[#3F978F]
+            ">
+                      {/* search icon */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+
+                      <input
+                        type="text"
+                        placeholder=" Select City"
+                        value={cityInput}
+                        onChange={(e) => setCityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.stopPropagation(); // avoid bubbling to any parent handlers
+                            handleEnterCity();
+                          }
+                        }}
+                        autoComplete="off"
+                        className="
+                  w-full bg-transparent outline-none
+                  placeholder-white/70 text-white
+                  text-sm sm:text-base
+                "
+                        aria-label=" Select City"
+                      />
+                    </div>
+                  </form>
+
+                  {/* Location (wraps) */}
+                  <div className="flex items-start gap-1 w-full justify-end">
+                    <svg className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C8.686 2 6 4.686 6 8c0 4.333 6 12 6 12s6-7.667 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+                    </svg>
+                    <span className="text-lg sm:text-sm font-medium whitespace-normal break-words leading-snug">
+                      {locationLabel || 'Select a city'}
+                    </span>
+                  </div>
+
+                  {/* Temperature */}
+                  <div className="text-3xl sm:text-5xl md:text-6xl font-semibold tabular-nums">
+                    {heroAvgTemp !== null ? `${heroAvgTemp}°C` : '—'}
+                  </div>
                 </div>
               </div>
-
-              {loadingWeather ? (
-                <p>Loading weather…</p>
-              ) : error && !weather ? (
-                <p className="text-red-500">{error}</p>
-              ) : weather ? (
-                <>
-                  <WeatherDisplay weather={weather} setCity={setCity} />
-                  <HourlyForecast forecast={weather.forecast} />
-                </>
-              ) : (
-                <p>No weather data available.</p>
-              )}
             </div>
           </div>
         </div>
 
+        {/* DESKTOP week bar pinned to bottom of hero */}
+        {orderedDays.length > 0 && (
+          <div className="pointer-events-auto hidden sm:block absolute bottom-3 sm:bottom-4 left-0 right-0">
+            <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-7 gap-2">
+                {orderedDays.slice(0, 7).map((iso) => {
+                  const active = iso === (selectedDate || orderedDays[0]);
+                  const avg = avgFor(iso);
+                  return (
+                    <button
+                      key={iso}
+                      onClick={() => pickDay(iso)}
+                      className={[
+                        "flex flex-col items-center justify-center rounded-xl",
+                        " text-white",
+                        "py-2 sm:py-3",
+                        active ? "opacity-100 " : "opacity-60 hover:opacity-85",
+                        "transition"
+                      ].join(" ")}
+                      aria-label={`Select ${shortDow(iso)}`}
+                    >
+                      <span className="text-lg font-medium leading-none">{shortDow(iso)}</span>
+                      <span className="text-sm mt-1 tabular-nums">{avg !== null ? `${avg}°C` : '—'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
+
+
+      {/* ===================== MAIN ===================== */}
+      <main className="flex flex-col gap-10 px-0 w-full">
+        <section className="
+  grid gap-8 lg:gap-10 xl:gap-12
+  place-items-center lg:place-items-start
+  grid-cols-1 lg:grid-cols-3
+  px-0 sm:px-6 lg:px-8
+  md:-mb-16
+  
+">
+
+          {/* LEFT: Slogan + Hourly Forecast */}
+          <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full z-10">
+            {/* Hourly forecast (8 hours) under the slogan */}
+            <div className="w-full max-w-sm sm:max-w-md mt-0 mb-8">
+              {loadingWeather ? (
+                <p className="text-center text-sm text-gray-500">Loading hours…</p>
+              ) : error && !weather ? (
+                <p className="text-red-500 text-center">{error}</p>
+              ) : (
+                <div className="text-center">
+                  <HourlyForecast forecast={hoursForHourlyComponent} />
+                </div>
+              )}
+            </div>
+
+            {/* Hide slogan on mobile; show from sm+ */}
+            <div className="hidden sm:block">
+              <TypingSlogan />
+            </div>
+
+
+          </div>
+
+
+          {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
+
+
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full md:-ml-16">
+            <div className="w-full">
+              <div className="bg-white">
+
+                <div className="w-full mb-4">
+                  <h3
+                    className="
+    md:ml-8
+      text-center
+      text-3xl sm:text-4xl lg:text-5xl
+      font-livvic font-bold tracking-tight
+      text-gray-900 dark:text-gray-100
+    "
+                  >
+                    Outfit of the Day
+                  </h3>
+                </div>
+
+                <div className="w-full mb-4">
+                  <h3
+                    className="
+    md:ml-8
+      text-center
+      text-xl sm:text-xl lg:text-xl
+      font-livvic  tracking-tight
+      text-gray-900 dark:text-gray-100
+    "
+                  >
+                    Select a Style:
+                  </h3>
+                </div>
+
+
+                {loadingOutfits && <p className="text-center">Loading outfits…</p>}
+                {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
+                {!loadingOutfits && outfits.length === 0 && (
+                  <p className="text-center text-gray-500 dark:text-gray-400">
+                    Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
+                  </p>
+                )}
+
+
+
+                {/* Style Dropdown — centered, same width as carousel */}
+                <div className="md:ml-8 mb-4 w-full">
+                  <label htmlFor="style-select" className="sr-only">Style</label>
+                  <select
+                    id="style-select"
+                    value={selectedStyle}
+                    onChange={e => {
+                      setSelectedStyle(e.target.value);
+                      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                    }}
+                    className="block w-full w-[min(50%,320px)] mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                  >
+                    <option value="Formal">Formal</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Athletic">Athletic</option>
+                    <option value="Party">Party</option>
+                    <option value="Business">Business</option>
+                    <option value="Outdoor">Outdoor</option>
+                  </select>
+                </div>
+                {!loadingOutfits && outfits.length > 0 && (
+                  <>
+                    {/* Carousel — centered, no extra margins */}
+                    <div
+                      className="
+                      
+    relative mb-2 w-full
+    max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16
+    mx-0 sm:mx-auto            /* don't center on mobile */
+    -ml-3                      /* pull left on mobile */
+    sm:ml-0 sm:-ml-8           /* bigger pull starting at sm if you want */
+    overflow-visible
+    sm:mr-16 lg:mr-32
+  "
+                    >
+                      {/* Reserve height so absolute stage can sit on top */}
+                      <div className="
+                      invisible
+  w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
+  mx-auto
+                ">
+                        <OutfitImagesCard outfit={outfits[currentIndex]} />
+                      </div>
+                      {/* stage (full area), with a centered "rail" that everything aligns to */}
+                      <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center"> {/* the centering rail */}
+                        <div className="
+                         relative
+    w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
+                  ">
+
+                          {/* LEFT (prev) */}
+                          {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(-1)}
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                            initial={false}
+                            animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                            whileHover={{ scale: 0.84, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
+
+                            <OutfitImagesCard outfit={outfits[prevIndex]} />
+                          </motion.button>)}
+
+
+                          {/* RIGHT (next) */}
+                          {outfits.length > 1 && (<motion.button type="button" onClick={() => slideTo(1)}
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                            initial={false}
+                            animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                            whileHover={{ scale: 0.84, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }} >
+                            <OutfitImagesCard outfit={outfits[nextIndex]} /> </motion.button>)}
+
+                          {/* CENTER (current) */}
+                          <motion.div
+                            className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                            initial={false}
+                            animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                            drag="x"
+                            dragConstraints={{ left: 0, right: 0 }}
+                            onDragEnd={(_, info) => { const goRight = info.offset.x < -70 || info.velocity.x < -300; const goLeft = info.offset.x > 70 || info.velocity.x > 300; if (goRight) slideTo(1); else if (goLeft) slideTo(-1); }} >
+                            <OutfitImagesCard
+                              outfit={outfits[currentIndex]}
+                              controls={
+                                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                                  {/* Stars — bigger on mobile, normal from sm+ */}
+                                  <div className="scale-125 sm:scale-100 transform origin-center">
+                                    <StarRating
+                                      disabled={saving}
+                                      onSelect={handleSaveRating}
+                                      value={ratings[getOutfitKey(outfits[currentIndex])] || 0}
+                                    />
+                                  </div>
+
+                                  {/* Refresh — sits right next to stars on mobile & desktop */}
+                                  <button
+                                    onClick={handleRefresh}
+                                    className="p-2 rounded-full text-[#3F978F] hover:text-[#2f716b]
+             transform -translate-y-2 sm:-translate-y-2"
+                                    aria-label="Refresh recommendations"
+                                    title="Refresh recommendations"
+                                  >
+                                    <RefreshCw className="w-6 h-6 align-middle" />
+                                  </button>
+
+
+                                </div>
+                              }
+
+                            />
+
+                          </motion.div> </div>
+                      </div>
+                    </div>
+
+
+                    {/* Counter — same width + centered, snug under the card */}
+                    <div className="md:ml-32 text-center text-sm mb-2 mt-32 w-full
+  w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,560px)] lg:w-[min(92%,680px)] xl:w-[min(92%,760px)]
+  mx-auto">
+                      {currentIndex + 1} / {outfits.length}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+
+        </section>
+
+
         {/* Events Section */}
-        <div className="w-full mt-6">
-          <div className="max-w-4xl mx-auto px-4">
-            <div className="flex items-center justify-center mb-4 space-x-4">
-              <h2 className="text-4xl font-livvic font-medium">Upcoming Events</h2>
+        <section className="w-full sm:mt-12 px-0  bg-black">
+          <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+            {/* Header */}
+            <div className="grid grid-cols-3 items-center mb-6">
+              <div /> {/* spacer */}
+              <h2 className="justify-self-center text-center text-white text-3xl sm:text-4xl font-livvic font-semibold tracking-tight">
+                Upcoming Events
+              </h2>
               <button
                 onClick={() => setShowModal(true)}
-                className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+                className="justify-self-end inline-flex items-center justify-center rounded-full border border-[#FFFFFF]/60 text-[#FFFFFF] px-3 py-2 hover:bg-[#FFFFFF]/10 transition"
                 aria-label="Add Event"
               >
                 <Plus className="w-5 h-5" />
               </button>
             </div>
 
+
+            {/* Auto-scrolling carousel */}
             {events.filter(e => e.type !== 'trip').length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-6 overflow-x-auto py-2">
-                {events
-                  .filter(e => e.type !== 'trip')
-                  .map(ev => (
-                    <div
-                      key={ev.id}
-                      className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44
-                                 bg-white dark:bg-gray-700 rounded-full shadow-md border 
-                                 flex flex-col items-center justify-center text-center p-2
-                                 transition-transform hover:scale-105"
-                      onClick={() => {
-                        setSelectedEvent(ev);
-                        setShowDetailModal(true);
-                      }}
+              <div className="relative overflow-hidden">
+                {(() => {
+                  // sorted by start date (earliest → latest)
+                  const base = events
+                    .filter(e => e.type !== 'trip')
+                    .slice()
+                    .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime());
+
+                  const loop = [...base, ...base]; // duplicate for seamless loop
+                  return (
+                    <motion.div
+                      className="flex gap-6"
+                      animate={{ x: ['0%', '-50%'] }}
+                      transition={{ duration: 60, ease: 'linear', repeat: Infinity }}
                     >
-                      <div className="font-semibold truncate">
-                        {ev.name.charAt(0).toUpperCase() + ev.name.slice(1).toLowerCase()}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(ev.dateFrom).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                        &nbsp;–&nbsp;
-                        {new Date(ev.dateTo).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                      </div>
-                      <div className="mt-1 text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
-                        {ev.style}
-                      </div>
-                    </div>
-                  ))}
+                      {loop.map((ev, idx) => {
+                        const img = eventImageFor(ev.style);
+                        return (
+                          <button
+                            key={`${ev.id}-${idx}`}
+                            onClick={() => { setSelectedEvent(ev); setShowDetailModal(true); }}
+                            className="group text-left min-w-[240px] sm:min-w-[240px] lg:min-w-[280px]"
+                          >
+                            {/* Image */}
+                            <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
+                              <img
+                                src={img} // e.g. "outdoor.jpg"
+                                alt={ev.style || 'event'}
+                                className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
+                              />
+                            </div>
+
+                            {/* Info */}
+                            <div className="mt-3">
+                              <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
+                                {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
+                              </div>
+                              <div className="mt-1 text-gray-300 text-sm sm:text-base space-y-0.5">
+                                <div className="capitalize">{ev.style || '—'}</div>
+                                <div className="truncate">{ev.location || '—'}</div>
+                                <div>{formatDateOnly(ev.dateFrom)}</div>
+                                <div>{formatTimeAmPm(ev.dateFrom)}</div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                    </motion.div>
+                  );
+                })()}
+
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No upcoming events</p>
+              <div className="text-center py-10">
+                <p className="text-gray-400 mb-4">No upcoming events</p>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="bg-[#3F978F] text-white px-4 py-2 rounded-lg hover:bg-[#347e77] transition"
+                  className="px-4 py-2 rounded-full border border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F]/10 transition"
                 >
                   Add Your First Event
                 </button>
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Bottom Banner */}
-      <div
-        className="w-screen relative flex items-center justify-center h-48"
-        style={{
-          backgroundImage: `url(/header.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          marginTop: '2rem',
-          marginLeft: 'calc(-50vw + 50%)',
-        }}
-      >
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+
+      </main>
+
+      {/* Footer banner (full-bleed) */}
+      <div className="relative w-full h-48 mt-0">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(/header.jpg)`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
       </div>
 
       {/* Create New Event Modal */}
@@ -735,10 +1353,6 @@ export default function HomePage() {
               </button>
               <button
                 className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
-
-                // ! Merge Potential change 
-                //onClick={handleCreateEvent}
-                // ! Merge start
                 onClick={async () => {
                   if (!newEvent.name || !newEvent.style || !newEvent.dateFrom || !newEvent.dateTo) {
                     alert('Please fill in name, style, and both dates.');
@@ -764,15 +1378,13 @@ export default function HomePage() {
                       for (const { summary } of days) {
                         try {
                           await fetchRecommendedOutfits(summary, created.style, created.id);
-                        } catch (err) {
-                          console.error(`Failed to fetch outfits for event day:`, err);
+                        } catch {
+                          /* ignore */
                         }
                       }
                     }
 
-                    // setEvents((evt: Event[]) => [...evt, created]);
                     setEvents(evt => [...evt, toEvent(created)]);
-                    // setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'CASUAL' });
                     setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
                     setShowModal(false);
                   } catch (err: any) {
@@ -780,7 +1392,6 @@ export default function HomePage() {
                     alert(msg);
                   }
                 }}
-                // ! Merge stop
               >
                 Save
               </button>
@@ -827,11 +1438,6 @@ export default function HomePage() {
                 <select
                   className="w-full p-2 border rounded"
                   value={editEventData.style}
-
-                  // ! Merge Taylor
-                  //onChange={e => setEditEventData(d => ({ ...d, style: e.target.value as Style }))}
-
-                  // ! Merge Diya
                   onChange={e => setEditEventData(d => ({ ...d, style: e.target.value }))}
                 >
                   <option value="">Select style</option>
@@ -858,7 +1464,9 @@ export default function HomePage() {
                           {to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </>
                       ) : (
-                        <>{from.toLocaleString()} – {to.toLocaleString()}</>
+                        <>
+                          {from.toLocaleString()} – {to.toLocaleString()}
+                        </>
                       )}
                     </p>
                   );
@@ -876,21 +1484,22 @@ export default function HomePage() {
                       sums = [];
                     }
                     if (!sums.length) return null;
+
                     return (
                       <div className="text-sm mb-4 space-y-1">
-                        {sums.map(({ date, summary }) =>
-                          summary ? (
+                        {sums.map(({ date, summary }) => {
+                          const label = formatMonthDay(date);
+                          return summary ? (
                             <div key={date}>
-                              <span className="font-medium">{date}:</span> {summary.mainCondition} —{' '}
-                              {Math.round(summary.avgTemp)}°C
+                              <span className="font-medium">{label}:</span> {summary.mainCondition} — {Math.round(summary.avgTemp)}°C
                             </div>
                           ) : (
                             <div key={date}>
-                              <span className="font-medium">{date}:</span>{' '}
+                              <span className="font-medium">{label}:</span>{' '}
                               <span className="text-red-400">No data</span>
                             </div>
-                          ),
-                        )}
+                          );
+                        })}
                       </div>
                     );
                   })()}
@@ -905,19 +1514,14 @@ export default function HomePage() {
                         {detailOutfit.outfitItems.map(item => (
                           <img
                             key={item.closetItemId}
-                            src={
-                              item.imageUrl.startsWith('http')
-                                ? item.imageUrl
-                                // : `${API_BASE}${item.imageUrl}`
-                                : absolutize(item.imageUrl, API_BASE)
-                            }
+                            src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                             alt={item.layerCategory}
                             className="w-20 h-20 object-contain rounded"
                           />
                         ))}
                       </div>
                       <div className="scale-75 origin-top-left">
-                        <StarRating disabled={false} onSelect={() => {}} />
+                        <StarRating disabled={false} onSelect={() => { }} />
                       </div>
                     </>
                   )}
@@ -933,7 +1537,6 @@ export default function HomePage() {
                   </button>
                   <button
                     onClick={async () => {
-                      // ! Merge Taylor
                       try {
                         const updatedDto = await updateEvent({
                           id: editEventData.id,
@@ -942,7 +1545,7 @@ export default function HomePage() {
                           dateFrom: new Date(editEventData.dateFrom).toISOString(),
                           dateTo: new Date(editEventData.dateTo).toISOString(),
                           style: editEventData.style as Style,
-                          isTrip: selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip'),
+                          isTrip: selectedEvent?.isTrip ?? selectedEvent?.type === 'trip',
                         });
                         const updated = toEvent(updatedDto);
                         setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
@@ -952,18 +1555,6 @@ export default function HomePage() {
                         console.error('update failed', err);
                         alert('Failed to update event');
                       }
-                      // ! Merge Diya
-//                      const updated = await updateEvent({
-//                        id: editEventData.id,
-//                        name: editEventData.name,
-//                        location: editEventData.location,
-//                        dateFrom: new Date(editEventData.dateFrom).toISOString(),
-//                        dateTo: new Date(editEventData.dateTo).toISOString(),
-//                        style: editEventData.style,
-//                      });
-//                      setEvents((evts: Event[]) => evts.map((e: Event) => (e.id === updated.id ? updated : e)));
-//                      setSelectedEvent(updated);
-//                      setIsEditing(false);
                     }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
@@ -979,10 +1570,7 @@ export default function HomePage() {
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
                       await deleteEvent(selectedEvent.id);
-                      // ! Merge Taylor
                       setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
-                      // ! Merge Diya
-                      // setEvents((evts: Event[]) => evts.filter((e: Event) => e.id !== selectedEvent.id));
                       setShowDetailModal(false);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"

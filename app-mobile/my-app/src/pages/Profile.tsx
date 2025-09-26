@@ -16,6 +16,7 @@ import { getOutfitCount } from "../services/outfitApi";
 import { uploadProfilePhoto, getMe, updatePrivacy } from "../services/usersApi";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+import Toast from "../components/Toast";
 
 interface OutfitItem {
   closetItemId: string;
@@ -51,6 +52,13 @@ const Profile = () => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [showConfirmPrivacy, setShowConfirmPrivacy] = useState(false);
   const [pendingPrivacy, setPendingPrivacy] = useState(false);
+
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+
+  // Helper to prefix image URLs
+  // const prefixed = (url: string) =>
+  //   url.startsWith("http") ? url : `${API_BASE}${url}`;
 
   useEffect(() => {
     (async () => {
@@ -107,6 +115,7 @@ const Profile = () => {
             email: userInfo.email,
           })
         );
+        setShowSuccessPopup(true);
       } catch (error) {
         console.error("Failed to update user data", error);
       }
@@ -434,6 +443,96 @@ const Profile = () => {
                       {outfit.favourite ? <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-red-500" /> : <Heart className="w-3 h-3 sm:w-4 sm:h-4" />}
                     </button>
                   </div>
+                  <motion.div
+                    key={outfit.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ scale: 1.03 }}
+                    className="
+    relative
+    bg-white
+    rounded-xl
+    p-4
+    w-full
+    cursor-pointer
+    shadow-lg
+    hover:shadow-2xl
+    transition-shadow
+    duration-300
+  "
+                  >
+                    <div className="space-y-1">
+                      {/* headwear + accessory */}
+                      <div
+                        className={`flex justify-center space-x-1 ${outfit.outfitItems.some((it) =>
+                          ["headwear", "accessory"].includes(it.layerCategory)
+                        )
+                          ? ""
+                          : "hidden"
+                          }`}
+                      >
+                        {outfit.outfitItems
+                          .filter((it) =>
+                            ["headwear", "accessory"].includes(it.layerCategory)
+                          )
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-5 h-5 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* tops */}
+                      <div className="flex justify-center space-x-1">
+                        {outfit.outfitItems
+                          .filter((it) =>
+                            ["base_top", "mid_top", "outerwear"].includes(
+                              it.layerCategory
+                            )
+                          )
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* bottoms */}
+                      <div className="flex justify-center space-x-1">
+                        {outfit.outfitItems
+                          .filter((it) => it.layerCategory === "base_bottom")
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                      {/* footwear */}
+                      <div className="flex justify-center space-x-1">
+                        {outfit.outfitItems
+                          .filter((it) => it.layerCategory === "footwear")
+                          .map((it) => (
+                            <img
+                              key={it.closetItemId}
+                              // src={prefixed(it.imageUrl)}
+                              src = {absolutize(it.imageUrl, API_BASE)}
+                              alt={`Outfit ${outfit.id} ${it.layerCategory}`}
+                              className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 object-contain rounded"
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -447,6 +546,37 @@ const Profile = () => {
           Profile updated successfully!
         </div>
       )}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full text-center shadow-md"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <h2 className="text-base sm:text-lg font-livvic mb-2 text-[#3F978F]">
+                Changes Saved!
+              </h2>
+              <p className="mb-4 text-gray-700 dark:text-gray-300 font-livvic text-xs sm:text-sm">
+                Your profile has been updated.
+              </p>
+              <button
+                onClick={() => setShowSuccess(false)}
+                className="px-4 py-1 bg-[#3F978F] hover:bg-[#2F6F6A] text-white rounded-full transition font-livvic text-sm sm:text-base"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {showSuccessPopup && <Toast message="Profile updated successfully!" />}
     </div>
   );
 };

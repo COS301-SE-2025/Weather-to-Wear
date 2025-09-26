@@ -27,9 +27,13 @@ class SocialService {
       location?: string;
       weather?: any;
       closetItemId?: string;
+      closetItemIds?: string[];
     }
   ) {
-    return prisma.post.create({
+    // ! Alisha change
+    //return prisma.post.create({
+
+    const post = await this.prisma.post.create({
       data: {
         userId,
         imageUrl: data.imageUrl,
@@ -39,6 +43,18 @@ class SocialService {
         closetItemId: data.closetItemId,
       },
     });
+
+    // If closetItemIds are provided, create PostItem relations
+    if (data.closetItemIds && data.closetItemIds.length > 0) {
+      await this.prisma.postItem.createMany({
+        data: data.closetItemIds.map(itemId => ({
+          postId: post.id,
+          closetItemId: itemId,
+        })),
+      });
+    }
+
+    return post;
   }
 
   async getPosts(options: {
@@ -48,10 +64,23 @@ class SocialService {
     include: string[];
   }) {
     const { currentUserId, limit, offset, include } = options;
-    const inc = (include ?? []).map((s) => s.toLowerCase());
+    
+    //!Alsiha merge
+    //const inc = (include ?? []).map((s) => s.toLowerCase());
 
-    const following = await prisma.follow.findMany({
-      where: { followerId: currentUserId, status: "accepted" },
+
+
+    const inc = (include ?? []).map(s => s.toLowerCase());
+    const following = await prisma.follow.findMany({where: { followerId: currentUserId, status: "accepted" },
+    const incUser = inc.includes('user');
+    const incComments = inc.includes('comments');
+    const incCommentUser = inc.includes('comments.user');   // NEW
+    const incLikes = inc.includes('likes');
+    const incClosetItem = inc.includes('closetitem');
+    const incPostItems = inc.includes('postitems') || inc.includes('clothing');
+
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: currentUserId },
       select: { followingId: true },
     });
     const followingIds = [...following.map((f) => f.followingId), currentUserId];
@@ -73,15 +102,44 @@ class SocialService {
                 : undefined,
             }
           : undefined,
-        likes: inc.includes("likes") ? true : undefined,
-        closetItem: inc.includes("closetitem") ? true : undefined,
+        
+        //! Alisha change
+        //likes: inc.includes("likes") ? true : undefined,
+        //closetItem: inc.includes("closetitem") ? true : undefined,
+
+        likes: incLikes ? true : undefined,
+        closetItem: incClosetItem ? true : undefined,
+        postItems: incPostItems 
+          ? { 
+            include: { 
+              closetItem: { 
+                select: { 
+                  id: true, 
+                  filename: true, 
+                  category: true, 
+                  layerCategory: true,
+                  colorHex: true,
+                  style: true 
+                } 
+              } 
+            } 
+          } 
+          : undefined,
       },
     });
   }
 
   async getPostById(id: string, include: string[]) {
-    const inc = (include ?? []).map((s) => s.toLowerCase());
-    return prisma.post.findUnique({
+
+    const inc = (include ?? []).map(s => s.toLowerCase());
+    const incUser = inc.includes('user');
+    const incComments = inc.includes('comments');
+    const incCommentUser = inc.includes('comments.user');   // NEW
+    const incLikes = inc.includes('likes');
+    const incClosetItem = inc.includes('closetitem');
+    const incPostItems = inc.includes('postitems') || inc.includes('clothing');
+
+    return this.prisma.post.findUnique({
       where: { id },
       include: {
         user: inc.includes("user")
@@ -95,8 +153,29 @@ class SocialService {
                 : undefined,
             }
           : undefined,
-        likes: inc.includes("likes") ? true : undefined,
-        closetItem: inc.includes("closetitem") ? true : undefined,
+        
+        // ! Alisha change
+        //likes: inc.includes("likes") ? true : undefined,
+        //closetItem: inc.includes("closetitem") ? true : undefined,
+
+        likes: incLikes ? true : undefined,
+        closetItem: incClosetItem ? true : undefined,
+        postItems: incPostItems 
+          ? { 
+            include: { 
+              closetItem: { 
+                select: { 
+                  id: true, 
+                  filename: true, 
+                  category: true, 
+                  layerCategory: true,
+                  colorHex: true,
+                  style: true 
+                } 
+              } 
+            } 
+          } 
+          : undefined,
       },
     });
   }
@@ -114,20 +193,95 @@ class SocialService {
   }
 
   async deletePost(id: string, userId: string) {
-    const existing = await prisma.post.findUnique({ where: { id } });
-    if (!existing) throw new Error("Post not found");
-    if (existing.userId !== userId) throw new Error("Forbidden");
+    console.log(`Deleting post ${id} for user ${userId}`);
+    try {
+      const existing = await this.prisma.post.findUnique({ 
+        where: { id },
+        include: {
+          comments: true,
+          likes: true,
+          postItems: true
+        }
+      });
 
-    await prisma.post.delete({ where: { id } });
+      if (!existing) {
+        console.error(`Post not found: ${id}`);
+        throw new Error('Post not found');
+      }
+
+      if (existing.userId !== userId) {
+        console.error(`User ${userId} unauthorized to delete post ${id}`);
+        throw new Error('Forbidden, token incorrect');
+      }
+
+      console.log(`Found post with ${existing.comments.length} comments, ${existing.likes.length} likes, ${existing.postItems.length} post items`);
+      
+      // Delete related records first - this prevents foreign key constraint errors
+      
+      // Delete all comments
+      console.log(`Deleting ${existing.comments.length} comments for post ${id}`);
+      if (existing.comments.length > 0) {
+        await this.prisma.comment.deleteMany({ where: { postId: id } });
+      }
+      
+      // Delete all likes
+      console.log(`Deleting ${existing.likes.length} likes for post ${id}`);
+      if (existing.likes.length > 0) {
+        await this.prisma.like.deleteMany({ where: { postId: id } });
+      }
+      
+      // Delete all post items
+      console.log(`Deleting ${existing.postItems.length} post items for post ${id}`);
+      if (existing.postItems.length > 0) {
+        await this.prisma.postItem.deleteMany({ where: { postId: id } });
+      }
+
+      // Now it's safe to delete the post
+      console.log(`Now deleting the post ${id}`);
+      await this.prisma.post.delete({ where: { id } });
+      console.log(`Post ${id} deleted successfully`);
+    } catch (error) {
+      console.error('Error in deletePost service:', error);
+      throw error; // Re-throw the error to be handled by the controller
+    }
   }
 
   // ────────────── COMMENTS ──────────────
   async addComment(postId: string, userId: string, content: string) {
-    if (!content.trim()) throw new Error("Content is required");
-    return prisma.comment.create({
-      data: { postId, userId, content },
-      include: { user: { select: { id: true, name: true, profilePhoto: true } } },
-    });
+
+    console.log(`Adding comment to post ${postId} by user ${userId}`);
+    
+    try {
+      const post = await this.prisma.post.findUnique({ where: { id: postId } });
+      if (!post) {
+        console.error(`Post not found: ${postId}`);
+        throw new Error('Post not found');
+      }
+      
+      if (!content || content.trim() === '') {
+        console.error('Empty content provided');
+        throw new Error('Content is required');
+      }
+
+      console.log('Creating comment in database');
+      const comment = await this.prisma.comment.create({
+        data: { postId, userId, content },
+        include: { user: { select: { id: true, name: true, profilePhoto: true } } },
+      });
+      
+      console.log(`Comment created with ID: ${comment.id}`);
+      //!Bemo Change
+      //return comment;
+      
+      //!Alisha Return
+       return prisma.comment.create({
+          data: { postId, userId, content },
+          include: { user: { select: { id: true, name: true, profilePhoto: true } } },
+        });
+    } catch (error) {
+      console.error('Error in addComment service:', error);
+      throw error; // Re-throw the error to be handled by the controller
+    }
   }
 
   async getCommentsForPost(postId: string, limit = 20, offset = 0) {
@@ -159,12 +313,65 @@ class SocialService {
 
   // ────────────── LIKES ──────────────
   async likePost(postId: string, userId: string) {
-    const existingLike = await prisma.like.findUnique({
+    // ! ALsiah change
+    //const existingLike = await prisma.like.findUnique({
+
+    const post = await this.prisma.post.findUnique({ 
+      where: { id: postId },
+      include: {
+        postItems: {
+          include: {
+            closetItem: true
+          }
+        },
+        closetItem: true // For backward compatibility if single item posts exist
+      }
+    });
+    if (!post) throw new Error('Post not found');
+
+    const existingLike = await this.prisma.like.findUnique({
       where: { postId_userId: { postId, userId } },
     });
     if (existingLike) throw new Error("Already liked");
 
+
+    const like = await this.prisma.like.create({ data: { userId, postId } });
+
+    // Extract clothing items from the liked post and generate inspiration
+    await this.generateInspirationFromLikedPost(userId, post);
+    //!bemo change
+    //return like;
+    
+    //! Alisha return
     return prisma.like.create({ data: { postId, userId } });
+  }
+
+  private async generateInspirationFromLikedPost(userId: string, post: any) {
+    try {
+      // Use require instead of dynamic import to avoid potential issues
+      const inspoService = require('../inspo/inspo.service');
+      
+      // Get all clothing items from the post
+      const clothingItems = [];
+      
+      // Add items from postItems relation
+      if (post.postItems && post.postItems.length > 0) {
+        clothingItems.push(...post.postItems.map((item: any) => item.closetItem));
+      }
+      
+      // Add single closet item if it exists (backward compatibility)
+      if (post.closetItem) {
+        clothingItems.push(post.closetItem);
+      }
+      
+      // If we have clothing items, store them as inspiration
+      if (clothingItems.length > 0) {
+        await inspoService.storeLikedOutfit(userId, clothingItems);
+      }
+    } catch (error) {
+      // Don't fail the like operation if inspiration generation fails
+      console.error('Failed to generate inspiration from liked post:', error);
+    }
   }
 
   async unlikePost(postId: string, userId: string) {

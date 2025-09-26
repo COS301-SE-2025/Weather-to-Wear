@@ -24,6 +24,13 @@ enum Category {
   GLOVES
   RAINCOAT
   UMBRELLA
+  SLEEVELESS
+  SKIRT
+  BLAZER
+  COAT
+  BOOTS
+  SANDALS
+  HEELS
 }
 
 enum Style {
@@ -42,6 +49,11 @@ enum Material {
   Leather
   Nylon
   Fleece
+  Denim
+  Linen
+  Silk
+  Suede
+  Fabric
 }
 
 enum LayerCategory {
@@ -73,9 +85,11 @@ model User {
   location     String?
   profilePhoto String?
   isPrivate    Boolean @default(false) 
-
+  tryOnPhoto   String?
+  
   closetItems ClosetItem[]
   outfits     Outfit[]
+  inspoOutfits InspoOutfit[]
   preference  UserPreference?
   events      Event[]
 
@@ -108,7 +122,9 @@ model ClosetItem {
   ownerId     String
   owner       User         @relation(fields: [ownerId], references: [id])
   outfitItems OutfitItem[]
+  inspoItems  InspoItem[]
   posts       Post[]
+  postItems   PostItem[]   @relation("PostClosetItems")
 
   // Packing (back-ref)
   packingItems PackingItem[]
@@ -134,6 +150,12 @@ model Outfit {
 
   // Packing (back-ref)
   packingOutfits PackingOutfit[]
+
+  // --- Try-On Yourself cache (nullable) ---
+  tryOnFinalUrl       String?   // relative or absolute URL to the persisted final image
+  tryOnItemsHash      String?   // SHA-1 of current outfit item IDs (sorted)
+  tryOnGeneratedAt    DateTime?
+  tryOnStepImageUrls  Json?
 }
 
 model OutfitItem {
@@ -191,6 +213,7 @@ model Post {
   updatedAt DateTime  @updatedAt
   comments  Comment[]
   likes     Like[]
+  postItems PostItem[]
 }
 
 model Comment {
@@ -225,6 +248,17 @@ model Follow {
   status      String   @default("pending") 
 
   @@unique([followerId, followingId])
+}
+
+model PostItem {
+  id           String @id @default(uuid())
+  postId       String
+  post         Post   @relation(fields: [postId], references: [id])
+  closetItemId String
+  closetItem   ClosetItem @relation("PostClosetItems", fields: [closetItemId], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@unique([postId, closetItemId])
 }
 
 //
@@ -272,4 +306,52 @@ model PackingOther {
   packed        Boolean @default(false)
 
   list PackingList @relation(fields: [packingListId], references: [id])
+}
+
+//
+// ──────── INSPIRATION OUTFITS ────────
+//
+
+model InspoOutfit {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
+  warmthRating   Int
+  waterproof     Boolean
+  overallStyle   OverallStyle
+  inspoItems     InspoItem[]
+  tags           String[]     // Store tags from liked clothing items
+  recommendedWeatherMin Int?   // Minimum temperature recommendation
+  recommendedWeatherMax Int?   // Maximum temperature recommendation
+  recommendedConditions String[] @default([]) // e.g., ["sunny", "rainy", "windy"]
+}
+
+model InspoItem {
+  id              String        @id @default(uuid())
+  inspoOutfitId   String
+  inspoOutfit     InspoOutfit   @relation(fields: [inspoOutfitId], references: [id])
+  closetItemId    String
+  closetItem      ClosetItem    @relation(fields: [closetItemId], references: [id])
+  layerCategory   LayerCategory
+  sortOrder       Int
+}
+
+model ItemFit {
+  id          String   @id @default(uuid())
+  userId      String
+  itemId      String
+  poseId      String   // e.g., "front_v1"
+  // Basic transform
+  x           Float
+  y           Float
+  scale       Float
+  rotationDeg Float
+  meshJson    Json?
+
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, itemId, poseId])
+  @@index([userId, poseId])
+  @@index([itemId, poseId])
 }

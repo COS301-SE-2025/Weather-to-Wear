@@ -35,29 +35,37 @@ const LAYER_OPTIONS = [
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
-    { value: "TSHIRT", label: "T-shirt" },
-    { value: "LONGSLEEVE", label: "Long Sleeve" },
+    { value: 'TSHIRT', label: 'T-shirt' },
+    { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+    { value: 'SLEEVELESS', label: 'Sleeveless' },
   ],
   base_bottom: [
-    { value: "PANTS", label: "Pants" },
-    { value: "JEANS", label: "Jeans" },
-    { value: "SHORTS", label: "Shorts" },
+    { value: 'PANTS', label: 'Pants' },
+    { value: 'JEANS', label: 'Jeans' },
+    { value: 'SHORTS', label: 'Shorts' },
+    { value: 'SKIRT', label: 'Skirt' },
   ],
   mid_top: [
-    { value: "SWEATER", label: "Sweater" },
-    { value: "HOODIE", label: "Hoodie" },
+    { value: 'SWEATER', label: 'Sweater' },
+    { value: 'HOODIE', label: 'Hoodie' },
   ],
   outerwear: [
-    { value: "JACKET", label: "Jacket" },
-    { value: "RAINCOAT", label: "Raincoat" },
+    { value: 'COAT', label: 'Coat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'JACKET', label: 'Jacket' },
+    { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'COAT', label: 'Coat' },
   ],
   footwear: [
-    { value: "SHOES", label: "Shoes" },
-    { value: "BOOTS", label: "Boots" },
+    { value: 'SHOES', label: 'Shoes' },
+    { value: 'BOOTS', label: 'Boots' },
+    { value: 'SANDALS', label: 'Sandals' },
+    { value: 'HEELS', label: 'Heels' },
   ],
   headwear: [
-    { value: "BEANIE", label: "Beanie" },
-    { value: "HAT", label: "Hat" },
+    { value: 'BEANIE', label: 'Beanie' },
+    { value: 'HAT', label: 'Hat' },
   ],
 };
 
@@ -79,6 +87,11 @@ const MATERIAL_OPTIONS = [
   { value: "Leather", label: "Leather" },
   { value: "Nylon", label: "Nylon" },
   { value: "Fleece", label: "Fleece" },
+  { value: "Denim", label: "Denim" },
+  { value: "Linen", label: "Linen" },
+  { value: "Silk", label: "Silk" },
+  { value: "Suede", label: "Suede" },
+  { value: "Fabric", label: "Fabric" },
 ];
 
 const COLOR_PALETTE = [
@@ -166,68 +179,68 @@ const AddPage: React.FC = () => {
 
 
   // draft persistence
-  useEffect(() => {
-    const state = {
-      layerCategory,
-      category,
-      style,
-      material,
-      warmthFactor,
-      waterproof,
-      color,
-      cameraPreview,
-      uploadPreview,
-    };
-    localStorage.setItem("addPageDraft", JSON.stringify(state));
-  }, [layerCategory, category, style, material, warmthFactor, waterproof, color, cameraPreview, uploadPreview]);
+  // useEffect(() => {
+  //   const state = {
+  //     layerCategory,
+  //     category,
+  //     style,
+  //     material,
+  //     warmthFactor,
+  //     waterproof,
+  //     color,
+  //     cameraPreview,
+  //     uploadPreview,
+  //   };
+  //   localStorage.setItem("addPageDraft", JSON.stringify(state));
+  // }, [layerCategory, category, style, material, warmthFactor, waterproof, color, cameraPreview, uploadPreview]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("addPageDraft");
-    if (saved) {
-      const {
-        layerCategory,
-        category,
-        style,
-        material,
-        warmthFactor,
-        waterproof,
-        color,
-        cameraPreview,
-        uploadPreview,
-      } = JSON.parse(saved);
+  // useEffect(() => {
+  //   const saved = localStorage.getItem("addPageDraft");
+  //   if (saved) {
+  //     const {
+  //       layerCategory,
+  //       category,
+  //       style,
+  //       material,
+  //       warmthFactor,
+  //       waterproof,
+  //       color,
+  //       cameraPreview,
+  //       uploadPreview,
+  //     } = JSON.parse(saved);
 
-      setLayerCategory(layerCategory);
-      setCategory(category);
-      setStyle(style);
-      setMaterial(material);
-      setWarmthFactor(warmthFactor);
-      setWaterproof(waterproof);
-      setColor(color);
-      setCameraPreview(cameraPreview);
-      setUploadPreview(uploadPreview);
-    }
-  }, []);
+  //     setLayerCategory(layerCategory);
+  //     setCategory(category);
+  //     setStyle(style);
+  //     setMaterial(material);
+  //     setWarmthFactor(warmthFactor);
+  //     setWaterproof(waterproof);
+  //     setColor(color);
+  //     setCameraPreview(cameraPreview);
+  //     setUploadPreview(uploadPreview);
+  //   }
+  // }, []);
 
 
-  useEffect(() => {
-    if (batchItems.length > 0) {
-      const metaOnly = batchItems.map(({ id, previewUrl, ...meta }) => ({
-        id,
-        previewUrl,
-        ...meta,
-      }));
-      localStorage.setItem("batchDraft", JSON.stringify(metaOnly));
-    }
-  }, [batchItems]);
+  // useEffect(() => {
+  //   if (batchItems.length > 0) {
+  //     const metaOnly = batchItems.map(({ id, previewUrl, ...meta }) => ({
+  //       id,
+  //       previewUrl,
+  //       ...meta,
+  //     }));
+  //     localStorage.setItem("batchDraft", JSON.stringify(metaOnly));
+  //   }
+  // }, [batchItems]);
 
-  useEffect(() => {
-    const savedBatch = localStorage.getItem("batchDraft");
-    if (savedBatch) {
-      const metaOnly = JSON.parse(savedBatch);
-      setBatchItems(metaOnly); // will show previews and metadata, just no `file` field
-      setCurrentIndex(0);
-    }
-  }, []);
+  // useEffect(() => {
+  //   const savedBatch = localStorage.getItem("batchDraft");
+  //   if (savedBatch) {
+  //     const metaOnly = JSON.parse(savedBatch);
+  //     setBatchItems(metaOnly); // will show previews and metadata, just no `file` field
+  //     setCurrentIndex(0);
+  //   }
+  // }, []);
 
 
   useEffect(() => {
@@ -313,8 +326,8 @@ const AddPage: React.FC = () => {
     addToQueue(formData);
     setShowQueueToast(true);
 
-    localStorage.removeItem("addPageDraft");
-    localStorage.removeItem("batchDraft");
+    // localStorage.removeItem("addPageDraft");
+    // localStorage.removeItem("batchDraft");
 
     // Reset form visuals
     setUploadPreview(null);
@@ -327,31 +340,24 @@ const AddPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-12 -mt-10">
+       <div
+      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden ml-[calc(-50vw+50%)]"
+    >
       {/* Header */}
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 mb-6"
-        style={{
-          backgroundImage: `url(/background.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-4rem'
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-bodoni font-light text-center text-white"
-            style={{
-              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-            }}
-          >
-            ADD AN ITEM
-          </h1>
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/background.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              ADD AN ITEM
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
       {/* Content */}
@@ -841,8 +847,8 @@ const AddPage: React.FC = () => {
 
                   setShowQueueToast(true);
                   setBatchItems([]);
-                  localStorage.removeItem("addPageDraft");
-                  localStorage.removeItem("batchDraft");
+                  // localStorage.removeItem("addPageDraft");
+                  // localStorage.removeItem("batchDraft");
 
                   setTimeout(() => setShowQueueToast(false), 3000);
                 }}
@@ -850,7 +856,7 @@ const AddPage: React.FC = () => {
                 Submit All
               </button>
 
-              <button
+              {/* <button
                 onClick={() => {
                   localStorage.removeItem("addPageDraft");
                   localStorage.removeItem("batchDraft");
@@ -859,7 +865,7 @@ const AddPage: React.FC = () => {
                 className="mt-2 text-sm text-gray-500 hover:text-teal-600 transition-colors underline font-medium"
               >
                 Clear Draft
-              </button>
+              </button> */}
             </>
           )}
         </div>
@@ -912,7 +918,7 @@ const AddPage: React.FC = () => {
       )}
 
       {showQueueToast && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#3F978F] text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
           Item added to queue
         </div>
       )}
@@ -928,7 +934,7 @@ const AddPage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
             <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              🎉 Success! 🎉
+              Success!
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
               Items added successfully.
