@@ -167,7 +167,7 @@ describe("Auth Integration Tests", () => {
         .delete(`/api/auth/users/${userId}`)
         .set("Authorization", "Bearer badtoken");
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
       expect(res.body.error).toMatch(/invalid token/i);
     });
 
@@ -292,11 +292,19 @@ describe("Users Controller Integration", () => {
 
     it("handles unexpected field name with multer error", async () => {
       const { token } = await signupUser();
+      
+      // Suppress console.error for this expected error
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+      
       const res = await request(app)
         .patch("/api/users/me/profile-photo")
         .set("Authorization", `Bearer ${token}`)
         // field name must be 'image' per router; send 'file' to simulate mistake
         .attach("file", Buffer.from("fake"), "avatar.png");
+
+      // Restore console.error
+      console.error = originalConsoleError;
 
       // Multer throws 500 for unexpected field, handled by global error handler
       expect(res.status).toBe(500);

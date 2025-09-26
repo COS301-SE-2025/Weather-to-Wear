@@ -132,11 +132,11 @@ describe('Auth Middleware', () => {
     const req = { headers: {} } as Partial<Request> as any;
     authenticateToken(req, res as any, next);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Missing token' });
+    expect(res.json).toHaveBeenCalledWith({ code: 'NO_TOKEN', error: 'Missing token' });
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('returns 403 if token invalid', () => {
+  it('returns 401 if token invalid', () => {
     // Mock an invalid token
     const req = { headers: { authorization: 'Bearer badtoken' } } as Partial<Request> as any;
     jest.spyOn(jwt, 'verify').mockImplementation((token, secret, callback) => {
@@ -144,8 +144,8 @@ describe('Auth Middleware', () => {
       return callback(new Error('Invalid token'), undefined);
     });
     authenticateToken(req, res as any, next);
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid token' });
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ code: 'INVALID_TOKEN', error: 'Invalid token' });
     expect(next).not.toHaveBeenCalled();
     (jwt.verify as jest.Mock).mockRestore();
   });
