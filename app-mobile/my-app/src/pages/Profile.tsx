@@ -308,7 +308,7 @@
 //                   </div>
 
 //                   {/* Privacy Button */}
-                 
+
 //                     <div className="mt-4">
 //                       <label className="flex items-center gap-2 text-xs sm:text-sm font-livvic text-gray-700 dark:text-gray-300">
 //                         Account Privacy
@@ -321,7 +321,7 @@
 //                         {isPrivate ? "Private Account" : "Public Account"}
 //                       </button>
 //                     </div>
-                  
+
 
 //                   {/* Confirmation Modal */}
 //                   <AnimatePresence>
@@ -885,20 +885,20 @@ const Profile = () => {
                   </div>
 
                   {/* Privacy Button */}
-                 
-                    <div className="mt-4">
-                      <label className="flex items-center gap-2 text-xs sm:text-sm font-livvic text-gray-700 dark:text-gray-300">
-                        Account Privacy
-                      </label>
-                      <button
-                        onClick={handlePrivacyToggle}
-                        className="flex items-center gap-2 mt-1 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition font-livvic text-sm sm:text-base"
-                      >
-                        {isPrivate ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                        {isPrivate ? "Private Account" : "Public Account"}
-                      </button>
-                    </div>
-                  
+
+                  <div className="mt-4">
+                    <label className="flex items-center gap-2 text-xs sm:text-sm font-livvic text-gray-700 dark:text-gray-300">
+                      Account Privacy
+                    </label>
+                    <button
+                      onClick={handlePrivacyToggle}
+                      className="flex items-center gap-2 mt-1 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition font-livvic text-sm sm:text-base"
+                    >
+                      {isPrivate ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      {isPrivate ? "Private Account" : "Public Account"}
+                    </button>
+                  </div>
+
 
                   {/* Confirmation Modal */}
                   <AnimatePresence>
@@ -1000,30 +1000,120 @@ const Profile = () => {
             <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4 sm:-mt-32 -mt-8">
               Top Outfits
             </h3>
+
             {loadingOutfits ? (
               <p className="text-gray-500 text-xs sm:text-sm">Loading outfits...</p>
             ) : topOutfits.length === 0 ? (
               <p className="text-gray-500 text-xs sm:text-sm">No outfits yet.</p>
             ) : (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                {topOutfits.map((outfit) => (
-                  <div key={outfit.id} className="relative group">
-                    <img
-                      src={outfit.outfitItems[0]?.imageUrl}
-                      alt={`Outfit ${outfit.id}`}
-                      className="w-full h-20 sm:h-24 md:h-28 rounded-lg object-cover"
-                    />
-                    <button
-                      onClick={() => toggleFavourite(outfit.id)}
-                      className="absolute top-1 right-1 text-white bg-black/50 rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {topOutfits.map((outfit) => {
+                  const items = outfit.outfitItems ?? [];
+
+                  const accessories = items.filter((it) =>
+                    ["headwear", "accessory"].includes(it.layerCategory)
+                  );
+                  const tops = items.filter((it) =>
+                    ["base_top", "mid_top", "outerwear"].includes(it.layerCategory)
+                  );
+                  const bottoms = items.filter((it) => it.layerCategory === "base_bottom");
+                  const footwear = items.filter((it) => it.layerCategory === "footwear");
+
+                  // try to pick a sensible cover (top-first fallback chain)
+                  const cover =
+                    tops[0]?.imageUrl ||
+                    bottoms[0]?.imageUrl ||
+                    footwear[0]?.imageUrl ||
+                    accessories[0]?.imageUrl;
+
+                  return (
+                    <motion.div
+                      key={outfit.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ scale: 1.02 }}
+                      className="relative bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 w-full shadow-lg hover:shadow-2xl transition-shadow duration-300"
                     >
-                      {outfit.favourite ? <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-red-500" /> : <Heart className="w-3 h-3 sm:w-4 sm:h-4" />}
-                    </button>
-                  </div>
-                ))}
+                      {/* cover + favourite */}
+                      <div className="relative mb-3">
+                        
+                        <button
+                          onClick={() => toggleFavourite(outfit.id)}
+                          className="absolute top-2 right-2 text-white bg-black/50 rounded-full p-1 hover:bg-black/70 transition"
+                          title={outfit.favourite ? "Unfavourite" : "Favourite"}
+                        >
+                          <Heart
+                            className={`w-4 h-4 ${outfit.favourite ? "fill-red-500" : ""
+                              }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* rows */}
+                      <div className="space-y-2">
+                        {/* accessories */}
+                        {accessories.length > 0 && (
+                          <div className="flex justify-center gap-1">
+                            {accessories.map((it) => (
+                              <img
+                                key={it.closetItemId}
+                                src={absolutize(it.imageUrl, API_BASE)}
+                                alt={`${it.layerCategory}`}
+                                className="w-6 h-6 sm:w-8 sm:h-8 object-contain rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* tops */}
+                        {tops.length > 0 && (
+                          <div className="flex justify-center gap-1">
+                            {tops.map((it) => (
+                              <img
+                                key={it.closetItemId}
+                                src={absolutize(it.imageUrl, API_BASE)}
+                                alt={`${it.layerCategory}`}
+                                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* bottoms */}
+                        {bottoms.length > 0 && (
+                          <div className="flex justify-center gap-1">
+                            {bottoms.map((it) => (
+                              <img
+                                key={it.closetItemId}
+                                src={absolutize(it.imageUrl, API_BASE)}
+                                alt={`${it.layerCategory}`}
+                                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* footwear */}
+                        {footwear.length > 0 && (
+                          <div className="flex justify-center gap-1">
+                            {footwear.map((it) => (
+                              <img
+                                key={it.closetItemId}
+                                src={absolutize(it.imageUrl, API_BASE)}
+                                alt={`${it.layerCategory}`}
+                                className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </div>
+
         </div>
       </div>
 
