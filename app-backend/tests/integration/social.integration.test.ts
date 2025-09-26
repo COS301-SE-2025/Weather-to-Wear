@@ -7,10 +7,7 @@ import prisma from "../../src/prisma";
 
 jest.mock("../../src/utils/s3", () => ({
   uploadBufferToS3: jest.fn().mockResolvedValue({}),
-  putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => ({
-    key,
-    publicUrl: `https://cdn.test/${key}`,
-  })),
+  putBufferSmart: jest.fn().mockResolvedValue({ key: 'mock-key', publicUrl: 'https://cdn.test/mock-key' }),
   cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
 }));
 

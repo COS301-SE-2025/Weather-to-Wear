@@ -1355,8 +1355,6 @@ useEffect(() => {
                 "
                         aria-label=" Select City"
                       />
-
-
                     </div>
                   </form>
 

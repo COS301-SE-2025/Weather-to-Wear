@@ -73,8 +73,14 @@ class SocialController {
         imageUrl = publicUrl;
       }
 
-      const { caption, location, closetItemId, weather } = req.body;
+      const { caption, location, closetItemId, closetItemIds, weather } = req.body;
       const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
+      
+      // Parse closetItemIds if it's a string
+      let parsedClosetItemIds: string[] | undefined;
+      if (closetItemIds) {
+        parsedClosetItemIds = typeof closetItemIds === 'string' ? JSON.parse(closetItemIds) : closetItemIds;
+      }
 
       const post = await socialService.createPost(user.id, {
         imageUrl,
@@ -82,6 +88,7 @@ class SocialController {
         location,
         weather: weatherData,
         closetItemId,
+        closetItemIds: parsedClosetItemIds,
       });
 
       res.status(201).json({ message: 'Post created successfully', post });
@@ -168,39 +175,76 @@ class SocialController {
     next: NextFunction
   ): Promise<void> => {
     try {
+      console.log(`Delete post request received for post: ${req.params.id}`);
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
+        console.log('Unauthorized delete post attempt - no user ID');
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
 
       const { id } = req.params;
+      if (!id) {
+        console.log('Invalid post ID provided');
+        res.status(400).json({ message: 'Invalid post ID' });
+        return;
+      }
+      
+      console.log(`Processing delete request for post ${id} by user ${user.id}`);
 
-      await socialService.deletePost(id, user.id);
-
-      res.status(200).json({ message: 'Post deleted successfully' });
+      try {
+        await socialService.deletePost(id, user.id);
+        console.log(`Post ${id} successfully deleted`);
+        res.status(200).json({ message: 'Post deleted successfully' });
+      } catch (serviceErr: any) {
+        console.error(`Error in social service deletePost:`, serviceErr);
+        
+        if (serviceErr.message.includes('not found')) {
+          res.status(404).json({ message: 'Post not found' });
+        } else if (serviceErr.message.includes('Forbidden')) {
+          res.status(403).json({ message: 'You do not have permission to delete this post' });
+        } else if (serviceErr.code === 'P2003') {
+          // Prisma foreign key constraint error
+          console.error('Foreign key constraint error:', serviceErr);
+          res.status(500).json({ message: 'Cannot delete post because it is referenced by other records' });
+        } else {
+          res.status(500).json({ message: 'An error occurred while deleting the post' });
+        }
+      }
     } catch (err) {
-      next(err);
+      console.error(`Unexpected error in deletePost controller:`, err);
+      res.status(500).json({ message: 'An unexpected error occurred' });
     }
   };
   addComment = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      console.log("Comment request received:", { 
+        postId: req.params.postId,
+        userId: (req as AuthenticatedRequest).user?.id,
+        contentLength: req.body?.content?.length || 0
+      });
+      
       const { user } = req as AuthenticatedRequest;
       const { postId } = req.params;
       const { content } = req.body;
 
       if (!user?.id) {
+        console.log("Unauthorized: No user ID in request");
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
       if (!content) {
+        console.log("Bad request: No content provided");
         res.status(400).json({ message: 'Content is required' });
         return;
       }
 
+      console.log("Calling social service addComment...");
       const comment = await socialService.addComment(postId, user.id, content);
+      console.log("Comment created successfully:", comment.id);
       res.status(201).json({ message: 'Comment added successfully', comment });
     } catch (err: any) {
+      console.error("Error in addComment controller:", err);
       if (err.message === 'Post not found') {
         res.status(404).json({ message: err.message });
         return;

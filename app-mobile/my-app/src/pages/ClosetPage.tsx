@@ -1,5 +1,5 @@
 // src/pages/ClosetPage.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
@@ -8,10 +8,14 @@ import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { fetchAllEvents } from '../services/eventsApi';
 import { getPackingList } from '../services/packingApi';
+import TryOnViewer from "../components/tryon/TryOnViewer";
+import { getTryOnPhoto, setTryOnPhotoBase64, runTryOnSelf, getTryOnCredits, getTryOnResult } from '../services/tryonApi';
 
 import EditOutfitModal from "../components/EditOutfitModal";
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+
+import "../styles/ClosetPage.css";
 
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
@@ -107,6 +111,8 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
+
+
 type Item = {
   id: string;
   name: string;
@@ -160,6 +166,34 @@ export default function ClosetPage() {
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
+  // Try-On (Mannequin)
+  const [showTryOnModal, setShowTryOnModal] = useState(false); // New state for separate try-on modal
+  const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
+
+  // Try-On (Yourself) modal & state
+  const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
+  const [selfTryOnOutfit, setSelfTryOnOutfit] = useState<UIOutfit | null>(null);
+
+  // Stored / selected photo
+  const [storedTryOnPhoto, setStoredTryOnPhoto] = useState<string | null>(null);
+  const [selfPhotoPreview, setSelfPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Generation
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState('Waiting…');
+  const [stepImages, setStepImages] = useState<string[]>([]);
+  const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  const progressTimer = useRef<number | null>(null);
+
+  // show credits
+  const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
+
+  const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
+  const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
+  const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
+
   // Global popup (Success/Error)
   const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
     open: false,
@@ -202,7 +236,7 @@ export default function ClosetPage() {
     };
 
     fetchItemsOnce();
-  }, [justFinished, queueLength]); // include queueLength to satisfy lint
+  }, [justFinished, queueLength]);
 
   // Fetch saved outfits
   useEffect(() => {
@@ -229,7 +263,6 @@ export default function ClosetPage() {
     }
   }, [showModal, showEditModal]);
 
-  // Rename handler to avoid name clash with imported api function
   const onToggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
     if (originTab === 'items') {
       try {
@@ -327,15 +360,13 @@ export default function ClosetPage() {
     setShowModal(true);
   };
 
-  // --- Quick guards (fast UX) ---
   const isItemInAnyOutfit = (closetItemId: string) =>
     outfits.some(o => o.outfitItems?.some(it => String(it.closetItemId) === String(closetItemId)));
 
-  // Best-effort quick check for packing lists (parallel, early exit)
   const isItemPackedAnywhere = async (closetItemId: string): Promise<boolean> => {
     try {
       const events = await fetchAllEvents();
-      const subset = events.slice(0, 12); // keep it light
+      const subset = events.slice(0, 12); 
       const checks = subset.map(async ev => {
         try {
           const list = await getPackingList(ev.id).catch(() => null);
@@ -357,7 +388,7 @@ export default function ClosetPage() {
 
   const confirmRemove = async () => {
     if (!itemToRemove) return;
-    const { id, tab } = itemToRemove; // removed unused `name`
+    const { id, tab } = itemToRemove;
 
     try {
       if (tab === 'outfits') {
@@ -367,7 +398,6 @@ export default function ClosetPage() {
         return;
       }
 
-      // From here: deleting a closet item
       if (isItemInAnyOutfit(id)) {
         showPopup('You can’t delete this item because it’s part of one or more outfits. Remove it from those outfits first.', 'error');
         return;
@@ -435,6 +465,182 @@ export default function ClosetPage() {
       data = data.sort((a, b) => Number(b.favourite) - Number(a.favourite));
     }
     return data;
+  }
+
+
+
+  // -------------------------- 
+  //  Virtual Try on Yourself 
+  // --------------------------
+
+  function resolveImgSrc(u?: string): string {
+    if (!u) return '';
+    if (u.startsWith('data:') || u.startsWith('http://') || u.startsWith('https://')) return u;
+    return absolutize(u, API_BASE);
+  }
+
+  async function resizeToDataUrl(file: File, maxW = 1280, maxH = 1280): Promise<string> {
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(file);
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = rej;
+      img.src = url;
+    });
+
+    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    URL.revokeObjectURL(url);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function openSelfTryOn(outfit: UIOutfit) {
+    setSelfTryOnOutfit(outfit);
+    setShowSelfTryOnModal(true);
+    setFinalImageUrl(null);
+    setStepImages([]);
+    setProgress(0);
+    setProgressLabel('Checking your try-on photo…');
+
+    try {
+      const [photoRes, creditRes] = await Promise.allSettled([getTryOnPhoto(), getTryOnCredits()]);
+      if (photoRes.status === 'fulfilled') {
+        setStoredTryOnPhoto(photoRes.value?.tryOnPhoto ?? null);
+        setSelfPhotoPreview(photoRes.value?.tryOnPhoto ?? null);
+      }
+      if (creditRes.status === 'fulfilled') setCredits(creditRes.value);
+    } catch {
+      // non-blocking
+    } finally {
+      setProgressLabel('Ready');
+    }
+  }
+
+  function closeSelfTryOn() {
+    setShowSelfTryOnModal(false);
+    setSelfTryOnOutfit(null);
+    setSelfPhotoPreview(null);
+    setIsUploadingPhoto(false);
+    setIsGenerating(false);
+    setProgress(0);
+    setProgressLabel('Waiting…');
+    setFinalImageUrl(null);
+    setStepImages([]);
+    if (progressTimer.current) {
+      window.clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+  }
+
+  async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    // const b64 = await fileToBase64(f);
+    const b64 = await resizeToDataUrl(f, 1280, 1280); // smaller and faster than raw
+    setSelfPhotoPreview(b64);
+  }
+
+  async function saveTryOnPhoto() {
+    if (!selfPhotoPreview) return;
+    setIsUploadingPhoto(true);
+    try {
+      const res = await setTryOnPhotoBase64(selfPhotoPreview);
+      setStoredTryOnPhoto(res.tryOnPhoto || null);
+      setProgressLabel('Saved your try-on photo');
+      showPopup('Try-on photo saved.', 'success');
+    } catch (err) {
+      console.error(err);
+      showPopup('Failed to save try-on photo.', 'error');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  function startFakeProgress(maxBeforeFinish = 85) {
+    if (progressTimer.current) window.clearInterval(progressTimer.current);
+    setProgress(5);
+    progressTimer.current = window.setInterval(() => {
+      setProgress(p => {
+        const next = p + Math.random() * 4 + 1;
+        return next >= maxBeforeFinish ? maxBeforeFinish : next;
+      });
+    }, 500) as unknown as number;
+  }
+
+  async function startGeneration() {
+    if (!selfTryOnOutfit) return;
+    if (!storedTryOnPhoto) {
+      showPopup('Please upload and save a full-body photo first.', 'error');
+      return;
+    }
+
+    const closetItemIds = selfTryOnOutfit.outfitItems.map(it => it.closetItemId);
+
+    setIsGenerating(true);
+    setProgressLabel('Generating outfit…');
+    startFakeProgress(88);
+
+    try {
+      const res = await runTryOnSelf({
+        outfitId: selfTryOnOutfit?.id,
+        useTryOnPhoto: true,
+        closetItemIds,
+        mode: 'balanced',
+        returnBase64: false,
+      });
+
+      // Stop fake progress, finish to 100 after a short delay
+      if (progressTimer.current) {
+        window.clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+      setStepImages(res.stepOutputs || []);
+      setProgressLabel('Finalizing…');
+      setProgress(97);
+
+      const url = res.finalUrl || (res.finalBase64 ? res.finalBase64 : null);
+      setFinalImageUrl(url);
+      setTimeout(() => setProgress(100), 400);
+      setProgressLabel('Done');
+    } catch (err: any) {
+      console.error(err);
+      showPopup(err?.message || 'Try-on failed.', 'error');
+      setProgressLabel('Failed');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function openSelfTryOnOrPreview(outfit: UIOutfit) {
+    try {
+      const hit = await getTryOnResult(outfit.id);
+      if (hit?.finalImageUrl) {
+        setSelfPreviewUrl(hit.finalImageUrl);
+        setSelfPreviewDate(new Date(hit.createdAt).toLocaleString());
+        setSelfTryOnOutfit(outfit);
+        setShowSelfPreviewModal(true);
+        return;
+      }
+    } catch {
+      // ignore and fall through
+    }
+    await openSelfTryOn(outfit);
   }
 
   return (
@@ -552,7 +758,7 @@ export default function ClosetPage() {
                               alt={entry.name}
                               onClick={() => setActiveDetailsItem(entry)}
                               className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
-                              
+
                             />
                             <button
                               onClick={() => {
@@ -597,6 +803,7 @@ export default function ClosetPage() {
                   ) : (
                     outfits.filter(o => o.favourite).map(entry => (
                       <div
+                        key={entry.id}
                         className="
     relative bg-white border rounded-xl p-2 w-full cursor-pointer
     shadow-lg shadow-black/10 dark:shadow-black/40
@@ -622,7 +829,7 @@ export default function ClosetPage() {
                                   key={it.closetItemId}
                                   src={absolutize(it.imageUrl, API_BASE)}
                                   alt=""
-                                  className="w-16 h-16 object-contain rounded"
+                                  className="w-8 h-8 object-contain rounded"
                                 />
                               ))}
                           </div>
@@ -739,6 +946,7 @@ export default function ClosetPage() {
               } else if (isUIOutfit(entry)) {
                 return (
                   <div
+                    key={entry.id}
                     className="
     relative bg-white border rounded-xl p-2 w-full cursor-pointer
     shadow-lg shadow-black/10 dark:shadow-black/40
@@ -768,7 +976,7 @@ export default function ClosetPage() {
                               key={it.closetItemId}
                               src={absolutize(it.imageUrl, API_BASE)}
                               alt=""
-                              className="w-16 h-16 object-contain rounded"
+                              className="w-8 h-8 object-contain rounded"
                             />
                           ))}
                       </div>
@@ -788,7 +996,7 @@ export default function ClosetPage() {
                       {/* bottoms */}
                       <div className="flex justify-center space-x-1">
                         {entry.outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
+                          .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                           .map(it => (
                             <img
                               key={it.closetItemId}
@@ -833,6 +1041,7 @@ export default function ClosetPage() {
           </div>
         )}
 
+        {/* Outfit Details Modal (always shows thumbnails, no try-on toggle) */}
         <AnimatePresence>
           {activeDetailsOutfit && (
             <motion.div
@@ -845,12 +1054,12 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl min-w-0 p-8 relative flex flex-col gap-4"
               >
                 {/* Close Button */}
                 <button
                   onClick={() => setActiveDetailsOutfit(null)}
-                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-30"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -866,7 +1075,7 @@ export default function ClosetPage() {
                   />
                 </button>
 
-                {/* Outfit Images */}
+                {/* Static thumbnails */}
                 <div className="flex justify-center mb-2">
                   <div className="space-y-1">
                     {/* headwear + accessory */}
@@ -878,7 +1087,7 @@ export default function ClosetPage() {
                             key={it.closetItemId}
                             src={absolutize(it.imageUrl, API_BASE)}
                             alt=""
-                            className="w-16 h-16 object-contain rounded"
+                            className="w-8 h-8 object-contain rounded"
                           />
                         ))}
                     </div>
@@ -898,7 +1107,7 @@ export default function ClosetPage() {
                     {/* bottoms */}
                     <div className="flex justify-center space-x-1">
                       {activeDetailsOutfit.outfitItems
-                        .filter(it => it.layerCategory === 'base_bottom')
+                        .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                         .map(it => (
                           <img
                             key={it.closetItemId}
@@ -942,8 +1151,34 @@ export default function ClosetPage() {
                   )}
                 </div>
 
-                {/* Actions */}
+                {/* Try On Avatar */}
                 <div className="flex justify-end gap-2 pt-6">
+                  <button
+                    onClick={() => {
+                      if (activeDetailsOutfit) {
+                        setTryOnOutfit(activeDetailsOutfit); 
+                        setShowTryOnModal(true);
+                        setActiveDetailsOutfit(null); 
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+                  >
+                    Try On Avatar
+                  </button>
+
+                  {/*Try On Yourself */}
+                  <button
+                    onClick={() => {
+                      if (!activeDetailsOutfit) return;
+                      // openSelfTryOn(activeDetailsOutfit);
+                      openSelfTryOnOrPreview(activeDetailsOutfit);
+                      setActiveDetailsOutfit(null);
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                  >
+                    Try On Yourself
+                  </button>
+
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
@@ -963,6 +1198,296 @@ export default function ClosetPage() {
                     className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
                   >
                     Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Try On Mannequin Modal */}
+        <AnimatePresence>
+          {showTryOnModal && tryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowTryOnModal(false);
+                setTryOnOutfit(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col"
+                style={{
+                  width: 'min(95vw, 1200px)',
+                  height: 'min(95vh, 800px)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setShowTryOnModal(false);
+                    setTryOnOutfit(null);
+                  }}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[101]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Try-On Viewer - SIMPLIFIED CONTAINER */}
+                <div
+                  className="flex-1 relative"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px'
+                  }}
+                >
+                  <TryOnViewer
+                    mannequinUrl="/mannequins/front_v1.png"
+                    poseId="front_v1"
+                    outfitItems={tryOnOutfit.outfitItems.map(it => ({
+                      closetItemId: it.closetItemId,
+                      imageUrl: it.imageUrl,
+                      layerCategory: it.layerCategory as any,
+                    }))}
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Try-On Yourself Modal */}
+        <AnimatePresence>
+          {showSelfTryOnModal && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeSelfTryOn}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col w-[min(95vw,1100px)] h-[min(95vh,820px)]"
+              >
+                {/* Close */}
+                <button
+                  onClick={closeSelfTryOn}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[111]"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header */}
+                <div className="px-5 pt-5">
+                  <h2 className="text-xl font-semibold">Try On Yourself</h2>
+                  <p className="text-sm text-gray-500">
+                    Use your stored full-body photo or upload a new one, then we’ll put this outfit on you.
+                  </p>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-5 overflow-hidden">
+                  {/* Left: Photo selection */}
+                  <div className="border rounded-xl p-4 overflow-auto">
+                    <h3 className="font-medium mb-2">1) Your full-body photo</h3>
+
+                    {selfPhotoPreview ? (
+                      <div className="relative">
+                        <img
+                          src={resolveImgSrc(selfPhotoPreview || '')}
+                          alt="Your try-on photo"
+                          className="w-full max-h-80 object-contain rounded-lg border"
+                        />
+                        <div className="flex gap-2 mt-3">
+                          <label className="px-3 py-1.5 border rounded-full cursor-pointer hover:bg-gray-50">
+                            Replace Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={handlePickPhoto}
+                            />
+                          </label>
+                          <button
+                            disabled={isUploadingPhoto}
+                            onClick={saveTryOnPhoto}
+                            className="px-3 py-1.5 rounded-full bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60"
+                          >
+                            {isUploadingPhoto ? 'Saving…' : 'Save as My Try-On Photo'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-dashed rounded-lg p-6 text-center">
+                        <p className="text-gray-600 mb-3">No photo yet. Upload or take one:</p>
+                        <label className="inline-block px-4 py-2 border rounded-full cursor-pointer hover:bg-gray-50">
+                          Choose Photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handlePickPhoto}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-xs text-gray-500">
+                      Tip: Stand straight, good lighting, no occlusions. Face & shoes visible if possible.
+                    </div>
+
+                    {credits && (
+                      <div className="mt-4 text-sm text-gray-600">
+                        <span className="font-medium">Credits:</span> {credits.total} total
+                        <span className="mx-2">•</span> sub: {credits.subscription}
+                        <span className="mx-2">•</span> on-demand: {credits.on_demand}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Generate & result */}
+                  <div className="border rounded-xl p-4 overflow-auto">
+                    <h3 className="font-medium mb-2">2) Generate</h3>
+
+                    {/* Progress */}
+                    <div className="mb-3">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-600 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{progressLabel}</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={startGeneration}
+                        disabled={!storedTryOnPhoto || isGenerating}
+                        className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 disabled:opacity-60"
+                      >
+                        {isGenerating ? 'Generating…' : 'Try On Outfit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFinalImageUrl(null);
+                          setStepImages([]);
+                          setProgress(0);
+                          setProgressLabel('Ready');
+                        }}
+                        className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+
+                    {/* Result */}
+                    {finalImageUrl ? (
+                      <div className="space-y-3">
+                        <img
+                          src={resolveImgSrc(finalImageUrl)}
+                          alt="Final try-on"
+                          className="w-full max-h-[520px] object-contain rounded-lg border"
+                        />
+                        {stepImages?.length > 1 && (
+                          <div>
+                            <div className="text-sm text-gray-600 mb-1">Construction (step-by-step)</div>
+                            <div className="flex flex-wrap gap-2">
+                              {stepImages.map((s, idx) => (
+                                <img
+                                  key={idx}
+                                  src={resolveImgSrc(s)}
+                                  alt={`Step ${idx + 1}`}
+                                  className="w-24 h-24 object-contain rounded border"
+                                  title={`Step ${idx + 1}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click <span className="font-medium">Try On Outfit</span> to generate your image. We’ll apply the outfit piece by piece and return the final composite.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Last Try-On */}
+        <AnimatePresence>
+          {showSelfPreviewModal && selfPreviewUrl && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[115] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSelfPreviewModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl p-4 w-[min(95vw,900px)]"
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Last Try-On</h3>
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {selfPreviewDate && (
+                  <div className="text-xs text-gray-500 mb-2">Generated: {selfPreviewDate}</div>
+                )}
+
+                <img
+                  src={resolveImgSrc(selfPreviewUrl)}
+                  alt="Cached try-on"
+                  className="w-full max-h-[70vh] object-contain rounded border"
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSelfPreviewModal(false);
+                      openSelfTryOn(selfTryOnOutfit); 
+                    }}
+                    className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
+                  >
+                    Generate Again
                   </button>
                 </div>
               </motion.div>

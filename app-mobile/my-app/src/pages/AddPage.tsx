@@ -179,68 +179,68 @@ const AddPage: React.FC = () => {
 
 
   // draft persistence
-  useEffect(() => {
-    const state = {
-      layerCategory,
-      category,
-      style,
-      material,
-      warmthFactor,
-      waterproof,
-      color,
-      cameraPreview,
-      uploadPreview,
-    };
-    localStorage.setItem("addPageDraft", JSON.stringify(state));
-  }, [layerCategory, category, style, material, warmthFactor, waterproof, color, cameraPreview, uploadPreview]);
+  // useEffect(() => {
+  //   const state = {
+  //     layerCategory,
+  //     category,
+  //     style,
+  //     material,
+  //     warmthFactor,
+  //     waterproof,
+  //     color,
+  //     cameraPreview,
+  //     uploadPreview,
+  //   };
+  //   localStorage.setItem("addPageDraft", JSON.stringify(state));
+  // }, [layerCategory, category, style, material, warmthFactor, waterproof, color, cameraPreview, uploadPreview]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("addPageDraft");
-    if (saved) {
-      const {
-        layerCategory,
-        category,
-        style,
-        material,
-        warmthFactor,
-        waterproof,
-        color,
-        cameraPreview,
-        uploadPreview,
-      } = JSON.parse(saved);
+  // useEffect(() => {
+  //   const saved = localStorage.getItem("addPageDraft");
+  //   if (saved) {
+  //     const {
+  //       layerCategory,
+  //       category,
+  //       style,
+  //       material,
+  //       warmthFactor,
+  //       waterproof,
+  //       color,
+  //       cameraPreview,
+  //       uploadPreview,
+  //     } = JSON.parse(saved);
 
-      setLayerCategory(layerCategory);
-      setCategory(category);
-      setStyle(style);
-      setMaterial(material);
-      setWarmthFactor(warmthFactor);
-      setWaterproof(waterproof);
-      setColor(color);
-      setCameraPreview(cameraPreview);
-      setUploadPreview(uploadPreview);
-    }
-  }, []);
+  //     setLayerCategory(layerCategory);
+  //     setCategory(category);
+  //     setStyle(style);
+  //     setMaterial(material);
+  //     setWarmthFactor(warmthFactor);
+  //     setWaterproof(waterproof);
+  //     setColor(color);
+  //     setCameraPreview(cameraPreview);
+  //     setUploadPreview(uploadPreview);
+  //   }
+  // }, []);
 
 
-  useEffect(() => {
-    if (batchItems.length > 0) {
-      const metaOnly = batchItems.map(({ id, previewUrl, ...meta }) => ({
-        id,
-        previewUrl,
-        ...meta,
-      }));
-      localStorage.setItem("batchDraft", JSON.stringify(metaOnly));
-    }
-  }, [batchItems]);
+  // useEffect(() => {
+  //   if (batchItems.length > 0) {
+  //     const metaOnly = batchItems.map(({ id, previewUrl, ...meta }) => ({
+  //       id,
+  //       previewUrl,
+  //       ...meta,
+  //     }));
+  //     localStorage.setItem("batchDraft", JSON.stringify(metaOnly));
+  //   }
+  // }, [batchItems]);
 
-  useEffect(() => {
-    const savedBatch = localStorage.getItem("batchDraft");
-    if (savedBatch) {
-      const metaOnly = JSON.parse(savedBatch);
-      setBatchItems(metaOnly); // will show previews and metadata, just no `file` field
-      setCurrentIndex(0);
-    }
-  }, []);
+  // useEffect(() => {
+  //   const savedBatch = localStorage.getItem("batchDraft");
+  //   if (savedBatch) {
+  //     const metaOnly = JSON.parse(savedBatch);
+  //     setBatchItems(metaOnly); // will show previews and metadata, just no `file` field
+  //     setCurrentIndex(0);
+  //   }
+  // }, []);
 
 
   useEffect(() => {
@@ -326,8 +326,8 @@ const AddPage: React.FC = () => {
     addToQueue(formData);
     setShowQueueToast(true);
 
-    localStorage.removeItem("addPageDraft");
-    localStorage.removeItem("batchDraft");
+    // localStorage.removeItem("addPageDraft");
+    // localStorage.removeItem("batchDraft");
 
     // Reset form visuals
     setUploadPreview(null);
@@ -847,8 +847,8 @@ const AddPage: React.FC = () => {
 
                   setShowQueueToast(true);
                   setBatchItems([]);
-                  localStorage.removeItem("addPageDraft");
-                  localStorage.removeItem("batchDraft");
+                  // localStorage.removeItem("addPageDraft");
+                  // localStorage.removeItem("batchDraft");
 
                   setTimeout(() => setShowQueueToast(false), 3000);
                 }}
@@ -856,7 +856,7 @@ const AddPage: React.FC = () => {
                 Submit All
               </button>
 
-              <button
+              {/* <button
                 onClick={() => {
                   localStorage.removeItem("addPageDraft");
                   localStorage.removeItem("batchDraft");
@@ -865,7 +865,7 @@ const AddPage: React.FC = () => {
                 className="mt-2 text-sm text-gray-500 hover:text-teal-600 transition-colors underline font-medium"
               >
                 Clear Draft
-              </button>
+              </button> */}
             </>
           )}
         </div>
