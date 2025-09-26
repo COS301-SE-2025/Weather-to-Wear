@@ -18,6 +18,12 @@ export type NotificationAPIItem = {
 };
 
 class SocialService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient();
+  }
+
   // ────────────── POSTS ──────────────
   async createPost(
     userId: string,
@@ -31,7 +37,7 @@ class SocialService {
     }
   ) {
     // ! Alisha change
-    //return prisma.post.create({
+    //return this.prisma.post.create({
 
     const post = await this.prisma.post.create({
       data: {
@@ -71,7 +77,6 @@ class SocialService {
 
 
     const inc = (include ?? []).map(s => s.toLowerCase());
-    const following = await prisma.follow.findMany({where: { followerId: currentUserId, status: "accepted" },
     const incUser = inc.includes('user');
     const incComments = inc.includes('comments');
     const incCommentUser = inc.includes('comments.user');   // NEW
@@ -85,7 +90,7 @@ class SocialService {
     });
     const followingIds = [...following.map((f) => f.followingId), currentUserId];
 
-    return prisma.post.findMany({
+    return this.prisma.post.findMany({
       where: { userId: { in: followingIds } },
       take: Number(limit),
       skip: Number(offset),
@@ -185,11 +190,11 @@ class SocialService {
     userId: string,
     data: { imageUrl?: string; caption?: string; location?: string; weather?: any }
   ) {
-    const existing = await prisma.post.findUnique({ where: { id } });
+    const existing = await this.prisma.post.findUnique({ where: { id } });
     if (!existing) throw new Error("Post not found");
     if (existing.userId !== userId) throw new Error("Forbidden");
 
-    return prisma.post.update({ where: { id }, data });
+    return this.prisma.post.update({ where: { id }, data });
   }
 
   async deletePost(id: string, userId: string) {
@@ -274,7 +279,7 @@ class SocialService {
       //return comment;
       
       //!Alisha Return
-       return prisma.comment.create({
+       return this.prisma.comment.create({
           data: { postId, userId, content },
           include: { user: { select: { id: true, name: true, profilePhoto: true } } },
         });
@@ -285,7 +290,7 @@ class SocialService {
   }
 
   async getCommentsForPost(postId: string, limit = 20, offset = 0) {
-    return prisma.comment.findMany({
+    return this.prisma.comment.findMany({
       where: { postId },
       take: limit,
       skip: offset,
@@ -295,26 +300,26 @@ class SocialService {
   }
 
   async updateComment(id: string, userId: string, content: string) {
-    const comment = await prisma.comment.findUnique({ where: { id } });
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
     if (!comment) throw new Error("Comment not found");
     if (comment.userId !== userId) throw new Error("Forbidden");
     if (!content.trim()) throw new Error("Content is required");
 
-    return prisma.comment.update({ where: { id }, data: { content } });
+    return this.prisma.comment.update({ where: { id }, data: { content } });
   }
 
   async deleteComment(id: string, userId: string) {
-    const comment = await prisma.comment.findUnique({ where: { id } });
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
     if (!comment) throw new Error("Comment not found");
     if (comment.userId !== userId) throw new Error("Forbidden");
 
-    await prisma.comment.delete({ where: { id } });
+    await this.prisma.comment.delete({ where: { id } });
   }
 
   // ────────────── LIKES ──────────────
   async likePost(postId: string, userId: string) {
     // ! ALsiah change
-    //const existingLike = await prisma.like.findUnique({
+    //const existingLike = await this.prisma.like.findUnique({
 
     const post = await this.prisma.post.findUnique({ 
       where: { id: postId },
@@ -343,7 +348,7 @@ class SocialService {
     //return like;
     
     //! Alisha return
-    return prisma.like.create({ data: { postId, userId } });
+    return this.prisma.like.create({ data: { postId, userId } });
   }
 
   private async generateInspirationFromLikedPost(userId: string, post: any) {
@@ -375,16 +380,16 @@ class SocialService {
   }
 
   async unlikePost(postId: string, userId: string) {
-    const existingLike = await prisma.like.findUnique({
+    const existingLike = await this.prisma.like.findUnique({
       where: { postId_userId: { postId, userId } },
     });
     if (!existingLike) throw new Error("Like not found");
 
-    await prisma.like.delete({ where: { postId_userId: { postId, userId } } });
+    await this.prisma.like.delete({ where: { postId_userId: { postId, userId } } });
   }
 
   async getLikesForPost(postId: string, limit = 20, offset = 0) {
-    return prisma.like.findMany({
+    return this.prisma.like.findMany({
       where: { postId },
       skip: offset,
       take: limit,
@@ -397,15 +402,15 @@ class SocialService {
   // async followUser(followerId: string, followingId: string) {
   //   if (followerId === followingId) throw new Error("Cannot follow yourself");
 
-  //   const existingUser = await prisma.user.findUnique({ where: { id: followingId } });
+  //   const existingUser = await this.prisma.user.findUnique({ where: { id: followingId } });
   //   if (!existingUser) throw new Error("User not found");
 
-  //   const alreadyFollowing = await prisma.follow.findUnique({
+  //   const alreadyFollowing = await this.prisma.follow.findUnique({
   //     where: { followerId_followingId: { followerId, followingId } },
   //   });
   //   if (alreadyFollowing) throw new Error("Already following");
 
-  //   return prisma.follow.create({
+  //   return this.prisma.follow.create({
   //     data: {
   //       followerId,
   //       followingId,
@@ -415,12 +420,12 @@ class SocialService {
   // }
 
   // async followUser(followerId: string, followingId: string) {
-  //   const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
+  //   const targetUser = await this.prisma.user.findUnique({ where: { id: followingId } });
   //   if (!targetUser) throw new Error("User not found");
 
   //   const status = targetUser.isPrivate ? "pending" : "accepted";
 
-  //   const follow = await prisma.follow.create({
+  //   const follow = await this.prisma.follow.create({
   //     data: { followerId, followingId, status },
   //   });
 
@@ -429,24 +434,29 @@ class SocialService {
 
   async followUser(followerId: string, followingId: string) {
   // Check if target user exists
-  const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
+  const targetUser = await this.prisma.user.findUnique({ where: { id: followingId } });
   if (!targetUser) throw new Error("User not found");
 
   // Determine follow status based on privacy
   const status = targetUser.isPrivate ? "pending" : "accepted";
 
   // Check if follow already exists (prevent duplicate)
-  const existingFollow = await prisma.follow.findUnique({
+  const existingFollow = await this.prisma.follow.findUnique({
     where: { followerId_followingId: { followerId, followingId } },
   });
 
   if (existingFollow) {
-    // If follow exists, maybe return it as-is
-    return existingFollow;
+    // If follow exists, return consistent format
+    return { 
+      id: existingFollow.id, 
+      followerId: existingFollow.followerId, 
+      followingId: existingFollow.followingId, 
+      status: existingFollow.status 
+    };
   }
 
   // Create new follow
-  const follow = await prisma.follow.create({
+  const follow = await this.prisma.follow.create({
     data: { followerId, followingId, status },
   });
 
@@ -456,13 +466,13 @@ class SocialService {
 
 
   async unfollowUser(followerId: string, followingId: string) {
-    await prisma.follow.delete({
+    await this.prisma.follow.delete({
       where: { followerId_followingId: { followerId, followingId } },
     });
   }
 
   async getFollowers(userId: string, limit = 20, offset = 0) {
-    return prisma.follow.findMany({
+    return this.prisma.follow.findMany({
       where: { followingId: userId, status: "accepted" },
       skip: offset,
       take: limit,
@@ -471,7 +481,7 @@ class SocialService {
   }
 
   async getFollowing(userId: string, limit = 20, offset = 0) {
-    return prisma.follow.findMany({
+    return this.prisma.follow.findMany({
       where: { followerId: userId, status: "accepted" },
       skip: offset,
       take: limit,
@@ -480,7 +490,7 @@ class SocialService {
   }
 
   async getFollowRequests(userId: string) {
-    return prisma.follow.findMany({
+    return this.prisma.follow.findMany({
       where: { followingId: userId, status: "pending" },
       include: { follower: { select: { id: true, name: true, profilePhoto: true } } },
       orderBy: { createdAt: "desc" },
@@ -489,7 +499,7 @@ class SocialService {
 
    // Accept a follow request
   async acceptFollowRequest(userId: string, followId: string) {
-    const follow = await prisma.follow.update({
+    const follow = await this.prisma.follow.update({
       where: { id: followId },
       data: { status: "accepted" },
     });
@@ -499,7 +509,7 @@ class SocialService {
 
   // Reject a follow request
   async rejectFollowRequest(userId: string, followId: string) {
-    const follow = await prisma.follow.update({
+    const follow = await this.prisma.follow.update({
       where: { id: followId },
       data: { status: "rejected" },
     });
@@ -509,7 +519,7 @@ class SocialService {
 
   // Get pending follow requests for a user
   async getPendingFollowRequests(userId: string) {
-    return prisma.follow.findMany({
+    return this.prisma.follow.findMany({
       where: { followingId: userId, status: "pending" },
       include: { follower: true }, // get info about the requester
     });
@@ -595,7 +605,7 @@ class SocialService {
   async searchUsers(currentUserId: string, q: string, limit = 20, offset = 0) {
     if (!q.trim()) return [];
 
-    const users = await prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         AND: [
           { id: { not: currentUserId } },
