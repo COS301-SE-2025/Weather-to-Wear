@@ -126,12 +126,12 @@ const WeatherIcon = ({ condition, size = 16 }: { condition: string; size?: numbe
     rainy: <CloudRain size={size} className="text-blue-500" />,
     drizzle: <CloudRain size={size} className="text-blue-400" />,
     windy: <Wind size={size} className="text-gray-500" />,
-    hot: <Sun size={size} className="text-orange-500" />,
+    hot: <Sun size={size} className="text-rose-400" />,
     warm: <Sun size={size} className="text-yellow-400" />,
     mild: <Sun size={size} className="text-yellow-300" />,
-    cool: <Cloud size={size} className="text-blue-300" />,
-    cold: <CloudSnow size={size} className="text-blue-600" />,
-    freezing: <Snowflake size={size} className="text-blue-800" />,
+    cool: <Cloud size={size} className="text-teal-300" />,
+    cold: <CloudSnow size={size} className="text-teal-600" />,
+    freezing: <Snowflake size={size} className="text-teal-800" />,
   };
   
   return icons[condition as keyof typeof icons] || <Sun size={size} className="text-gray-400" />;
@@ -149,11 +149,11 @@ const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = []
   
   // Temperature-based icons
   if (avgTemp >= 30) {
-    // Very hot - bright orange sun
-    return <Sun size={size} className="text-orange-600" />;
+    // Very hot - deep salmon sun
+    return <Sun size={size} className="text-rose-700" />;
   } else if (avgTemp >= 24) {
-    // Hot - orange/yellow sun
-    return <Sun size={size} className="text-orange-500" />;
+    // Hot - medium salmon sun
+    return <Sun size={size} className="text-rose-600" />;
   } else if (avgTemp >= 22) {
     // Warm - yellow sun
     return <Sun size={size} className="text-yellow-500" />;
@@ -167,13 +167,13 @@ const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = []
     );
   } else if (avgTemp >= 10) {
     // Cool - cloudy
-    return <Cloud size={size} className="text-gray-400" />;
+    return <Cloud size={size} className="text-teal-400" />;
   } else if (avgTemp >= 0) {
     // Cold - cold cloud with possible snow
-    return <CloudSnow size={size} className="text-blue-500" />;
+    return <CloudSnow size={size} className="text-teal-500" />;
   } else {
     // Freezing - snowflake
-    return <Snowflake size={size} className="text-blue-700" />;
+    return <Snowflake size={size} className="text-teal-700" />;
   }
 };
 
@@ -286,18 +286,18 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             let barColor, fillPercentage, tempLabel;
             
             if (avgTemp >= 22) {
-              // Hot weather - red/orange bar, high fill (60-85%)
-              barColor = 'from-orange-400 to-red-500';
+              // Hot weather - salmon gradient bar, high fill (60-85%)
+              barColor = 'from-rose-300 via-rose-500 to-rose-700';
               fillPercentage = Math.min(85, 60 + ((avgTemp - 22) / 14) * 25); // 60-85% fill for 22-36°C
               tempLabel = 'Hot Weather';
             } else if (avgTemp >= 12) {
-              // Moderate weather - yellow/orange bar, medium fill (35-55%)
-              barColor = 'from-yellow-400 to-orange-400';
+              // Moderate weather - yellow to salmon gradient bar, medium fill (35-55%)
+              barColor = 'from-yellow-400 via-orange-400 to-rose-400';
               fillPercentage = 35 + ((avgTemp - 12) / 10) * 20; // 35-55% fill for 12-22°C
               tempLabel = 'Moderate Weather';
             } else {
-              // Cold weather - blue bar, low fill (10-30%)
-              barColor = 'from-blue-400 to-blue-600';
+              // Cold weather - teal gradient bar, low fill (10-30%)
+              barColor = 'from-teal-300 via-teal-500 to-teal-700';
               fillPercentage = Math.max(10, 30 - ((12 - avgTemp) / 22) * 20); // 10-30% fill for -10-12°C
               tempLabel = 'Cold Weather';
             }
@@ -311,9 +311,9 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
                   />
                 </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-blue-600 font-medium">Cold</span>
+                  <span className="text-xs text-teal-700 font-medium">Cold</span>
                   <span className="text-xs font-medium text-gray-700">{tempLabel}</span>
-                  <span className="text-xs text-red-600 font-medium">Hot</span>
+                  <span className="text-xs text-rose-700 font-medium">Hot</span>
                 </div>
               </div>
             );
@@ -350,13 +350,13 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             } else if (rating >= 6) {
               warmthLabel = 'Cool';
               warmthIcon = '🌬️';
-              bgColor = 'bg-blue-100';
-              textColor = 'text-blue-800';
+              bgColor = 'bg-teal-100';
+              textColor = 'text-teal-800';
             } else {
               warmthLabel = 'Cold';
               warmthIcon = '❄️';
-              bgColor = 'bg-indigo-100';
-              textColor = 'text-indigo-800';
+              bgColor = 'bg-teal-200';
+              textColor = 'text-teal-900';
             }
             
             return (
@@ -779,29 +779,6 @@ const InspoPage = () => {
           />
 
           {/* Error States */}
-          {generateMutation.isError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-              <p className="text-red-700">
-                {(generateMutation.error as Error)?.message || 'Failed to generate inspiration outfits'}
-              </p>
-              <p className="text-sm text-red-600 mt-1">
-                Try liking some items from the social feed to get outfit recommendations.
-                Inspo only uses items you've liked, not your personal closet items.
-              </p>
-            </div>
-          )}
-          
-          {generateMutation.isSuccess && generatedOutfits.length === 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-              <p className="text-amber-700 font-medium">
-                No inspiration outfits could be generated
-              </p>
-              <p className="text-sm text-amber-600 mt-1">
-                The inspo feature creates outfit combinations using only items you've liked from social posts.
-                Please like some posts with outfit items to generate inspiration outfits.
-              </p>
-            </div>
-          )}
 
           {deleteMutation.isError && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
