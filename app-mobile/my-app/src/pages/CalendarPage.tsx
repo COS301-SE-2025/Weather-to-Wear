@@ -229,6 +229,10 @@ export default function CalendarPage() {
   const [packOthers, setPackOthers] = useState<{ id: string; text: string; checked?: boolean }[]>([]);
   const [newOtherItem, setNewOtherItem] = useState('');
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
+
+  // Recommended Items (computed on open)
+  const [recItems, setRecItems] = useState<ClothingItem[]>([]);
+  const [recReady, setRecReady] = useState(false);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [packingListId, setPackingListId] = useState<string | null>(null);
   const [baseItemIds, setBaseItemIds] = useState<Set<string>>(new Set());
@@ -499,6 +503,29 @@ export default function CalendarPage() {
     if (!showPackingModal) return;
     syncOutfitsFromItems(packItems);
   }, [packItems, showPackingModal, syncOutfitsFromItems]);
+
+  useEffect(() => {
+    if (!showPackingModal || !selectedEvent || !isTripEvent(selectedEvent)) return;
+
+    // gate the toggle message vs real recs
+    const ready = within48hOfStart(selectedEvent);
+    setRecReady(ready);
+
+    if (!ready) {
+      setRecItems([]);
+      return;
+    }
+
+    // compute 3 recs from closet not already packed
+    setRecItems(
+      recommendMissingItems(
+        selectedEvent,
+        closetItems,
+        packItems,
+        3
+      )
+    );
+  }, [showPackingModal, selectedEvent, closetItems, packItems]);
 
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
@@ -834,6 +861,84 @@ export default function CalendarPage() {
     } catch { return undefined; }
   }
 
+  // ---- Recommended Items (48h pre-trip) ----
+  const COLD_TOPS: string[] = ['COAT','JACKET','HOODIE','SWEATER','BLAZER'];
+  const RAIN_ITEMS: string[] = ['RAINCOAT','UMBRELLA','BOOTS'];
+  const HOT_ITEMS:  string[] = ['SHORTS','SKIRT','SANDALS'];
+
+  function within48hOfStart(trip: Event) {
+    const start = new Date(trip.dateFrom).getTime();
+    return (start - Date.now()) <= 48 * 60 * 60 * 1000;
+  }
+
+  function tripWeatherWindow(trip: Event) {
+    try {
+      const all = (JSON.parse(trip.weather || '[]') as Array<{date:string; summary:any}>)
+        .map(d => d.summary)
+        .filter(Boolean);
+      if (!all.length) return [];
+      const start = new Date(trip.dateFrom);
+      const end   = new Date(trip.dateTo);
+      const days  = Math.max(1, Math.round((+end - +start) / 86400000) + 1);
+      return all.slice(0, Math.min(7, days));
+    } catch { return []; }
+  }
+
+  function recommendMissingItems(
+    trip: Event,
+    closet: ClothingItem[],
+    packed: { closetItemId: string }[],
+    limit = 3
+  ): ClothingItem[] {
+    const window = tripWeatherWindow(trip);
+    if (!window.length) return [];
+
+    const anyRain = window.some(w => !!w?.willRain);
+    const minTemp = Math.min(...window.map(w => Number(w?.minTemp ?? 99)));
+    const maxAvg  = Math.max(...window.map(w => Number(w?.avgTemp ?? -99)));
+
+    const packedIds = new Set(packed.map(p => p.closetItemId));
+    const packedCats = new Set(
+      closet.filter(c => packedIds.has(c.id)).map(c => String(c.category))
+    );
+
+    const pool = (cats: string[]) =>
+      closet.filter(c => cats.includes(String(c.category)) && !packedIds.has(c.id));
+
+    const picks: ClothingItem[] = [];
+
+    // 1) Rain first
+    if (anyRain && !Array.from(packedCats).some(c => RAIN_ITEMS.includes(c))) {
+      const rain = pool(RAIN_ITEMS);
+      if (rain.length) picks.push(rain[0]);
+    }
+
+    // 2) Cold layers
+    if (minTemp <= 10 && !Array.from(packedCats).some(c => COLD_TOPS.includes(c))) {
+      const warm = pool(COLD_TOPS);
+      if (warm.length && picks.length < limit) picks.push(warm[0]);
+    }
+
+    // 3) Hot items
+    if (maxAvg >= 26 && !Array.from(packedCats).some(c => HOT_ITEMS.includes(c))) {
+      const hot = pool(HOT_ITEMS);
+      if (hot.length && picks.length < limit) picks.push(hot[0]);
+    }
+
+    // Fill remaining slots with any not-packed items (keep it simple)
+    if (picks.length < limit) {
+      for (const c of closet) {
+        if (!packedIds.has(c.id) && !picks.some(p => p.id === c.id)) {
+          picks.push(c);
+          if (picks.length >= limit) break;
+        }
+      }
+    }
+
+    return picks.slice(0, limit);
+  }
+
+
   const shuffle = <T,>(arr: T[]) => arr
     .map(v => [Math.random(), v] as [number, T])
     .sort((a, b) => a[0] - b[0])
@@ -1121,8 +1226,8 @@ export default function CalendarPage() {
   };
 
   function getWeekSegments(week: Date[], evts: Event[]): Segment[] {
-    const start = week[0];
-    const end = week[6];
+    const start = new Date(week[0]); start.setHours(0, 0, 0, 0);
+    const end = new Date(week[6]);   end.setHours(23, 59, 59, 999);
     const segs: Omit<Segment, 'lane' | 'weekKey'>[] = [];
     for (const ev of evts) {
       const s = parseISO(ev.dateFrom);
@@ -2035,11 +2140,14 @@ export default function CalendarPage() {
                 </details>
               </div>
 
+              {/* --- Other ----------------------------------------- */}
               <div className="border rounded-lg overflow-hidden">
                 <details className="group">
                   <summary className="flex justify-between items-center p-3 cursor-pointer bg-gray-50">
                     <span className="font-medium">Other ({packOthers.length})</span>
-                    <svg className="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    <svg className="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </summary>
                   <div className="p-3 space-y-2">
                     <div className="flex">
@@ -2049,7 +2157,9 @@ export default function CalendarPage() {
                         value={newOtherItem}
                         onChange={(e) => setNewOtherItem(e.target.value)}
                       />
-                      <button className="px-4 py-2 bg-[#3F978F] text-white rounded-r" onClick={addOtherToPack}>Add</button>
+                      <button className="px-4 py-2 bg-[#3F978F] text-white rounded-r" onClick={addOtherToPack}>
+                        Add
+                      </button>
                     </div>
                     <div className="space-y-1">
                       {packOthers.map(x => (
@@ -2062,37 +2172,190 @@ export default function CalendarPage() {
                   </div>
                 </details>
               </div>
-            </div>
 
-            <h3 className="text-lg font-semibold mt-6 mb-2">Packing List</h3>
-            <div className="space-y-2">
-              {packItems.map(p => (
-                <div key={p.closetItemId} className="flex items-center p-2 border rounded">
-                  <input type="checkbox" className="mr-2" checked={!!p.checked} onChange={() => togglePackedItem(p.closetItemId)} />
-                  {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-8 h-8 rounded mr-2 object-cover" />}
-                  <span className={`flex-1 ${p.checked ? 'line-through text-gray-500' : ''}`}>{p.name}</span>
-                  <button className="text-red-500 text-lg ml-2" onClick={() => removeItemFromPack(p.closetItemId)} aria-label={`Remove ${p.name}`} title="Remove">×</button>
+              {/* --- Recommended Items (shows within 48h of trip start) ------------------- */}
+              {selectedEvent && (
+                <div className="border rounded-lg overflow-hidden">
+                  <details className="group">
+                    <summary className="flex justify-between items-center p-3 cursor-pointer bg-gray-50">
+                      <span className="font-medium">Recommended Items</span>
+                      <svg className="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </summary>
+
+                    {(() => {
+                      const now = new Date();
+                      const start = new Date(selectedEvent.dateFrom);
+                      const ready = start.getTime() - now.getTime() <= 48 * 60 * 60 * 1000;
+
+                      if (!ready) {
+                        return (
+                          <div className="p-3 text-sm text-gray-600">
+                            Come back 48hours before your trip to see recommended clothing items.
+                          </div>
+                        );
+                      }
+
+                      // Always coerce weather into an array of { date, summary }
+                      const rawWeather = (() => {
+                        try {
+                          return typeof selectedEvent.weather === 'string'
+                            ? JSON.parse(selectedEvent.weather)
+                            : selectedEvent.weather;
+                        } catch {
+                          return null;
+                        }
+                      })();
+
+                      const days: Array<{ date: string; summary?: any }> =
+                        Array.isArray(rawWeather)
+                          ? rawWeather
+                          : (Array.isArray(rawWeather?.forecast) ? rawWeather.forecast : []);
+
+
+                      const tripStart = new Date(selectedEvent.dateFrom);
+                      const tripEnd = new Date(selectedEvent.dateTo);
+                      const totalDays = Math.max(
+                        1,
+                        Math.floor((tripEnd.getTime() - new Date(tripStart).setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000)) + 1
+                      );
+                      const considerDays = Math.min(totalDays, 7);
+
+                      const summaries = days
+                        .slice(0, considerDays)
+                        .map(d => d?.summary)
+                        .filter(Boolean) as Array<{ minTemp: number; avgTemp: number; willRain?: boolean }>;
+
+                      const anyRain = summaries.some(s => !!s.willRain);
+                      const coldDays = summaries.filter(s => Number(s.minTemp) <= 10).length;
+                      const hotDays  = summaries.filter(s => Number(s.avgTemp) >= 26).length;
+
+                      const packedIds = new Set(packItems.map(p => p.closetItemId));
+                      const notPacked = closetItems.filter(ci => !packedIds.has(ci.id));
+                      const pickCat = (cats: string[]) =>
+                        notPacked.filter(ci => cats.includes((ci.category || '').toString().toUpperCase()));
+
+                      const rainPool = pickCat(['RAINCOAT', 'UMBRELLA', 'JACKET', 'COAT']);
+                      const warmPool = pickCat(['HOODIE', 'SWEATER', 'JACKET', 'COAT', 'SCARF', 'GLOVES', 'BEANIE']);
+                      const hotPool  = pickCat(['SHORTS', 'TSHIRT', 'SLEEVELESS', 'SANDALS']);
+
+                      const rec: typeof closetItems = [];
+                      const addSome = (arr: typeof closetItems, n: number) => {
+                        for (const x of arr) {
+                          if (rec.length >= 3) break;
+                          if (!rec.some(r => r.id === x.id)) rec.push(x);
+                        }
+                      };
+
+                      if (anyRain) addSome(rainPool, 1);
+                      if (coldDays > 0) addSome(warmPool, 1);
+                      if (hotDays > 0) addSome(hotPool, 1);
+                      if (rec.length < 3) addSome(pickCat(['TSHIRT', 'LONGSLEEVE', 'JEANS', 'PANTS']), 3 - rec.length);
+
+                      return (
+                        <div className="p-3 space-y-3">
+                          {rec.length === 0 ? (
+                            <div className="text-sm text-gray-600">You’re fully covered based on the forecast 🎉</div>
+                          ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {rec.slice(0, 3).map(it => {
+                                const already = packItems.some(p => p.closetItemId === it.id);
+                                return (
+                                  <div key={it.id} className="border rounded-lg p-2 bg-white">
+                                    <div className="flex flex-col items-center gap-2">
+                                      {it.imageUrl && (
+                                        <img
+                                          src={normalizeUrl(it.imageUrl) || ''}
+                                          alt={it.name || it.category}
+                                          className="w-14 h-14 object-contain rounded"
+                                        />
+                                      )}
+                                      <div className="text-xs text-center font-medium truncate w-full">
+                                        {(it.category || it.name || 'Item').toString()}
+                                      </div>
+                                      <button
+                                        className={`w-full text-xs px-2 py-1 rounded ${
+                                          already ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3F978F] text-white'
+                                        }`}
+                                        disabled={already}
+                                        onClick={() =>
+                                          addPackItemIfMissing(
+                                            it.id,
+                                            it.name || it.category?.toString(),
+                                            normalizeUrl(it.imageUrl)
+                                          )
+                                        }
+                                      >
+                                        {already ? 'Added' : 'Add to suitcase'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </details>
                 </div>
-              ))}
-              {packOthers.map(p => (
-                <div key={p.id} className="flex items-center p-2 border rounded">
-                  <input type="checkbox" className="mr-2" checked={!!p.checked} onChange={() => togglePackedOther(p.id)} />
-                  <span className={`flex-1 ${p.checked ? 'line-through text-gray-500' : ''}`}>{p.text}</span>
-                  <button className="text-red-500 text-lg ml-2" onClick={() => removeOtherFromPack(p.id)} aria-label={`Remove ${p.text}`} title="Remove">×</button>
+              )}
+
+              <h3 className="text-lg font-semibold mt-6 mb-2">Packing List</h3>
+              <div className="space-y-2">
+                {packItems.map(p => (
+                  <div key={p.closetItemId} className="flex items-center p-2 border rounded">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={!!p.checked}
+                      onChange={() => togglePackedItem(p.closetItemId)}
+                    />
+                    {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-8 h-8 rounded mr-2 object-cover" />}
+                    <span className={`flex-1 ${p.checked ? 'line-through text-gray-500' : ''}`}>{p.name}</span>
+                    <button
+                      className="text-red-500 text-lg ml-2"
+                      onClick={() => removeItemFromPack(p.closetItemId)}
+                      aria-label={`Remove ${p.name}`}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {packOthers.map(p => (
+                  <div key={p.id} className="flex items-center p-2 border rounded">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={!!p.checked}
+                      onChange={() => togglePackedOther(p.id)}
+                    />
+                    <span className={`flex-1 ${p.checked ? 'line-through text-gray-500' : ''}`}>{p.text}</span>
+                    <button
+                      className="text-red-500 text-lg ml-2"
+                      onClick={() => removeOtherFromPack(p.id)}
+                      aria-label={`Remove ${p.text}`}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <div className="text-sm text-gray-600 mt-2">
+                  {packItems.filter(i => !i.checked).length + packOthers.filter(i => !i.checked).length} items left to pack
                 </div>
-              ))}
-              <div className="text-sm text-gray-600 mt-2">
-                {packItems.filter(i => !i.checked).length + packOthers.filter(i => !i.checked).length} items left to pack
               </div>
-            </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="px-4 py-2 rounded border" onClick={() => setShowPackingModal(false)}>Cancel</button>
-              <button className="px-4 py-2 rounded bg-[#3F978F] text-white" onClick={() => savePacking(selectedEvent.id)}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="px-4 py-2 rounded border" onClick={() => setShowPackingModal(false)}>Cancel</button>
+                <button className="px-4 py-2 rounded bg-[#3F978F] text-white" onClick={() => savePacking(selectedEvent.id)}>Save</button>
+              </div>
+            </div>  
+          </div>  
+        </div>  
+      )}       
 
       {showDayList.open && showDayList.date && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
