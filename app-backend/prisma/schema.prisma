@@ -343,7 +343,7 @@ model DaySelection {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, date]) // one selection per user per day
-
+}
 //
 // ──────── INSPIRATION OUTFITS ────────
 //
