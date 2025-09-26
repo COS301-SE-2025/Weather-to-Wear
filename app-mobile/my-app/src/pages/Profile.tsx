@@ -304,20 +304,20 @@ const Profile = () => {
                   </div>
 
                   {/* Privacy Button */}
-                 
-                    <div className="mt-4">
-                      <label className="flex items-center gap-2 text-xs sm:text-sm font-livvic text-gray-700 dark:text-gray-300">
-                        Account Privacy
-                      </label>
-                      <button
-                        onClick={handlePrivacyToggle}
-                        className="flex items-center gap-2 mt-1 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition font-livvic text-sm sm:text-base"
-                      >
-                        {isPrivate ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                        {isPrivate ? "Private Account" : "Public Account"}
-                      </button>
-                    </div>
-                  
+
+                  <div className="mt-4">
+                    <label className="flex items-center gap-2 text-xs sm:text-sm font-livvic text-gray-700 dark:text-gray-300">
+                      Account Privacy
+                    </label>
+                    <button
+                      onClick={handlePrivacyToggle}
+                      className="flex items-center gap-2 mt-1 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition font-livvic text-sm sm:text-base"
+                    >
+                      {isPrivate ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      {isPrivate ? "Private Account" : "Public Account"}
+                    </button>
+                  </div>
+
 
                   {/* Confirmation Modal */}
                   <AnimatePresence>
@@ -419,6 +419,7 @@ const Profile = () => {
             <h3 className="text-base sm:text-lg font-livvic font-medium text-[#3F978F] mb-3 sm:mb-4 sm:-mt-32 -mt-8">
               Top Outfits
             </h3>
+
             {loadingOutfits ? (
               <p className="text-gray-500 text-xs sm:text-sm">Loading outfits...</p>
             ) : topOutfits.length === 0 ? (
