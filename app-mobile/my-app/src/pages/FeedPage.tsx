@@ -1,5 +1,5 @@
 import { Heart, Loader2, Search } from "lucide-react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 import {
@@ -40,10 +40,9 @@ interface Notification {
   postId?: string;
   postContent?: string;
   date: string;
-  followStatus?: "pending" | "accepted" | "rejected"; // add this
+  followStatus?: "pending" | "accepted" | "rejected";
   followId: string;
 }
-
 
 interface Account {
   id: string;
@@ -56,13 +55,12 @@ type UserResult = {
   name: string;
   profilePhoto?: string | null;
   location?: string | null;
-  isFollowing: boolean;      // true if following or follow accepted
-  followRequested?: boolean; // true if follow request is pending
-  isPrivate: boolean;        // needed to know if user is private
+  isFollowing: boolean;
+  followRequested?: boolean;
+  isPrivate: boolean;
   followersCount: number;
   followingCount: number;
 };
-
 
 export type NotificationAPIItem =
   | {
@@ -79,15 +77,13 @@ export type NotificationAPIItem =
       type: "follow";
       fromUser: { id: string; name: string; profilePhoto?: string | null };
       createdAt: string;
-      status: "pending" | "accepted" | "rejected"; // ✅ Add status here
+      status: "pending" | "accepted" | "rejected";
     };
-
 
 interface NotificationsApiResult {
   notifications: NotificationAPIItem[];
 }
 
-// Alias for convenience
 type NotificationsResponse = NotificationAPIItem[];
 
 const API_URL = `${API_BASE}`;
@@ -100,7 +96,6 @@ type SearchUsersCardProps = {
   searchResults: UserResult[];
   searchHasMore: boolean;
   onLoadMore: () => void;
-  // Change this line:
   onToggleFollow: (id: string, user: UserResult) => void;
 };
 
@@ -116,21 +111,21 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
     onToggleFollow,
   }) => {
     return (
-      <div>
-        <div className="relative mb-3 md:mb-6 left-3 md:left-0 -right-4 md:right-3 mr-6 md:mr-0">
+      <div className="w-full">
+        <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+            className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
           />
         </div>
 
         {searchError && <div className="mt-3 text-xs text-red-500">{searchError}</div>}
 
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-hide">
           {searchLoading && searchResults.length === 0 && (
             <div className="flex justify-center py-2">
               <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
@@ -144,7 +139,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
           {searchResults.map((u) => (
             <div
               key={u.id}
-              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
             >
               <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                 {u.profilePhoto ? (
@@ -169,28 +164,22 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
               </div>
 
               <button
-  onClick={() => onToggleFollow(u.id, u)}
-  className={`ml-auto text-xs px-3 py-1 rounded-full ${
-    u.isFollowing || u.followRequested
-      ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-      : "bg-[#3F978F] text-white"
-  }`}
->
-  {u.isFollowing
-    ? "Following"
-    : u.followRequested
-    ? "Requested"
-    : "Follow"}
-</button>
-
-
+                onClick={() => onToggleFollow(u.id, u)}
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                  u.isFollowing || u.followRequested
+                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                    : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                }`}
+              >
+                {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
+              </button>
             </div>
           ))}
 
           {searchHasMore && (
             <button
               onClick={onLoadMore}
-              className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70"
+              className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70 hover:bg-[#357f78]"
               disabled={searchLoading}
             >
               {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
@@ -224,10 +213,12 @@ const FeedPage: React.FC = () => {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const location = useLocation();
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [activeLeftTab, setActiveLeftTab] = useState<"search" | "notifications">("search");
+  const [showNotifications, setShowNotifications] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const postsContainerRef = useRef<HTMLDivElement | null>(null);
+  const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (location.state?.postSuccess) {
@@ -291,68 +282,54 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId, offset, hasMore, loadingMore]);
 
-  // Replace your fetchNotifs / fetchNotifications logic with this:
-// Type guard for "follow" notifications
-function isFollowNotification(
-  n: NotificationAPIItem
-): n is Extract<NotificationAPIItem, { type: "follow" }> {
-  return n.type === "follow";
-}
-
-const fetchNotifications = useCallback(async () => {
-  if (!currentUserId) return;
-
-  setLoadingNotifications(true);
-  setNotificationsError(null);
-
-  try {
-    const response = await getNotifications(); // returns { notifications: NotificationAPIItem[] }
-
-    // Map API notifications to frontend Notification type
-    const notificationsArray: Notification[] = (response.notifications ?? []).map((n) => ({
-      id: n.id,
-      type: n.type,
-      fromUser: {
-        id: n.fromUser.id,
-        name: n.fromUser.name,
-        profilePhoto: n.fromUser.profilePhoto ?? undefined,
-      },
-      postId: n.type !== "follow" ? n.postId : undefined,
-      postContent: n.type !== "follow" ? n.postContent : undefined,
-      date: n.createdAt,
-      followStatus: n.type === "follow" ? n.status : undefined,
-      followId: n.type === "follow" ? (n as any).followId : undefined,
-    }));
-
-    // Optional: sort by newest first
-    notificationsArray.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    setNotifications(notificationsArray);
-  } catch (err: any) {
-    setNotificationsError(err.message || "Failed to load notifications");
-  } finally {
-    setLoadingNotifications(false);
+  function isFollowNotification(
+    n: NotificationAPIItem
+  ): n is Extract<NotificationAPIItem, { type: "follow" }> {
+    return n.type === "follow";
   }
-}, [currentUserId]);
 
+  const fetchNotifications = useCallback(async () => {
+    if (!currentUserId) return;
 
+    setLoadingNotifications(true);
+    setNotificationsError(null);
 
+    try {
+      const response = await getNotifications();
+      const notificationsArray: Notification[] = (response.notifications ?? []).map((n) => ({
+        id: n.id,
+        type: n.type,
+        fromUser: {
+          id: n.fromUser.id,
+          name: n.fromUser.name,
+          profilePhoto: n.fromUser.profilePhoto ?? undefined,
+        },
+        postId: n.type !== "follow" ? n.postId : undefined,
+        postContent: n.type !== "follow" ? n.postContent : undefined,
+        date: n.createdAt,
+        followStatus: n.type === "follow" ? n.status : undefined,
+        followId: n.type === "follow" ? (n as any).followId : undefined,
+      }));
 
-
-// Auto-refresh notifications every 5s
-useEffect(() => {
-  if (!currentUserId || activeLeftTab !== "notifications") return;
-
-  fetchNotifications();
-  const interval = setInterval(fetchNotifications, 5000);
-  return () => clearInterval(interval);
-}, [currentUserId, activeLeftTab, fetchNotifications]);
-
-
+      notificationsArray.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setNotifications(notificationsArray);
+    } catch (err: any) {
+      setNotificationsError(err.message || "Failed to load notifications");
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [currentUserId]);
 
   useEffect(() => {
-    if (currentUserId && activeLeftTab === "notifications") fetchNotifications();
-  }, [currentUserId, activeLeftTab, fetchNotifications]);
+    if (!currentUserId || !showNotifications) return;
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(interval);
+  }, [currentUserId, showNotifications, fetchNotifications]);
+
+  useEffect(() => {
+    if (currentUserId && showNotifications) fetchNotifications();
+  }, [currentUserId, showNotifications, fetchNotifications]);
 
   const toggleLike = async (id: string) => {
     const post = posts.find((p) => p.id === id);
@@ -365,8 +342,6 @@ useEffect(() => {
         await likePost(id);
         setPosts(posts.map((p) => (p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p)));
       }
-
-      // Refresh notifications
       fetchNotifications();
     } catch (err: any) {
       setError(err.message);
@@ -390,78 +365,41 @@ useEffect(() => {
       );
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
-
-      // Refresh notifications
       fetchNotifications();
     } catch (err: any) {
       setError(err.message || "Failed to add comment");
     }
   };
 
-  // const toggleFollowFromSearch = async (userId: string, isFollowing: boolean) => {
-  //   try {
-  //     if (isFollowing) await unfollowUser(userId);
-  //     else await followUser(userId);
-
-  //     setSearchResults((prev) =>
-  //       prev.map((u) => (u.id === userId ? { ...u, isFollowing: !isFollowing } : u))
-  //     );
-  //     if (isFollowing) setFollowing((prev) => prev.filter((f) => f.id !== userId));
-  //     else setFollowing((prev) => [...prev, { id: userId, username: "New User", profilePhoto: "U" }]);
-  //   } catch (err: any) {
-  //     setError(err.message || "Follow action failed");
-  //   }
-  // };
-
   const toggleFollowFromSearch = async (userId: string, user: UserResult) => {
-  try {
-    if (user.isFollowing || user.followRequested) {
-      // Unfollow or cancel pending request
-      await unfollowUser(userId);
-
-      // Update search results
-      setSearchResults(prev =>
-        prev.map(u =>
-          u.id === userId ? { ...u, isFollowing: false, followRequested: false } : u
-        )
-      );
-
-      // Remove from following list if it was accepted
-      setFollowing(prev => prev.filter(f => f.id !== userId));
-
-    } else {
-      // Send follow request
-      const { follow } = await followUser(userId);
-
-      // Update search results with status
-      setSearchResults(prev =>
-        prev.map(u =>
-          u.id === userId
-            ? {
-                ...u,
-                isFollowing: follow.status === "accepted",
-                followRequested: follow.status === "pending",
-              }
-            : u
-        )
-      );
-
-      // If follow is accepted, add to following list
-      if (follow.status === "accepted") {
-        setFollowing(prev => [
-          ...prev,
-          { id: userId, username: user.name, profilePhoto: user.profilePhoto || undefined },
-        ]);
+    try {
+      if (user.isFollowing || user.followRequested) {
+        await unfollowUser(userId);
+        setSearchResults((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, isFollowing: false, followRequested: false } : u))
+        );
+        setFollowing((prev) => prev.filter((f) => f.id !== userId));
+      } else {
+        const { follow } = await followUser(userId);
+        setSearchResults((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, isFollowing: follow.status === "accepted", followRequested: follow.status === "pending" }
+              : u
+          )
+        );
+        if (follow.status === "accepted") {
+          setFollowing((prev) => [
+            ...prev,
+            { id: userId, username: user.name, profilePhoto: user.profilePhoto || undefined },
+          ]);
+        }
       }
+    } catch (err: any) {
+      setError(err.message || "Follow action failed");
     }
-  } catch (err: any) {
-    setError(err.message || "Follow action failed");
-  }
-};
+  };
 
-
-
-  // Search and infinite scrolling logic remains unchanged
   useEffect(() => {
     if (!currentUserId) return;
     setPosts([]);
@@ -533,182 +471,422 @@ useEffect(() => {
   };
 
   return (
-    <div className="w-full max-w-screen-md mx-auto px-2 md:px-0 py-4 flex flex-col gap-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+      <style>
+        {`
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+          .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}
+      </style>
       {showSuccessPopup && (
-        <div className="p-2 bg-green-500 text-white rounded-md text-sm">Post created successfully!</div>
-      )}
-
-      <div className="flex gap-2 justify-center">
-        <button
-          className={`px-4 py-1 rounded-full ${activeLeftTab === "search" ? "bg-[#3F978F] text-white" : "bg-gray-200 dark:bg-gray-700"}`}
-          onClick={() => setActiveLeftTab("search")}
-        >
-          Search Users
-        </button>
-        <button
-          className={`px-4 py-1 rounded-full ${activeLeftTab === "notifications" ? "bg-[#3F978F] text-white" : "bg-gray-200 dark:bg-gray-700"}`}
-          onClick={() => setActiveLeftTab("notifications")}
-        >
-          Notifications
-        </button>
-      </div>
-
-      {activeLeftTab === "search" ? (
-        <SearchUsersCard
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
-          searchError={searchError}
-          searchResults={searchResults}
-          searchHasMore={searchHasMore}
-          onLoadMore={loadMoreSearch}
-          onToggleFollow={toggleFollowFromSearch}
-        />
-      ) : (
-        <div>
-          {loadingNotifications && <Loader2 className="animate-spin w-5 h-5" />}
-          {notificationsError && <div className="text-red-500 text-sm">{notificationsError}</div>}
-          {!loadingNotifications && notifications.length === 0 && <div className="text-gray-500 text-sm">No notifications.</div>}
-          <div className="space-y-2 mt-2">
-            {notifications.map((n) => (
-  <div key={n.id} className="p-2 border rounded-md flex flex-col gap-1">
-    <span className="font-semibold">{n.fromUser.name}</span>
-    {n.type === "like" && <span>liked your post</span>}
-    {n.type === "comment" && <span>commented on your post</span>}
-
-    {n.type === "follow" && n.followStatus === "pending" && (
-  <div className="flex gap-2 mt-1">
-    <button
-      className="px-2 py-1 text-xs bg-green-500 text-white rounded"
-      onClick={async () => {
-        try {
-          if (!n.followId) throw new Error("Missing followId");
-          const acceptedFollow = await acceptFollowRequest(n.followId);
-
-          setFollowing(prev => [
-            ...prev,
-            {
-              id: n.fromUser.id,
-              username: n.fromUser.name,
-              profilePhoto: n.fromUser.profilePhoto || undefined,
-            },
-          ]);
-
-          // Optimistically mark as accepted
-          setNotifications(prev =>
-            prev.map(notif =>
-              notif.id === n.id ? { ...notif, followStatus: "accepted" } : notif
-            )
-          );
-        } catch (err: any) {
-          setNotificationsError(err.message || "Failed to accept request");
-        }
-      }}
-    >
-      Accept
-    </button>
-
-       <button
-      className="px-2 py-1 text-xs bg-red-500 text-white rounded"
-      onClick={async () => {
-        try {
-          if (!n.followId) throw new Error("Missing followId");
-          await rejectFollowRequest(n.followId);
-
-          // Optimistically mark as rejected
-          setNotifications(prev =>
-            prev.map(notif =>
-              notif.id === n.id ? { ...notif, followStatus: "rejected" } : notif
-            )
-          );
-        } catch (err: any) {
-          setNotificationsError(err.message || "Failed to reject request");
-        }
-      }}
-    >
-      Reject
-    </button>
-      </div>
-    )}
-
-    {n.type === "follow" && n.followStatus === "accepted" && <span>accepted your follow request</span>}
-    {n.type === "follow" && n.followStatus === "rejected" && <span>rejected your follow request</span>}
-
-    {n.postContent && <div className="mt-1 text-gray-700 dark:text-gray-300">{n.postContent}</div>}
-  </div>
-))}
-
-          </div>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 p-2 bg-green-500 text-white rounded-md text-sm z-50">
+          Post created successfully!
         </div>
       )}
 
-      <div className="space-y-6 mt-4">
-        {posts.map((post) => (
-          <div key={post.id} className="p-3 border rounded-xl">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
-                {post.profilePhoto ? (
-                  <img src={absolutize(post.profilePhoto, API_BASE)} alt={post.username} className="w-full h-full object-cover" />
-                ) : (
-                  <span>{post.username?.[0] || "U"}</span>
-                )}
-              </div>
-              <span className="font-medium">{post.username}</span>
-            </div>
-
-            <div className="text-sm mb-2">{post.content}</div>
-            {post.imageUrl && <img src={post.imageUrl} alt="Post" className="w-full rounded-xl mb-2" />}
-
-            <div className="flex items-center gap-4 text-sm mb-2">
-              <button className="flex items-center gap-1" onClick={() => toggleLike(post.id)}>
-                <Heart className={`w-4 h-4 ${post.liked ? "text-red-500" : "text-gray-400"}`} />
-                {post.likes}
+      <div className="flex max-w-7xl mx-auto px-4 py-4 gap-4">
+        {/* Left Sidebar - Notifications */}
+        <div className="hidden lg:block lg:w-1/4">
+          <div className="sticky top-4 bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+            <div className="flex gap-2 mb-4">
+              <button
+                className="flex-1 py-2 rounded-full text-sm font-medium bg-[#3F978F] text-white"
+              >
+                Notifications
               </button>
             </div>
 
-            <div className="mt-2">
-              {post.comments.slice(0, expandedComments[post.id] ? undefined : 2).map((c) => (
-                <div key={c.id} className="text-sm mb-1">
-                  <span className="font-semibold">{c.username}: </span>
-                  {c.content}
+            <div
+              ref={notificationsContainerRef}
+              className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide"
+            >
+              {loadingNotifications && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="animate-spin w-6 h-6 text-[#3F978F]" />
+                </div>
+              )}
+              {notificationsError && (
+                <div className="text-red-500 text-sm text-center bg-red-100 dark:bg-red-900/30 p-2 rounded-md">
+                  {notificationsError}
+                </div>
+              )}
+              {!loadingNotifications && notifications.length === 0 && (
+                <div className="text-gray-500 dark:text-gray-400 text-sm text-center p-4">
+                  No notifications yet.
+                </div>
+              )}
+              {notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                >
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
+                    {n.fromUser.profilePhoto ? (
+                      <img
+                        src={absolutize(n.fromUser.profilePhoto, API_BASE)}
+                        alt={n.fromUser.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{n.fromUser.name?.[0] || "U"}</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                        {n.fromUser.name}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(n.date).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="text-sm text-gray-700 dark:text-gray-200 mt-1">
+                      {n.type === "like" && (
+                        <span className="flex items-center gap-1">
+                          <Heart className="w-4 h-4 text-red-500" fill="red" />
+                          Liked your post
+                        </span>
+                      )}
+                      {n.type === "comment" && (
+                        <span>
+                          Commented on your post
+                        </span>
+                      )}
+                      {n.type === "follow" && n.followStatus === "pending" && (
+                        <span>
+                          Sent you a follow request
+                        </span>
+                      )}
+                      {n.type === "follow" && n.followStatus === "accepted" && (
+                        <span>
+                          Started following you
+                        </span>
+                      )}
+                      {n.type === "follow" && n.followStatus === "rejected" && (
+                        <span>
+                          Follow request rejected
+                        </span>
+                      )}
+                    </div>
+
+                    {n.postContent && (
+                      <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
+                        "{n.postContent}"
+                      </div>
+                    )}
+
+                    {n.type === "follow" && n.followStatus === "pending" && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          className="px-3 py-1 text-xs bg-[#3F978F] text-white rounded-full hover:bg-[#357f78] transition-colors duration-150"
+                          onClick={async () => {
+                            try {
+                              if (!n.followId) throw new Error("Missing followId");
+                              const acceptedFollow = await acceptFollowRequest(n.followId);
+                              setFollowing((prev) => [
+                                ...prev,
+                                {
+                                  id: n.fromUser.id,
+                                  username: n.fromUser.name,
+                                  profilePhoto: n.fromUser.profilePhoto || undefined,
+                                },
+                              ]);
+                              setNotifications((prev) =>
+                                prev.map((notif) =>
+                                  notif.id === n.id ? { ...notif, followStatus: "accepted" } : notif
+                                )
+                              );
+                            } catch (err: any) {
+                              setNotificationsError(err.message || "Failed to accept request");
+                            }
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          className="px-3 py-1 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-150"
+                          onClick={async () => {
+                            try {
+                              if (!n.followId) throw new Error("Missing followId");
+                              await rejectFollowRequest(n.followId);
+                              setNotifications((prev) =>
+                                prev.map((notif) =>
+                                  notif.id === n.id ? { ...notif, followStatus: "rejected" } : notif
+                                )
+                              );
+                            } catch (err: any) {
+                              setNotificationsError(err.message || "Failed to reject request");
+                            }
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
-
-              {post.comments.length > 2 && !expandedComments[post.id] && (
-                <button
-                  className="text-xs text-gray-500"
-                  onClick={() => setExpandedComments((prev) => ({ ...prev, [post.id]: true }))}
-                >
-                  View all comments
-                </button>
-              )}
-
-              <div className="mt-1 flex gap-2">
-                <input
-                  type="text"
-                  value={newComment[post.id] || ""}
-                  onChange={(e) => setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                  placeholder="Add a comment..."
-                  className="flex-1 border rounded-full px-2 py-1 text-sm"
-                />
-                <button
-                  className="px-3 py-1 bg-[#3F978F] text-white rounded-full text-xs"
-                  onClick={() => addCommentHandler(post.id)}
-                >
-                  Post
-                </button>
-              </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      <div ref={sentinelRef} className="h-4" />
-      {loadingMore && (
-        <div className="flex justify-center py-2">
-          <Loader2 className="w-5 h-5 animate-spin" />
         </div>
-      )}
+
+        {/* Main Content - Posts */}
+        <div className="w-full lg:w-3/4 flex flex-col gap-4">
+          {/* Mobile Notifications Toggle */}
+          <div className="lg:hidden flex gap-2 justify-center">
+            <button
+              className={`px-4 py-1 rounded-full text-sm ${
+                showNotifications ? "bg-[#3F978F] text-white" : "bg-gray-200 dark:bg-gray-700"
+              }`}
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              Notifications
+            </button>
+          </div>
+
+          {/* Search Bar above Posts on Desktop */}
+          <div className="hidden lg:block">
+            <SearchUsersCard
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchLoading={searchLoading}
+              searchError={searchError}
+              searchResults={searchResults}
+              searchHasMore={searchHasMore}
+              onLoadMore={loadMoreSearch}
+              onToggleFollow={toggleFollowFromSearch}
+            />
+          </div>
+
+          {/* Notifications on Mobile */}
+          {showNotifications && (
+            <div className="lg:hidden bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+              <div
+                ref={notificationsContainerRef}
+                className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide"
+              >
+                {loadingNotifications && (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="animate-spin w-6 h-6 text-[#3F978F]" />
+                  </div>
+                )}
+                {notificationsError && (
+                  <div className="text-red-500 text-sm text-center bg-red-100 dark:bg-red-900/30 p-2 rounded-md">
+                    {notificationsError}
+                  </div>
+                )}
+                {!loadingNotifications && notifications.length === 0 && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm text-center p-4">
+                    No notifications yet.
+                  </div>
+                )}
+                {notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
+                      {n.fromUser.profilePhoto ? (
+                        <img
+                          src={absolutize(n.fromUser.profilePhoto, API_BASE)}
+                          alt={n.fromUser.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>{n.fromUser.name?.[0] || "U"}</span>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                          {n.fromUser.name}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(n.date).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="text-sm text-gray-700 dark:text-gray-200 mt-1">
+                        {n.type === "like" && (
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-4 h-4 text-red-500" fill="red" />
+                            Liked your post
+                          </span>
+                        )}
+                        {n.type === "comment" && (
+                          <span>
+                            Commented on your post
+                          </span>
+                        )}
+                        {n.type === "follow" && n.followStatus === "pending" && (
+                          <span>
+                            Sent you a follow request
+                          </span>
+                        )}
+                        {n.type === "follow" && n.followStatus === "accepted" && (
+                          <span>
+                            Started following you
+                          </span>
+                        )}
+                        {n.type === "follow" && n.followStatus === "rejected" && (
+                          <span>
+                            Follow request rejected
+                          </span>
+                        )}
+                      </div>
+
+                      {n.postContent && (
+                        <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
+                          "{n.postContent}"
+                        </div>
+                      )}
+
+                      {n.type === "follow" && n.followStatus === "pending" && (
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            className="px-3 py-1 text-xs bg-[#3F978F] text-white rounded-full hover:bg-[#357f78] transition-colors duration-150"
+                            onClick={async () => {
+                              try {
+                                if (!n.followId) throw new Error("Missing followId");
+                                const acceptedFollow = await acceptFollowRequest(n.followId);
+                                setFollowing((prev) => [
+                                  ...prev,
+                                  {
+                                    id: n.fromUser.id,
+                                    username: n.fromUser.name,
+                                    profilePhoto: n.fromUser.profilePhoto || undefined,
+                                  },
+                                ]);
+                                setNotifications((prev) =>
+                                  prev.map((notif) =>
+                                    notif.id === n.id ? { ...notif, followStatus: "accepted" } : notif
+                                  )
+                                );
+                              } catch (err: any) {
+                                setNotificationsError(err.message || "Failed to accept request");
+                              }
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="px-3 py-1 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-150"
+                            onClick={async () => {
+                              try {
+                                if (!n.followId) throw new Error("Missing followId");
+                                await rejectFollowRequest(n.followId);
+                                setNotifications((prev) =>
+                                  prev.map((notif) =>
+                                    notif.id === n.id ? { ...notif, followStatus: "rejected" } : notif
+                                  )
+                                );
+                              } catch (err: any) {
+                                setNotificationsError(err.message || "Failed to reject request");
+                              }
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Posts */}
+          <div
+            ref={postsContainerRef}
+            className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide"
+          >
+            {posts.map((post) => (
+              <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
+                    {post.profilePhoto ? (
+                      <img
+                        src={absolutize(post.profilePhoto, API_BASE)}
+                        alt={post.username}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{post.username?.[0] || "U"}</span>
+                    )}
+                  </div>
+                  <span className="font-medium text-sm">{post.username}</span>
+                </div>
+
+                <div className="text-sm mb-2">{post.content}</div>
+                {post.imageUrl && (
+                  <img src={post.imageUrl} alt="Post" className="w-full rounded-xl mb-2 object-cover" />
+                )}
+
+                <div className="flex items-center gap-4 text-sm mb-2">
+                  <button className="flex items-center gap-1" onClick={() => toggleLike(post.id)}>
+                    <Heart
+                      className={`w-4 h-4 ${post.liked ? "text-red-500" : "text-gray-400"}`}
+                      fill={post.liked ? "red" : "none"}
+                    />
+                    {post.likes}
+                  </button>
+                </div>
+
+                <div className="mt-2">
+                  {post.comments.slice(0, expandedComments[post.id] ? undefined : 2).map((c) => (
+                    <div key={c.id} className="text-sm mb-1">
+                      <span className="font-semibold">{c.username}: </span>
+                      {c.content}
+                    </div>
+                  ))}
+
+                  {post.comments.length > 2 && !expandedComments[post.id] && (
+                    <button
+                      className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      onClick={() => setExpandedComments((prev) => ({ ...prev, [post.id]: true }))}
+                    >
+                      View all comments
+                    </button>
+                  )}
+
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={newComment[post.id] || ""}
+                      onChange={(e) =>
+                        setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))
+                      }
+                      placeholder="Add a comment..."
+                      className="flex-1 border rounded-full px-3 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                    />
+                    <button
+                      className="px-3 py-1 bg-[#3F978F] text-white rounded-full text-xs hover:bg-[#357f78]"
+                      onClick={() => addCommentHandler(post.id)}
+                    >
+                      Post
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div ref={sentinelRef} className="h-4" />
+            {loadingMore && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
