@@ -32,6 +32,7 @@ RUN npm cache clean --force && \
 # RUN npm install ajv@^8.0.0 ajv-keywords@^5.0.0 --no-save && \
 #     npm list ajv
 
+
 # Copy rest of the code
 COPY . .
 

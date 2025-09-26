@@ -84,6 +84,7 @@ model User {
   phoneNumber  String?
   location     String?
   profilePhoto String?
+  tryOnPhoto   String?
 
   closetItems ClosetItem[]
   outfits     Outfit[]
@@ -148,6 +149,12 @@ model Outfit {
 
   // Packing (back-ref)
   packingOutfits PackingOutfit[]
+
+  // --- Try-On Yourself cache (nullable) ---
+  tryOnFinalUrl       String?   // relative or absolute URL to the persisted final image
+  tryOnItemsHash      String?   // SHA-1 of current outfit item IDs (sorted)
+  tryOnGeneratedAt    DateTime?
+  tryOnStepImageUrls  Json?
 }
 
 model OutfitItem {
@@ -338,7 +345,6 @@ model ItemFit {
   y           Float
   scale       Float
   rotationDeg Float
-  // Optional light warp (0–8 control points, local to the garment sprite)
   meshJson    Json?
 
   updatedAt   DateTime @updatedAt

@@ -5,6 +5,7 @@ jest.mock('../../src/utils/s3', () => ({
   cdnUrlFor: (k: string) => `https://cdn.test/${k}`,
 }));
 
+
 import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
