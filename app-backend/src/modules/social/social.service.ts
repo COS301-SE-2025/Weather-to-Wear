@@ -344,11 +344,8 @@ class SocialService {
 
     // Extract clothing items from the liked post and generate inspiration
     await this.generateInspirationFromLikedPost(userId, post);
-    //!bemo change
-    //return like;
     
-    //! Alisha return
-    return this.prisma.like.create({ data: { postId, userId } });
+    return like;
   }
 
   private async generateInspirationFromLikedPost(userId: string, post: any) {
