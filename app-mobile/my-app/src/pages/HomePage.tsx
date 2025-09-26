@@ -74,6 +74,27 @@ function formatTimeAmPm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    query
+  )}&count=${count}&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const results = (data?.results || []) as Array<any>;
+  return results.map(r => ({
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+    city: r.name as string,
+  }));
+}
+
+async function validateAndStandardizeCity(raw: string): Promise<string | null> {
+  const q = raw.trim();
+  if (!q) return null;
+  const matches = await geocodeCity(q, 1);
+  return matches[0]?.city ?? null; // return just the city name
+}
+
 // Added from Events: local datetime formatter for edit-prefill
 function toLocalDatetimeInputValue(iso: string) {
   const d = new Date(iso);
@@ -265,6 +286,59 @@ export default function HomePage() {
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
+  // Top search: city autocomplete state
+  const [citySuggest, setCitySuggest] = useState<Array<{ label: string; city: string }>>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState<string | null>(null);
+  const suggestionsBoxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!suggestionsBoxRef.current) return;
+      if (!suggestionsBoxRef.current.contains(e.target as Node)) {
+        setCitySuggest([]);
+        setCityError(null);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  useEffect(() => {
+    const q = cityInput.trim();
+    setCityError(null);
+    if (!q || q.length < 2) {
+      setCitySuggest([]);
+      return;
+    }
+    let cancelled = false;
+    setCityLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const opts = await geocodeCity(q, 6);
+        if (!cancelled) setCitySuggest(opts);
+      } finally {
+        if (!cancelled) setCityLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [cityInput]);
+
+  async function commitCity(nextCity: string) {
+    setCity(nextCity);
+    localStorage.setItem('selectedCity', nextCity);
+    setCityInput('');
+    setCitySuggest([]);
+    // refresh dependent queries
+    queryClient.invalidateQueries({ queryKey: ['weather'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
+  }
+
 
   // Other UI state
   const [username, setUsername] = useState<string | null>(null);
@@ -780,21 +854,38 @@ export default function HomePage() {
     null;
 
   // ---------- City enter/refresh handlers ----------
-  const handleEnterCity = () => {
+  const handleEnterCity = async () => {
     const next = cityInput.trim();
     if (submittingRef.current) return;
     submittingRef.current = true;
-    if (!next || next === city) {
+
+    if (!next) {
       submittingRef.current = false;
       return;
     }
-    setCity(next);
-    localStorage.setItem('selectedCity', next);
-    setCityInput('');
-    queryClient.invalidateQueries({ queryKey: ['weather'] });
-    queryClient.invalidateQueries({ queryKey: ['outfits'] });
-    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
 
+    // If user chose a suggestion, accept immediately; otherwise validate
+    let finalCity = next;
+    // if there are suggestions and the top suggestion's city equals input (case-insensitive), we'll accept it directly; else validate.
+    const topMatch = citySuggest[0]?.city?.toLowerCase();
+    if (!(topMatch && topMatch === next.toLowerCase())) {
+      const standardized = await validateAndStandardizeCity(next);
+      if (!standardized) {
+        setCityError('Please select a real city (use the suggestions).');
+        submittingRef.current = false;
+        return;
+      }
+      finalCity = standardized;
+    }
+
+    if (finalCity === city) {
+      submittingRef.current = false;
+      return;
+    }
+
+    await commitCity(finalCity);
+
+    // release guard
     queueMicrotask(() => { submittingRef.current = false; });
   };
 
@@ -1358,61 +1449,122 @@ export default function HomePage() {
                     "text-right",
                   ].join(" ")}
                 >
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleEnterCity();
-                    }}
-                    className="w-full"
-                  >
-                    <div className="
-              relative
-              w-full
-              max-w-[90vw] sm:max-w-md
-              backdrop-blur-2xl bg-white/10
-              
-              rounded-full
-              pl-8 pr-3 py-1
-              focus-within:ring-2 focus-within:ring-[#3F978F]
-            ">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-
-                      <input
-                        type="text"
-                        placeholder=" Select City"
-                        value={cityInput}
-                        onChange={(e) => setCityInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleEnterCity();
-                          }
-                        }}
-                        autoComplete="off"
+                  <div className="relative inline-block">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleEnterCity();
+                      }}
+                      className="w-full"
+                    >
+                      <div
                         className="
-                  w-full bg-transparent outline-none
-                  placeholder-white/70 text-white
-                  text-sm sm:text-base
-                "
-                        aria-label=" Select City"
-                      />
-                    </div>
-                  </form>
+            relative
+            w-full
+            max-w-[90vw] sm:max-w-md
+            backdrop-blur-2xl bg-white/10
+            rounded-full
+            pl-8 pr-3 py-1
+            focus-within:ring-2 focus-within:ring-[#3F978F]
+          "
+                      >
+                        {/* search icon */}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+
+                        <input
+                          type="text"
+                          placeholder=" Select City"
+                          value={cityInput}
+                          onChange={(e) => setCityInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleEnterCity();
+                            }
+                            if (e.key === 'Escape') setCitySuggest([]);
+                          }}
+                          autoComplete="off"
+                          aria-autocomplete="list"
+                          aria-expanded={citySuggest.length > 0}
+                          aria-controls="city-suggest-listbox"
+                          role="combobox"
+                          className="
+              w-full bg-transparent outline-none
+              placeholder-white/70 text-white
+              text-sm sm:text-base
+            "
+                          aria-label=" Select City"
+                        />
+                      </div>
+                    </form>
+
+                    {(cityLoading || citySuggest.length > 0 || cityError) && (
+                      <div
+                        ref={suggestionsBoxRef}
+                        className="
+            pointer-events-none
+            absolute top-0 right-full mr-2
+            w-[16rem] sm:w-[20rem]
+            z-50
+          "
+                      >
+                        {cityLoading && (
+                          <div className="pointer-events-auto text-xs text-white/90 bg-white/10 rounded-md px-3 py-2 backdrop-blur">
+                            Searching cities…
+                          </div>
+                        )}
+
+                        {!!citySuggest.length && (
+                          <ul
+                            id="city-suggest-listbox"
+                            role="listbox"
+                            className="
+                pointer-events-auto
+                mt-1 max-h-56 overflow-auto rounded-md
+                border border-white/20
+                bg-white/95 dark:bg-gray-900/95
+                text-gray-900 dark:text-gray-100 shadow-lg
+              "
+                          >
+                            {citySuggest.map((opt, i) => (
+                              <li key={i} role="option" aria-selected={false}>
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                  onClick={() => {
+                                    commitCity(opt.city);
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {cityError && (
+                          <p className="pointer-events-auto mt-1 text-sm text-red-300 bg-red-900/30 border border-red-400/40 rounded-md px-3 py-1">
+                            {cityError}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="flex items-start gap-1 w-full justify-end">
                     <svg className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]" viewBox="0 0 24 24" fill="currentColor">
