@@ -266,7 +266,7 @@ export default function TryOnCanvas({
                     place(rightId, rb, true);
                 });
 
-            // ===== occlusion (forearms) — unchanged
+            // occlusion (forearms) 
             if (!overlay.parent) {
                 overlay.zIndex = 550;
                 stage.addChild(overlay);
@@ -282,6 +282,20 @@ export default function TryOnCanvas({
                     occ.scale.set(mannequin!.scale.x);
                     occ.eventMode = "none";
                     overlay.addChild(occ);
+                }
+            } catch { }
+
+            // occlusion (head) 
+            try {
+                const headTex = PIXI.Texture.from("/mannequins/front_v1_head.png");
+                if (headTex && headTex.width > 0 && headTex.height > 0) {
+                    const head = new PIXI.Sprite(headTex);
+                    head.anchor.set(0.5);
+                    head.x = mannequin!.x;
+                    head.y = mannequin!.y;
+                    head.scale.set(mannequin!.scale.x);
+                    head.eventMode = "none";
+                    overlay.addChild(head);
                 }
             } catch { }
 
@@ -604,7 +618,7 @@ export default function TryOnCanvas({
 
             // preload
             const garmentUrls = items.map((i) => i.url).filter(Boolean);
-            const queue = [mannequinUrl, ...garmentUrls, "/mannequins/front_v1_forearms.png"];
+            const queue = [mannequinUrl, ...garmentUrls, "/mannequins/front_v1_forearms.png", "/mannequins/front_v1_head.png"];
             const iconQueue = ["/ui/tryon/handle-rotate.svg", "/ui/tryon/handle-scale.svg"];
             await PIXI.Assets.load([...queue, ...iconQueue]).catch(() => { });
 
