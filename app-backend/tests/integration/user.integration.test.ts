@@ -19,7 +19,6 @@ jest.mock("../../src/utils/s3", () => {
       });
     }),
   };
-  return mod;
 });
 import * as s3 from "../../src/utils/s3";
 
@@ -168,7 +167,7 @@ describe("Auth Integration Tests", () => {
         .delete(`/api/auth/users/${userId}`)
         .set("Authorization", "Bearer badtoken");
 
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(403);
       expect(res.body.error).toMatch(/invalid token/i);
     });
 

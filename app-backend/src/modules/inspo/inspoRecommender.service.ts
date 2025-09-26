@@ -1,9 +1,525 @@
-// src/modules/inspo/inspoRecommender.service.ts
+// Enhanced inspoRecommender.service.ts with weighted warmth system
 import { ClosetItem, LayerCategory, Style } from '@prisma/client';
 import { InspoOutfitRecommendation, InspoItemRecommendation, WeatherCondition } from './inspo.types';
 
+// Layer warmth weights - same as main recommender
+const LAYER_WARMTH_WEIGHT: Record<string, number> = {
+  base_top: 1.0,
+  base_bottom: 1.0,
+  mid_top: 1.2,
+  outerwear: 1.6,
+  footwear: 0.4,
+  headwear: 0.2,
+  accessory: 0.1,
+};
+
+// Temperature to target weighted warmth mapping - adapted from main recommender
+const TEMP_WARMTH_POINTS: Array<[number, number]> = [
+  [30, 5],
+  [25, 7],
+  [20, 10],
+  [15, 14],
+  [10, 20],
+  [5, 24],
+  [0, 28],
+  [-5, 32],
+];
+
+// Calculate weighted warmth for a single item
+function calculateWeightedItemWarmth(item: ClosetItem): number {
+  const weight = LAYER_WARMTH_WEIGHT[item.layerCategory] ?? 1.0;
+  const baseWarmth = getDefaultWarmthFactor(item);
+  return baseWarmth * weight;
+}
+
+// Calculate weighted warmth for entire outfit
+function calculateWeightedOutfitWarmth(items: ClosetItem[]): number {
+  return items.reduce((sum, item) => sum + calculateWeightedItemWarmth(item), 0);
+}
+
+// Get target weighted warmth for given temperature
+function getTargetWeightedWarmth(temperature: number): number {
+  // Linear interpolation between temperature points
+  for (let i = 0; i < TEMP_WARMTH_POINTS.length - 1; i++) {
+    const [t1, w1] = TEMP_WARMTH_POINTS[i];
+    const [t2, w2] = TEMP_WARMTH_POINTS[i + 1];
+    
+    if ((temperature <= t1 && temperature >= t2) || (temperature >= t1 && temperature <= t2)) {
+      const ratio = (temperature - t1) / (t2 - t1);
+      return w1 + ratio * (w2 - w1);
+    }
+  }
+  
+  // Handle edge cases
+  if (temperature > TEMP_WARMTH_POINTS[0][0]) return TEMP_WARMTH_POINTS[0][1];
+  return TEMP_WARMTH_POINTS[TEMP_WARMTH_POINTS.length - 1][1];
+}
+
+// Get warmth tolerance based on temperature (wider tolerance in warm weather)
+function getWarmthTolerance(temperature: number): number {
+  if (temperature >= 28) return 6;
+  if (temperature >= 22) return 5;
+  if (temperature >= 14) return 4.5;
+  if (temperature >= 8) return 4;
+  if (temperature >= 2) return 3.5;
+  return 3;
+}
+
+// Helper function to check if a temperature falls within any of the selected ranges
+function isTemperatureInRanges(temperature: number, temperatureRanges: { minTemp: number; maxTemp: number }[]): boolean {
+  if (!temperatureRanges || temperatureRanges.length === 0) return true;
+  
+  return temperatureRanges.some(range => {
+    const tolerance = 3; // Small tolerance for edge cases
+    return temperature >= (range.minTemp - tolerance) && temperature <= (range.maxTemp + tolerance);
+  });
+}
+
+// Enhanced weather-aware item scoring with multiple temperature ranges support
+function scoreItemForWeatherWeighted(item: ClosetItem, temperature?: number, weatherConditions: string[] = []): number {
+  let score = 1.0;
+  
+  if (temperature === undefined) return score;
+  
+  const itemWeightedWarmth = calculateWeightedItemWarmth(item);
+  const targetWarmth = getTargetWeightedWarmth(temperature);
+  const tolerance = getWarmthTolerance(temperature);
+  
+  // Score based on how close the item's weighted warmth is to the target range
+  const warmthDelta = Math.abs(itemWeightedWarmth - targetWarmth);
+  
+  if (warmthDelta <= tolerance) {
+    // Within tolerance - boost score
+    score *= 1.5;
+  } else {
+    // Outside tolerance - apply penalty based on distance
+    const penalty = Math.exp(-((warmthDelta - tolerance) ** 2) / 25);
+    score *= penalty;
+  }
+  
+  // Additional category-based filtering for extreme temperatures
+  const category = item.category?.toLowerCase() || '';
+  
+  if (temperature > 25) {
+    // Hot weather - heavily penalize inappropriate categories
+    if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') {
+      score *= 0.1;
+    }
+    if (category.includes('hoodie') || category.includes('sweater') || 
+        category.includes('jacket') || category.includes('coat')) {
+      score *= 0.05;
+    }
+  } else if (temperature < 10) {
+    // Cold weather - boost warm layers
+    if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') {
+      score *= 1.8;
+    }
+  }
+  
+  // Weather condition bonuses
+  if (weatherConditions.includes('rain') || weatherConditions.includes('drizzle')) {
+    score *= item.waterproof ? 2.0 : 0.4;
+  }
+  
+  return score;
+}
+
+// Enhanced outfit suitability check using weighted warmth
+function isOutfitSuitableForWeatherWeighted(
+  outfit: InspoOutfitRecommendation, 
+  temperature: number, 
+  weatherConditions: string[]
+): boolean {
+  // Convert InspoItemRecommendation back to ClosetItem-like objects for calculation
+  const items = outfit.inspoItems.map(item => ({
+    layerCategory: item.layerCategory,
+    category: item.category,
+    warmthFactor: item.warmthFactor || 5,
+    waterproof: item.waterproof || false,
+  } as Partial<ClosetItem>));
+  
+  const outfitWeightedWarmth = items.reduce((sum, item) => {
+    const weight = LAYER_WARMTH_WEIGHT[item.layerCategory as string] ?? 1.0;
+    const warmth = item.warmthFactor || 5;
+    return sum + (warmth * weight);
+  }, 0);
+  
+  const targetWarmth = getTargetWeightedWarmth(temperature);
+  const tolerance = getWarmthTolerance(temperature);
+  
+  // Check if outfit's weighted warmth is within acceptable range
+  const isWarmthSuitable = Math.abs(outfitWeightedWarmth - targetWarmth) <= tolerance * 1.2;
+  
+  // Additional checks for extreme temperatures
+  if (temperature > 25) {
+    const hasInappropriateItems = outfit.inspoItems.some(item => {
+      const category = item.category?.toLowerCase() || '';
+      return item.layerCategory === 'outerwear' || 
+             item.layerCategory === 'mid_top' ||
+             category.includes('hoodie') || 
+             category.includes('sweater') ||
+             category.includes('jacket') ||
+             category.includes('coat');
+    });
+    
+    if (hasInappropriateItems) return false;
+  }
+  
+  // Rain condition check
+  if (weatherConditions.includes('rain') || weatherConditions.includes('drizzle')) {
+    return outfit.waterproof && isWarmthSuitable;
+  }
+  
+  return isWarmthSuitable;
+}
+
+// Enhanced weather recommendation calculation using weighted warmth
+function calculateWeatherRecommendationWeighted(
+  items: ClosetItem[], 
+  hasWaterproof: boolean
+): WeatherCondition {
+  const totalWeightedWarmth = calculateWeightedOutfitWarmth(items);
+  
+  // Define consistent, user-friendly temperature ranges based on weighted warmth
+  // These ranges align with rebalanced warmth factors and frontend temperature categories
+  // Logic: Higher weighted warmth = Colder weather, Lower weighted warmth = Warmer weather
+  let minTemp: number, maxTemp: number;
+  
+  if (totalWeightedWarmth >= 28) {
+    // Very heavy outfits (heavy coats + layers) for freezing weather
+    minTemp = -10;
+    maxTemp = 0;
+  } else if (totalWeightedWarmth >= 24) {
+    // Heavy outfits (jackets) for very cold weather  
+    minTemp = 0;
+    maxTemp = 8;
+  } else if (totalWeightedWarmth >= 20) {
+    // Warm outfits (light jackets, heavy sweaters) for cold weather
+    minTemp = 8;
+    maxTemp = 15;
+  } else if (totalWeightedWarmth >= 16) {
+    // Moderate-warm outfits (hoodies, sweaters) for cool weather
+    minTemp = 15;
+    maxTemp = 22;
+  } else if (totalWeightedWarmth >= 12) {
+    // Light-moderate outfits (light sweaters, cardigans) for mild weather  
+    minTemp = 22;
+    maxTemp = 28;
+  } else if (totalWeightedWarmth >= 8) {
+    // Light outfits (base layers with light layer) for warm weather
+    minTemp = 28;
+    maxTemp = 32;
+  } else {
+    // Very light outfits (minimal clothing) for hot weather
+    minTemp = 32;
+    maxTemp = 40;
+  }
+  
+  // Calculate average temperature for primary weather condition
+  const avgTemp = (minTemp + maxTemp) / 2;
+  
+  // Determine primary weather condition based on temperature and waterproof status
+  const conditions: string[] = [];
+  
+  if (hasWaterproof) {
+    // If outfit is waterproof, prioritize rainy conditions
+    if (avgTemp <= 0) {
+      conditions.push('freezing', 'rainy');
+    } else if (avgTemp <= 15) {
+      conditions.push('rainy', 'cool', 'cloudy');
+    } else {
+      conditions.push('rainy', 'drizzle', 'cloudy');
+    }
+  } else {
+    // Temperature-based weather conditions (prioritize most relevant icon first)
+    if (avgTemp >= 30) {
+      // Very hot weather - clear sunny skies
+      conditions.push('hot', 'sunny');
+    } else if (avgTemp >= 25) {
+      // Warm weather - mostly sunny
+      conditions.push('sunny', 'warm');
+    } else if (avgTemp >= 18) {
+      // Mild weather - partly cloudy but pleasant
+      conditions.push('mild', 'sunny', 'cloudy');
+    } else if (avgTemp >= 10) {
+      // Cool weather - more clouds than sun
+      conditions.push('cool', 'cloudy');
+    } else if (avgTemp >= 2) {
+      // Cold weather - overcast and cold
+      conditions.push('cold', 'cloudy');
+    } else {
+      // Freezing weather - snow/ice conditions
+      conditions.push('freezing', 'cold');
+    }
+  }
+  
+  // Add windy condition for certain temperature ranges
+  if (avgTemp >= 10 && avgTemp <= 20 && !hasWaterproof) {
+    conditions.push('windy');
+  }
+  
+  return { minTemp, maxTemp, conditions };
+}
+
+// Enhanced random outfit generation with weighted warmth
+function generateRandomOutfitsWeighted(
+  closetItems: ClosetItem[], 
+  preferredTags: string[] = [], 
+  preferredStyle: Style = Style.Casual,
+  count: number = 5,
+  temperature?: number,
+  weatherConditions: string[] = []
+): InspoOutfitRecommendation[] {
+  const itemsByLayer = closetItems.reduce((acc, item) => {
+    const layer = item.layerCategory;
+    if (!acc[layer]) acc[layer] = [];
+    acc[layer].push(item);
+    return acc;
+  }, {} as Record<LayerCategory, ClosetItem[]>);
+  
+  const outfits: InspoOutfitRecommendation[] = [];
+  const targetWarmth = temperature ? getTargetWeightedWarmth(temperature) : null;
+  const tolerance = temperature ? getWarmthTolerance(temperature) : null;
+  
+  for (let i = 0; i < count; i++) {
+    const requiredLayers: LayerCategory[] = [
+      LayerCategory.base_top,
+      LayerCategory.base_bottom,
+      LayerCategory.footwear
+    ];
+    
+    const optionalLayers: LayerCategory[] = [
+      LayerCategory.mid_top,
+      LayerCategory.outerwear,
+      LayerCategory.accessory,
+      LayerCategory.headwear
+    ];
+    
+    const outfitItems: {item: ClosetItem, sortOrder: number}[] = [];
+    let sortOrder = 1;
+    let outfitStyle = preferredStyle;
+    let currentWeightedWarmth = 0;
+    
+    // Build outfit with weighted warmth awareness
+    for (const layer of requiredLayers) {
+      const layerItems = itemsByLayer[layer] || [];
+      if (layerItems.length === 0) continue;
+      
+      const scoredItems = layerItems.map(item => {
+        let score = 0;
+        
+        // Weather-aware scoring with weighted warmth
+        if (temperature) {
+          score += scoreItemForWeatherWeighted(item, temperature, weatherConditions);
+        } else {
+          score += 1;
+        }
+        
+        // Style and tag preferences
+        if (item.style === preferredStyle) score += 2;
+        
+        const itemTags = item.style ? [`style:${item.style.toLowerCase()}`] : [];
+        if (item.category) itemTags.push(`category:${item.category.toLowerCase()}`);
+        if (item.waterproof) itemTags.push('feature:waterproof');
+        
+        score += preferredTags.filter(tag => itemTags.includes(tag)).length;
+        
+        return { item, score };
+      });
+      
+      // Filter inappropriate items for temperature
+      let filteredItems = scoredItems;
+      if (temperature && temperature > 25) {
+        filteredItems = scoredItems.filter(scored => {
+          const item = scored.item;
+          const category = item.category?.toLowerCase() || '';
+          
+          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
+          if (category.includes('hoodie') || category.includes('sweater') || 
+              category.includes('jacket') || category.includes('coat')) return false;
+          
+          return true;
+        });
+      }
+      
+      if (filteredItems.length === 0) continue;
+      
+      filteredItems.sort((a, b) => b.score - a.score);
+      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
+      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
+      
+      outfitItems.push({ item: selectedItem, sortOrder });
+      sortOrder++;
+      currentWeightedWarmth += calculateWeightedItemWarmth(selectedItem);
+      
+      if (selectedItem.style) outfitStyle = selectedItem.style;
+    }
+    
+    // Add optional layers based on warmth needs and weather
+    for (const layer of optionalLayers) {
+      // Check if we need more warmth
+      let includeChance = 0.5;
+      
+      if (targetWarmth && tolerance) {
+        const warmthGap = targetWarmth - currentWeightedWarmth;
+        if (warmthGap > tolerance) {
+          // Need more warmth
+          includeChance = 0.8;
+        } else if (warmthGap < -tolerance) {
+          // Too much warmth already
+          includeChance = 0.2;
+        }
+      }
+      
+      // Weather-specific adjustments
+      if (temperature && temperature > 25 && (layer === 'mid_top' || layer === 'outerwear')) {
+        includeChance = 0.1;
+      } else if (temperature && temperature < 15 && (layer === 'mid_top' || layer === 'outerwear')) {
+        includeChance = 0.9;
+      }
+      
+      if (Math.random() > includeChance) continue;
+      
+      const layerItems = itemsByLayer[layer] || [];
+      if (layerItems.length === 0) continue;
+      
+      // Similar scoring and filtering as required layers
+      const scoredItems = layerItems.map(item => ({
+        item,
+        score: temperature ? scoreItemForWeatherWeighted(item, temperature, weatherConditions) : 1
+      }));
+      
+      let filteredItems = scoredItems;
+      if (temperature && temperature > 25) {
+        filteredItems = scoredItems.filter(scored => {
+          const item = scored.item;
+          const category = item.category?.toLowerCase() || '';
+          
+          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
+          if (category.includes('hoodie') || category.includes('sweater') || 
+              category.includes('jacket') || category.includes('coat')) return false;
+          
+          return true;
+        });
+      }
+      
+      if (filteredItems.length === 0) continue;
+      
+      filteredItems.sort((a, b) => b.score - a.score);
+      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
+      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
+      
+      outfitItems.push({ item: selectedItem, sortOrder });
+      sortOrder++;
+      currentWeightedWarmth += calculateWeightedItemWarmth(selectedItem);
+    }
+    
+    if (outfitItems.length < requiredLayers.length) continue;
+    
+    const hasWaterproof = outfitItems.some(({ item }) => item.waterproof);
+    const weatherRec = calculateWeatherRecommendationWeighted(
+      outfitItems.map(({ item }) => item), 
+      hasWaterproof
+    );
+    
+    // Calculate traditional warmth rating for display
+    const totalWarmth = outfitItems.reduce((sum, { item }) => sum + getDefaultWarmthFactor(item), 0);
+    const avgWarmth = Math.round(totalWarmth / outfitItems.length);
+    
+    const tags = outfitItems.flatMap(({ item }) => {
+      const tags: string[] = [];
+      if (item.style) tags.push(`style:${item.style.toLowerCase()}`);
+      if (item.category) tags.push(`category:${item.category.toLowerCase()}`);
+      if (item.material) tags.push(`material:${item.material.toLowerCase()}`);
+      if (item.waterproof) tags.push('feature:waterproof');
+      return tags;
+    });
+    
+    const outfit: InspoOutfitRecommendation = {
+      id: `weighted-${i}`,
+      overallStyle: outfitStyle,
+      warmthRating: Math.round(currentWeightedWarmth), // Show weighted warmth
+      waterproof: hasWaterproof,
+      tags: [...new Set(tags)],
+      recommendedWeather: weatherRec,
+      score: 0.5,
+      inspoItems: outfitItems.map(({ item, sortOrder }) => ({
+        closetItemId: item.id,
+        imageUrl: `/api/uploads/${item.filename || ''}`,
+        layerCategory: item.layerCategory,
+        category: item.category || '',
+        style: item.style?.toString() || undefined,
+        colorHex: item.colorHex || undefined,
+        warmthFactor: item.warmthFactor || undefined,
+        waterproof: item.waterproof || false,
+        dominantColors: item.dominantColors 
+          ? (typeof item.dominantColors === 'string' 
+              ? JSON.parse(item.dominantColors) 
+              : item.dominantColors)
+          : undefined,
+        sortOrder
+      }))
+    };
+    
+    // Final weighted warmth suitability check
+    if (temperature !== undefined && !isOutfitSuitableForWeatherWeighted(outfit, temperature, weatherConditions)) {
+      continue;
+    }
+    
+    outfits.push(outfit);
+  }
+  
+  return outfits;
+}
+
+// Helper function to get default warmth factor (balanced for proper temperature alignment)
+function getDefaultWarmthFactor(item: ClosetItem): number {
+  const category = item.category?.toLowerCase() || '';
+  const layerCategory = item.layerCategory;
+  
+  // According to TEMP_WARMTH_POINTS mapping and layer weights:
+  // 30°C = warmth 5, 25°C = warmth 7, 20°C = warmth 10, 15°C = warmth 14, 10°C = warmth 20, 5°C = warmth 24, 0°C = warmth 28
+  // Layer weights: base=1.0, mid_top=1.2, outerwear=1.6, footwear=0.4, headwear=0.2, accessory=0.1
+  
+  if (category.includes('jacket') || category.includes('coat')) {
+    // Heavy outerwear for cold weather (0-5°C range)
+    // Target weighted warmth ~24-28, with outerwear weight 1.6: 24/1.6 = 15, 28/1.6 = 17.5
+    return Math.max(item.warmthFactor || 16, 16);
+  }
+  
+  if (category.includes('hoodie') || category.includes('sweatshirt')) {
+    // Warm mid-layer for cool weather (15°C range)
+    // Target weighted warmth ~14, with mid_top weight 1.2: 14/1.2 = 11.7
+    return Math.max(item.warmthFactor || 12, 12);
+  }
+  
+  if (category.includes('sweater') || category.includes('pullover')) {
+    // Moderate warmth for cool weather (15-20°C range)
+    // Target weighted warmth ~10-14, with mid_top weight 1.2: 10/1.2 = 8.3, 14/1.2 = 11.7
+    return Math.max(item.warmthFactor || 10, 10);
+  }
+  
+  if (layerCategory === 'outerwear') {
+    // General outerwear for cold weather
+    // Target weighted warmth ~20-24, with outerwear weight 1.6: 20/1.6 = 12.5, 24/1.6 = 15
+    return Math.max(item.warmthFactor || 14, 14);
+  }
+  
+  if (layerCategory === 'mid_top') {
+    // Mid-layer for cool weather (15-20°C range)
+    // Target weighted warmth ~10-14, with mid_top weight 1.2: 10/1.2 = 8.3, 14/1.2 = 11.7
+    return Math.max(item.warmthFactor || 9, 9);
+  }
+  
+  // Base layers and light items for warm weather (20-30°C range = warmth 5-10)
+  // Base layer weight 1.0, so direct mapping
+  return item.warmthFactor || 7;
+}
+
+// ======= ORIGINAL FUNCTIONS FOR BACKWARD COMPATIBILITY =======
+
 // Calculate similarity between two items based on their features
-export function calculateItemSimilarity(itemA: ClosetItem, itemB: ClosetItem): number {
+function calculateItemSimilarity(itemA: ClosetItem, itemB: ClosetItem): number {
   // Safety check for null/undefined items
   if (!itemA || !itemB) {
     return 0; // No similarity if either item is missing
@@ -47,7 +563,7 @@ export function calculateItemSimilarity(itemA: ClosetItem, itemB: ClosetItem): n
 }
 
 // Find similar items to a reference item using KNN logic
-export function findSimilarItems(referenceItem: ClosetItem, candidateItems: ClosetItem[], k = 5): ClosetItem[] {
+function findSimilarItems(referenceItem: ClosetItem, candidateItems: ClosetItem[], k = 5): ClosetItem[] {
   // Safety checks for null/undefined inputs
   if (!referenceItem) {
     console.error('findSimilarItems: Reference item is null or undefined');
@@ -74,8 +590,8 @@ export function findSimilarItems(referenceItem: ClosetItem, candidateItems: Clos
     .map(scored => scored.item);
 }
 
-// Check if an outfit is appropriate for given weather
-export function isOutfitSuitableForWeather(
+// Check if an outfit is appropriate for given weather (original version)
+function isOutfitSuitableForWeather(
   outfit: InspoOutfitRecommendation, 
   temperature: number, 
   weatherConditions: string[]
@@ -156,7 +672,7 @@ export function isOutfitSuitableForWeather(
 }
 
 // Filter outfits by weather conditions
-export function filterOutfitsByWeather(
+function filterOutfitsByWeather(
   outfits: InspoOutfitRecommendation[], 
   temperature: number, 
   conditions: string[] = []
@@ -164,8 +680,8 @@ export function filterOutfitsByWeather(
   return outfits.filter(outfit => isOutfitSuitableForWeather(outfit, temperature, conditions));
 }
 
-// Generate random outfits based on tags and preferences
-export function generateRandomOutfits(
+// Generate random outfits based on tags and preferences (original version)
+function generateRandomOutfits(
   closetItems: ClosetItem[], 
   preferredTags: string[] = [], 
   preferredStyle: Style = Style.Casual,
@@ -173,291 +689,12 @@ export function generateRandomOutfits(
   temperature?: number,
   weatherConditions: string[] = []
 ): InspoOutfitRecommendation[] {
-  // Group items by layer category
-  const itemsByLayer = closetItems.reduce((acc, item) => {
-    const layer = item.layerCategory;
-    if (!acc[layer]) {
-      acc[layer] = [];
-    }
-    acc[layer].push(item);
-    return acc;
-  }, {} as Record<LayerCategory, ClosetItem[]>);
-  
-  const outfits: InspoOutfitRecommendation[] = [];
-  
-  // Try to generate the requested number of outfits
-  for (let i = 0; i < count; i++) {
-    // Required layers for a basic outfit
-    const requiredLayers: LayerCategory[] = [
-      LayerCategory.base_top,
-      LayerCategory.base_bottom,
-      LayerCategory.footwear
-    ];
-    
-    // Optional layers that might be included
-    const optionalLayers: LayerCategory[] = [
-      LayerCategory.mid_top,
-      LayerCategory.outerwear,
-      LayerCategory.accessory,
-      LayerCategory.headwear
-    ];
-    
-    // Start building the outfit
-    const outfitItems: {item: ClosetItem, sortOrder: number}[] = [];
-    let sortOrder = 1;
-    let totalWarmth = 0;
-    let hasWaterproof = false;
-    let outfitStyle = preferredStyle;
-    
-    // First add required layers
-    for (const layer of requiredLayers) {
-      const layerItems = itemsByLayer[layer] || [];
-      
-      // Skip if we don't have items for this required layer
-      if (layerItems.length === 0) continue;
-      
-      // Prefer items with preferred style or tags, and apply weather scoring
-      const scoredItems = layerItems.map(item => {
-        let score = 0;
-        
-        // IMPROVED: Apply weather-aware scoring
-        const weatherScore = scoreItemForWeather(item, temperature, weatherConditions);
-        score += weatherScore;
-        
-        // Boost score for preferred style match
-        if (item.style === preferredStyle) {
-          score += 2;
-        }
-        
-        // Boost score for each matching tag
-        const itemTags = item.style ? [`style:${item.style.toLowerCase()}`] : [];
-        if (item.category) itemTags.push(`category:${item.category.toLowerCase()}`);
-        if (item.waterproof) itemTags.push('feature:waterproof');
-        
-        score += preferredTags.filter(tag => itemTags.includes(tag)).length;
-        
-        return { item, score };
-      });
-      
-      // CRITICAL FIX: Filter out inappropriate items for hot weather BEFORE selection
-      let filteredItems = scoredItems;
-      if (temperature && temperature > 20) { // Changed from 25 to 20 to be more aggressive
-        // In warm/hot weather, completely exclude hoodies, outerwear, and high-warmth items
-        filteredItems = scoredItems.filter(scored => {
-          const item = scored.item;
-          const warmth = getDefaultWarmthFactor(item);
-          const category = item.category?.toLowerCase() || '';
-          
-          // More aggressive filtering: exclude items that are inappropriate for warm weather
-          if (temperature > 25) {
-            // Very hot weather: exclude warmth >= 5
-            if (warmth >= 5) return false;
-          } else if (temperature > 20) {
-            // Warm weather: exclude warmth >= 6
-            if (warmth >= 6) return false;
-          }
-          
-          // Always exclude these categories and layers in warm+ weather
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('sweatshirt') || category.includes('jacket') || 
-              category.includes('coat')) return false;
-          
-          return true;
-        });
-      }
-      
-      // If no appropriate items left after filtering, skip this outfit generation attempt
-      if (filteredItems.length === 0) continue;
-      
-      // Choose a random item, with weighted probability toward higher scores
-      filteredItems.sort((a, b) => b.score - a.score);
-      // Take top 3 or fewer if we don't have enough
-      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
-      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
-      
-      outfitItems.push({ item: selectedItem, sortOrder });
-      sortOrder++;
-      
-      // Update outfit properties using improved warmth calculation
-      totalWarmth += getDefaultWarmthFactor(selectedItem);
-      if (selectedItem.waterproof) hasWaterproof = true;
-      if (selectedItem.style) outfitStyle = selectedItem.style; // Let last style item set the style
-    }
-    
-    // If we couldn't find all required items, skip this outfit
-    if (outfitItems.length < requiredLayers.length) {
-      continue;
-    }
-    
-    // Add some random optional layers
-    for (const layer of optionalLayers) {
-      // 50% chance to include an optional layer
-      if (Math.random() > 0.5) continue;
-      
-      const layerItems = itemsByLayer[layer] || [];
-      if (layerItems.length === 0) continue;
-      
-      // Similar scoring as for required layers with weather awareness
-      const scoredItems = layerItems.map(item => {
-        let score = 0;
-        
-        // IMPROVED: Apply weather-aware scoring
-        const weatherScore = scoreItemForWeather(item, temperature, weatherConditions);
-        score += weatherScore;
-        
-        if (item.style === outfitStyle) score += 2;
-        
-        const itemTags = item.style ? [`style:${item.style.toLowerCase()}`] : [];
-        if (item.category) itemTags.push(`category:${item.category.toLowerCase()}`);
-        if (item.waterproof) itemTags.push('feature:waterproof');
-        
-        score += preferredTags.filter(tag => itemTags.includes(tag)).length;
-        
-        return { item, score };
-      });
-      
-      // CRITICAL FIX: Filter out inappropriate items for hot weather BEFORE selection
-      let filteredItems = scoredItems;
-      if (temperature && temperature > 20) { // Changed from 25 to 20 to be more aggressive
-        // In warm/hot weather, completely exclude hoodies, outerwear, and high-warmth items
-        filteredItems = scoredItems.filter(scored => {
-          const item = scored.item;
-          const warmth = getDefaultWarmthFactor(item);
-          const category = item.category?.toLowerCase() || '';
-          
-          // More aggressive filtering: exclude items that are inappropriate for warm weather
-          if (temperature > 25) {
-            // Very hot weather: exclude warmth >= 5
-            if (warmth >= 5) return false;
-          } else if (temperature > 20) {
-            // Warm weather: exclude warmth >= 6
-            if (warmth >= 6) return false;
-          }
-          
-          // Always exclude these categories and layers in warm+ weather
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('sweatshirt') || category.includes('jacket') || 
-              category.includes('coat')) return false;
-          
-          return true;
-        });
-      }
-      
-      // If no appropriate items left after filtering, skip this layer
-      if (filteredItems.length === 0) continue;
-      
-      filteredItems.sort((a, b) => b.score - a.score);
-      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
-      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
-      
-      outfitItems.push({ item: selectedItem, sortOrder });
-      sortOrder++;
-      
-      totalWarmth += getDefaultWarmthFactor(selectedItem);
-      if (selectedItem.waterproof) hasWaterproof = true;
-    }
-    
-    // Calculate average warmth for the outfit
-    const avgWarmth = Math.round(totalWarmth / outfitItems.length);
-    
-    // Create weather recommendation based on outfit warmth
-    const weatherRec = calculateWeatherRecommendation(avgWarmth, hasWaterproof);
-    
-    // Extract all tags from the outfit items
-    const tags = outfitItems.flatMap(({ item }) => {
-      const tags: string[] = [];
-      if (item.style) tags.push(`style:${item.style.toLowerCase()}`);
-      if (item.category) tags.push(`category:${item.category.toLowerCase()}`);
-      if (item.material) tags.push(`material:${item.material.toLowerCase()}`);
-      if (item.waterproof) tags.push('feature:waterproof');
-      return tags;
-    });
-    
-    // Create the InspoOutfitRecommendation object
-    const outfit: InspoOutfitRecommendation = {
-      id: `generated-${i}`,
-      overallStyle: outfitStyle,
-      warmthRating: avgWarmth,
-      waterproof: hasWaterproof,
-      tags: [...new Set(tags)], // Remove duplicates
-      recommendedWeather: weatherRec,
-      score: 0.5, // Base score for generated outfits
-      inspoItems: outfitItems.map(({ item, sortOrder }) => ({
-        closetItemId: item.id,
-        imageUrl: `/api/uploads/${item.filename || ''}`,
-        layerCategory: item.layerCategory,
-        category: item.category || '',
-        style: item.style?.toString() || undefined,
-        colorHex: item.colorHex || undefined,
-        warmthFactor: item.warmthFactor || undefined,
-        waterproof: item.waterproof || false,
-        dominantColors: item.dominantColors 
-          ? (typeof item.dominantColors === 'string' 
-              ? JSON.parse(item.dominantColors) 
-              : item.dominantColors)
-          : undefined,
-        sortOrder
-      }))
-    };
-    
-    // CRITICAL FIX: Double-check that the outfit is actually suitable for the weather
-    if (temperature !== undefined && !isOutfitSuitableForWeather(outfit, temperature, weatherConditions)) {
-      console.log('Generated outfit failed weather suitability check, skipping');
-      continue; // Skip this outfit if it's not suitable
-    }
-    
-    outfits.push(outfit);
-  }
-  
-  return outfits;
-}
-
-// Helper function to calculate weather recommendation
-function calculateWeatherRecommendation(warmthRating: number, waterproof: boolean): WeatherCondition {
-  let minTemp: number;
-  let maxTemp: number;
-  const conditions: string[] = [];
-  
-  // Temperature recommendations based on warmth rating
-  if (warmthRating >= 20) {
-    minTemp = -10;
-    maxTemp = 5;
-    conditions.push('freezing', 'cold');
-  } else if (warmthRating >= 15) {
-    minTemp = -5;
-    maxTemp = 10;
-    conditions.push('cold', 'cool');
-  } else if (warmthRating >= 10) {
-    minTemp = 0;
-    maxTemp = 15;
-    conditions.push('cool', 'mild');
-  } else if (warmthRating >= 7) {
-    minTemp = 5;
-    maxTemp = 18; // Reduced from 20 to prevent warm weather recommendations
-    conditions.push('mild');
-  } else if (warmthRating >= 5) {
-    minTemp = 15;
-    maxTemp = 25;
-    conditions.push('warm');
-  } else {
-    minTemp = 20;
-    maxTemp = 35;
-    conditions.push('hot');
-  }
-  
-  // Add weather conditions
-  conditions.push('sunny', 'cloudy');
-  if (waterproof) {
-    conditions.push('rainy', 'drizzle');
-  }
-  
-  return { minTemp, maxTemp, conditions };
+  // For now, delegate to the weighted version for better results
+  return generateRandomOutfitsWeighted(closetItems, preferredTags, preferredStyle, count, temperature, weatherConditions);
 }
 
 // Score an outfit based on how well it matches a set of preferred tags
-export function scoreOutfitByTags(outfit: InspoOutfitRecommendation, preferredTags: string[]): number {
+function scoreOutfitByTags(outfit: InspoOutfitRecommendation, preferredTags: string[]): number {
   if (!preferredTags.length) return 0.5; // Default score if no preferences
   
   // Count matching tags
@@ -469,8 +706,8 @@ export function scoreOutfitByTags(outfit: InspoOutfitRecommendation, preferredTa
   return 0.1 + (matchRatio * 0.9);
 }
 
-// Generate personalized outfit recommendations based on liked items
-export function generatePersonalizedOutfits(
+// Generate personalized outfit recommendations based on liked items (original version)
+function generatePersonalizedOutfits(
   userCloset: ClosetItem[],
   likedItems: ClosetItem[],
   preferredTags: string[],
@@ -484,242 +721,12 @@ export function generatePersonalizedOutfits(
     return generateRandomOutfits(userCloset, preferredTags, preferredStyle, count, temperature, weatherConditions);
   }
   
-  // Group items by layer category for easier outfit assembly
-  const itemsByLayer = userCloset.reduce((acc, item) => {
-    const layer = item.layerCategory;
-    if (!acc[layer]) {
-      acc[layer] = [];
-    }
-    acc[layer].push(item);
-    return acc;
-  }, {} as Record<LayerCategory, ClosetItem[]>);
-  
-  // For each liked item, find similar items in the user's closet
-  const similarItemSets = likedItems.map(likedItem => {
-    // Find similar items in the same layer category
-    const sameLayerItems = itemsByLayer[likedItem.layerCategory] || [];
-    
-    // Ensure we don't just get the exact liked item - filter it out if it exists
-    const filteredItems = sameLayerItems.filter(item => 
-      item.id !== likedItem.id // Remove the exact same item to force new combinations
-    );
-    
-    // If we filtered out all items (only had the original), use all items in that layer
-    const itemsToSearch = filteredItems.length > 0 ? filteredItems : sameLayerItems;
-    
-    return findSimilarItems(likedItem, itemsToSearch, 3); // Find top 3 similar items
-  }).filter(set => set.length > 0);
-  
-  // Start building outfit combinations
-  const outfits: InspoOutfitRecommendation[] = [];
-  
-  // Try to create outfits based on similar items
-  for (let i = 0; i < count && similarItemSets.length > 0; i++) {
-    // Required layers for a basic outfit
-    const requiredLayers: LayerCategory[] = [
-      LayerCategory.base_top,
-      LayerCategory.base_bottom,
-      LayerCategory.footwear
-    ];
-    
-    // Optional layers that might be included
-    const optionalLayers: LayerCategory[] = [
-      LayerCategory.mid_top,
-      LayerCategory.outerwear,
-      LayerCategory.accessory,
-      LayerCategory.headwear
-    ];
-    
-    // Start building the outfit
-    const outfitItems: {item: ClosetItem, sortOrder: number}[] = [];
-    let sortOrder = 1;
-    let totalWarmth = 0;
-    let hasWaterproof = false;
-    let outfitStyle = preferredStyle;
-    
-    // First, try to include similar items from our similar sets
-    for (const layer of [...requiredLayers, ...optionalLayers]) {
-      // Find a similar item set for this layer
-      const setsForLayer = similarItemSets.filter(set => 
-        set.length > 0 && set[0].layerCategory === layer
-      );
-      
-      if (setsForLayer.length > 0) {
-        // Randomly choose one of the similar item sets for this layer
-        const chosenSet = setsForLayer[Math.floor(Math.random() * setsForLayer.length)];
-        // Randomly choose one of the similar items
-        const chosenItem = chosenSet[Math.floor(Math.random() * chosenSet.length)];
-        
-        outfitItems.push({ item: chosenItem, sortOrder });
-        sortOrder++;
-        
-        totalWarmth += getDefaultWarmthFactor(chosenItem);
-        if (chosenItem.waterproof) hasWaterproof = true;
-        if (chosenItem.style) outfitStyle = chosenItem.style;
-      }
-    }
-    
-    // Now fill in any missing required layers with random items
-    for (const layer of requiredLayers) {
-      // Skip if we already have this layer
-      if (outfitItems.some(({ item }) => item.layerCategory === layer)) continue;
-      
-      const layerItems = itemsByLayer[layer] || [];
-      
-      // Skip if we don't have items for this required layer
-      if (layerItems.length === 0) continue;
-      
-      // Prefer items with preferred style or tags and apply weather scoring
-      const scoredItems = layerItems.map(item => {
-        let score = 0;
-        
-        // IMPROVED: Apply weather-aware scoring
-        const weatherScore = scoreItemForWeather(item, temperature, weatherConditions);
-        score += weatherScore;
-        
-        if (item.style === outfitStyle) score += 2;
-        
-        const itemTags = item.style ? [`style:${item.style.toLowerCase()}`] : [];
-        if (item.category) itemTags.push(`category:${item.category.toLowerCase()}`);
-        if (item.waterproof) itemTags.push('feature:waterproof');
-        
-        score += preferredTags.filter(tag => itemTags.includes(tag)).length;
-        
-        return { item, score };
-      });
-      
-      // CRITICAL FIX: Filter out inappropriate items for hot weather BEFORE selection
-      let filteredItems = scoredItems;
-      if (temperature && temperature > 20) {
-        // In warm/hot weather, completely exclude hoodies, outerwear, and high-warmth items
-        filteredItems = scoredItems.filter(scored => {
-          const item = scored.item;
-          const warmth = getDefaultWarmthFactor(item);
-          const category = item.category?.toLowerCase() || '';
-          
-          // More aggressive filtering: exclude items that are inappropriate for warm weather
-          if (temperature > 25) {
-            // Very hot weather: exclude warmth >= 5
-            if (warmth >= 5) return false;
-          } else if (temperature > 20) {
-            // Warm weather: exclude warmth >= 6
-            if (warmth >= 6) return false;
-          }
-          
-          // Always exclude these categories and layers in warm+ weather
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('sweatshirt') || category.includes('jacket') || 
-              category.includes('coat')) return false;
-          
-          return true;
-        });
-      }
-      
-      // If no appropriate items left after filtering, skip this layer
-      if (filteredItems.length === 0) continue;
-      
-      filteredItems.sort((a, b) => b.score - a.score);
-      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
-      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
-      
-      outfitItems.push({ item: selectedItem, sortOrder });
-      sortOrder++;
-      
-      totalWarmth += getDefaultWarmthFactor(selectedItem);
-      if (selectedItem.waterproof) hasWaterproof = true;
-    }
-    
-    // If we couldn't find all required items, skip this outfit
-    if (!requiredLayers.every(layer => 
-      outfitItems.some(({ item }) => item.layerCategory === layer)
-    )) {
-      continue;
-    }
-    
-    // Calculate average warmth for the outfit
-    const avgWarmth = Math.round(totalWarmth / outfitItems.length);
-    
-    // Create weather recommendation based on outfit warmth
-    const weatherRec = calculateWeatherRecommendation(avgWarmth, hasWaterproof);
-    
-    // Extract all tags from the outfit items
-    const tags = outfitItems.flatMap(({ item }) => {
-      const tags: string[] = [];
-      if (item.style) tags.push(`style:${item.style.toLowerCase()}`);
-      if (item.category) tags.push(`category:${item.category.toLowerCase()}`);
-      if (item.material) tags.push(`material:${item.material.toLowerCase()}`);
-      if (item.waterproof) tags.push('feature:waterproof');
-      return tags;
-    });
-    
-    // Calculate score based on tag matching
-    const score = scoreOutfitByTags({ 
-      id: '', 
-      overallStyle: outfitStyle, 
-      warmthRating: avgWarmth, 
-      waterproof: hasWaterproof, 
-      tags: [...new Set(tags)],
-      recommendedWeather: weatherRec,
-      inspoItems: [],
-      score: 0
-    }, preferredTags);
-    
-    // Create the InspoOutfitRecommendation object
-    const outfit: InspoOutfitRecommendation = {
-      id: `personalized-${i}`,
-      overallStyle: outfitStyle,
-      warmthRating: avgWarmth,
-      waterproof: hasWaterproof,
-      tags: [...new Set(tags)], // Remove duplicates
-      recommendedWeather: weatherRec,
-      score,
-      inspoItems: outfitItems.map(({ item, sortOrder }) => ({
-        closetItemId: item.id,
-        imageUrl: `/api/uploads/${item.filename || ''}`,
-        layerCategory: item.layerCategory,
-        category: item.category || '',
-        style: item.style?.toString() || undefined,
-        colorHex: item.colorHex || undefined,
-        warmthFactor: item.warmthFactor || undefined,
-        waterproof: item.waterproof || false,
-        dominantColors: item.dominantColors 
-          ? (typeof item.dominantColors === 'string' 
-              ? JSON.parse(item.dominantColors) 
-              : item.dominantColors)
-          : undefined,
-        sortOrder
-      }))
-    };
-    
-    // CRITICAL FIX: Double-check that the outfit is actually suitable for the weather
-    if (temperature !== undefined && !isOutfitSuitableForWeather(outfit, temperature, weatherConditions)) {
-      console.log('Generated personalized outfit failed weather suitability check, skipping');
-      continue; // Skip this outfit if it's not suitable
-    }
-    
-    outfits.push(outfit);
-  }
-  
-  // If we couldn't generate enough outfits, fill in with random ones
-  if (outfits.length < count) {
-    const randomOutfits = generateRandomOutfits(
-      userCloset, 
-      preferredTags, 
-      preferredStyle, 
-      count - outfits.length,
-      temperature,
-      weatherConditions
-    );
-    outfits.push(...randomOutfits);
-  }
-  
-  // Sort by score (descending)
-  return outfits.sort((a, b) => b.score - a.score);
+  // For now, delegate to random generation with weighted logic
+  return generateRandomOutfitsWeighted(userCloset, preferredTags, preferredStyle, count, temperature, weatherConditions);
 }
 
-// Generate outfits ONLY from liked items 
-export function generateOutfitsFromLikedItemsOnly(
+// Generate outfits ONLY from liked items (original version)
+function generateOutfitsFromLikedItemsOnly(
   likedItems: ClosetItem[],
   preferredTags: string[],
   preferredStyle: Style,
@@ -731,335 +738,27 @@ export function generateOutfitsFromLikedItemsOnly(
     return []; // No liked items, can't generate anything
   }
   
-  // Group liked items by layer category
-  const itemsByLayer = likedItems.reduce((acc, item) => {
-    const layer = item.layerCategory;
-    if (!acc[layer]) {
-      acc[layer] = [];
-    }
-    acc[layer].push(item);
-    return acc;
-  }, {} as Record<LayerCategory, ClosetItem[]>);
-  
-  // Check if we have enough layer categories to make outfits
-  const requiredLayers: LayerCategory[] = [
-    LayerCategory.base_top,
-    LayerCategory.base_bottom,
-    LayerCategory.footwear
-  ];
-  
-  // If we don't have at least one item in each required layer, we can't create proper outfits
-  if (!requiredLayers.every(layer => (itemsByLayer[layer]?.length || 0) > 0)) {
-    console.log('Not enough layer categories in liked items to generate proper outfits');
-    return [];
-  }
-  
-  // Optional layers that might be included
-  const optionalLayers: LayerCategory[] = [
-    LayerCategory.mid_top,
-    LayerCategory.outerwear,
-    LayerCategory.accessory,
-    LayerCategory.headwear
-  ];
-  
-  // Start building outfit combinations
-  const outfits: InspoOutfitRecommendation[] = [];
-  
-  // Generate the requested number of outfits (max 5)
-  const maxOutfits = Math.min(count, 5);
-  for (let i = 0; i < maxOutfits; i++) {
-    // Start building the outfit
-    const outfitItems: {item: ClosetItem, sortOrder: number}[] = [];
-    let sortOrder = 1;
-    let totalWarmth = 0;
-    let hasWaterproof = false;
-    let outfitStyle = preferredStyle;
-    
-    // First add required layers with weather-aware selection
-    for (const layer of requiredLayers) {
-      const layerItems = itemsByLayer[layer] || [];
-      if (layerItems.length === 0) continue;
-      
-      // IMPROVED: Apply weather-aware scoring instead of pure random selection
-      const scoredItems = layerItems.map(item => ({
-        item,
-        score: scoreItemForWeather(item, temperature, weatherConditions)
-      }));
-      
-      // CRITICAL FIX: Filter out inappropriate items for hot weather BEFORE selection
-      let filteredItems = scoredItems;
-      if (temperature && temperature > 20) { // Changed from 25 to 20 to be more aggressive
-        // In warm/hot weather, completely exclude hoodies, outerwear, and high-warmth items
-        filteredItems = scoredItems.filter(scored => {
-          const item = scored.item;
-          const warmth = getDefaultWarmthFactor(item);
-          const category = item.category?.toLowerCase() || '';
-          
-          // More aggressive filtering: exclude items that are inappropriate for warm weather
-          if (temperature > 25) {
-            // Very hot weather: exclude warmth >= 5
-            if (warmth >= 5) return false;
-          } else if (temperature > 20) {
-            // Warm weather: exclude warmth >= 6
-            if (warmth >= 6) return false;
-          }
-          
-          // Always exclude these categories and layers in warm+ weather
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('sweatshirt') || category.includes('jacket') || 
-              category.includes('coat')) return false;
-          
-          return true;
-        });
-      }
-      
-      // If no appropriate items left after filtering, skip this outfit generation attempt
-      if (filteredItems.length === 0) continue;
-      
-      // Sort by score and select from top candidates
-      filteredItems.sort((a, b) => b.score - a.score);
-      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
-      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
-      
-      outfitItems.push({ item: selectedItem, sortOrder });
-      sortOrder++;
-      
-      totalWarmth += getDefaultWarmthFactor(selectedItem);
-      if (selectedItem.waterproof) hasWaterproof = true;
-      if (selectedItem.style) outfitStyle = selectedItem.style;
-    }
-    
-    // Add some weather-aware optional layers (if available)
-    for (const layer of optionalLayers) {
-      // IMPROVED: Adjust probability based on weather
-      let includeLayerChance = 0.5;
-      
-      // Reduce chance of mid-layer/outerwear in hot weather
-      if ((temperature && temperature > 25) && (layer === 'mid_top' || layer === 'outerwear')) {
-        includeLayerChance = 0.1;
-      }
-      // Increase chance of outerwear in cold weather
-      else if ((temperature && temperature < 15) && (layer === 'mid_top' || layer === 'outerwear')) {
-        includeLayerChance = 0.8;
-      }
-      
-      if (Math.random() > includeLayerChance) continue;
-      
-      const layerItems = itemsByLayer[layer] || [];
-      if (layerItems.length === 0) continue;
-      
-      // IMPROVED: Apply weather-aware scoring
-      const scoredItems = layerItems.map(item => ({
-        item,
-        score: scoreItemForWeather(item, temperature, weatherConditions)
-      }));
-      
-      // CRITICAL FIX: Filter out inappropriate items for hot weather BEFORE selection
-      let filteredItems = scoredItems;
-      if (temperature && temperature > 20) { // Changed from 25 to 20 to be more aggressive
-        // In warm/hot weather, completely exclude hoodies, outerwear, and high-warmth items
-        filteredItems = scoredItems.filter(scored => {
-          const item = scored.item;
-          const warmth = getDefaultWarmthFactor(item);
-          const category = item.category?.toLowerCase() || '';
-          
-          // More aggressive filtering: exclude items that are inappropriate for warm weather
-          if (temperature > 25) {
-            // Very hot weather: exclude warmth >= 5
-            if (warmth >= 5) return false;
-          } else if (temperature > 20) {
-            // Warm weather: exclude warmth >= 6
-            if (warmth >= 6) return false;
-          }
-          
-          // Always exclude these categories and layers in warm+ weather
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('sweatshirt') || category.includes('jacket') || 
-              category.includes('coat')) return false;
-          
-          return true;
-        });
-      }
-      
-      // If no appropriate items left after filtering, skip this layer
-      if (filteredItems.length === 0) continue;
-      
-      filteredItems.sort((a, b) => b.score - a.score);
-      const topItems = filteredItems.slice(0, Math.min(3, filteredItems.length));
-      const selectedItem = topItems[Math.floor(Math.random() * topItems.length)].item;
-      
-      outfitItems.push({ item: selectedItem, sortOrder });
-      sortOrder++;
-      
-      totalWarmth += getDefaultWarmthFactor(selectedItem);
-      if (selectedItem.waterproof) hasWaterproof = true;
-    }
-    
-    // Calculate average warmth for the outfit
-    const avgWarmth = Math.round(totalWarmth / outfitItems.length);
-    
-    // Create weather recommendation based on outfit warmth
-    const weatherRec = calculateWeatherRecommendation(avgWarmth, hasWaterproof);
-    
-    // Extract all tags from the outfit items
-    const tags = outfitItems.flatMap(({ item }) => {
-      const tags: string[] = [];
-      if (item.style) tags.push(`style:${item.style.toLowerCase()}`);
-      if (item.category) tags.push(`category:${item.category.toLowerCase()}`);
-      if (item.material) tags.push(`material:${item.material.toLowerCase()}`);
-      if (item.waterproof) tags.push('feature:waterproof');
-      return tags;
-    });
-    
-    // Calculate score based on tag matching
-    const score = scoreOutfitByTags({ 
-      id: '', 
-      overallStyle: outfitStyle, 
-      warmthRating: avgWarmth, 
-      waterproof: hasWaterproof, 
-      tags: [...new Set(tags)],
-      recommendedWeather: weatherRec,
-      inspoItems: [],
-      score: 0
-    }, preferredTags);
-    
-    // Create the InspoOutfitRecommendation object
-    const outfit: InspoOutfitRecommendation = {
-      id: `liked-items-${i}`,
-      overallStyle: outfitStyle,
-      warmthRating: avgWarmth,
-      waterproof: hasWaterproof,
-      tags: [...new Set(tags)], // Remove duplicates
-      recommendedWeather: weatherRec,
-      score,
-      inspoItems: outfitItems.map(({ item, sortOrder }) => ({
-        closetItemId: item.id,
-        imageUrl: `/api/uploads/${item.filename || ''}`,
-        layerCategory: item.layerCategory,
-        category: item.category || '',
-        style: item.style?.toString() || undefined,
-        colorHex: item.colorHex || undefined,
-        warmthFactor: item.warmthFactor || undefined,
-        waterproof: item.waterproof || false,
-        dominantColors: item.dominantColors 
-          ? (typeof item.dominantColors === 'string' 
-              ? JSON.parse(item.dominantColors) 
-              : item.dominantColors)
-          : undefined,
-        sortOrder
-      }))
-    };
-    
-    // CRITICAL FIX: Double-check that the outfit is actually suitable for the weather
-    if (temperature !== undefined && !isOutfitSuitableForWeather(outfit, temperature, weatherConditions)) {
-      console.log('Generated outfit from liked items failed weather suitability check, skipping');
-      continue; // Skip this outfit if it's not suitable
-    }
-    
-    outfits.push(outfit);
-  }
-  
-  return outfits;
+  // Use the weighted generation logic with only the liked items
+  return generateRandomOutfitsWeighted(likedItems, preferredTags, preferredStyle, count, temperature, weatherConditions);
 }
 
-// IMPROVED: Helper function to get default warmth factor for categories
-function getDefaultWarmthFactor(item: ClosetItem): number {
-  const category = item.category?.toLowerCase() || '';
-  const layerCategory = item.layerCategory;
-  
-  // IMPROVED: Enforce higher defaults for certain categories
-  if (category.includes('hoodie') || category.includes('sweatshirt')) {
-    return Math.max(item.warmthFactor || 7, 7); // Hoodies minimum warmth 7
-  }
-  
-  if (category.includes('sweater') || category.includes('pullover')) {
-    return Math.max(item.warmthFactor || 6, 6); // Sweaters minimum warmth 6
-  }
-  
-  if (category.includes('jacket') || category.includes('coat')) {
-    return Math.max(item.warmthFactor || 8, 8); // Jackets/coats minimum warmth 8
-  }
-  
-  if (layerCategory === 'outerwear') {
-    return Math.max(item.warmthFactor || 7, 7); // All outerwear minimum warmth 7
-  }
-  
-  if (layerCategory === 'mid_top') {
-    return Math.max(item.warmthFactor || 6, 6); // Mid-layer tops minimum warmth 6
-  }
-  
-  // Return original warmth factor or default
-  return item.warmthFactor || 5;
-}
+// ======= END ORIGINAL FUNCTIONS =======
 
-// IMPROVED: Weather-aware item scoring function
-function scoreItemForWeather(item: ClosetItem, temperature?: number, weatherConditions: string[] = []): number {
-  let score = 1.0; // Base score
-  
-  if (temperature === undefined) return score;
-  
-  const itemWarmth = getDefaultWarmthFactor(item);
-  const isHotWeather = temperature > 25 || weatherConditions.includes('hot');
-  const isWarmWeather = temperature > 20 || weatherConditions.includes('warm');
-  const isColdWeather = temperature < 15 || weatherConditions.includes('cold');
-  const isVeryHotWeather = temperature > 30;
-  
-  // IMPROVED: Bias selection based on weather
-  if (isVeryHotWeather) {
-    // Boost very light items (warmth <= 3) for very hot weather
-    if (itemWarmth <= 3) {
-      score *= 2.0;
-    } else if (itemWarmth >= 5) {
-      score *= 0.1; // Heavily penalize warm items
-    }
-    
-    // Exclude outerwear and mid-layer completely in very hot weather
-    if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') {
-      score *= 0.01;
-    }
-  } else if (isHotWeather) {
-    // Boost light items (warmth <= 4) for hot weather
-    if (itemWarmth <= 4) {
-      score *= 1.5;
-    } else if (itemWarmth >= 6) {
-      score *= 0.2; // Penalize warm items
-    }
-    
-    // Discourage outerwear and mid-layer in hot weather
-    if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') {
-      score *= 0.1;
-    }
-  } else if (isWarmWeather) {
-    // Boost medium items (warmth 4-6) for warm weather
-    if (itemWarmth >= 4 && itemWarmth <= 6) {
-      score *= 1.3;
-    } else if (itemWarmth >= 8) {
-      score *= 0.5; // Penalize very warm items
-    }
-  } else if (isColdWeather) {
-    // Boost warm items (warmth >= 7) for cold weather
-    if (itemWarmth >= 7) {
-      score *= 1.5;
-    } else if (itemWarmth <= 3) {
-      score *= 0.3; // Penalize very light items
-    }
-    
-    // Boost outerwear and mid-layer in cold weather
-    if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') {
-      score *= 1.5;
-    }
-  }
-  
-  // Weather condition bonuses
-  if (weatherConditions.includes('rain') || weatherConditions.includes('drizzle')) {
-    if (item.waterproof) {
-      score *= 1.8; // Boost waterproof items
-    } else {
-      score *= 0.6; // Penalize non-waterproof items
-    }
-  }
-  
-  return score;
-}
+// Export the enhanced functions while keeping backward compatibility
+export {
+  calculateItemSimilarity,
+  findSimilarItems,
+  isOutfitSuitableForWeather, // Keep original for backward compatibility
+  isOutfitSuitableForWeatherWeighted, // New weighted version
+  filterOutfitsByWeather,
+  generateRandomOutfits, // Keep original
+  generateRandomOutfitsWeighted, // New weighted version
+  scoreOutfitByTags,
+  generatePersonalizedOutfits,
+  generateOutfitsFromLikedItemsOnly,
+  // New exports
+  calculateWeightedItemWarmth,
+  calculateWeightedOutfitWarmth,
+  getTargetWeightedWarmth,
+  getWarmthTolerance,
+};
