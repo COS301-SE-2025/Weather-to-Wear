@@ -65,3 +65,22 @@ export const updateProfilePhoto = async (req: AuthedFileRequest, res: Response, 
     next(err);
   }
 };
+
+// Update privacy controller
+export const updatePrivacy = async (req: AuthedFileRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { isPrivate } = req.body;
+    if (typeof isPrivate !== "boolean") {
+      return res.status(400).json({ message: "Invalid value for isPrivate" });
+    }
+
+    const user = await usersService.setPrivacy(userId, isPrivate);
+    res.status(200).json({ message: "Privacy updated", user });
+  } catch (err) {
+    next(err);
+  }
+};
+

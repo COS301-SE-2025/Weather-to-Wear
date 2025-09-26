@@ -96,7 +96,7 @@ router.post(
   nsfwText('content'),                    
   socialController.addComment
 );
-router.get('/posts/:postId/comments', socialController.getCommentsForPost);
+router.get('/posts/:postId/comments', asyncHandler(socialController.getCommentsForPostHandler));
 router.put('/comments/:id', authenticateToken, nsfwText('content'), socialController.updateComment);
 router.delete('/comments/:id', authenticateToken, socialController.deleteComment);
 
@@ -131,6 +131,13 @@ router.post('/__debug/mod-text', authenticateToken, async (req, res) => {
     res.status(500).json({ error: e?.response?.data || e?.message });
   }
 });
+
+// Notifications
+router.get('/notifications', authenticateToken, asyncHandler(socialController.getNotifications));
+
+// Accept / Reject follow requests
+router.post('/follow/:followId/accept', authenticateToken, asyncHandler(socialController.acceptFollowRequest));
+router.post('/follow/:followId/reject', authenticateToken, asyncHandler(socialController.rejectFollowRequest));
 
 
 export default router;
