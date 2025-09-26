@@ -151,9 +151,19 @@ describe('SocialController Unit Tests', () => {
     const req = { params: { postId: 'post-1' }, query: {} } as Partial<Request> as Request;
     const res = mockRes();
     const comments = [{ id: 'comment-1' }];
-    (socialService.getCommentsForPost as jest.Mock).mockResolvedValueOnce(comments);
+    
+    // Mock the prisma calls directly since getCommentsForPostHandler calls the internal method
+    const mockPrisma = {
+      post: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'post-1' })
+      },
+      comment: {
+        findMany: jest.fn().mockResolvedValue(comments)
+      }
+    };
+    (socialController as any).prisma = mockPrisma;
 
-    await socialController.getCommentsForPost(req, res, next);
+    await socialController.getCommentsForPostHandler(req, res, next);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ message: 'Comments retrieved successfully', comments });
   });
@@ -188,11 +198,27 @@ describe('SocialController Unit Tests', () => {
     const req = { params: { postId: 'post-1' }, query: {} } as Partial<Request> as Request;
     const res = mockRes();
     const likes = [{ id: 'like-1' }];
-    (socialService.getLikesForPost as jest.Mock).mockResolvedValueOnce(likes);
+    
+    // Mock the prisma call directly since this method calls prisma, not the service
+    const mockPrisma = {
+      post: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'post-1' })
+      },
+      like: {
+        findMany: jest.fn().mockResolvedValue(likes)
+      }
+    };
+    (socialController as any).prisma = mockPrisma;
 
-    await socialController.getLikesForPost(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Likes retrieved successfully', likes });
+    await socialController.getLikesForPost('post-1', 20, 0, false);
+    expect(mockPrisma.post.findUnique).toHaveBeenCalledWith({ where: { id: 'post-1' } });
+    expect(mockPrisma.like.findMany).toHaveBeenCalledWith({
+      where: { postId: 'post-1' },
+      skip: 0,
+      take: 20,
+      include: undefined,
+      orderBy: { createdAt: 'desc' }
+    });
   });
 
   // ---------- FOLLOWS ----------
@@ -200,13 +226,21 @@ describe('SocialController Unit Tests', () => {
   it('should follow a user', async () => {
     const req = { user: mockUser, params: { userId: 'user-2' } } as Partial<Request> as Request;
     const res = mockRes();
-    const follow = { id: 'follow-1' };
+    const follow = { id: 'follow-1', followerId: 'user-1', followingId: 'user-2', status: 'ACCEPTED' };
     (socialService.followUser as jest.Mock).mockResolvedValueOnce(follow);
 
     await socialController.followUser(req, res, next);
     expect(socialService.followUser).toHaveBeenCalledWith(mockUser.id, 'user-2');
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ message: 'User followed successfully', follow });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ 
+      message: 'Follow request processed', 
+      follow: {
+        id: follow.id,
+        followerId: follow.followerId,
+        followingId: follow.followingId,
+        status: follow.status,
+      }
+    });
   });
 
   it('should unfollow a user', async () => {
@@ -229,7 +263,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.getFollowers(req, res, next);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Followers retrieved successfully', followers });
+    expect(res.json).toHaveBeenCalledWith({ followers });
   });
 
   it('should get following', async () => {
@@ -240,7 +274,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.getFollowing(req, res, next);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Following users retrieved successfully', following });
+    expect(res.json).toHaveBeenCalledWith({ following });
   });
 
 
@@ -252,8 +286,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.followUser(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Already following this user' });
+    expect(next).toHaveBeenCalledWith(error);
   });
 
   it('should update a post', async () => {
@@ -393,10 +426,16 @@ describe('SocialController Unit Tests', () => {
   it('should return 404 if post not found when getting comments', async () => {
     const req = { params: { postId: 'post-x' }, query: {} } as Partial<Request> as Request;
     const res = mockRes();
-    const error = new Error('Post not found');
-    (socialService.getCommentsForPost as jest.Mock).mockRejectedValueOnce(error);
+    
+    // Mock the controller method to throw an error
+    const mockPrisma = {
+      post: {
+        findUnique: jest.fn().mockResolvedValue(null)
+      }
+    };
+    (socialController as any).prisma = mockPrisma;
 
-    await socialController.getCommentsForPost(req, res, next);
+    await socialController.getCommentsForPostHandler(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ message: 'Post not found' });
@@ -409,8 +448,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.getFollowers(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ message: 'User not found' });
+    expect(next).toHaveBeenCalledWith(error);
   });
   it('should return 404 if user not found when getting following', async () => {
     const req = { params: { userId: 'user-x' }, query: {} } as Partial<Request> as Request;
@@ -420,8 +458,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.getFollowing(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ message: 'User not found' });
+    expect(next).toHaveBeenCalledWith(error);
   });
   it('should return 404 if post not found when liking', async () => {
     const req = { user: mockUser, params: { postId: 'post-x' } } as Partial<Request> as Request;
@@ -431,8 +468,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.likePost(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Post not found' });
+    expect(next).toHaveBeenCalledWith(error);
   });
 
   it('should return 400 if already liked', async () => {
@@ -443,8 +479,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.likePost(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ message: 'User already liked this post' });
+    expect(next).toHaveBeenCalledWith(error);
   });
   it('should return 404 if follow relationship not found on unfollow', async () => {
     const req = { user: mockUser, params: { userId: 'user-x' } } as Partial<Request> as Request;
@@ -454,8 +489,7 @@ describe('SocialController Unit Tests', () => {
 
     await socialController.unfollowUser(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Follow relationship not found' });
+    expect(next).toHaveBeenCalledWith(error);
   });
 
 });

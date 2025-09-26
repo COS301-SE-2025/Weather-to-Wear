@@ -5,7 +5,7 @@ import {
   RunTryOnRequest, RunTryOnResponse, RunTryOnStep,
   FashnCategory, TryOnMode
 } from './tryon-self.types';
-import { cdnUrlFor, putBufferSmart } from '../../utils/s3';
+import { cdnUrlFor, putBufferSmart, presignGetUrlForKey, keyFromUrl } from '../../utils/s3';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -76,6 +76,17 @@ async function externalize(u: string): Promise<string> {
   if (u.startsWith('data:')) return u;
   const abs = toAbsUrl(u);
   return INLINE_IMAGES ? await toDataUri(abs) : abs;
+}
+
+async function urlForFashnFromKeyOrUrl(keyOrUrl: string): Promise<string> {
+  const maybeKey = keyFromUrl(keyOrUrl);
+  if (maybeKey && process.env.S3_BUCKET_NAME) {
+    try {
+      return await presignGetUrlForKey(maybeKey, { expiresIn: 900 });
+    } catch {
+    }
+  }
+  return toAbsUrl(keyOrUrl);
 }
 
 async function fashnRun(inputs: Record<string, any>): Promise<string> {
@@ -184,15 +195,17 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   let modelImage = req.modelImageUrl;
+
   if (req.useTryOnPhoto) {
     if (!user?.tryOnPhoto) throw new Error('No try-on photo on account');
-    modelImage = user.tryOnPhoto;
+    modelImage = await urlForFashnFromKeyOrUrl(user.tryOnPhoto);
+  } else if (modelImage) {
+    if (!modelImage.startsWith('data:')) {
+      modelImage = await urlForFashnFromKeyOrUrl(modelImage);
+    }
   }
-  if (!modelImage) throw new Error('No modelImageUrl provided');
 
-  if (!modelImage.startsWith('data:')) {
-    modelImage = toAbsUrl(modelImage);
-  }
+  if (!modelImage) throw new Error('No modelImageUrl provided');
 
   let steps: RunTryOnStep[] = [];
   const skipped: string[] = [];
@@ -215,9 +228,10 @@ export async function runTryOnSelf(userId: string, req: RunTryOnRequest): Promis
       if (it.layerCategory === 'accessory') { skipped.push(it.id); continue; }
       if (it.layerCategory === 'footwear' && !includeFootwear) { skipped.push(it.id); continue; }
       if (it.layerCategory === 'headwear' && !includeHeadwear) { skipped.push(it.id); continue; }
-      const url = cdnUrlFor(it.filename);
+      
+      const garmentUrl = await urlForFashnFromKeyOrUrl(it.filename);
       steps.push({
-        garmentImageUrl: url,
+        garmentImageUrl: garmentUrl,
         category: mapLayerToFashnCategory(it.layerCategory, it.category),
         garmentPhotoType: 'flat-lay',
         layerHint: it.layerCategory as any,
