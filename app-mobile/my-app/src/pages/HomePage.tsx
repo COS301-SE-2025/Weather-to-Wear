@@ -158,7 +158,6 @@ const TypingSlogan = () => {
   const [displayText, setDisplayText] = useState('');
   const [index, setIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-
   useEffect(() => {
     document.body.classList.add('home-fullbleed');
     return () => {
@@ -604,6 +603,9 @@ export default function HomePage() {
     after: DaySelectionDTO['items'];
     message: string;
   }>(null);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   async function applyAdjustment(after: DaySelectionDTO['items'], message: string) {
     if (!selectedDate) return;
@@ -2531,12 +2533,10 @@ export default function HomePage() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      if (!window.confirm('Delete this event?')) return;
-                      await deleteEvent(selectedEvent.id);
-                      setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
-                      setShowDetailModal(false);
-                      showToast('Event successfully deleted.');
+                    onClick={() => {
+                      if (!selectedEvent) return;
+                      setPendingDeleteId(selectedEvent.id);
+                      setConfirmDeleteOpen(true);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"
                   >
@@ -2546,6 +2546,39 @@ export default function HomePage() {
               )}
             </div>
           </div>
+          {confirmDeleteOpen && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative">
+                <h3 className="text-lg font-semibold">Delete this event?</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  Are you sure you want to delete this event?
+                </p>
+
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={() => setConfirmDeleteOpen(false)}
+                    className="px-4 py-2 rounded-full border border-black dark:border-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!pendingDeleteId) return;
+                      await deleteEvent(pendingDeleteId);
+                      setEvents(evts => evts.filter(e => e.id !== pendingDeleteId));
+                      setConfirmDeleteOpen(false);
+                      setShowDetailModal(false);
+                      showToast('Event successfully deleted.');
+                    }}
+                    className="px-4 py-2 rounded-full bg-red-500 text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
