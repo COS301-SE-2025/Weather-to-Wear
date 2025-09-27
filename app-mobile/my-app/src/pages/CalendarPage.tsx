@@ -68,16 +68,10 @@ const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.get
 const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', o).format(d);
 const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const monthEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
-
-// UI helpers
 const ROW_GAP_PX = 2;
 const isNarrow = () => (typeof window !== 'undefined' ? window.innerWidth < 640 : false);
-
-// Upcoming list still uses 14 days
 const UPCOMING_DAYS = 14;
 
-// Open-Meteo daily forecast horizon (typical): 16 days.
-// If your backend limits to fewer, reduce this value.
 const OPEN_METEO_MAX_DAYS = 16;
 
 const normalizeUrl = (u?: string | null) => {
@@ -97,7 +91,6 @@ function toLocalDatetimeInputValue(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// --- Open-Meteo geocoder (for city suggestions/validation) ---
 async function geocodeCity(query: string, count = 5): Promise<Array<{ label: string; city: string }>> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=${count}&language=en&format=json`;
   const res = await fetch(url);
@@ -137,22 +130,17 @@ export default function CalendarPage() {
     style: 'Casual' as Style,
   });
 
-  // Location autocomplete (Create)
   const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
   const [locError, setLocError] = useState<string | null>(null);
   const [locLoading, setLocLoading] = useState(false);
 
-  // Location autocomplete (Edit)
   const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
   const [locErrorE, setLocErrorE] = useState<string | null>(null);
   const [locLoadingE, setLocLoadingE] = useState(false);
 
-  // Location autocomplete (Trip create)
   const [locSuggestT, setLocSuggestT] = useState<Array<{ label: string; city: string }>>([]);
   const [locErrorT, setLocErrorT] = useState<string | null>(null);
   const [locLoadingT, setLocLoadingT] = useState(false);
-
-  // Debounced suggestions while user types (Create)
   useEffect(() => {
     const q = newEvent.location.trim();
     setLocError(null);
@@ -173,7 +161,6 @@ export default function CalendarPage() {
     };
   }, [newEvent.location]);
 
-  // Debounced suggestions while user types (Trip)
   useEffect(() => {
     const q = newTrip.location.trim();
     setLocErrorT(null);
@@ -194,13 +181,11 @@ export default function CalendarPage() {
     };
   }, [newTrip.location]);
 
-  // Recommended outfit (for selected event)
   const [eventOutfit, setEventOutfit] = useState<RecommendedOutfit | null>(null);
   const [eventOutfitLoading, setEventOutfitLoading] = useState(false);
   const [eventOutfitError, setEventOutfitError] = useState<string | null>(null);
   const [showDayList, setShowDayList] = useState<{ open: boolean; date: Date | null }>({ open: false, date: null });
 
-  // ---- Plan Outfit (per trip-day) ----
   type DayChoice =
     | { kind: 'outfit'; outfitId: string }
     | { kind: 'items'; items: OutfitItemPreview[] };
@@ -210,7 +195,6 @@ export default function CalendarPage() {
   });
   const [planTab, setPlanTab] = useState<'landing' | 'pick' | 'generate' | 'chosen'>('landing');
 
-  // Weather/forecast horizon guard for the selected trip-day
   const [forecastTooFar, setForecastTooFar] = useState(false);
 
   const [suitcaseItems, setSuitcaseItems] = useState<ClothingItem[]>([]);
@@ -220,7 +204,7 @@ export default function CalendarPage() {
   const [genOutfits, setGenOutfits] = useState<RecommendedOutfit[]>([]);
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [genIndex, setGenIndex] = useState(0); // carousel index
+  const [genIndex, setGenIndex] = useState(0); 
 
   const [chosenDraft, setChosenDraft] = useState<DayChoice | null>(null);
 
@@ -231,7 +215,6 @@ export default function CalendarPage() {
   const [newOtherItem, setNewOtherItem] = useState('');
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
 
-  // Recommended Items (computed on open)
   const [recItems, setRecItems] = useState<ClothingItem[]>([]);
   const [recReady, setRecReady] = useState(false);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
@@ -243,13 +226,11 @@ export default function CalendarPage() {
   const [maxLanes, setMaxLanes] = useState<number>(isNarrow() ? 1 : 2);
   const [rowPx, setRowPx] = useState<number>(isNarrow() ? 14 : 16);
 
-  // Popup + Confirm
   const [popup, setPopup] = useState<PopupState>({ open: false, variant: 'success', message: '' });
   const notify = (variant: PopupState['variant'], message: string) => setPopup({ open: true, variant, message });
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({ open: false, message: '' });
 
-  // Toast
   const [toast, setToast] = useState<{ msg: string } | null>(null);
   function showToast(message: string) {
     setToast({ msg: message });
@@ -269,14 +250,12 @@ export default function CalendarPage() {
         const keep: typeof prev = [];
         const already = new Set(prev.map(p => p.outfitId));
 
-        // keep only fully satisfied outfits
         for (const po of prev) {
           const o = outfits.find(oo => oo.id === po.outfitId);
           const parts = (o?.outfitItems ?? []).map(it => it.closetItemId);
           if (parts.length && parts.every(id => selectedIds.has(id))) keep.push(po);
         }
 
-        // auto-add any new outfit that is now fully present (but not kept yet)
         for (const o of outfits) {
           if (already.has(o.id)) continue;
           const parts = (o.outfitItems ?? []).map(it => it.closetItemId);
@@ -317,7 +296,6 @@ export default function CalendarPage() {
     [closetItems, syncOutfitsFromItems]
   );
 
-  // Toggle a single closet item in/out of the suitcase
   const toggleItemInPack = (item: ClothingItem) => {
     setPackItems(prev => {
       const exists = prev.some(p => p.closetItemId === item.id);
@@ -337,7 +315,6 @@ export default function CalendarPage() {
     });
   };
 
-  // Toggle an outfit entry in the suitcase (never removes items on deselect)
   const toggleOutfitInPack = (o: Outfit) => {
     if (!o.outfitItems || o.outfitItems.length === 0) return;
 
@@ -424,7 +401,6 @@ export default function CalendarPage() {
     });
   }, [selectedEvent]);
 
-  // Day-1 summary from the event's weather (enables outfit recs)
   const selectedEventTodaySummary = useMemo(() => {
     if (!selectedEvent?.weather) return undefined;
     try {
@@ -444,7 +420,6 @@ export default function CalendarPage() {
     }
   }, [selectedEvent?.weather]);
 
-  // Use the SAME query key as Dashboard so both screens share the cache
   const eventOutfitQuery = useQuery({
     queryKey: [
       'event-outfit',
@@ -516,7 +491,6 @@ export default function CalendarPage() {
   useEffect(() => {
     if (!showPackingModal || !selectedEvent || !isTripEvent(selectedEvent)) return;
 
-    // gate the toggle message vs real recs
     const ready = within48hOfStart(selectedEvent);
     setRecReady(ready);
 
@@ -525,7 +499,6 @@ export default function CalendarPage() {
       return;
     }
 
-    // compute 3 recs from closet not already packed
     setRecItems(
       recommendMissingItems(
         selectedEvent,
@@ -547,7 +520,6 @@ export default function CalendarPage() {
       return;
     }
 
-    // Validate & standardize the city
     const standardized = src.location ? await validateAndStandardizeLocation(src.location) : '';
     if (src.location && !standardized) {
       if (kind === 'event') setLocError('Please select a real city (use the suggestions).');
@@ -583,7 +555,6 @@ export default function CalendarPage() {
     }
   }
 
-  // === Rebuild weather + summaries after an edit (city/date/style) ===
   async function rebuildEventWeatherAndRecs(ev: Event) {
     try {
       const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
@@ -686,7 +657,6 @@ export default function CalendarPage() {
             await deletePackingList(existing.id);
           }
         } catch {
-          // ignore 404/no-list
         }
       }
 
@@ -728,7 +698,6 @@ export default function CalendarPage() {
           : [],
       }));
 
-      // Remove outfit parts that point to deleted/missing closet items; drop now-empty outfits.
       const ciIds = new Set(ciList.map(c => c.id));
       const cleanedOutfits: Outfit[] = outfitsList
         .map(o => ({
@@ -809,7 +778,6 @@ export default function CalendarPage() {
     }
   }
 
-  // Load suitcase contents (items & outfits) without opening the Pack UI
   async function loadSuitcase(trip: Event) {
     try {
       const [ciRes, ofRes, existing] = await Promise.all([fetchAllItems(), fetchAllOutfits(), getPackingList(trip.id)]);
@@ -855,7 +823,6 @@ export default function CalendarPage() {
     }
   }
 
-  // Summary for a specific date within a trip (from trip.weather)
   function toDateKey(d: Date) {
     const x = new Date(d);
     x.setHours(0, 0, 0, 0);
@@ -873,7 +840,6 @@ export default function CalendarPage() {
     } catch { return undefined; }
   }
 
-  // ---- Recommended Items (48h pre-trip) ----
   const COLD_TOPS: string[] = ['COAT', 'JACKET', 'HOODIE', 'SWEATER', 'BLAZER'];
   const RAIN_ITEMS: string[] = ['RAINCOAT', 'UMBRELLA', 'BOOTS'];
   const HOT_ITEMS: string[] = ['SHORTS', 'SKIRT', 'SANDALS'];
@@ -919,25 +885,21 @@ export default function CalendarPage() {
 
     const picks: ClothingItem[] = [];
 
-    // 1) Rain first
     if (anyRain && !Array.from(packedCats).some(c => RAIN_ITEMS.includes(c))) {
       const rain = pool(RAIN_ITEMS);
       if (rain.length) picks.push(rain[0]);
     }
 
-    // 2) Cold layers
     if (minTemp <= 10 && !Array.from(packedCats).some(c => COLD_TOPS.includes(c))) {
       const warm = pool(COLD_TOPS);
       if (warm.length && picks.length < limit) picks.push(warm[0]);
     }
 
-    // 3) Hot items
     if (maxAvg >= 26 && !Array.from(packedCats).some(c => HOT_ITEMS.includes(c))) {
       const hot = pool(HOT_ITEMS);
       if (hot.length && picks.length < limit) picks.push(hot[0]);
     }
 
-    // Fill remaining slots with any not-packed items (keep it simple)
     if (picks.length < limit) {
       for (const c of closet) {
         if (!packedIds.has(c.id) && !picks.some(p => p.id === c.id)) {
@@ -961,24 +923,20 @@ export default function CalendarPage() {
 
   const [genSeenKeys, setGenSeenKeys] = useState<Set<string>>(new Set());
 
-  // Auto-run generation when the Generate tab becomes active (and suitcase is loaded)
   useEffect(() => {
     if (!planModal.open || planTab !== 'generate' || !planModal.trip || !planModal.date) return;
     if (genLoading) return;
-    if (forecastTooFar) return; // guard
+    if (forecastTooFar) return; 
     if (genOutfits.length === 0) {
       generateTwoSuitcaseRecs(planModal.trip, planModal.date, genStyle);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planModal.open, planTab, planModal.trip, planModal.date, suitcaseItems.length, forecastTooFar]);
 
-  // Always start at slide 0 when fresh results arrive
   useEffect(() => {
     setGenIndex(0);
   }, [genOutfits.length]);
 
   async function generateTwoSuitcaseRecs(trip: Event, d: Date, style: Style) {
-    // Check weather availability again (defense in depth)
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const daysAhead = Math.floor((new Date(d).getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
@@ -989,7 +947,6 @@ export default function CalendarPage() {
       return;
     }
 
-    // ensure there is weather for the selected day
     let summary = summaryForTripDay(trip, d);
     if (!summary) {
       const refreshed = await rebuildEventWeatherAndRecs(trip);
@@ -1283,7 +1240,6 @@ export default function CalendarPage() {
     });
   }
 
-  // --- helpers for trip-day selections (persisted locally for now) ---
   function loadTripDayMap(tripId: string): Record<string, DayChoice> {
     try { return JSON.parse(localStorage.getItem(`tripDayOutfits:${tripId}`) || '{}'); } catch { return {}; }
   }
@@ -1423,7 +1379,6 @@ export default function CalendarPage() {
     );
   }
 
-  // Image lives in /public as casual.jpg, formal.jpg, etc.
   function eventSlugImage(style?: string) {
     const slug = String(style || 'other').trim().toLowerCase().replace(/\s+/g, '-');
     return `/${slug}.jpg`;
@@ -1545,7 +1500,6 @@ export default function CalendarPage() {
   }
 
 
-  // Small badge for weather display in the trip outfit modal
   const TripDayWeatherBadge: React.FC<{ trip: Event; date: Date }> = ({ trip, date }) => {
     const s = summaryForTripDay(trip, date);
     if (!s) {
@@ -1563,7 +1517,6 @@ export default function CalendarPage() {
   return (
     <div
       className="ml-[calc(-50vw+50%)] w-screen flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden "
-      // style={{ width: '100%', maxWidth: '195vw' }} // Ensures no overflow
     >
       {/* Header Image Section */}
       <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
@@ -2025,7 +1978,7 @@ export default function CalendarPage() {
                     onChange={(e) => {
                       const s = e.target.value as Style;
                       setGenStyle(s);
-                      setGenOutfits([]);            // reset so it doesn’t show stale slides
+                      setGenOutfits([]);            
                       generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, s);
                     }}
                   >
@@ -2286,7 +2239,6 @@ export default function CalendarPage() {
                         );
                       }
 
-                      // Always coerce weather into an array of { date, summary }
                       const rawWeather = (() => {
                         try {
                           return typeof selectedEvent.weather === 'string'
