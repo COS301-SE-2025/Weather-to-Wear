@@ -108,7 +108,98 @@ type SearchUsersCardProps = {
   onToggleFollow: (id: string, user: UserResult) => void;
 };
 
-const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
+// const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
+//   ({
+//     searchQuery,
+//     setSearchQuery,
+//     searchLoading,
+//     searchError,
+//     searchResults,
+//     searchHasMore,
+//     onLoadMore,
+//     onToggleFollow,
+//   }) => {
+//     return (
+//       <div className="w-full">
+//         <div className="relative mb-4">
+//           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+//           <input
+//             type="text"
+//             value={searchQuery}
+//             onChange={(e) => setSearchQuery(e.target.value)}
+//             placeholder="Search..."
+//             className="pl-10 pr-4 py-2 w-full border rounded-full bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+//           />
+//         </div>
+
+//         {searchError && <div className="mt-3 text-xs text-red-500">{searchError}</div>}
+
+//         <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-hide overscroll-contain">
+//           {searchLoading && searchResults.length === 0 && (
+//             <div className="flex justify-center py-2">
+//               <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+//             </div>
+//           )}
+
+//           {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+//             <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+//           )}
+
+//           {searchResults.map((u) => (
+//             <div
+//               key={u.id}
+//               className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+//             >
+//               <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+//                 {u.profilePhoto ? (
+//                   <img
+//                     src={absolutize(u.profilePhoto, API_BASE)}
+//                     alt={u.name}
+//                     className="w-full h-full object-cover"
+//                     onError={(e) => {
+//                       e.currentTarget.style.display = "none";
+//                       (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+//                     }}
+//                   />
+//                 ) : null}
+//                 <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+//               </div>
+
+//               <div className="flex flex-col">
+//                 <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+//                 <span className="text-[11px] text-gray-500 dark:text-gray-400">
+//                   {u.location || "—"} • {u.followersCount} followers
+//                 </span>
+//               </div>
+
+//               <button
+//                 onClick={() => onToggleFollow(u.id, u)}
+//                 className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
+//                   ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+//                   : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+//                   }`}
+//               >
+//                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
+//               </button>
+//             </div>
+//           ))}
+
+//           {searchHasMore && (
+//             <button
+//               onClick={onLoadMore}
+//               className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70 hover:bg-[#357f78]"
+//               disabled={searchLoading}
+//             >
+//               {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
+//             </button>
+//           )}
+//         </div>
+//       </div>
+//     );
+//   }
+// );
+
+const SearchUsersCard: React.FC<SearchUsersCardProps & { onUserClick: (id: string) => void }> = React.memo(
   ({
     searchQuery,
     setSearchQuery,
@@ -118,6 +209,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
     searchHasMore,
     onLoadMore,
     onToggleFollow,
+    onUserClick,
   }) => {
     return (
       <div className="w-full">
@@ -148,7 +240,8 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
           {searchResults.map((u) => (
             <div
               key={u.id}
-              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+              onClick={() => onUserClick(u.id)}
+              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                 {u.profilePhoto ? (
@@ -173,7 +266,10 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
               </div>
 
               <button
-                onClick={() => onToggleFollow(u.id, u)}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent navigating when clicking follow button
+                  onToggleFollow(u.id, u);
+                }}
                 className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
                   ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
                   : "bg-[#3F978F] text-white hover:bg-[#357f78]"
@@ -1085,6 +1181,7 @@ const FeedPage: React.FC = () => {
               searchHasMore={searchHasMore}
               onLoadMore={loadMoreSearch}
               onToggleFollow={toggleFollowFromSearch}
+              onUserClick={(id) => navigate(`/profile/${id}`)}
             />
           </div>
 

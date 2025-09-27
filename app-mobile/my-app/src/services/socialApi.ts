@@ -380,3 +380,4 @@ export async function deletePost(postId: string) {
 
   return response.json(); // Returns { message: 'Post deleted successfully' }
 }
+
