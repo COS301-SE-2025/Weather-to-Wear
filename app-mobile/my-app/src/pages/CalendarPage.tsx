@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '../queryClient';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
+import Toast from '../components/Toast';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
@@ -247,6 +248,14 @@ export default function CalendarPage() {
   const notify = (variant: PopupState['variant'], message: string) => setPopup({ open: true, variant, message });
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({ open: false, message: '' });
+
+  // Toast
+  const [toast, setToast] = useState<{ msg: string } | null>(null);
+  function showToast(message: string) {
+    setToast({ msg: message });
+    setTimeout(() => setToast(null), 2200);
+  }
+
   const askConfirm = (message: string, confirmLabel = 'OK', cancelLabel = 'Cancel') =>
     new Promise<boolean>((resolve) => {
       setConfirmState({ open: true, message, confirmLabel, cancelLabel, resolve });
@@ -561,9 +570,11 @@ export default function CalendarPage() {
       if (kind === 'event') {
         setShowCreateModal(false);
         setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
+        showToast('Event created successfully!');
       } else {
         setShowTripModal(false);
         setNewTrip({ name: 'Trip', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
+        showToast('Trip created successfully!');
       }
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (err: any) {
@@ -653,7 +664,7 @@ export default function CalendarPage() {
       queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
 
       setIsEditing(false);
-      notify('success', 'Event updated');
+      showToast(isTripEvent(mapped) ? 'Trip updated successfully.' : 'Event updated.');
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (e: any) {
       console.error('update failed', e?.response?.data || e);
@@ -664,7 +675,7 @@ export default function CalendarPage() {
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
 
-    const ok = await askConfirm('Are you sure you want to delete this?', 'Delete', 'Cancel');
+    const ok = await askConfirm(`Remove “${selectedEvent.name || (isTripEvent(selectedEvent) ? 'Trip' : 'Event')}”?`, 'Delete', 'Cancel');
     if (!ok) return;
 
     try {
@@ -683,6 +694,7 @@ export default function CalendarPage() {
 
       setEvents(list => list.filter(e => e.id !== selectedEvent.id));
       setShowEventModal(false);
+      showToast(isTripEvent(selectedEvent) ? 'Trip deleted successfully.' : 'Event deleted.');
       window.dispatchEvent(new Event('eventUpdated'));
     } catch (e) {
       console.error('delete failed', e);
@@ -1186,6 +1198,7 @@ export default function CalendarPage() {
       }
 
       setShowPackingModal(false);
+      showToast('Packing list saved.');
     } catch (e) {
       console.error(e);
       notify('error', 'Failed to save packing list');
@@ -1989,6 +2002,7 @@ export default function CalendarPage() {
                     onClick={() => {
                       if (!chosenDraft) return;
                       saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), chosenDraft);
+                      showToast('Outfit set for the day');
                       setPlanTab('chosen');
                     }}
                     className={`px-4 py-2 rounded ${chosenDraft ? 'bg-[#3F978F] text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
@@ -2097,6 +2111,7 @@ export default function CalendarPage() {
                         kind: 'items',
                         items: rec.outfitItems,
                       });
+                      showToast('Outfit set for the day');
                       setPlanTab('chosen');
                     }}
                     className={`px-4 py-2 rounded ${genOutfits.length
@@ -2471,18 +2486,19 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Confirm dialog (replaces window.confirm) */}
+      {/* Confirm dialog — homepage delete style */}
       {confirmState.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-            <p className="mb-6 text-gray-700 dark:text-gray-300">{confirmState.message}</p>
-            <div className="flex justify-center gap-3">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative">
+            <h3 className="text-lg font-semibold">{confirmState.message}</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Are you sure you want to delete?</p>
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => {
                   confirmState.resolve?.(false);
                   setConfirmState(cs => ({ ...cs, open: false, resolve: undefined }));
                 }}
-                className="px-5 py-2 rounded-full border"
+                className="px-4 py-2 rounded-full border border-black dark:border-white"
               >
                 {confirmState.cancelLabel ?? 'Cancel'}
               </button>
@@ -2491,14 +2507,15 @@ export default function CalendarPage() {
                   confirmState.resolve?.(true);
                   setConfirmState(cs => ({ ...cs, open: false, resolve: undefined }));
                 }}
-                className="px-5 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white"
+                className="px-4 py-2 rounded-full bg-red-500 text-white"
               >
-                {confirmState.confirmLabel ?? 'OK'}
+                {confirmState.confirmLabel ?? 'Delete'}
               </button>
             </div>
           </div>
         </div>
       )}
+    {toast && <Toast message={toast.msg} />}
     </div>
   );
 }
