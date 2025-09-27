@@ -315,14 +315,14 @@ export default function CalendarPage() {
       const next = exists
         ? prev.filter(p => p.closetItemId !== item.id)
         : [
-            ...prev,
-            {
-              closetItemId: item.id,
-              name: item.name,
-              imageUrl: normalizeUrl(item.imageUrl),
-              checked: false,
-            },
-          ];
+          ...prev,
+          {
+            closetItemId: item.id,
+            name: item.name,
+            imageUrl: normalizeUrl(item.imageUrl),
+            checked: false,
+          },
+        ];
       syncOutfitsFromItems(next);
       return next;
     });
@@ -337,14 +337,14 @@ export default function CalendarPage() {
       return isSaved
         ? prev.filter(p => p.outfitId !== o.id)
         : [
-            ...prev,
-            {
-              outfitId: o.id,
-              name: o.name,
-              imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
-              checked: false,
-            },
-          ];
+          ...prev,
+          {
+            outfitId: o.id,
+            name: o.name,
+            imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
+            checked: false,
+          },
+        ];
     });
 
     const adding = !packOutfits.some(p => p.outfitId === o.id);
@@ -423,12 +423,12 @@ export default function CalendarPage() {
       const s = days[0]?.summary;
       return s
         ? {
-            avgTemp: s.avgTemp,
-            minTemp: s.minTemp,
-            maxTemp: s.maxTemp,
-            willRain: s.willRain,
-            mainCondition: s.mainCondition,
-          }
+          avgTemp: s.avgTemp,
+          minTemp: s.minTemp,
+          maxTemp: s.maxTemp,
+          willRain: s.willRain,
+          mainCondition: s.mainCondition,
+        }
         : undefined;
     } catch {
       return undefined;
@@ -443,12 +443,12 @@ export default function CalendarPage() {
       selectedEvent?.style || 'Casual',
       selectedEventTodaySummary
         ? JSON.stringify({
-            a: Math.round(selectedEventTodaySummary.avgTemp),
-            i: Math.round(selectedEventTodaySummary.minTemp),
-            x: Math.round(selectedEventTodaySummary.maxTemp),
-            r: selectedEventTodaySummary.willRain,
-            m: selectedEventTodaySummary.mainCondition,
-          })
+          a: Math.round(selectedEventTodaySummary.avgTemp),
+          i: Math.round(selectedEventTodaySummary.minTemp),
+          x: Math.round(selectedEventTodaySummary.maxTemp),
+          r: selectedEventTodaySummary.willRain,
+          m: selectedEventTodaySummary.mainCondition,
+        })
         : 'no-summary',
     ],
     enabled: Boolean(showEventModal && selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
@@ -709,10 +709,10 @@ export default function CalendarPage() {
         coverImageUrl: normalizeUrl(o.coverImageUrl ?? null),
         outfitItems: Array.isArray(o.outfitItems)
           ? o.outfitItems.map((it: any) => ({
-              closetItemId: String(it.closetItemId ?? it.id ?? ''),
-              layerCategory: String(it.layerCategory ?? it.layer ?? ''),
-              imageUrl: normalizeUrl(it.imageUrl ?? null),
-            }))
+            closetItemId: String(it.closetItemId ?? it.id ?? ''),
+            layerCategory: String(it.layerCategory ?? it.layer ?? ''),
+            imageUrl: normalizeUrl(it.imageUrl ?? null),
+          }))
           : [],
       }));
 
@@ -818,10 +818,10 @@ export default function CalendarPage() {
         coverImageUrl: normalizeUrl(o.coverImageUrl ?? null),
         outfitItems: Array.isArray(o.outfitItems)
           ? o.outfitItems.map((it: any) => ({
-              closetItemId: String(it.closetItemId ?? it.id ?? ''),
-              layerCategory: String(it.layerCategory ?? it.layer ?? ''),
-              imageUrl: normalizeUrl(it.imageUrl ?? null),
-            }))
+            closetItemId: String(it.closetItemId ?? it.id ?? ''),
+            layerCategory: String(it.layerCategory ?? it.layer ?? ''),
+            imageUrl: normalizeUrl(it.imageUrl ?? null),
+          }))
           : [],
       }));
 
@@ -862,9 +862,9 @@ export default function CalendarPage() {
   }
 
   // ---- Recommended Items (48h pre-trip) ----
-  const COLD_TOPS: string[] = ['COAT','JACKET','HOODIE','SWEATER','BLAZER'];
-  const RAIN_ITEMS: string[] = ['RAINCOAT','UMBRELLA','BOOTS'];
-  const HOT_ITEMS:  string[] = ['SHORTS','SKIRT','SANDALS'];
+  const COLD_TOPS: string[] = ['COAT', 'JACKET', 'HOODIE', 'SWEATER', 'BLAZER'];
+  const RAIN_ITEMS: string[] = ['RAINCOAT', 'UMBRELLA', 'BOOTS'];
+  const HOT_ITEMS: string[] = ['SHORTS', 'SKIRT', 'SANDALS'];
 
   function within48hOfStart(trip: Event) {
     const start = new Date(trip.dateFrom).getTime();
@@ -873,13 +873,13 @@ export default function CalendarPage() {
 
   function tripWeatherWindow(trip: Event) {
     try {
-      const all = (JSON.parse(trip.weather || '[]') as Array<{date:string; summary:any}>)
+      const all = (JSON.parse(trip.weather || '[]') as Array<{ date: string; summary: any }>)
         .map(d => d.summary)
         .filter(Boolean);
       if (!all.length) return [];
       const start = new Date(trip.dateFrom);
-      const end   = new Date(trip.dateTo);
-      const days  = Math.max(1, Math.round((+end - +start) / 86400000) + 1);
+      const end = new Date(trip.dateTo);
+      const days = Math.max(1, Math.round((+end - +start) / 86400000) + 1);
       return all.slice(0, Math.min(7, days));
     } catch { return []; }
   }
@@ -895,7 +895,7 @@ export default function CalendarPage() {
 
     const anyRain = window.some(w => !!w?.willRain);
     const minTemp = Math.min(...window.map(w => Number(w?.minTemp ?? 99)));
-    const maxAvg  = Math.max(...window.map(w => Number(w?.avgTemp ?? -99)));
+    const maxAvg = Math.max(...window.map(w => Number(w?.avgTemp ?? -99)));
 
     const packedIds = new Set(packed.map(p => p.closetItemId));
     const packedCats = new Set(
@@ -1227,7 +1227,7 @@ export default function CalendarPage() {
 
   function getWeekSegments(week: Date[], evts: Event[]): Segment[] {
     const start = new Date(week[0]); start.setHours(0, 0, 0, 0);
-    const end = new Date(week[6]);   end.setHours(23, 59, 59, 999);
+    const end = new Date(week[6]); end.setHours(23, 59, 59, 999);
     const segs: Omit<Segment, 'lane' | 'weekKey'>[] = [];
     for (const ev of evts) {
       const s = parseISO(ev.dateFrom);
@@ -1506,9 +1506,29 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto -mt-16 md:mt-8">
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
+      {/* Header Image Section */}
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/header.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              MY CALENDAR
+            </h1>
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Calendar</h1>
+
         <div className="flex gap-2">
           <button
             onClick={() => setShowCreateModal(true)}
@@ -1812,19 +1832,19 @@ export default function CalendarPage() {
                     <div className="flex justify-center flex-wrap gap-2">
                       {saved.kind === 'outfit'
                         ? (suitcaseOutfits.find(o => o.id === saved.outfitId)?.outfitItems ?? []).map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="w-16 h-16 object-contain rounded"
-                            />
-                          ))
+                          <img
+                            key={it.closetItemId}
+                            src={normalizeUrl(it.imageUrl) || ''}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))
                         : saved.items.map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="w-16 h-16 object-contain rounded"
-                            />
-                          ))}
+                          <img
+                            key={it.closetItemId}
+                            src={normalizeUrl(it.imageUrl) || ''}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
                     </div>
 
                     <div className="flex gap-2 justify-end">
@@ -1857,9 +1877,8 @@ export default function CalendarPage() {
                       setChosenDraft(null);
                       setPlanTab('pick');
                     }}
-                    className={`p-4 rounded-lg border ${
-                      suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className={`p-4 rounded-lg border ${suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                      }`}
                   >
                     Pick an Outfit
                     <div className="text-xs text-gray-500 mt-1">From the outfits you packed</div>
@@ -1872,9 +1891,8 @@ export default function CalendarPage() {
                       generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
                       setPlanTab('generate');
                     }}
-                    className={`p-4 rounded-lg border ${
-                      suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className={`p-4 rounded-lg border ${suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                      }`}
                   >
                     Generate Your Outfit
                     <div className="text-xs text-gray-500 mt-1">Weather-aware, from suitcase items</div>
@@ -2023,11 +2041,10 @@ export default function CalendarPage() {
                       });
                       setPlanTab('chosen');
                     }}
-                    className={`px-4 py-2 rounded ${
-                      genOutfits.length
-                        ? 'bg-[#3F978F] text-white'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
+                    className={`px-4 py-2 rounded ${genOutfits.length
+                      ? 'bg-[#3F978F] text-white'
+                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      }`}
                   >
                     Set Outfit
                   </button>
@@ -2101,11 +2118,10 @@ export default function CalendarPage() {
                                 <button
                                   key={o.id}
                                   onClick={() => toggleOutfitInPack(o)}
-                                  className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${
-                                    packOutfits.some(p => p.outfitId === o.id)
-                                      ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
-                                      : 'border-gray-200'
-                                  }`}
+                                  className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${packOutfits.some(p => p.outfitId === o.id)
+                                    ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
+                                    : 'border-gray-200'
+                                    }`}
                                   title={o.name}
                                 >
                                   <div className="space-y-1">
@@ -2229,7 +2245,7 @@ export default function CalendarPage() {
 
                       const anyRain = summaries.some(s => !!s.willRain);
                       const coldDays = summaries.filter(s => Number(s.minTemp) <= 10).length;
-                      const hotDays  = summaries.filter(s => Number(s.avgTemp) >= 26).length;
+                      const hotDays = summaries.filter(s => Number(s.avgTemp) >= 26).length;
 
                       const packedIds = new Set(packItems.map(p => p.closetItemId));
                       const notPacked = closetItems.filter(ci => !packedIds.has(ci.id));
@@ -2238,7 +2254,7 @@ export default function CalendarPage() {
 
                       const rainPool = pickCat(['RAINCOAT', 'UMBRELLA', 'JACKET', 'COAT']);
                       const warmPool = pickCat(['HOODIE', 'SWEATER', 'JACKET', 'COAT', 'SCARF', 'GLOVES', 'BEANIE']);
-                      const hotPool  = pickCat(['SHORTS', 'TSHIRT', 'SLEEVELESS', 'SANDALS']);
+                      const hotPool = pickCat(['SHORTS', 'TSHIRT', 'SLEEVELESS', 'SANDALS']);
 
                       const rec: typeof closetItems = [];
                       const addSome = (arr: typeof closetItems, n: number) => {
@@ -2275,9 +2291,8 @@ export default function CalendarPage() {
                                         {(it.category || it.name || 'Item').toString()}
                                       </div>
                                       <button
-                                        className={`w-full text-xs px-2 py-1 rounded ${
-                                          already ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3F978F] text-white'
-                                        }`}
+                                        className={`w-full text-xs px-2 py-1 rounded ${already ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3F978F] text-white'
+                                          }`}
                                         disabled={already}
                                         onClick={() =>
                                           addPackItemIfMissing(
@@ -2352,10 +2367,10 @@ export default function CalendarPage() {
                 <button className="px-4 py-2 rounded border" onClick={() => setShowPackingModal(false)}>Cancel</button>
                 <button className="px-4 py-2 rounded bg-[#3F978F] text-white" onClick={() => savePacking(selectedEvent.id)}>Save</button>
               </div>
-            </div>  
-          </div>  
-        </div>  
-      )}       
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDayList.open && showDayList.date && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">

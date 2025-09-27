@@ -353,31 +353,31 @@ export default function HomePage() {
   }, [selectedDate, locationLabel]);
 
   const [closetIndex, setClosetIndex] = useState<
-  Record<string, { imageUrl?: string; category?: string }>
->({});
+    Record<string, { imageUrl?: string; category?: string }>
+  >({});
 
-useEffect(() => {
-  let cancelled = false;
-  (async () => {
-    try {
-      const resp = await fetchAllItems();
-      const rows = Array.isArray(resp.data) ? resp.data : [];
-      const index: Record<string, { imageUrl?: string; category?: string }> = {};
-      for (const row of rows) {
-        const id = String(row.id);
-        // Adjust these field names if your API uses different casing
-        index[id] = {
-          imageUrl: (row as any).imageUrl || (row as any).image_url || '',
-          category: (row as any).category || '',
-        };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetchAllItems();
+        const rows = Array.isArray(resp.data) ? resp.data : [];
+        const index: Record<string, { imageUrl?: string; category?: string }> = {};
+        for (const row of rows) {
+          const id = String(row.id);
+          // Adjust these field names if your API uses different casing
+          index[id] = {
+            imageUrl: (row as any).imageUrl || (row as any).image_url || '',
+            category: (row as any).category || '',
+          };
+        }
+        if (!cancelled) setClosetIndex(index);
+      } catch (e) {
+        console.error('closet index load failed', e);
       }
-      if (!cancelled) setClosetIndex(index);
-    } catch (e) {
-      console.error('closet index load failed', e);
-    }
-  })();
-  return () => { cancelled = true; };
-}, []);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
 
   // derive a "selectedOutfit" from daySel for rendering
@@ -505,7 +505,7 @@ useEffect(() => {
         }),
         userRating: (() => {
           const key = daySel ? daySel.items.map(i => i.closetItemId).sort().join('-') : '';
-          return ratings[key] || 0;
+          return ratings[key] ?? null;
         })(),
       });
 
@@ -823,7 +823,7 @@ useEffect(() => {
         temperature: outfit.weatherSummary.avgTemp,
         condition: outfit.weatherSummary.mainCondition,
       }),
-      userRating: ratings[key] || 0, // if the user has rated already, keep it
+      userRating: ratings[key] ?? null, // if the user has rated already, keep it
     };
 
     const created = await createOutfit(payload);
@@ -1467,21 +1467,6 @@ useEffect(() => {
                   </h3>
                 </div>
 
-                <div className="w-full mb-4">
-                  <h3
-                    className="
-    md:ml-8
-      text-center
-      text-xl sm:text-xl lg:text-xl
-      font-livvic  tracking-tight
-      text-gray-900 dark:text-gray-100
-    "
-                  >
-                    Select a Style:
-                  </h3>
-                </div>
-
-
                 {loadingOutfits && <p className="text-center">Loading outfits…</p>}
                 {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
                 {!loadingOutfits && outfits.length === 0 && (
@@ -1490,10 +1475,14 @@ useEffect(() => {
                   </p>
                 )}
 
-
-
                 {/* Style Dropdown — centered, same width as carousel */}
-                <div className="md:ml-8 mb-4 w-full">
+                <div className="
+    md:ml-8
+      text-center
+      
+      font-livvic  tracking-tight
+      text-gray-900 dark:text-gray-100 
+      mb-4">
                   <label htmlFor="style-select" className="sr-only">Style</label>
                   <select
                     id="style-select"
@@ -1502,7 +1491,7 @@ useEffect(() => {
                       setSelectedStyle(e.target.value);
                       queryClient.invalidateQueries({ queryKey: ['outfits'] });
                     }}
-                    className="block w-full w-[min(50%,320px)] mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
+                    className="block w-full w-[min(40%,320px)] mx-auto p-2 bg-white dark:bg-gray-900 rounded-full border border-black dark:border-white focus:outline-none font-livvic"
                   >
                     <option value="Formal">Formal</option>
                     <option value="Casual">Casual</option>
@@ -1512,11 +1501,81 @@ useEffect(() => {
                     <option value="Outdoor">Outdoor</option>
                   </select>
                 </div>
+
+                <div className="
+  md:ml-8 text-center font-livvic tracking-tight
+  text-gray-900 dark:text-gray-100 mb-4"
+                >
+                  {!daySel ? (
+                    // ----- NOT SAVED YET: ONLY "Save" -----
+                    <button
+                      onClick={async () => {
+                        if (isCurrentChosen) return;
+                        if (!selectedDate) { showToast('Pick a day first'); return; }
+                        const outfit = outfitsOrdered[currentIndex];
+                        if (!outfit) { showToast('No outfit to save'); return; }
+
+                        const snap = buildWeatherSnapshot(selectedDaySummary || weather?.summary || null);
+                        if (!snap) { showToast('Weather not ready, try again'); return; }
+
+                        try {
+                          const savedOutfitId = await ensureOutfitSavedFor(outfit);
+                          const created = await upsertDaySelection({
+                            date: selectedDate,
+                            location: locationLabel || undefined,
+                            style: selectedStyle,
+                            items: outfit.outfitItems.map((i, idx) => ({
+                              closetItemId: i.closetItemId,
+                              layerCategory: i.layerCategory,
+                              sortOrder: idx,
+                            })),
+                            weather: snap,
+                            outfitId: savedOutfitId,
+                          });
+                          setDaySel(created);
+                          showToast('Saved outfit for the day!');
+                          setCurrentIndex(0);
+                        } catch (e) {
+                          console.error(e);
+                          showToast('Could not save. Try again.');
+                        }
+                      }}
+                      disabled={isCurrentChosen}
+                      className={[
+                        "px-4 py-2 rounded-full border transition",
+                        isCurrentChosen
+                          ? "border-gray-300 text-gray-400 cursor-default"
+                          : "border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F]/10"
+                      ].join(' ')}
+                    >
+                      Save for this Day
+                    </button>
+                  ) : (
+                    <div className="inline-flex gap-3">
+                      <button
+                        onClick={async () => {
+                          if (!selectedDate) return;
+                          await deleteDaySelection(selectedDate);
+                          setDaySel(null);
+                          setCurrentIndex(0);
+                          queryClient.invalidateQueries({ queryKey: ['outfits'] });
+                          showToast('Unselected. Showing new recommendations.');
+                        }}
+                        className="px-4 py-2 rounded-full border border-red-500 text-red-500 hover:bg-red-50"
+                      >
+                        Unselect
+                      </button>
+                    </div>
+
+                  )}
+                </div>
+
+
                 {!loadingOutfits && outfits.length > 0 && (
                   daySel?.items?.length ? (
                     // ---------- SINGLE-OUTFIT VIEW (when a day is selected) ----------
                     <div className="w-full flex flex-col items-center">
-                      <div className="max-w-[60vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16 w-full">
+                      <div className="max-w-[60vw] sm:max-w-lg md:max-w-xl lg:max-w-xl md:ml-16 w-full">
                         <OutfitImagesCard
                           outfit={selectedOutfitFromDaySel!}
                           controls={
@@ -1529,22 +1588,28 @@ useEffect(() => {
                                     setSaving(true);
                                     let targetId = daySel!.outfitId || outfitIdMap[key];
 
+                                    // Prefer real metadata from the selected outfit; fall back to current carousel outfit if needed
+                                    const meta = selectedOutfitFromDaySel || outfitsOrdered[currentIndex];
+
                                     if (!targetId) {
-                                      // create outfit from current selection
+                                      // create outfit from current selection WITH REAL DATA
                                       const created = await createOutfit({
                                         outfitItems: daySel!.items.map((i, idx) => ({
                                           closetItemId: i.closetItemId,
                                           layerCategory: i.layerCategory,
                                           sortOrder: idx,
                                         })),
-                                        warmthRating: 0,
-                                        waterproof: false,
-                                        overallStyle: selectedStyle,
-                                        weatherSummary: JSON.stringify({
-                                          temperature: selectedOutfitFromDaySel!.weatherSummary.avgTemp,
-                                          condition: selectedOutfitFromDaySel!.weatherSummary.mainCondition,
-                                        }),
-                                        userRating: rating,
+                                        warmthRating: meta?.warmthRating,            // real value
+                                        waterproof: !!meta?.waterproof,              // real value
+                                        overallStyle: meta?.overallStyle ?? selectedStyle, // real value or selectedStyle
+                                        weatherSummary: JSON.stringify(
+                                          meta?.weatherSummary ?? {
+                                            // safe fallback to current snapshot if meta doesn’t carry it
+                                            temperature: selectedOutfitFromDaySel!.weatherSummary.avgTemp,
+                                            condition: selectedOutfitFromDaySel!.weatherSummary.mainCondition,
+                                          }
+                                        ),
+                                        userRating: rating ?? null,                   // nullable (see #3)
                                       });
                                       targetId = created.id;
                                       setOutfitIdMap(prev => ({ ...prev, [key]: targetId! }));
@@ -1561,21 +1626,25 @@ useEffect(() => {
                                       const fresh = await getDaySelection(selectedDate!);
                                       setDaySel(fresh);
                                     } else {
-                                      await updateOutfit(targetId, { userRating: rating });
+                                      await updateOutfit(targetId, { userRating: rating ?? null });
                                     }
 
-                                    setRatings(prev => ({ ...prev, [key]: rating }));
+                                    setRatings(prev => ({ ...prev, [key]: rating ?? null }));
                                   } finally {
                                     setSaving(false);
                                   }
                                 }}
                                 value={(() => {
                                   const key = selectedOutfitFromDaySel ? getOutfitKey(selectedOutfitFromDaySel) : '';
-                                  return ratings[key] || 0;
+                                  // don't force a default; show undefined if no rating yet
+                                  return ratings[key] ?? (typeof selectedOutfitFromDaySel?.userRating === 'number'
+                                    ? selectedOutfitFromDaySel.userRating
+                                    : undefined);
                                 })()}
                               />
 
-                              <button
+
+                              {/* <button
                                 onClick={async () => {
                                   if (!selectedDate) return;
                                   await deleteDaySelection(selectedDate);
@@ -1587,7 +1656,7 @@ useEffect(() => {
                                 className="px-4 py-2 rounded-full border border-red-500 text-red-500 hover:bg-red-50"
                               >
                                 Unselect
-                              </button>
+                              </button> */}
                             </div>
                           }
                         />
@@ -1596,154 +1665,158 @@ useEffect(() => {
                   ) : (
                     // ---------- CAROUSEL (no selection saved yet) ----------
                     <>
-                      <div
-                        className="
+                      <div className="w-full flex flex-col items-center">
+                        <div
+                          className="
           relative mb-2 w-full
-          max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16
+          max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-0 md:mr-8
           mx-0 sm:mx-auto
-          -ml-3
-          sm:ml-0 sm:-ml-8
+          
+          
           overflow-visible
-          sm:mr-16 lg:mr-32
+
+          max-w-[60vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16 w-full
+          
         "
-                      >
-                        {/* Reserve height so absolute stage can sit on top */}
-                        <div className="
+                        >
+                          {/* Reserve height so absolute stage can sit on top */}
+                          <div className="
           invisible
           w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
           mx-auto
         ">
-                          <OutfitImagesCard outfit={outfitsOrdered[currentIndex]} />
-                        </div>
+                            <OutfitImagesCard outfit={outfitsOrdered[currentIndex]} />
+                          </div>
 
-                        {/* stage (full area), with a centered rail */}
-                        <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center">
-                          <div className="
+                          {/* stage (full area), with a centered rail */}
+                          <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center">
+                            <div className="
             relative
             w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,520px)] lg:w-[min(92%,600px)] xl:w-[min(92%,680px)]
           ">
-                            {/* LEFT (prev) */}
-                            {outfits.length > 1 && (
-                              <motion.button
-                                type="button"
-                                onClick={() => slideTo(-1)}
-                                className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                                initial={false}
-                                animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
-                                whileHover={{ scale: 0.84, opacity: 1 }}
-                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                              >
-                                <OutfitImagesCard outfit={outfitsOrdered[prevIndex]} />
-                              </motion.button>
-                            )}
+                              {/* LEFT (prev) */}
+                              {outfits.length > 1 && (
+                                <motion.button
+                                  type="button"
+                                  onClick={() => slideTo(-1)}
+                                  className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                                  initial={false}
+                                  animate={{ x: '-60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                                  whileHover={{ scale: 0.84, opacity: 1 }}
+                                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                                >
+                                  <OutfitImagesCard outfit={outfitsOrdered[prevIndex]} />
+                                </motion.button>
+                              )}
 
-                            {/* RIGHT (next) */}
-                            {outfits.length > 1 && (
-                              <motion.button
-                                type="button"
-                                onClick={() => slideTo(1)}
-                                className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
-                                initial={false}
-                                animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
-                                whileHover={{ scale: 0.84, opacity: 1 }}
-                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                              >
-                                <OutfitImagesCard outfit={outfitsOrdered[nextIndex]} />
-                              </motion.button>
-                            )}
+                              {/* RIGHT (next) */}
+                              {outfits.length > 1 && (
+                                <motion.button
+                                  type="button"
+                                  onClick={() => slideTo(1)}
+                                  className="absolute left-1/2 -translate-x-1/2 top-0 w-full"
+                                  initial={false}
+                                  animate={{ x: '60%', y: -10, scale: 0.82, opacity: 0.6, zIndex: 1 }}
+                                  whileHover={{ scale: 0.84, opacity: 1 }}
+                                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                                >
+                                  <OutfitImagesCard outfit={outfitsOrdered[nextIndex]} />
+                                </motion.button>
+                              )}
 
-                            {/* CENTER (current) */}
-                            <motion.div
-                              className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
-                              initial={false}
-                              animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
-                              transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                              drag="x"
-                              dragConstraints={{ left: 0, right: 0 }}
-                              onDragEnd={(_, info) => {
-                                const goRight = info.offset.x < -70 || info.velocity.x < -300;
-                                const goLeft = info.offset.x > 70 || info.velocity.x > 300;
-                                if (goRight) slideTo(1);
-                                else if (goLeft) slideTo(-1);
-                              }}
-                            >
-                              <OutfitImagesCard
-                                outfit={outfitsOrdered[currentIndex]}
-                                controls={
-                                  <div className="flex flex-col items-center gap-2 sm:gap-3">
-                                    <div className="flex items-center justify-center gap-2 sm:gap-3">
-                                      <div className="scale-125 sm:scale-100 transform origin-center">
-                                        <StarRating
-                                          disabled={saving}
-                                          onSelect={handleSaveRating}
-                                          value={currentOutfit ? (ratings[getOutfitKey(currentOutfit)] || 0) : 0}
-                                        />
+                              {/* CENTER (current) */}
+                              <motion.div
+                                className="absolute left-1/2 -translate-x-1/2 top-0 w-full cursor-grab active:cursor-grabbing"
+                                initial={false}
+                                animate={{ x: 0, y: 0, scale: 1, opacity: 1, zIndex: 3 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                                drag="x"
+                                dragConstraints={{ left: 0, right: 0 }}
+                                onDragEnd={(_, info) => {
+                                  const goRight = info.offset.x < -70 || info.velocity.x < -300;
+                                  const goLeft = info.offset.x > 70 || info.velocity.x > 300;
+                                  if (goRight) slideTo(1);
+                                  else if (goLeft) slideTo(-1);
+                                }}
+                              >
+                                <OutfitImagesCard
+                                  outfit={outfitsOrdered[currentIndex]}
+                                  controls={
+                                    <div className="flex flex-col items-center gap-2 sm:gap-3">
+                                      <div className="flex items-center justify-center gap-2 sm:gap-3">
+                                        <div className="scale-125 sm:scale-100 transform origin-center">
+                                          <StarRating
+                                            disabled={saving}
+                                            onSelect={handleSaveRating}
+                                            value={currentOutfit ? (ratings[getOutfitKey(currentOutfit)] || 0) : 0}
+                                          />
+                                        </div>
+
+                                        <button
+                                          onClick={handleRefresh}
+                                          className="p-2 rounded-full text-[#3F978F] hover:text-[#2f716b] -translate-y-1"
+                                          aria-label="Refresh recommendations"
+                                          title="Refresh recommendations"
+                                        >
+                                          <RefreshCw className="w-6 h-6 align-middle" />
+                                        </button>
                                       </div>
 
-                                      <button
-                                        onClick={handleRefresh}
-                                        className="p-2 rounded-full text-[#3F978F] hover:text-[#2f716b] -translate-y-1"
-                                        aria-label="Refresh recommendations"
-                                        title="Refresh recommendations"
+                                      {/* <button
+                                        onClick={async () => {
+                                          if (isCurrentChosen) return;
+                                          if (!selectedDate) { showToast('Pick a day first'); return; }
+                                          const outfit = outfitsOrdered[currentIndex];
+                                          if (!outfit) { showToast('No outfit to save'); return; }
+
+                                          const snap = buildWeatherSnapshot(selectedDaySummary || weather?.summary || null);
+                                          if (!snap) { showToast('Weather not ready, try again'); return; }
+
+                                          try {
+                                            const savedOutfitId = await ensureOutfitSavedFor(outfit);
+                                            const created = await upsertDaySelection({
+                                              date: selectedDate,
+                                              location: locationLabel || undefined,
+                                              style: selectedStyle,
+                                              items: outfit.outfitItems.map((i, idx) => ({
+                                                closetItemId: i.closetItemId,
+                                                layerCategory: i.layerCategory,
+                                                sortOrder: idx,
+                                              })),
+                                              weather: snap,
+                                              outfitId: savedOutfitId,
+                                            });
+                                            setDaySel(created);
+                                            showToast('Saved outfit for the day!');
+                                            setCurrentIndex(0);
+                                          } catch (e) {
+                                            console.error(e);
+                                            showToast('Could not save. Try again.');
+                                          }
+                                        }}
+                                        disabled={isCurrentChosen}
+                                        className={[
+                                          "px-4 py-2 rounded-full border transition",
+                                          isCurrentChosen
+                                            ? "border-gray-300 text-gray-400 cursor-default"
+                                            : "border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F]/10"
+                                        ].join(' ')}
                                       >
-                                        <RefreshCw className="w-6 h-6 align-middle" />
-                                      </button>
+                                        {isCurrentChosen
+                                          ? 'Chosen'
+                                          : daySel
+                                            ? 'Update Selection'
+                                            : 'Save for this Day'}
+                                      </button> */}
+
                                     </div>
-
-                                    <button
-                                      onClick={async () => {
-                                        if (isCurrentChosen) return;
-                                        if (!selectedDate) { showToast('Pick a day first'); return; }
-                                        const outfit = outfitsOrdered[currentIndex];
-                                        if (!outfit) { showToast('No outfit to save'); return; }
-
-                                        const snap = buildWeatherSnapshot(selectedDaySummary || weather?.summary || null);
-                                        if (!snap) { showToast('Weather not ready, try again'); return; }
-
-                                        try {
-                                          const savedOutfitId = await ensureOutfitSavedFor(outfit);
-                                          const created = await upsertDaySelection({
-                                            date: selectedDate,
-                                            location: locationLabel || undefined,
-                                            style: selectedStyle,
-                                            items: outfit.outfitItems.map((i, idx) => ({
-                                              closetItemId: i.closetItemId,
-                                              layerCategory: i.layerCategory,
-                                              sortOrder: idx,
-                                            })),
-                                            weather: snap,
-                                            outfitId: savedOutfitId,
-                                          });
-                                          setDaySel(created);
-                                          showToast('Saved outfit for the day!');
-                                          setCurrentIndex(0);
-                                        } catch (e) {
-                                          console.error(e);
-                                          showToast('Could not save. Try again.');
-                                        }
-                                      }}
-                                      disabled={isCurrentChosen}
-                                      className={[
-                                        "px-4 py-2 rounded-full border transition",
-                                        isCurrentChosen
-                                          ? "border-gray-300 text-gray-400 cursor-default"
-                                          : "border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F]/10"
-                                      ].join(' ')}
-                                    >
-                                      {isCurrentChosen
-                                        ? 'Chosen'
-                                        : daySel
-                                          ? 'Update Selection'
-                                          : 'Save for this Day'}
-                                    </button>
-                                  </div>
-                                }
-                              />
-                            </motion.div>
+                                  }
+                                />
+                              </motion.div>
+                            </div>
                           </div>
                         </div>
                       </div>
-
                       {/* Counter for carousel only */}
                       <div className="md:ml-32 text-center text-sm mb-2 mt-32 w-full
         w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,560px)] lg:w-[min(92%,680px)] xl:w-[min(92%,760px)]
