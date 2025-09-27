@@ -10,11 +10,13 @@ import {
   unfollowUser,
   getFollowing,
   getFollowers,
+  searchUsers,
 } from "../services/socialApi";
 import { API_BASE } from "../config";
 import { getMe } from "../services/usersApi";
 import { absolutize } from "../utils/url";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Comment = {
   id: string;
@@ -95,9 +97,10 @@ async function countFollowing(userId: string): Promise<number> {
 }
 
 const ProfilePage: React.FC = () => {
-  const { userId } = useParams<{ userId?: string }>();
+  const { userId } = useParams<{ userId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const initialUser = location.state?.user as UserResult | undefined;
 
@@ -155,38 +158,52 @@ const ProfilePage: React.FC = () => {
     })();
   }, []);
 
-  // Set profile for current user if no initialUser
+  // Fetch profile data if no initialUser
   useEffect(() => {
-    if (!profile && isMe && currentUserId) {
+    if (!profile && targetUserId) {
       (async () => {
         try {
-          const { user } = await getMe();
-          const meProfile: UserResult = {
-            id: user.id,
-            name: user.name,
-            profilePhoto: user.profilePhoto,
-            isFollowing: true,
-            isPrivate: user.isPrivate ?? false,
-            followersCount: await countFollowers(user.id),
-            followingCount: await countFollowing(user.id),
-            followRequested: false,
-          };
-          setProfile(meProfile);
-          setFollowersCount(meProfile.followersCount);
-          setFollowingCount(meProfile.followingCount);
-          setIsFollowing(true);
-          setFollowRequested(false);
-          setIsPrivate(meProfile.isPrivate);
+          if (isMe && currentUserId) {
+            const { user } = await getMe();
+            const meProfile: UserResult = {
+              id: user.id,
+              name: user.name,
+              profilePhoto: user.profilePhoto,
+              isFollowing: true,
+              isPrivate: user.isPrivate ?? false,
+              followersCount: await countFollowers(user.id),
+              followingCount: await countFollowing(user.id),
+              followRequested: false,
+            };
+            setProfile(meProfile);
+            setFollowersCount(meProfile.followersCount);
+            setFollowingCount(meProfile.followingCount);
+            setIsFollowing(true);
+            setFollowRequested(false);
+            setIsPrivate(meProfile.isPrivate);
+          } else {
+            // Fallback: Use searchUsers to fetch profile data
+            const response = await searchUsers(targetUserId, 1, 0);
+            const user = response.results?.[0];
+            if (user) {
+              setProfile(user);
+              setFollowersCount(user.followersCount);
+              setFollowingCount(user.followingCount);
+              setIsFollowing(user.isFollowing);
+              setFollowRequested(user.followRequested);
+              setIsPrivate(user.isPrivate);
+            } else {
+              setError("User not found");
+              navigate("/feed");
+            }
+          }
         } catch {
           setError("Failed to load profile");
           navigate("/feed");
         }
       })();
-    } else if (!profile) {
-      setError("Profile not found");
-      navigate("/feed");
     }
-  }, [profile, isMe, currentUserId, navigate]);
+  }, [profile, isMe, currentUserId, targetUserId, navigate]);
 
   // Fetch posts
   const fetchNext = useCallback(async () => {
@@ -255,6 +272,8 @@ const ProfilePage: React.FC = () => {
         setIsFollowing(false);
         setFollowRequested(false);
         setFollowersCount((prev) => (prev ?? 1) - 1);
+        queryClient.invalidateQueries(["searchUsers"]);
+        queryClient.invalidateQueries(["notifications"]);
       } else {
         const { follow } = await followUser(profile.id);
         const status = follow.status;
@@ -263,6 +282,8 @@ const ProfilePage: React.FC = () => {
         if (status === "accepted") {
           setFollowersCount((prev) => (prev ?? 0) + 1);
         }
+        queryClient.invalidateQueries(["searchUsers"]);
+        queryClient.invalidateQueries(["notifications"]);
       }
     } catch (err: any) {
       setError(err.message || "Follow action failed");
@@ -382,7 +403,7 @@ const ProfilePage: React.FC = () => {
                 {profile?.name ?? currentUserName}
               </h1>
               {isMe ? (
-                <button onClick={() => navigate("/settings")} className="ml-auto">
+                <button onClick={() => navigate("/profile")} className="ml-auto">
                   <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                 </button>
               ) : (
