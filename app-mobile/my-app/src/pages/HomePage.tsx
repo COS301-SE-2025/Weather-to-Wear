@@ -1,4 +1,3 @@
-// src/pages/HomePage.tsx
 import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -34,7 +33,6 @@ import { useQuery } from '@tanstack/react-query';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
 import { formatMonthDay } from '../utils/date';
 
-// ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
@@ -60,7 +58,6 @@ function buildWeatherSnapshot(s?: WeatherSummary | null) {
   };
 }
 
-// Map style → image in /public/events/*.jpg (e.g. /events/business.jpg)
 function eventImageFor(style?: string) {
   const slug = (style || 'other').toLowerCase();
   return `${slug}.jpg`;
@@ -92,17 +89,15 @@ async function validateAndStandardizeCity(raw: string): Promise<string | null> {
   const q = raw.trim();
   if (!q) return null;
   const matches = await geocodeCity(q, 1);
-  return matches[0]?.city ?? null; // return just the city name
+  return matches[0]?.city ?? null; 
 }
 
-// Added from Events: local datetime formatter for edit-prefill
 function toLocalDatetimeInputValue(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// put this near the top of HomePage.tsx (or in a utils file)
 const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
@@ -119,7 +114,6 @@ type Event = {
   isTrip?: boolean;
 };
 
-// Normalize API → UI
 function toEvent(dto: EventDto): Event {
   const trip =
     !!(dto as any)?.isTrip ||
@@ -222,13 +216,12 @@ const TypingSlogan = () => {
 
 // ---------------- Temp range bar (single definition) ----------------
 const THEME = {
-  coldHue: 185, // teal-ish, near #3F978F
-  hotHue: 18,   // warm rust/orange
+  coldHue: 185, 
+  hotHue: 18,   
   sat: 58,
   light: 38,
 };
 
-// ---- Weather-based adjustment helpers ----
 type AdjReason =
   | { kind: 'rain_on'; steps: 1 }
   | { kind: 'warming'; steps: number }
@@ -278,16 +271,13 @@ function pickNeutralFirst<T extends ClosetBasic>(candidates: T[]): T | undefined
   return neutrals[0] || candidates[0];
 }
 
-// ---------- HomePage ----------
 export default function HomePage() {
   const submittingRef = useRef(false);
 
-  // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
 
-  // Top search: city autocomplete state
   const [citySuggest, setCitySuggest] = useState<Array<{ label: string; city: string }>>([]);
   const [cityLoading, setCityLoading] = useState(false);
   const [cityError, setCityError] = useState<string | null>(null);
@@ -333,14 +323,12 @@ export default function HomePage() {
     localStorage.setItem('selectedCity', nextCity);
     setCityInput('');
     setCitySuggest([]);
-    // refresh dependent queries
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
   }
 
 
-  // Other UI state
   const [username, setUsername] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -352,7 +340,6 @@ export default function HomePage() {
     style: 'CASUAL',
   });
 
-  // ---- City autocomplete/validation from Events (Create) ----
   const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
   const [locError, setLocError] = useState<string | null>(null);
   const [locLoading, setLocLoading] = useState(false);
@@ -379,10 +366,9 @@ export default function HomePage() {
     const q = raw.trim();
     if (!q) return null;
     const matches = await geocodeCity(q, 1);
-    return matches[0]?.city ?? null; // canonical city
+    return matches[0]?.city ?? null; 
   }
 
-  // Debounced suggestions while typing (Create)
   useEffect(() => {
     const q = newEvent.location.trim();
     setLocError(null);
@@ -424,7 +410,7 @@ export default function HomePage() {
     style: '',
   });
 
-  // ---- City autocomplete/validation from Events (Edit) ----
+  // ---- City autocomplete/validation from Events ----
   const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
   const [locErrorE, setLocErrorE] = useState<string | null>(null);
   const [locLoadingE, setLocLoadingE] = useState(false);
@@ -450,7 +436,6 @@ export default function HomePage() {
     };
   }, [isEditing, editEventData.location]);
 
-  // Prefill edit form from selectedEvent (from Events)
   useEffect(() => {
     if (!selectedEvent) return;
     setEditEventData({
@@ -463,7 +448,7 @@ export default function HomePage() {
     });
   }, [selectedEvent]);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); 
 
   // ---------- Weather (React Query) ----------
   const weatherQuery = useWeatherQuery(city);
@@ -474,7 +459,7 @@ export default function HomePage() {
   const [daySel, setDaySel] = useState<DaySelectionDTO | null>(null);
   const [weatherAlert, setWeatherAlert] = useState<null | { reason: string; suggestions: string[] }>(null);
 
-  // seed location if server returns one
+
   useEffect(() => {
     if (!city && weather?.location) {
       setCity(weather.location);
@@ -524,8 +509,6 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
-
-  // derive a "selectedOutfit" from daySel for rendering
   const selectedOutfitFromDaySel: RecommendedOutfit | null = useMemo(() => {
     if (!daySel?.items?.length) return null;
     return {
@@ -584,7 +567,6 @@ export default function HomePage() {
   const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
   const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
 
-  // default selected date = first available day
   useEffect(() => {
     if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
   }, [dayKeys, selectedDate]);
@@ -915,6 +897,7 @@ export default function HomePage() {
       setEvents(evt => [...evt, toEvent(created)]);
       setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
       setShowModal(false);
+      showToast('Successfully added a new event!');
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create event';
       alert(msg);
@@ -2255,6 +2238,7 @@ export default function HomePage() {
                     setEvents(evt => [...evt, toEvent(created)]);
                     setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
                     setShowModal(false);
+                    showToast('Successfully added a new event!');
                   } catch (err: any) {
                     const msg = err.response?.data?.message || 'Failed to create event';
                     alert(msg);
@@ -2509,10 +2493,9 @@ export default function HomePage() {
 
                       await rebuildEventWeatherAndRecs(updated);
 
-                      // leave edit mode + refresh outfit query
                       setIsEditing(false);
                       queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
-
+                      showToast('Successfully edited event!');
 
                     } catch (err: any) {
                       console.error('update failed', err?.response?.data || err);
@@ -2553,6 +2536,7 @@ export default function HomePage() {
                       await deleteEvent(selectedEvent.id);
                       setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
                       setShowDetailModal(false);
+                      showToast('Event successfully deleted.');
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"
                   >
