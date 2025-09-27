@@ -164,20 +164,16 @@ export default function ClosetPage() {
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
-  // Try-On (Mannequin)
-  const [showTryOnModal, setShowTryOnModal] = useState(false); // New state for separate try-on modal
+  const [showTryOnModal, setShowTryOnModal] = useState(false); 
   const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
 
-  // Try-On (Yourself) modal & state
   const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
   const [selfTryOnOutfit, setSelfTryOnOutfit] = useState<UIOutfit | null>(null);
 
-  // Stored / selected photo
   const [storedTryOnPhoto, setStoredTryOnPhoto] = useState<string | null>(null);
   const [selfPhotoPreview, setSelfPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  // Generation
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('Waiting…');
@@ -185,14 +181,12 @@ export default function ClosetPage() {
   const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
   const progressTimer = useRef<number | null>(null);
 
-  // show credits
   const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
 
   const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
   const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
   const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
 
- // Toast (shared look with HomePage)
   const [toast, setToast] = useState<{ msg: string } | null>(null);
   function showToast(message: string) {
     setToast({ msg: message });
@@ -233,7 +227,6 @@ export default function ClosetPage() {
     fetchItemsOnce();
   }, [justFinished, queueLength]);
 
-  // Fetch saved outfits
   useEffect(() => {
     fetchAllOutfits()
       .then(raw => {
@@ -281,7 +274,6 @@ export default function ClosetPage() {
         await toggleOutfitFavourite(item.id);
       } catch (err) {
         console.error('Server toggle failed', err);
-        // revert on failure
         setOutfits(prev =>
           prev.map(o => (o.id === item.id ? { ...o, favourite: !newFav } : o))
         );
@@ -531,7 +523,6 @@ export default function ClosetPage() {
       }
       if (creditRes.status === 'fulfilled') setCredits(creditRes.value);
     } catch {
-      // non-blocking
     } finally {
       setProgressLabel('Ready');
     }
@@ -556,8 +547,7 @@ export default function ClosetPage() {
   async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    // const b64 = await fileToBase64(f);
-    const b64 = await resizeToDataUrl(f, 1280, 1280); // smaller and faster than raw
+    const b64 = await resizeToDataUrl(f, 1280, 1280); 
     setSelfPhotoPreview(b64);
   }
 
@@ -610,7 +600,6 @@ export default function ClosetPage() {
         returnBase64: false,
       });
 
-      // Stop fake progress, finish to 100 after a short delay
       if (progressTimer.current) {
         window.clearInterval(progressTimer.current);
         progressTimer.current = null;
@@ -643,7 +632,6 @@ export default function ClosetPage() {
         return;
       }
     } catch {
-      // ignore and fall through
     }
     await openSelfTryOn(outfit);
   }
@@ -899,7 +887,6 @@ export default function ClosetPage() {
             )}
           </div>
         ) : (
-          // NORMAL GRID FOR ITEMS / OUTFITS TAB
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
@@ -1175,7 +1162,6 @@ export default function ClosetPage() {
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
-                      // openSelfTryOn(activeDetailsOutfit);
                       openSelfTryOnOrPreview(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
                     }}
@@ -1836,7 +1822,7 @@ export default function ClosetPage() {
                         imageUrl:
                           it.imageUrl && it.imageUrl.length > 0
                             ? it.imageUrl
-                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), // ! bomboclaat
+                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
                         category: it?.closetItem?.category ?? it.category,
                       })),
                     }
