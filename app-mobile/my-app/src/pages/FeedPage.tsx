@@ -78,21 +78,21 @@ type UserResult = {
 
 export type NotificationAPIItem =
   | {
-      id: string;
-      type: "like" | "comment";
-      fromUser: { id: string; name: string; profilePhoto?: string | null };
-      postId?: string;
-      postContent?: string;
-      createdAt: string;
-      followId: string;
-    }
+    id: string;
+    type: "like" | "comment";
+    fromUser: { id: string; name: string; profilePhoto?: string | null };
+    postId?: string;
+    postContent?: string;
+    createdAt: string;
+    followId: string;
+  }
   | {
-      id: string;
-      type: "follow";
-      fromUser: { id: string; name: string; profilePhoto?: string | null };
-      createdAt: string;
-      status: "pending" | "accepted" | "rejected";
-    };
+    id: string;
+    type: "follow";
+    fromUser: { id: string; name: string; profilePhoto?: string | null };
+    createdAt: string;
+    status: "pending" | "accepted" | "rejected";
+  };
 
 const API_URL = `${API_BASE}`;
 
@@ -173,11 +173,10 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
 
               <button
                 onClick={() => onToggleFollow(u.id, u)}
-                className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                  u.isFollowing || u.followRequested
-                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                    : "bg-[#3F978F] text-white hover:bg-[#357f78]"
-                }`}
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
+                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                  : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                  }`}
               >
                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
               </button>
@@ -346,21 +345,45 @@ const FeedPage: React.FC = () => {
     fetchNotifications();
   }, [currentUserId, fetchNotifications]);
 
+  const [liking, setLiking] = useState<Record<string, boolean>>({});
+
   const toggleLike = async (id: string) => {
-    const post = posts.find((p) => p.id === id);
-    if (!post) return;
+    if (liking[id]) return; // prevent double taps
+
+    // read the current value once
+    const current = posts.find((p) => p.id === id);
+    if (!current) return;
+
+    setLiking((m) => ({ ...m, [id]: true }));
+
     try {
-      if (post.liked) {
+      if (current.liked) {
+        // UNLIKE (same as your working path)
         await unlikePost(id);
-        setPosts(posts.map((p) => (p.id === id ? { ...p, liked: false, likes: p.likes - 1 } : p)));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, liked: false, likes: Math.max(0, p.likes - 1) } : p
+          )
+        );
       } else {
+        // LIKE (mirror the unlike path)
         await likePost(id);
-        setPosts(posts.map((p) => (p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p)));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p
+          )
+        );
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to update like");
+    } finally {
+      setLiking((m) => {
+        const { [id]: _, ...rest } = m;
+        return rest;
+      });
     }
   };
+
 
   const addCommentHandler = async (postId: string) => {
     const content = (newComment[postId] || "").trim();
@@ -426,12 +449,12 @@ const FeedPage: React.FC = () => {
         prev.map((p) =>
           p.id === postId
             ? {
-                ...p,
-                content: updated.caption ?? p.content,
-                location: updated.location ?? p.location,
-                weather: updated.weather ?? p.weather,
-                imageUrl: updated.imageUrl ? absolutize(updated.imageUrl, API_BASE) : p.imageUrl,
-              }
+              ...p,
+              content: updated.caption ?? p.content,
+              location: updated.location ?? p.location,
+              weather: updated.weather ?? p.weather,
+              imageUrl: updated.imageUrl ? absolutize(updated.imageUrl, API_BASE) : p.imageUrl,
+            }
             : p
         )
       );
@@ -483,17 +506,25 @@ const FeedPage: React.FC = () => {
 
   useEffect(() => {
     const el = sentinelRef.current;
+    const rootEl = postsContainerRef.current;
     if (!el) return;
+
     const io = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
         if (first.isIntersecting) fetchNext();
       },
-      { rootMargin: "600px" }
+      {
+        root: rootEl ?? null,   // <— use the actual scrolling container
+        rootMargin: "600px",
+        threshold: 0.01,
+      }
     );
+
     io.observe(el);
     return () => io.disconnect();
   }, [fetchNext]);
+
 
   useEffect(() => {
     let timer: number | undefined;
@@ -731,8 +762,13 @@ const FeedPage: React.FC = () => {
 
       {/* Desktop layout grid */}
       <div
-        className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-4 gap-4
-                  h-[calc(100vh-120px)] overflow-hidden"
+        className="    max-w-7xl mx-auto
+    px-0 lg:px-4
+    py-0 lg:py-4
+    pt-0
+    grid grid-cols-1 lg:grid-cols-4
+    gap-0 lg:gap-4
+                  "
       >
         {/* Left Sidebar (desktop) */}
         <aside className="hidden lg:block lg:col-span-1">
@@ -886,10 +922,10 @@ const FeedPage: React.FC = () => {
           {/* Posts */}
           <div
             ref={postsContainerRef}
-            className="space-y-6 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide overscroll-contain"
+            className="space-y-0 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide overscroll-contain"
           >
             {posts.map((post) => (
-              <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+              <div key={post.id} className="p-4 border  bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-2 relative">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
@@ -964,13 +1000,19 @@ const FeedPage: React.FC = () => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-4 text-sm mb-2">
-                  <button className="flex items-center gap-1" onClick={() => toggleLike(post.id)}>
+                  <button
+                    className="flex items-center gap-1 disabled:opacity-60"
+                    onClick={() => toggleLike(post.id)}
+                    disabled={!!liking[post.id]}
+                    aria-pressed={post.liked}
+                  >
                     <Heart
                       className={`w-4 h-4 ${post.liked ? "text-red-500" : "text-gray-400"}`}
                       fill={post.liked ? "red" : "none"}
                     />
                     {post.likes}
                   </button>
+
                 </div>
 
                 {/* Caption (username + text) */}
