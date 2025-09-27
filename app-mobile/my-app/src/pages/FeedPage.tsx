@@ -1,4 +1,4 @@
-import { Heart, Loader2, Search, Bell } from "lucide-react";
+import { Heart, Loader2, Search, Bell, MoreHorizontal } from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -12,7 +12,10 @@ import {
   getNotifications,
   acceptFollowRequest,
   rejectFollowRequest,
+  editPost,
+  deletePost,
 } from "../services/socialApi";
+
 import { API_BASE } from "../config";
 import { absolutize } from "../utils/url";
 
@@ -208,6 +211,17 @@ const FeedPage: React.FC = () => {
   const location = useLocation();
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
+  // 3-dot menu / edit / delete state
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSuccessPopup, setShowDeleteSuccessPopup] = useState(false);
+
+  // Notifications
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -307,7 +321,7 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId]);
 
-  // Fetch notifications continuously (desktop sidebar always visible; mobile popover stays fresh too)
+  // Load notifications on visiting the Feed page
   useEffect(() => {
     if (!currentUserId) return;
     fetchNotifications();
@@ -379,6 +393,64 @@ const FeedPage: React.FC = () => {
     }
   };
 
+  const toggleMenu = (postId: string) => {
+    setMenuOpen((prev) => (prev === postId ? null : postId));
+  };
+
+  const handleEditPost = async (postId: string) => {
+    const content = editContent.trim();
+    if (!content) return;
+    setIsEditing(true);
+    try {
+      const { post: updated } = await editPost(postId, { caption: content });
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                content: updated.caption ?? p.content,
+                location: updated.location ?? p.location,
+                weather: updated.weather ?? p.weather,
+                imageUrl: updated.imageUrl ? absolutize(updated.imageUrl, API_BASE) : p.imageUrl,
+              }
+            : p
+        )
+      );
+      setEditPostId(null);
+      setEditContent("");
+    } catch (err: any) {
+      setError(err.message || "Failed to edit post");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    setDeletePostId(postId);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletePostId) return;
+    setIsDeleting(true);
+
+    const previous = posts;
+    setPosts((prev) => prev.filter((p) => p.id !== deletePostId));
+
+    try {
+      await deletePost(deletePostId);
+      setShowDeleteSuccessPopup(true);
+      setTimeout(() => setShowDeleteSuccessPopup(false), 2500);
+      setMenuOpen(null);
+      setDeletePostId(null);
+    } catch (err: any) {
+      // rollback
+      setPosts(previous);
+      setError(err.message || "Failed to delete post");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   useEffect(() => {
     if (!currentUserId) return;
     setPosts([]);
@@ -433,6 +505,25 @@ const FeedPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Optional: auto-close ⋯ menu on outside click or Esc
+  useEffect(() => {
+    function handleDocClick(e: MouseEvent) {
+      if (!menuOpen) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("[data-menu-trigger]") || t?.closest("[data-menu-panel]")) return;
+      setMenuOpen(null);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(null);
+    }
+    document.addEventListener("click", handleDocClick);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleDocClick);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [menuOpen]);
+
   const loadMoreSearch = async () => {
     if (!searchHasMore || !searchQuery.trim()) return;
     setSearchLoading(true);
@@ -472,7 +563,7 @@ const FeedPage: React.FC = () => {
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search people"
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm outline-none"
@@ -775,7 +866,7 @@ const FeedPage: React.FC = () => {
           >
             {posts.map((post) => (
               <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 relative">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
                     {post.profilePhoto ? (
                       <img
@@ -787,17 +878,53 @@ const FeedPage: React.FC = () => {
                       <span>{post.username?.[0] || "U"}</span>
                     )}
                   </div>
+
                   <span className="font-medium text-sm">{post.username}</span>
+
+                  {post.userId === currentUserId && (
+                    <div className="ml-auto relative">
+                      <button
+                        data-menu-trigger
+                        onClick={() => toggleMenu(post.id)}
+                        className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                        aria-label="Post options"
+                      >
+                        <MoreHorizontal className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                      </button>
+
+                      {menuOpen === post.id && (
+                        <div
+                          data-menu-panel
+                          className="absolute right-0 mt-2 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20"
+                        >
+                          <button
+                            onClick={() => {
+                              setEditPostId(post.id);
+                              setEditContent(post.content ?? "");
+                              setMenuOpen(null);
+                            }}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : "Delete"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-sm mb-2">{post.content}</div>
+
                 {post.imageUrl && (
                   <div className="-mx-4 mb-2">
-                    <img
-                      src={post.imageUrl}
-                      alt="Post"
-                      className="block w-full h-auto object-cover"
-                    />
+                    <img src={post.imageUrl} alt="Post" className="block w-full h-auto object-cover" />
                   </div>
                 )}
 
@@ -832,9 +959,7 @@ const FeedPage: React.FC = () => {
                     <input
                       type="text"
                       value={newComment[post.id] || ""}
-                      onChange={(e) =>
-                        setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))
-                      }
+                      onChange={(e) => setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))}
                       placeholder="Add a comment..."
                       className="flex-1 border rounded-full px-3 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
                     />
@@ -857,6 +982,74 @@ const FeedPage: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Success toast for delete */}
+      {showDeleteSuccessPopup && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
+          Post deleted successfully!
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editPostId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4 dark:text-gray-100">Edit Post</h2>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+              rows={4}
+              placeholder="Edit your post..."
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setEditPostId(null);
+                  setEditContent("");
+                }}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleEditPost(editPostId!)}
+                className="px-4 py-2 text-sm bg-[#3F978F] text-white rounded disabled:opacity-50"
+                disabled={!editContent.trim() || isEditing}
+              >
+                {isEditing ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {deletePostId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4 dark:text-gray-100">Delete Post</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              Are you sure you want to delete this post?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeletePostId(null)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded disabled:opacity-50"
+                disabled={isDeleting}
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
