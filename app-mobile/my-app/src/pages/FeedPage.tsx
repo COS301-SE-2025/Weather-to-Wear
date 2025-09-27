@@ -1,4 +1,16 @@
-import { Heart, Loader2, Search, Bell, MoreHorizontal } from "lucide-react";
+import {
+  Heart,
+  Loader2,
+  Search,
+  Bell,
+  MoreHorizontal,
+  Sun,
+  Cloud,
+  CloudRain,
+  Snowflake,
+  Wind,
+  CloudSun,
+} from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -24,14 +36,14 @@ interface Post {
   userId: string;
   username: string;
   profilePhoto?: string;
-  content: string;
+  content: string; // caption
   likes: number;
   liked: boolean;
   date: string;
   comments: { id: string; content: string; userId: string; username?: string }[];
   imageUrl?: string;
   location?: string;
-  weather?: { temp: number; condition: string };
+  weather?: { temp?: number; condition?: string } | null;
   closetItem?: { id: string; filename: string; category: string };
 }
 
@@ -121,7 +133,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
 
         {searchError && <div className="mt-3 text-xs text-red-500">{searchError}</div>}
 
-        <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-hide">
+        <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-hide overscroll-contain">
           {searchLoading && searchResults.length === 0 && (
             <div className="flex justify-center py-2">
               <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
@@ -187,6 +199,17 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
   }
 );
 
+const weatherIcon = (cond?: string | null) => {
+  const c = (cond || "").toLowerCase();
+  if (c.includes("sunny")) return <Sun className="h-3.5 w-3.5" />;
+  if (c.includes("clear")) return <CloudSun className="h-3.5 w-3.5" />;
+  if (c.includes("rain")) return <CloudRain className="h-3.5 w-3.5" />;
+  if (c.includes("snow")) return <Snowflake className="h-3.5 w-3.5" />;
+  if (c.includes("wind")) return <Wind className="h-3.5 w-3.5" />;
+  if (c.includes("cloud")) return <Cloud className="h-3.5 w-3.5" />;
+  return null;
+};
+
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -210,8 +233,6 @@ const FeedPage: React.FC = () => {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const location = useLocation();
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-
-  // 3-dot menu / edit / delete state
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -220,8 +241,6 @@ const FeedPage: React.FC = () => {
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteSuccessPopup, setShowDeleteSuccessPopup] = useState(false);
-
-  // Notifications
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -321,7 +340,7 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId]);
 
-  // Load notifications on visiting the Feed page
+  // Load notifications once (desktop) and when mobile popover opens
   useEffect(() => {
     if (!currentUserId) return;
     fetchNotifications();
@@ -443,8 +462,7 @@ const FeedPage: React.FC = () => {
       setMenuOpen(null);
       setDeletePostId(null);
     } catch (err: any) {
-      // rollback
-      setPosts(previous);
+      setPosts(previous); // rollback
       setError(err.message || "Failed to delete post");
     } finally {
       setIsDeleting(false);
@@ -505,25 +523,6 @@ const FeedPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Optional: auto-close ⋯ menu on outside click or Esc
-  useEffect(() => {
-    function handleDocClick(e: MouseEvent) {
-      if (!menuOpen) return;
-      const t = e.target as HTMLElement | null;
-      if (t?.closest("[data-menu-trigger]") || t?.closest("[data-menu-panel]")) return;
-      setMenuOpen(null);
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenuOpen(null);
-    }
-    document.addEventListener("click", handleDocClick);
-    window.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("click", handleDocClick);
-      window.removeEventListener("keydown", handleKey);
-    };
-  }, [menuOpen]);
-
   const loadMoreSearch = async () => {
     if (!searchHasMore || !searchQuery.trim()) return;
     setSearchLoading(true);
@@ -539,6 +538,25 @@ const FeedPage: React.FC = () => {
       setSearchLoading(false);
     }
   };
+
+  // --- Auto-close the three-dot menu on outside click or Esc
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (menuOpen && !(e.target as HTMLElement).closest("[data-post-menu]")) {
+        setMenuOpen(null);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keyup", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keyup", handleEsc);
+    };
+  }, [menuOpen]);
+  // ---
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -590,7 +608,7 @@ const FeedPage: React.FC = () => {
         {/* Mobile notifications popover */}
         {showNotifications && (
           <div className="relative">
-            <div className="absolute right-2 left-2 top-0 translate-y-2 rounded-xl shadow-lg bg-white dark:bg-gray-800 p-3 max-h-[60vh] overflow-y-auto">
+            <div className="absolute right-2 left-2 top-0 translate-y-2 rounded-xl shadow-lg bg-white dark:bg-gray-800 p-3 max-h-[60vh] overflow-y-auto overscroll-contain">
               <div ref={notificationsContainerRef} className="space-y-3">
                 {loadingNotifications && (
                   <div className="flex justify-center py-4">
@@ -712,10 +730,16 @@ const FeedPage: React.FC = () => {
       </div>
 
       {/* Desktop layout grid */}
-      <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <div
+        className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-4 gap-4
+                  h-[calc(100vh-120px)] overflow-hidden"
+      >
         {/* Left Sidebar (desktop) */}
         <aside className="hidden lg:block lg:col-span-1">
-          <div className="sticky top-4 bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+          <div
+            className="sticky top-4 bg-white dark:bg-gray-800 rounded-xl shadow-md p-4
+                          h-[calc(100vh-140px)] flex flex-col"
+          >
             <div className="flex gap-2 mb-4">
               <button className="flex-1 py-2 rounded-full text-sm font-medium bg-[#3F978F] text-white">
                 Notifications
@@ -724,7 +748,7 @@ const FeedPage: React.FC = () => {
 
             <div
               ref={notificationsContainerRef}
-              className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide"
+              className="flex-1 min-h-0 space-y-3 overflow-y-auto scrollbar-hide overscroll-contain"
             >
               {loadingNotifications && (
                 <div className="flex justify-center py-4">
@@ -862,11 +886,12 @@ const FeedPage: React.FC = () => {
           {/* Posts */}
           <div
             ref={postsContainerRef}
-            className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide"
+            className="space-y-6 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide overscroll-contain"
           >
             {posts.map((post) => (
               <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 mb-2 relative">
+                {/* Header */}
+                <div className="flex items-start gap-3 mb-2 relative">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
                     {post.profilePhoto ? (
                       <img
@@ -879,23 +904,31 @@ const FeedPage: React.FC = () => {
                     )}
                   </div>
 
-                  <span className="font-medium text-sm">{post.username}</span>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{post.username}</div>
+                    {(post.weather?.condition || post.location) && (
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        {weatherIcon(post.weather?.condition)}
+                        {post.location && <span>{post.location}</span>}
+                      </div>
+                    )}
+                  </div>
 
                   {post.userId === currentUserId && (
                     <div className="ml-auto relative">
                       <button
-                        data-menu-trigger
                         onClick={() => toggleMenu(post.id)}
                         className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                         aria-label="Post options"
+                        data-post-menu
                       >
                         <MoreHorizontal className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                       </button>
 
                       {menuOpen === post.id && (
                         <div
-                          data-menu-panel
                           className="absolute right-0 mt-2 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20"
+                          data-post-menu
                         >
                           <button
                             onClick={() => {
@@ -904,6 +937,7 @@ const FeedPage: React.FC = () => {
                               setMenuOpen(null);
                             }}
                             className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            data-post-menu
                           >
                             Edit
                           </button>
@@ -911,6 +945,7 @@ const FeedPage: React.FC = () => {
                             onClick={() => handleDeletePost(post.id)}
                             className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                             disabled={isDeleting}
+                            data-post-menu
                           >
                             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : "Delete"}
                           </button>
@@ -920,14 +955,14 @@ const FeedPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="text-sm mb-2">{post.content}</div>
-
+                {/* Image */}
                 {post.imageUrl && (
                   <div className="-mx-4 mb-2">
                     <img src={post.imageUrl} alt="Post" className="block w-full h-auto object-cover" />
                   </div>
                 )}
 
+                {/* Actions */}
                 <div className="flex items-center gap-4 text-sm mb-2">
                   <button className="flex items-center gap-1" onClick={() => toggleLike(post.id)}>
                     <Heart
@@ -938,6 +973,15 @@ const FeedPage: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Caption (username + text) */}
+                {post.content?.trim() && (
+                  <div className="text-sm mb-2">
+                    <span className="font-semibold mr-2">{post.username}</span>
+                    <span>{post.content}</span>
+                  </div>
+                )}
+
+                {/* Comments */}
                 <div className="mt-2">
                   {post.comments.slice(0, expandedComments[post.id] ? undefined : 2).map((c) => (
                     <div key={c.id} className="text-sm mb-1">
@@ -955,6 +999,7 @@ const FeedPage: React.FC = () => {
                     </button>
                   )}
 
+                  {/* Add comment */}
                   <div className="mt-2 flex gap-2">
                     <input
                       type="text"
@@ -983,7 +1028,9 @@ const FeedPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Success toast for delete */}
+      {/* ======= Overlays & Toasts (place before the final two closing divs) ======= */}
+
+      {/* Delete success toast */}
       {showDeleteSuccessPopup && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
           Post deleted successfully!
@@ -994,7 +1041,7 @@ const FeedPage: React.FC = () => {
       {editPostId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 dark:text-gray-100">Edit Post</h2>
+            <h2 className="text-lg font-semibold mb-4 dark:text-gray-100">Edit Caption</h2>
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
@@ -1013,7 +1060,7 @@ const FeedPage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => handleEditPost(editPostId!)}
+                onClick={() => handleEditPost(editPostId)}
                 className="px-4 py-2 text-sm bg-[#3F978F] text-white rounded disabled:opacity-50"
                 disabled={!editContent.trim() || isEditing}
               >
@@ -1050,6 +1097,7 @@ const FeedPage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* ======= /Overlays & Toasts ======= */}
     </div>
   );
 };
