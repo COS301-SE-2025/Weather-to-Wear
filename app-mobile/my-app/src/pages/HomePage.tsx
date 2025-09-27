@@ -71,6 +71,82 @@ function formatTimeAmPm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+  // === ADD: polite autoplay for horizontal scroll ===
+  function useAutoplayScrolling(
+    ref: React.RefObject<HTMLDivElement | null>,
+    opts: { intervalMs?: number; pauseMsAfterInteract?: number } = {}
+  ) {
+    const { intervalMs = 2000, pauseMsAfterInteract = 1500 } = opts;
+    const pauseUntilRef = useRef<number>(0);
+    const timerRef = useRef<number | null>(null);
+    const cardWidthRef = useRef<number>(0);
+
+    useEffect(() => {
+      const el = ref.current;
+      if (!el) return;
+
+      // measure first card width + gap
+      const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+      if (firstCard) {
+        const cs = getComputedStyle(el);
+        const gap =
+          parseFloat(cs.columnGap || cs.gap || '0') ||
+          parseFloat(cs['gridColumnGap' as any] || '0') ||
+          0;
+        cardWidthRef.current = firstCard.offsetWidth + gap;
+      }
+
+      const step = () => {
+        if (Date.now() < pauseUntilRef.current) return;
+
+        // tiny, continuous steps (tweak between 6–16px for taste)
+        const stepPx = 6;
+
+        // when we get near the end, loop back to start
+        const nearEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - stepPx * 2;
+
+        if (nearEnd) {
+          // jump back to start without smooth to avoid a “snap-back” animation
+          el.scrollLeft = 0;
+        } else {
+          // micro-step forward; no 'smooth', it looks more like continuous motion
+          el.scrollLeft = el.scrollLeft + stepPx;
+        }
+      };
+
+      const start = () => {
+        stop();
+        timerRef.current = window.setInterval(step, intervalMs) as unknown as number;
+      };
+      const stop = () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+
+      start();
+
+      const bumpPause = () => {
+        pauseUntilRef.current = Date.now() + pauseMsAfterInteract;
+      };
+
+      el.addEventListener('pointerdown', bumpPause, { passive: true });
+      el.addEventListener('wheel', bumpPause, { passive: true });
+      el.addEventListener('touchstart', bumpPause, { passive: true });
+      el.addEventListener('mouseenter', bumpPause, { passive: true });
+
+      return () => {
+        stop();
+        el.removeEventListener('pointerdown', bumpPause);
+        el.removeEventListener('wheel', bumpPause);
+        el.removeEventListener('touchstart', bumpPause);
+        el.removeEventListener('mouseenter', bumpPause);
+      };
+    }, [ref, intervalMs, pauseMsAfterInteract]);
+  }
+
+
 async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
     query
@@ -1284,6 +1360,99 @@ export default function HomePage() {
     );
   }
 
+  // === ADD: swipeable + snap carousel for events ===
+  function EventsCarousel({
+    items,
+    onOpen,
+  }: {
+    items: Event[];
+    onOpen: (ev: Event) => void;
+  }) {
+    const trackRef = useRef<HTMLDivElement>(null);
+    useAutoplayScrolling(trackRef, { intervalMs: 70, pauseMsAfterInteract: 2000 });
+
+    return (
+      <div className="relative">
+        <div
+          ref={trackRef}
+          className="
+                    flex gap-6 overflow-x-auto overscroll-contain scroll-smooth
+                    snap-x snap-mandatory
+                    pt-1 pb-2
+                    touch-pan-x
+                    events-track
+                  "
+          aria-label="Upcoming events carousel"
+        >
+          {items.map((ev) => {
+            const img = eventImageFor(ev.style);
+            return (
+              <button
+                key={ev.id}
+                onClick={() => onOpen(ev)}
+                className="group text-left snap-start min-w-[240px] sm:min-w-[240px] lg:min-w-[280px] focus:outline-none focus:ring-2 focus:ring-white/50 rounded-2xl"
+                data-ev-card
+              >
+                <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
+                  <img
+                    src={img}
+                    alt={ev.style || 'event'}
+                    className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
+                    {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
+                  </div>
+                  <div className="mt-1 text-gray-300 text-sm sm:text-base space-y-0.5">
+                    <div className="capitalize">{ev.style || '—'}</div>
+                    <div className="truncate">{ev.location || '—'}</div>
+                    <div>{formatDateOnly(ev.dateFrom)}</div>
+                    <div>{formatTimeAmPm(ev.dateFrom)}</div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          <div className="shrink-0 w-2" />
+        </div>
+
+        {/* optional arrows */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              const el = trackRef.current;
+              if (!el) return;
+              const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+              const w = (firstCard?.offsetWidth || 260) + 24; // 24 ≈ gap
+              el.scrollBy({ left: -w, behavior: 'smooth' });
+            }}
+            className="pointer-events-auto ml-[-6px] hidden lg:grid place-items-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white"
+            aria-label="Previous event"
+          >
+            <svg viewBox="0 0 10 10" className="w-4 h-4" fill="currentColor"><polygon points="7.5,1 2.5,5 7.5,9" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const el = trackRef.current;
+              if (!el) return;
+              const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+              const w = (firstCard?.offsetWidth || 260) + 24;
+              el.scrollBy({ left: w, behavior: 'smooth' });
+            }}
+            className="pointer-events-auto mr-[-6px] hidden lg:grid place-items-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white"
+            aria-label="Next event"
+          >
+            <svg viewBox="0 0 10 10" className="w-4 h-4" fill="currentColor"><polygon points="2.5,1 7.5,5 2.5,9" /></svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const heroDescription =
     selectedDaySummary?.mainCondition ||
     weather?.summary?.mainCondition ||
@@ -2027,53 +2196,13 @@ export default function HomePage() {
             </div>
 
             {events.filter(e => e.type !== 'trip').length > 0 ? (
-              <div className="relative overflow-hidden">
-                {(() => {
-                  const base = events
-                    .filter(e => e.type !== 'trip')
-                    .slice()
-                    .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime());
-                  const loop = [...base, ...base];
-                  return (
-                    <motion.div
-                      className="flex gap-6"
-                      animate={{ x: ['0%', '-50%'] }}
-                      transition={{ duration: 60, ease: 'linear', repeat: Infinity }}
-                    >
-                      {loop.map((ev, idx) => {
-                        const img = eventImageFor(ev.style);
-                        return (
-                          <button
-                            key={`${ev.id}-${idx}`}
-                            onClick={() => { setSelectedEvent(ev); setShowDetailModal(true); }}
-                            className="group text-left min-w-[240px] sm:min-w-[240px] lg:min-w-[280px]"
-                          >
-                            <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
-                              <img
-                                src={img}
-                                alt={ev.style || 'event'}
-                                className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
-                              />
-                            </div>
-
-                            <div className="mt-3">
-                              <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
-                                {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
-                              </div>
-                              <div className="mt-1 text-gray-300 text-sm sm:text-base space-y-0.5">
-                                <div className="capitalize">{ev.style || '—'}</div>
-                                <div className="truncate">{ev.location || '—'}</div>
-                                <div>{formatDateOnly(ev.dateFrom)}</div>
-                                <div>{formatTimeAmPm(ev.dateFrom)}</div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  );
-                })()}
-              </div>
+              <EventsCarousel
+                items={events
+                  .filter(e => e.type !== 'trip')
+                  .slice()
+                  .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime())}
+                onOpen={(ev) => { setSelectedEvent(ev); setShowDetailModal(true); }}
+              />
             ) : (
               <div className="text-center py-10">
                 <p className="text-gray-400 mb-4">No upcoming events</p>
