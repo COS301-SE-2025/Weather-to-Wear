@@ -812,7 +812,6 @@ export default function HomePage() {
     setWeatherAlert(reasons.length ? { reason: reasons.join(' '), suggestions: Array.from(suggestions).slice(0, 4) } : null);
   }, [daySel, selectedDaySummary, weather?.summary]);
 
-  // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
 
@@ -850,9 +849,7 @@ export default function HomePage() {
       return;
     }
 
-    // If user chose a suggestion, accept immediately; otherwise validate
     let finalCity = next;
-    // if there are suggestions and the top suggestion's city equals input (case-insensitive), we'll accept it directly; else validate.
     const topMatch = citySuggest[0]?.city?.toLowerCase();
     if (!(topMatch && topMatch === next.toLowerCase())) {
       const standardized = await validateAndStandardizeCity(next);
@@ -871,7 +868,6 @@ export default function HomePage() {
 
     await commitCity(finalCity);
 
-    // release guard
     queueMicrotask(() => { submittingRef.current = false; });
   };
 
@@ -924,7 +920,7 @@ export default function HomePage() {
         condition: outfit.weatherSummary.mainCondition,
       }),
 
-      userRating: ratings[key] ?? null, // if the user has rated already, keep it
+      userRating: ratings[key] ?? null, 
 
     };
 
@@ -1015,7 +1011,6 @@ export default function HomePage() {
   const detailLoading = eventOutfitQuery.isLoading || eventOutfitQuery.isFetching;
   const detailError = eventOutfitQuery.isError ? 'Could not load outfit recommendation.' : null;
 
-  // pre-warm recommendations for near events
   useEffect(() => {
     const isWithin3Days = (d: Date) => {
       const now = new Date();
@@ -1045,7 +1040,6 @@ export default function HomePage() {
             );
           }
         } catch {
-          // ignore bad JSON
         }
       }
     };
@@ -1158,7 +1152,6 @@ export default function HomePage() {
     }
   };
 
-  // global bounds for scaling the thin min→max bar
   const { weekMin, weekMax } = useMemo(() => {
     let mn = Infinity, mx = -Infinity;
     for (const d of Object.keys(weekByDay)) {
@@ -1170,7 +1163,6 @@ export default function HomePage() {
     return { weekMin: Math.floor(mn), weekMax: Math.ceil(mx) };
   }, [weekByDay]);
 
-  // ensure "today" is selected by default
   useEffect(() => {
     if (!dayKeys.length) return;
     const todayKey = new Date().toISOString().slice(0, 10);
@@ -1292,9 +1284,6 @@ export default function HomePage() {
     );
   }
 
-  // ------------------------------------------------------------------------------------------
-  // RENDER
-  // ------------------------------------------------------------------------------------------
   const heroDescription =
     selectedDaySummary?.mainCondition ||
     weather?.summary?.mainCondition ||
@@ -1696,7 +1685,6 @@ export default function HomePage() {
   text-gray-900 dark:text-gray-100 mb-4"
                 >
                   {!daySel ? (
-                    // ----- NOT SAVED YET: ONLY "Save" -----
                     <button
                       onClick={async () => {
                         if (isCurrentChosen) return;
@@ -1777,7 +1765,6 @@ export default function HomePage() {
                                     setSaving(true);
                                     let targetId = daySel!.outfitId || outfitIdMap[key];
 
-                                    // Prefer real metadata from the selected outfit; fall back to current carousel outfit if needed
                                     const meta = selectedOutfitFromDaySel || outfitsOrdered[currentIndex];
 
                                     if (!targetId) {
@@ -1788,17 +1775,16 @@ export default function HomePage() {
                                           layerCategory: i.layerCategory,
                                           sortOrder: idx,
                                         })),
-                                        warmthRating: meta?.warmthRating,            // real value
-                                        waterproof: !!meta?.waterproof,              // real value
-                                        overallStyle: meta?.overallStyle ?? selectedStyle, // real value or selectedStyle
+                                        warmthRating: meta?.warmthRating,            
+                                        waterproof: !!meta?.waterproof,              
+                                        overallStyle: meta?.overallStyle ?? selectedStyle, 
                                         weatherSummary: JSON.stringify(
                                           meta?.weatherSummary ?? {
-                                            // safe fallback to current snapshot if meta doesn’t carry it
                                             temperature: selectedOutfitFromDaySel!.weatherSummary.avgTemp,
                                             condition: selectedOutfitFromDaySel!.weatherSummary.mainCondition,
                                           }
                                         ),
-                                        userRating: rating ?? null,                   // nullable (see #3)
+                                        userRating: rating ?? null,                  
                                       });
                                       targetId = created.id;
                                       setOutfitIdMap(prev => ({ ...prev, [key]: targetId! }));
@@ -1824,7 +1810,6 @@ export default function HomePage() {
                                 }}
                                 value={(() => {
                                   const key = selectedOutfitFromDaySel ? getOutfitKey(selectedOutfitFromDaySel) : '';
-                                  // don't force a default; show undefined if no rating yet
                                   return ratings[key] ?? (typeof selectedOutfitFromDaySel?.userRating === 'number'
                                     ? selectedOutfitFromDaySel.userRating
                                     : undefined);
@@ -2150,7 +2135,7 @@ export default function HomePage() {
                         type="button"
                         className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => {
-                          setNewEvent(prev => ({ ...prev, location: opt.city })); // save only the city
+                          setNewEvent(prev => ({ ...prev, location: opt.city })); 
                           setLocSuggest([]);
                           setLocError(null);
                         }}
@@ -2203,7 +2188,6 @@ export default function HomePage() {
                     return;
                   }
 
-                  // Validate & standardize location (Events logic)
                   setLocError(null);
                   const standardized = await validateAndStandardizeLocation(newEvent.location);
                   if (!standardized) {
@@ -2220,7 +2204,6 @@ export default function HomePage() {
                       dateTo: new Date(newEvent.dateTo).toISOString(),
                     });
 
-                    // Instant pre-warm (already existed in Improved) — keep
                     if (created.weather) {
                       let days: { date: string; summary: WeatherSummary }[] = [];
                       try {
@@ -2390,7 +2373,6 @@ export default function HomePage() {
                         </button>
                         <button
                           onClick={() => {
-                            // TODO: optionally navigate to a “Adjust Outfit” flow or open wardrobe
                             setWeatherAlert(null);
                           }}
                           className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
@@ -2461,7 +2443,6 @@ export default function HomePage() {
                 <>
                   <button onClick={async () => {
                     try {
-                      // Validate city (same as Create)
                       setLocErrorE(null);
                       const standardized = await validateAndStandardizeLocation(editEventData.location);
                       if (!standardized) {
@@ -2469,11 +2450,10 @@ export default function HomePage() {
                         return;
                       }
 
-                      // Build safe payload
                       const payload = {
                         id: editEventData.id || selectedEvent!.id,
                         name: editEventData.name || selectedEvent!.name,
-                        location: standardized, // city only
+                        location: standardized, 
                         dateFrom: new Date(
                           editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent!.dateFrom)
                         ).toISOString(),
@@ -2484,7 +2464,6 @@ export default function HomePage() {
                         isTrip: Boolean(selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip')),
                       };
 
-                      // inside the "Save" click handler (isEditing branch)
                       const updatedDto = await updateEvent(payload as any);
                       let updated = toEvent(updatedDto);
 
