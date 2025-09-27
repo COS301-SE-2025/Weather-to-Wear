@@ -51,3 +51,13 @@ code {
   font-style: normal;
   font-display: swap;
 }
+
+@media (min-width: 1024px) {
+  .events-track {
+    -ms-overflow-style: none;  
+    scrollbar-width: none;     
+  }
+  .events-track::-webkit-scrollbar {
+    display: none;             
+  }
+}
