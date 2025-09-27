@@ -172,8 +172,7 @@ class ClosetService {
 
     await this.prisma.closetItem.delete({ where: { id } });
 
-    // Optional: if you later store S3 keys in `filename`, you might also delete from S3 here.
-    // For now, we leave S3 garbage-collection as a future enhancement.
+    // For now, we leave S3 garbage-collection and maybe enhance in future
     const uploadDir = path.join(__dirname, '../../uploads');
     const filePath = path.join(uploadDir, item.filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

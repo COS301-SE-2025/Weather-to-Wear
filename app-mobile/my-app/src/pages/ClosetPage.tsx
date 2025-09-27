@@ -1839,7 +1839,7 @@ export default function ClosetPage() {
                         imageUrl:
                           it.imageUrl && it.imageUrl.length > 0
                             ? it.imageUrl
-                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
+                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), // ! bomboclaat
                         category: it?.closetItem?.category ?? it.category,
                       })),
                     }

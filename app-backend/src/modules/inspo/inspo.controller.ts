@@ -18,7 +18,7 @@ function mapInspoOutfitForClient(outfit: any) {
     score: outfit.score,
     inspoItems: outfit.inspoItems.map((item: any) => ({
       closetItemId: item.closetItemId,
-      imageUrl: item.imageUrl,
+      imageUrl: item.imageUrl, // ! maybe bomboclaat?
       layerCategory: item.layerCategory,
       category: item.category,
       style: item.style,

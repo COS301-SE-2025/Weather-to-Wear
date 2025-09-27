@@ -35,6 +35,41 @@ export type FitTransform = {
     mesh?: { x: number; y: number }[];
 };
 
+const texCache = new Map<string, PIXI.Texture>();
+
+function clearTexCache() {
+  texCache.forEach((t) => {
+    try { t.destroy(true); } catch {}
+  });
+  texCache.clear();
+}
+
+function loadTexture(url: string): Promise<PIXI.Texture> {
+  if (!url) return Promise.reject(new Error('empty url'));
+  const hit = texCache.get(url);
+  if (hit) return Promise.resolve(hit);
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const tex = PIXI.Texture.from(img);
+      texCache.set(url, tex);
+      resolve(tex);
+    };
+    img.onerror = () => reject(new Error('Failed to load ' + url));
+    img.src = url;
+  });
+}
+
+function preloadTextures(urls: string[]) {
+  const unique = Array.from(new Set(urls.filter(Boolean)));
+  return Promise.all(unique.map(loadTexture));
+}
+
+function getTex(url: string): PIXI.Texture {
+  return texCache.get(url) ?? PIXI.Texture.from(url);
+}
 export default function TryOnCanvas({
     mannequinUrl,
     poseId = "front_v1",
@@ -126,7 +161,8 @@ export default function TryOnCanvas({
             items
                 .filter((it) => !!it.url && it.layerCategory !== "footwear")
                 .forEach((it) => {
-                    const tex = PIXI.Texture.from(it.url);
+                    // const tex = PIXI.Texture.from(it.url);
+                    const tex = getTex(it.url);
                     if (!tex || tex.width === 0 || tex.height === 0) return;
 
                     let node = nodeById.get(it.id) as PIXI.Sprite | undefined;
@@ -146,8 +182,11 @@ export default function TryOnCanvas({
                         });
                     } else {
                         // update texture if URL changed
+                        // if ((node.texture as any)?.baseTexture?.resource?.url !== it.url) {
+                        //     node.texture = PIXI.Texture.from(it.url);
+                        // }
                         if ((node.texture as any)?.baseTexture?.resource?.url !== it.url) {
-                            node.texture = PIXI.Texture.from(it.url);
+                            node.texture = getTex(it.url);
                         }
                     }
 
@@ -195,7 +234,8 @@ export default function TryOnCanvas({
             items
                 .filter((i) => i.layerCategory === "footwear" && !!i.url)
                 .forEach((it) => {
-                    const tex = PIXI.Texture.from(it.url);
+                    // const tex = PIXI.Texture.from(it.url);
+                    const tex = getTex(it.url);
                     if (!tex || tex.width === 0 || tex.height === 0) return;
 
                     const lb = boxToStage(FRONT_V1.boxes.LEFT_SHOE_BOX);
@@ -273,7 +313,8 @@ export default function TryOnCanvas({
             }
             overlay.removeChildren();
             try {
-                const occTex = PIXI.Texture.from("/mannequins/front_v1_forearms.png");
+                // const occTex = PIXI.Texture.from("/mannequins/front_v1_forearms.png");
+                const occTex = getTex("/mannequins/front_v1_forearms.png");
                 if (occTex && occTex.width > 0 && occTex.height > 0) {
                     const occ = new PIXI.Sprite(occTex);
                     occ.anchor.set(0.5);
@@ -287,7 +328,8 @@ export default function TryOnCanvas({
 
             // occlusion (head) 
             try {
-                const headTex = PIXI.Texture.from("/mannequins/front_v1_head.png");
+                // const headTex = PIXI.Texture.from("/mannequins/front_v1_head.png");
+                const headTex = getTex("/mannequins/front_v1_head.png");
                 if (headTex && headTex.width > 0 && headTex.height > 0) {
                     const head = new PIXI.Sprite(headTex);
                     head.anchor.set(0.5);
@@ -328,7 +370,8 @@ export default function TryOnCanvas({
             const HANDLE_PX = 16;
 
             // Visual icons
-            const rotIcon = PIXI.Sprite.from("/ui/tryon/handle-rotate.svg");
+            // const rotIcon = PIXI.Sprite.from("/ui/tryon/handle-rotate.svg");
+            const rotIcon = new PIXI.Sprite(getTex("/ui/tryon/handle-rotate.svg"));
             rotIcon.anchor.set(0.5);
             rotIcon.width = HANDLE_PX;
             rotIcon.height = HANDLE_PX;
@@ -336,7 +379,8 @@ export default function TryOnCanvas({
 
             rotIcon.eventMode = "none";
 
-            const sclIcon = PIXI.Sprite.from("/ui/tryon/handle-scale.svg");
+            // const sclIcon = PIXI.Sprite.from("/ui/tryon/handle-scale.svg");
+            const sclIcon = new PIXI.Sprite(getTex("/ui/tryon/handle-scale.svg"));
             sclIcon.anchor.set(0.5);
             sclIcon.width = HANDLE_PX;
             sclIcon.height = HANDLE_PX;
@@ -616,14 +660,18 @@ export default function TryOnCanvas({
 
             setStageHitArea();
 
+            clearTexCache();
+
             // preload
             const garmentUrls = items.map((i) => i.url).filter(Boolean);
             const queue = [mannequinUrl, ...garmentUrls, "/mannequins/front_v1_forearms.png", "/mannequins/front_v1_head.png"];
             const iconQueue = ["/ui/tryon/handle-rotate.svg", "/ui/tryon/handle-scale.svg"];
-            await PIXI.Assets.load([...queue, ...iconQueue]).catch(() => { });
+            // await PIXI.Assets.load([...queue, ...iconQueue]).catch(() => { });
+            await preloadTextures([...queue, ...iconQueue]).catch(() => {});
 
             // mannequin
-            const manTex = PIXI.Texture.from(mannequinUrl);
+            // const manTex = PIXI.Texture.from(mannequinUrl);
+            const manTex = getTex(mannequinUrl);
             if (!manTex || manTex.width === 0 || manTex.height === 0) return;
 
             mannequin = new PIXI.Sprite(manTex);

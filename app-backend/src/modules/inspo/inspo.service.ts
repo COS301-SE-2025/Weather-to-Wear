@@ -23,6 +23,7 @@ import {
   LikedItem 
 } from './inspo.types';
 import tinycolor from 'tinycolor2';
+import { cdnUrlFor } from '../../utils/s3';
 
 const prisma = new PrismaClient();
 
@@ -475,7 +476,8 @@ export async function getUserInspoOutfits(userId: string): Promise<InspoOutfitRe
       .filter((item: any) => item.closetItem) // Filter out items where closetItem is null
       .map((item: any) => ({
         closetItemId: item.closetItemId,
-        imageUrl: item.closetItem.filename ? `/api/uploads/${item.closetItem.filename}` : '',
+        // imageUrl: item.closetItem.filename ? `/api/uploads/${item.closetItem.filename}` : '', // ! bomboclaat
+        imageUrl: item.closetItem?.filename ? cdnUrlFor(item.closetItem.filename) : '', 
         layerCategory: item.layerCategory,
         category: item.closetItem.category || '',
         style: item.closetItem.style?.toString() || undefined,

@@ -1,6 +1,7 @@
 // Enhanced inspoRecommender.service.ts with weighted warmth system
 import { ClosetItem, LayerCategory, Style } from '@prisma/client';
 import { InspoOutfitRecommendation, InspoItemRecommendation, WeatherCondition } from './inspo.types';
+import { cdnUrlFor } from '../../utils/s3';
 
 // Layer warmth weights - same as main recommender
 const LAYER_WARMTH_WEIGHT: Record<string, number> = {
@@ -445,7 +446,8 @@ function generateRandomOutfitsWeighted(
       score: 0.5,
       inspoItems: outfitItems.map(({ item, sortOrder }) => ({
         closetItemId: item.id,
-        imageUrl: `/api/uploads/${item.filename || ''}`,
+        // imageUrl: `/api/uploads/${item.filename || ''}`, // ! bomboclaat
+        imageUrl: item.filename ? cdnUrlFor(item.filename) : '',
         layerCategory: item.layerCategory,
         category: item.category || '',
         style: item.style?.toString() || undefined,
