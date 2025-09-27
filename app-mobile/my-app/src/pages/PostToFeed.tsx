@@ -170,13 +170,13 @@ const PostToFeed = () => {
         location: location || undefined,
         image: imageFile,
         weather: weather || undefined,
-        closetItemIds: selectedClothingItems.length > 0 
+        closetItemIds: selectedClothingItems.length > 0
           ? selectedClothingItems.map(item => item.id)
           : undefined,
       });
 
-// Navigate with success message
-navigate("/feed", { state: { postSuccess: true } });
+      // Navigate with success message
+      navigate("/feed", { state: { postSuccess: true } });
 
     } catch (err: any) {
       console.error("Failed to create post:", err);
@@ -203,14 +203,29 @@ navigate("/feed", { state: { postSuccess: true } });
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 -mt-12 md:mt-0">
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
+      {/* Header Image Section */}
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/header.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              MAKE A POST
+            </h1>
+          </div>
+        </div>
+      </div>
       <div className="px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom)+90px)] md:pb-10 max-w-2xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md">
-          <div className="flex justify-center pt-6">
-            <h2 className="text-lg md:text-xl font-livvic border-2 border-black dark:border-gray-100 px-4 py-1 text-black dark:text-gray-100">
-              Share Your Outfit
-            </h2>
-          </div>
+
 
           <div className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -334,7 +349,7 @@ navigate("/feed", { state: { postSuccess: true } });
                 <label className="block text-center font-livvic text-sm text-gray-700 dark:text-gray-200 mb-3">
                   Tag Clothing Items
                 </label>
-                
+
                 {selectedClothingItems.length > 0 && (
                   <div className="mb-3">
                     <div className="flex flex-wrap gap-2 justify-center">
@@ -354,7 +369,7 @@ navigate("/feed", { state: { postSuccess: true } });
                     </p>
                   </div>
                 )}
-                
+
                 <div className="flex justify-center">
                   <button
                     type="button"
@@ -362,8 +377,8 @@ navigate("/feed", { state: { postSuccess: true } });
                     className="inline-flex items-center px-4 py-2 rounded-full bg-white dark:bg-gray-700 border-2 border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F] hover:text-white transition-colors font-livvic text-sm"
                   >
                     <Shirt className="h-5 w-5 mr-2" />
-                    {selectedClothingItems.length > 0 
-                      ? `Edit Tagged Items (${selectedClothingItems.length})` 
+                    {selectedClothingItems.length > 0
+                      ? `Edit Tagged Items (${selectedClothingItems.length})`
                       : "Tag Clothing Items"
                     }
                   </button>

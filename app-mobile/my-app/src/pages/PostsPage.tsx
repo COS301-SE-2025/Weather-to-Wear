@@ -317,7 +317,9 @@ const PostsPage: React.FC = () => {
 
     // ----- UI -----
     return (
-        <div className="w-full max-w-screen-xl mx-auto md:px-6 -mt-16 md:-mt-4">
+        <div
+      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden ml-[calc(-50vw+50%)]"
+    >
             {/* Profile header */}
             <div className="px-4 pt-6 md:pt-10">
                 <div className="flex items-center gap-6">
@@ -354,7 +356,7 @@ const PostsPage: React.FC = () => {
                         </div>
 
                         <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                            Welcome to my wardrobe & fits ✨
+                            Welcome to my wardrobe & fits 
                         </div>
                     </div>
 

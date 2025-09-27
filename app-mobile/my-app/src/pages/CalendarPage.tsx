@@ -315,14 +315,14 @@ export default function CalendarPage() {
       const next = exists
         ? prev.filter(p => p.closetItemId !== item.id)
         : [
-            ...prev,
-            {
-              closetItemId: item.id,
-              name: item.name,
-              imageUrl: normalizeUrl(item.imageUrl),
-              checked: false,
-            },
-          ];
+          ...prev,
+          {
+            closetItemId: item.id,
+            name: item.name,
+            imageUrl: normalizeUrl(item.imageUrl),
+            checked: false,
+          },
+        ];
       syncOutfitsFromItems(next);
       return next;
     });
@@ -337,14 +337,14 @@ export default function CalendarPage() {
       return isSaved
         ? prev.filter(p => p.outfitId !== o.id)
         : [
-            ...prev,
-            {
-              outfitId: o.id,
-              name: o.name,
-              imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
-              checked: false,
-            },
-          ];
+          ...prev,
+          {
+            outfitId: o.id,
+            name: o.name,
+            imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
+            checked: false,
+          },
+        ];
     });
 
     const adding = !packOutfits.some(p => p.outfitId === o.id);
@@ -423,12 +423,12 @@ export default function CalendarPage() {
       const s = days[0]?.summary;
       return s
         ? {
-            avgTemp: s.avgTemp,
-            minTemp: s.minTemp,
-            maxTemp: s.maxTemp,
-            willRain: s.willRain,
-            mainCondition: s.mainCondition,
-          }
+          avgTemp: s.avgTemp,
+          minTemp: s.minTemp,
+          maxTemp: s.maxTemp,
+          willRain: s.willRain,
+          mainCondition: s.mainCondition,
+        }
         : undefined;
     } catch {
       return undefined;
@@ -443,12 +443,12 @@ export default function CalendarPage() {
       selectedEvent?.style || 'Casual',
       selectedEventTodaySummary
         ? JSON.stringify({
-            a: Math.round(selectedEventTodaySummary.avgTemp),
-            i: Math.round(selectedEventTodaySummary.minTemp),
-            x: Math.round(selectedEventTodaySummary.maxTemp),
-            r: selectedEventTodaySummary.willRain,
-            m: selectedEventTodaySummary.mainCondition,
-          })
+          a: Math.round(selectedEventTodaySummary.avgTemp),
+          i: Math.round(selectedEventTodaySummary.minTemp),
+          x: Math.round(selectedEventTodaySummary.maxTemp),
+          r: selectedEventTodaySummary.willRain,
+          m: selectedEventTodaySummary.mainCondition,
+        })
         : 'no-summary',
     ],
     enabled: Boolean(showEventModal && selectedEvent?.id && selectedEvent?.style && selectedEventTodaySummary),
@@ -709,10 +709,10 @@ export default function CalendarPage() {
         coverImageUrl: normalizeUrl(o.coverImageUrl ?? null),
         outfitItems: Array.isArray(o.outfitItems)
           ? o.outfitItems.map((it: any) => ({
-              closetItemId: String(it.closetItemId ?? it.id ?? ''),
-              layerCategory: String(it.layerCategory ?? it.layer ?? ''),
-              imageUrl: normalizeUrl(it.imageUrl ?? null),
-            }))
+            closetItemId: String(it.closetItemId ?? it.id ?? ''),
+            layerCategory: String(it.layerCategory ?? it.layer ?? ''),
+            imageUrl: normalizeUrl(it.imageUrl ?? null),
+          }))
           : [],
       }));
 
@@ -818,10 +818,10 @@ export default function CalendarPage() {
         coverImageUrl: normalizeUrl(o.coverImageUrl ?? null),
         outfitItems: Array.isArray(o.outfitItems)
           ? o.outfitItems.map((it: any) => ({
-              closetItemId: String(it.closetItemId ?? it.id ?? ''),
-              layerCategory: String(it.layerCategory ?? it.layer ?? ''),
-              imageUrl: normalizeUrl(it.imageUrl ?? null),
-            }))
+            closetItemId: String(it.closetItemId ?? it.id ?? ''),
+            layerCategory: String(it.layerCategory ?? it.layer ?? ''),
+            imageUrl: normalizeUrl(it.imageUrl ?? null),
+          }))
           : [],
       }));
 
@@ -862,9 +862,9 @@ export default function CalendarPage() {
   }
 
   // ---- Recommended Items (48h pre-trip) ----
-  const COLD_TOPS: string[] = ['COAT','JACKET','HOODIE','SWEATER','BLAZER'];
-  const RAIN_ITEMS: string[] = ['RAINCOAT','UMBRELLA','BOOTS'];
-  const HOT_ITEMS:  string[] = ['SHORTS','SKIRT','SANDALS'];
+  const COLD_TOPS: string[] = ['COAT', 'JACKET', 'HOODIE', 'SWEATER', 'BLAZER'];
+  const RAIN_ITEMS: string[] = ['RAINCOAT', 'UMBRELLA', 'BOOTS'];
+  const HOT_ITEMS: string[] = ['SHORTS', 'SKIRT', 'SANDALS'];
 
   function within48hOfStart(trip: Event) {
     const start = new Date(trip.dateFrom).getTime();
@@ -873,13 +873,13 @@ export default function CalendarPage() {
 
   function tripWeatherWindow(trip: Event) {
     try {
-      const all = (JSON.parse(trip.weather || '[]') as Array<{date:string; summary:any}>)
+      const all = (JSON.parse(trip.weather || '[]') as Array<{ date: string; summary: any }>)
         .map(d => d.summary)
         .filter(Boolean);
       if (!all.length) return [];
       const start = new Date(trip.dateFrom);
-      const end   = new Date(trip.dateTo);
-      const days  = Math.max(1, Math.round((+end - +start) / 86400000) + 1);
+      const end = new Date(trip.dateTo);
+      const days = Math.max(1, Math.round((+end - +start) / 86400000) + 1);
       return all.slice(0, Math.min(7, days));
     } catch { return []; }
   }
@@ -895,7 +895,7 @@ export default function CalendarPage() {
 
     const anyRain = window.some(w => !!w?.willRain);
     const minTemp = Math.min(...window.map(w => Number(w?.minTemp ?? 99)));
-    const maxAvg  = Math.max(...window.map(w => Number(w?.avgTemp ?? -99)));
+    const maxAvg = Math.max(...window.map(w => Number(w?.avgTemp ?? -99)));
 
     const packedIds = new Set(packed.map(p => p.closetItemId));
     const packedCats = new Set(
@@ -1227,7 +1227,7 @@ export default function CalendarPage() {
 
   function getWeekSegments(week: Date[], evts: Event[]): Segment[] {
     const start = new Date(week[0]); start.setHours(0, 0, 0, 0);
-    const end = new Date(week[6]);   end.setHours(23, 59, 59, 999);
+    const end = new Date(week[6]); end.setHours(23, 59, 59, 999);
     const segs: Omit<Segment, 'lane' | 'weekKey'>[] = [];
     for (const ev of evts) {
       const s = parseISO(ev.dateFrom);
@@ -1289,24 +1289,13 @@ export default function CalendarPage() {
     localStorage.setItem(`tripDayOutfits:${tripId}`, JSON.stringify(map));
   }
 
-  const renderHeader = () => (
-    <div className="flex items-center justify-between mb-4">
-      <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
-        <ChevronLeft className="w-5 h-5" />
-      </button>
-      <h2 className="text-xl font-bold">{fmt(currentMonth, { month: 'long', year: 'numeric' })}</h2>
-      <button onClick={nextMonth} className="p-2 rounded-full hover:bg-gray-100">
-        <ChevronRight className="w-5 h-5" />
-      </button>
-    </div>
-  );
 
   const renderDayNames = () => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return (
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 gap-1 mb-2 ">
         {days.map(d => (
-          <div key={d} className="text-center font-medium text-sm py-1">{d}</div>
+          <div key={d} className="text-center font-medium text-sm py-1 font-livvic">{d}</div>
         ))}
       </div>
     );
@@ -1326,17 +1315,16 @@ export default function CalendarPage() {
             return (
               <div
                 key={d.toDateString()}
-                className={`min-h-20 p-1 border relative
-                ${inMonth ? 'bg-white' : 'bg-gray-100'}
-                ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-200'}
-                ${isSameDay(d, selectedDate) ? 'bg-[#3F978F] bg-opacity-10' : ''}`}
+                className={`relative h-24 rounded-lg overflow-hidden border p-1
+    ${inMonth ? 'bg-white' : 'bg-gray-100'}
+    ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-300'}
+    ${isSameDay(d, selectedDate) ? 'bg-[#3F978F]/10' : ''}`}
                 onClick={() => {
                   const dd = new Date(d);
                   const trips = eventsOnDay(dd).filter(isTripEvent);
                   if (trips.length) {
                     const trip = trips[0];
 
-                    // Forecast horizon guard
                     const startOfToday = new Date();
                     startOfToday.setHours(0, 0, 0, 0);
                     const daysAhead = Math.floor((dd.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
@@ -1358,15 +1346,17 @@ export default function CalendarPage() {
                 }}
               >
                 <div className="text-right text-sm">{d.getDate()}</div>
+
                 {overflow > 0 && (
                   <button
-                    className="absolute bottom-1 left-1 z-20 text-[11px] leading-none px-1.5 py-0.5 rounded-full bg-gray-100 border shadow-sm"
+                    className="absolute bottom-1 left-1 z-10 text-[11px] leading-none px-1.5 rounded-full bg-gray-100 border shadow-sm"
                     onClick={(e) => { e.stopPropagation(); setShowDayList({ open: true, date: new Date(d) }); }}
                   >
                     +{overflow} more
                   </button>
                 )}
               </div>
+
             );
           });
           const segs = getWeekSegments(week, events);
@@ -1374,9 +1364,9 @@ export default function CalendarPage() {
           const segsToRender = segs.filter(s => s.lane < maxLanes);
           return (
             <div key={week[0].toDateString()} className="relative">
-              <div className="grid grid-cols-7 gap-1">{dayCells}</div>
+              <div className="grid grid-cols-7 gap-1 rounded-full">{dayCells}</div>
               <div
-                className="absolute inset-x-0 top-6 bottom-7 sm:bottom-6 z-0 grid grid-cols-7 gap-x-1 pointer-events-none"
+                className="absolute inset-x-0 top-6 bottom-7 sm:bottom-6 z-0 grid grid-cols-7 gap-x-1 pointer-events-none rounded-full"
                 style={{ gridAutoRows: `${rowPx}px`, rowGap: `${ROW_GAP_PX}px` }}
               >
                 {segsToRender.map(seg => {
@@ -1420,32 +1410,63 @@ export default function CalendarPage() {
     );
   }
 
+  // Image lives in /public as casual.jpg, formal.jpg, etc.
+  function eventSlugImage(style?: string) {
+    const slug = String(style || 'other').trim().toLowerCase().replace(/\s+/g, '-');
+    return `/${slug}.jpg`;
+  }
+
+
+
   function renderSelectedDateEvents() {
-    const dateEvents = eventsOnDay(selectedDate);
+    const dateEvents: Event[] = eventsOnDay(selectedDate);
+
     return (
       <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">
-          {isToday(selectedDate) ? "Today's Events" : fmt(selectedDate, { weekday: 'long', month: 'long', day: 'numeric' })}
+        <h3 className="text-xl sm:text-2xl font-semibold mb-2 font-livvic">
+          {isToday(selectedDate)
+            ? "Today's Events"
+            : fmt(selectedDate, { weekday: 'long', month: 'long', day: 'numeric' })}
         </h3>
+
         {dateEvents.length === 0 ? (
           <p className="text-gray-500">No events scheduled</p>
         ) : (
-          <div className="space-y-2">
-            {dateEvents.map(ev => (
-              <div
-                key={ev.id}
-                className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
-              >
-                <div className="font-medium">{ev.name}</div>
-                <div className="text-sm text-gray-600">
-                  {fmt(parseISO(ev.dateFrom), { hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { hour: 'numeric', minute: '2-digit' })}
-                </div>
-                {ev.location && <div className="text-sm text-gray-600">Location: {ev.location}</div>}
-                <div className="text-xs mt-1 px-2 py-1 bg-gray-100 rounded-full inline-block">{ev.style}</div>
-              </div>
+          <ul className="space-y-2">
+            {dateEvents.map((ev: Event) => (
+              <li key={ev.id}>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
+                  className="w-full text-left group"
+                  aria-label={`Open ${ev.name}`}
+                >
+                  <div className="flex items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
+                    {/* square image */}
+                    <img
+                      src={eventSlugImage(ev.style)}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/other.jpg'; }}
+                      alt={ev.style || 'event'}
+                      className="w-28 h-28 sm:w-36 sm:h-36 object-cover"
+                      loading="lazy"
+                    />
+                    <div className="flex-1 p-3">
+                      <div className="font-medium truncate">{ev.name}</div>
+                      <div className="text-sm text-white/80">
+                        {fmt(parseISO(ev.dateFrom), { hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      {ev.location && (
+                        <div className="text-sm text-white/80 truncate">{ev.location}</div>
+                      )}
+                      <div className="mt-1 inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs">
+                        {ev.style}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     );
@@ -1455,40 +1476,61 @@ export default function CalendarPage() {
     const now = new Date();
     const in14 = new Date();
     in14.setDate(now.getDate() + UPCOMING_DAYS);
-    const upcoming = events
-      .filter(ev => {
+
+    const upcoming: Event[] = events
+      .filter((ev: Event) => {
         const start = parseISO(ev.dateFrom);
         return start >= now && start <= in14;
       })
-      .sort((a, b) => parseISO(a.dateFrom).getTime() - parseISO(b.dateFrom).getTime());
+      .sort((a: Event, b: Event) => parseISO(a.dateFrom).getTime() - parseISO(b.dateFrom).getTime());
+
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-2">Upcoming Events </h3>
+        <h3 className="text-xl sm:text-2xl font-semibold mb-2 font-livvic">Upcoming Events</h3>
+
         {upcoming.length === 0 ? (
           <p className="text-gray-500">Nothing coming up in the next two weeks.</p>
         ) : (
-          <div className="space-y-2">
-            {upcoming.map(ev => (
-              <div
-                key={`up-${ev.id}`}
-                className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
-              >
-                <div className="font-medium">{ev.name}</div>
-                <div className="text-sm text-gray-600">
-                  {fmt(parseISO(ev.dateFrom), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  {' – '}
-                  {fmt(parseISO(ev.dateTo), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                </div>
-                {ev.location && <div className="text-sm text-gray-600">Location: {ev.location}</div>}
-                <div className="text-xs mt-1 px-2 py-1 bg-gray-100 rounded-full inline-block">{ev.style}</div>
-              </div>
+          <ul className="space-y-2">
+            {upcoming.map((ev: Event) => (
+              <li key={`up-${ev.id}`}>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
+                  className="w-full text-left group"
+                  aria-label={`Open ${ev.name}`}
+                >
+                  <div className="flex items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
+                    {/* square image */}
+                    <img
+                      src={eventSlugImage(ev.style)}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/other.jpg'; }}
+                      alt={ev.style || 'event'}
+                      className="w-28 h-28 sm:w-36 sm:h-36 object-cover"
+                      loading="lazy"
+                    />
+                    <div className="flex-1 p-3">
+                      <div className="font-medium truncate">{ev.name}</div>
+                      <div className="text-sm text-white/80">
+                        {fmt(parseISO(ev.dateFrom), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      {ev.location && (
+                        <div className="text-sm text-white/80 truncate">{ev.location}</div>
+                      )}
+                      <div className="mt-1 inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs">
+                        {ev.style}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     );
   }
+
 
   // Small badge for weather display in the trip outfit modal
   const TripDayWeatherBadge: React.FC<{ trip: Event; date: Date }> = ({ trip, date }) => {
@@ -1506,32 +1548,68 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto -mt-16 md:mt-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Calendar</h1>
+    <div
+      className="ml-[calc(-50vw+50%)] w-screen flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden "
+      // style={{ width: '100%', maxWidth: '195vw' }} // Ensures no overflow
+    >
+      {/* Header Image Section */}
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/calHeader1.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              <div className="flex items-center justify-between">
+                <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <h2 className="uppercase text-xl font-bold"> {fmt(currentMonth, { month: 'long', year: 'numeric' })}
+                </h2>
+                <button onClick={nextMonth} className="p-2 rounded-full hover:bg-gray-100">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </h1>
+          </div>
+        </div>
+      </div>
+
+
+      <div className="flex justify-center mb-4">
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => setShowCreateModal(true)}
-            className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+            className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition inline-flex items-center gap-2"
             aria-label="Add event"
           >
             <CalendarPlus className="w-5 h-5" />
+            <span>Add Event</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setShowTripModal(true)}
-            className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
-            aria-label="Add trip"
+            className="px-3 py-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition inline-flex items-center gap-2"
+            aria-label="Plan a trip"
           >
             <Luggage className="w-5 h-5" />
+            <span>Plan a Trip</span>
           </button>
         </div>
       </div>
 
-      {renderHeader()}
+
+<div className='px-4 sm:px-8'>
       {renderDayNames()}
       {renderWeeks()}
       {renderSelectedDateEvents()}
       {renderUpcomingEvents()}
+</div>
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1812,19 +1890,19 @@ export default function CalendarPage() {
                     <div className="flex justify-center flex-wrap gap-2">
                       {saved.kind === 'outfit'
                         ? (suitcaseOutfits.find(o => o.id === saved.outfitId)?.outfitItems ?? []).map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="w-16 h-16 object-contain rounded"
-                            />
-                          ))
+                          <img
+                            key={it.closetItemId}
+                            src={normalizeUrl(it.imageUrl) || ''}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))
                         : saved.items.map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="w-16 h-16 object-contain rounded"
-                            />
-                          ))}
+                          <img
+                            key={it.closetItemId}
+                            src={normalizeUrl(it.imageUrl) || ''}
+                            className="w-16 h-16 object-contain rounded"
+                          />
+                        ))}
                     </div>
 
                     <div className="flex gap-2 justify-end">
@@ -1850,16 +1928,15 @@ export default function CalendarPage() {
             {/* Landing: choose Pick vs Generate */}
             {planTab === 'landing' && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ">
                   <button
                     disabled={suitcaseOutfits.length === 0}
                     onClick={() => {
                       setChosenDraft(null);
                       setPlanTab('pick');
                     }}
-                    className={`p-4 rounded-lg border ${
-                      suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className={`p-4 rounded-lg border ${suitcaseOutfits.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                      }`}
                   >
                     Pick an Outfit
                     <div className="text-xs text-gray-500 mt-1">From the outfits you packed</div>
@@ -1872,9 +1949,8 @@ export default function CalendarPage() {
                       generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
                       setPlanTab('generate');
                     }}
-                    className={`p-4 rounded-lg border ${
-                      suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className={`p-4 rounded-lg border ${suitcaseItems.length ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                      }`}
                   >
                     Generate Your Outfit
                     <div className="text-xs text-gray-500 mt-1">Weather-aware, from suitcase items</div>
@@ -2023,11 +2099,10 @@ export default function CalendarPage() {
                       });
                       setPlanTab('chosen');
                     }}
-                    className={`px-4 py-2 rounded ${
-                      genOutfits.length
-                        ? 'bg-[#3F978F] text-white'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
+                    className={`px-4 py-2 rounded ${genOutfits.length
+                      ? 'bg-[#3F978F] text-white'
+                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      }`}
                   >
                     Set Outfit
                   </button>
@@ -2101,11 +2176,10 @@ export default function CalendarPage() {
                                 <button
                                   key={o.id}
                                   onClick={() => toggleOutfitInPack(o)}
-                                  className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${
-                                    packOutfits.some(p => p.outfitId === o.id)
-                                      ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
-                                      : 'border-gray-200'
-                                  }`}
+                                  className={`border rounded-lg p-2 bg-white hover:bg-gray-50 text-left ${packOutfits.some(p => p.outfitId === o.id)
+                                    ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
+                                    : 'border-gray-200'
+                                    }`}
                                   title={o.name}
                                 >
                                   <div className="space-y-1">
@@ -2229,7 +2303,7 @@ export default function CalendarPage() {
 
                       const anyRain = summaries.some(s => !!s.willRain);
                       const coldDays = summaries.filter(s => Number(s.minTemp) <= 10).length;
-                      const hotDays  = summaries.filter(s => Number(s.avgTemp) >= 26).length;
+                      const hotDays = summaries.filter(s => Number(s.avgTemp) >= 26).length;
 
                       const packedIds = new Set(packItems.map(p => p.closetItemId));
                       const notPacked = closetItems.filter(ci => !packedIds.has(ci.id));
@@ -2238,7 +2312,7 @@ export default function CalendarPage() {
 
                       const rainPool = pickCat(['RAINCOAT', 'UMBRELLA', 'JACKET', 'COAT']);
                       const warmPool = pickCat(['HOODIE', 'SWEATER', 'JACKET', 'COAT', 'SCARF', 'GLOVES', 'BEANIE']);
-                      const hotPool  = pickCat(['SHORTS', 'TSHIRT', 'SLEEVELESS', 'SANDALS']);
+                      const hotPool = pickCat(['SHORTS', 'TSHIRT', 'SLEEVELESS', 'SANDALS']);
 
                       const rec: typeof closetItems = [];
                       const addSome = (arr: typeof closetItems, n: number) => {
@@ -2275,9 +2349,8 @@ export default function CalendarPage() {
                                         {(it.category || it.name || 'Item').toString()}
                                       </div>
                                       <button
-                                        className={`w-full text-xs px-2 py-1 rounded ${
-                                          already ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3F978F] text-white'
-                                        }`}
+                                        className={`w-full text-xs px-2 py-1 rounded ${already ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3F978F] text-white'
+                                          }`}
                                         disabled={already}
                                         onClick={() =>
                                           addPackItemIfMissing(
@@ -2352,10 +2425,10 @@ export default function CalendarPage() {
                 <button className="px-4 py-2 rounded border" onClick={() => setShowPackingModal(false)}>Cancel</button>
                 <button className="px-4 py-2 rounded bg-[#3F978F] text-white" onClick={() => savePacking(selectedEvent.id)}>Save</button>
               </div>
-            </div>  
-          </div>  
-        </div>  
-      )}       
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDayList.open && showDayList.date && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
