@@ -1,0 +1,12 @@
+{
+  "name": "Cypress Example",
+  "version": "1.0.0",
+  "description": "Sample fixture data for Cypress tests",
+  "data": {
+    "greeting": "Hello, World!",
+    "user": {
+      "name": "Test User",
+      "email": "testuser@example.com"
+    }
+  }
+}
