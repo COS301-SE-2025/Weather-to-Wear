@@ -311,8 +311,6 @@ const FeedPage: React.FC = () => {
   useEffect(() => {
     if (!currentUserId) return;
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 5000);
-    return () => clearInterval(interval);
   }, [currentUserId, fetchNotifications]);
 
   const toggleLike = async (id: string) => {
@@ -326,7 +324,6 @@ const FeedPage: React.FC = () => {
         await likePost(id);
         setPosts(posts.map((p) => (p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p)));
       }
-      fetchNotifications();
     } catch (err: any) {
       setError(err.message);
     }
@@ -348,7 +345,6 @@ const FeedPage: React.FC = () => {
       );
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
-      fetchNotifications();
     } catch (err: any) {
       setError(err.message || "Failed to add comment");
     }
@@ -488,7 +484,13 @@ const FeedPage: React.FC = () => {
             type="button"
             aria-label="Notifications"
             className="shrink-0 w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
-            onClick={() => setShowNotifications((v) => !v)}
+            onClick={() => {
+              setShowNotifications((prev) => {
+                const next = !prev;
+                if (next) fetchNotifications(); // refresh when opening
+                return next;
+              });
+            }}
           >
             <Bell className="h-5 w-5" />
           </button>
