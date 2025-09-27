@@ -230,9 +230,7 @@ const PostToFeed = () => {
           <div className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <p className="text-center font-livvic text-gray-700 dark:text-gray-200 text-base">
-                  Add Photo
-                </p>
+                
 
                 <div className="mt-3 flex flex-col items-center gap-3">
                   <div className="flex w-full justify-center gap-2">

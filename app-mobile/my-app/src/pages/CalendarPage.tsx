@@ -1416,8 +1416,6 @@ export default function CalendarPage() {
     return `/${slug}.jpg`;
   }
 
-
-
   function renderSelectedDateEvents() {
     const dateEvents: Event[] = eventsOnDay(selectedDate);
 
@@ -1432,17 +1430,16 @@ export default function CalendarPage() {
         {dateEvents.length === 0 ? (
           <p className="text-gray-500">No events scheduled</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {dateEvents.map((ev: Event) => (
-              <li key={ev.id}>
+              <li key={ev.id} className="h-full">
                 <button
                   type="button"
                   onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
-                  className="w-full text-left group"
+                  className="w-full text-left group h-full"
                   aria-label={`Open ${ev.name}`}
                 >
-                  <div className="flex items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
-                    {/* square image */}
+                  <div className="flex h-full items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
                     <img
                       src={eventSlugImage(ev.style)}
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/other.jpg'; }}
@@ -1458,15 +1455,13 @@ export default function CalendarPage() {
                       {ev.location && (
                         <div className="text-sm text-white/80 truncate">{ev.location}</div>
                       )}
-                      <div className="mt-1 inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs">
-                        {ev.style}
-                      </div>
                     </div>
                   </div>
                 </button>
               </li>
             ))}
           </ul>
+
         )}
       </div>
     );
@@ -1491,17 +1486,16 @@ export default function CalendarPage() {
         {upcoming.length === 0 ? (
           <p className="text-gray-500">Nothing coming up in the next two weeks.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {upcoming.map((ev: Event) => (
-              <li key={`up-${ev.id}`}>
+              <li key={`up-${ev.id}`} className="h-full">
                 <button
                   type="button"
                   onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
-                  className="w-full text-left group"
+                  className="w-full text-left group h-full"
                   aria-label={`Open ${ev.name}`}
                 >
-                  <div className="flex items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
-                    {/* square image */}
+                  <div className="flex h-full items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
                     <img
                       src={eventSlugImage(ev.style)}
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/other.jpg'; }}
@@ -1517,15 +1511,13 @@ export default function CalendarPage() {
                       {ev.location && (
                         <div className="text-sm text-white/80 truncate">{ev.location}</div>
                       )}
-                      <div className="mt-1 inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs">
-                        {ev.style}
-                      </div>
                     </div>
                   </div>
                 </button>
               </li>
             ))}
           </ul>
+
         )}
       </div>
     );
@@ -1550,7 +1542,7 @@ export default function CalendarPage() {
   return (
     <div
       className="ml-[calc(-50vw+50%)] w-screen flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden "
-      // style={{ width: '100%', maxWidth: '195vw' }} // Ensures no overflow
+    // style={{ width: '100%', maxWidth: '195vw' }} // Ensures no overflow
     >
       {/* Header Image Section */}
       <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
@@ -1604,12 +1596,12 @@ export default function CalendarPage() {
       </div>
 
 
-<div className='px-4 sm:px-8'>
-      {renderDayNames()}
-      {renderWeeks()}
-      {renderSelectedDateEvents()}
-      {renderUpcomingEvents()}
-</div>
+      <div className='px-4 sm:px-8'>
+        {renderDayNames()}
+        {renderWeeks()}
+        {renderSelectedDateEvents()}
+        {renderUpcomingEvents()}
+      </div>
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
