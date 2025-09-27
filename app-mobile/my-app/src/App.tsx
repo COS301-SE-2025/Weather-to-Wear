@@ -6,6 +6,7 @@ import ClosetPage from "./pages/ClosetPage";
 import CalendarPage from "./pages/CalendarPage";
 import FeedPage from "./pages/FeedPage";
 import ProfilePage from "./pages/Profile";
+import Profile from "./pages/Profile";
 import CreateAnOutfit from "./pages/CreateAnOutfit";
 import PostToFeed from "./pages/PostToFeed";
 import UnderConstruction from "./pages/UnderConstruction";
@@ -116,6 +117,7 @@ function App() {
                             <Route path="inspo" element={<InspoPage />} />
                             {/* <Route path="appearance" element={<Appearance />} /> */}
                             <Route path="profile" element={<ProfilePage />} />
+                            <Route path="profile/:userId?" element={<Profile />} /> 
                             <Route path="create-outfit" element={<CreateAnOutfit />} />
                             <Route path="post-to-feed" element={<PostToFeed />} />
                             <Route path="help" element={<HelpPage />} />

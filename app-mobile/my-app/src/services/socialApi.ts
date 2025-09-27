@@ -90,6 +90,7 @@ export async function createPost(data: {
 
 //   return response.json(); // Returns { posts: [...] }
 // }
+// src/services/socialApi.ts
 export async function getPosts(limit = 20, offset = 0, include: string[] = [], userId?: string) {
   let url = `${API_URL}/posts?limit=${limit}&offset=${offset}&include=${include.join(",")}`;
   if (userId) {

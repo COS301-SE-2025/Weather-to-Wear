@@ -97,16 +97,37 @@ export type NotificationAPIItem =
 
 const API_URL = `${API_BASE}`;
 
-type SearchUsersCardProps = {
+// type SearchUsersCardProps = {
+//   searchQuery: string;
+//   setSearchQuery: (v: string) => void;
+//   searchLoading: boolean;
+//   searchError: string | null;
+//   searchResults: UserResult[];
+//   searchHasMore: boolean;
+//   onLoadMore: () => void;
+//   onToggleFollow: (id: string, user: UserResult) => void;
+// };
+
+interface SearchUsersCardProps {
   searchQuery: string;
-  setSearchQuery: (v: string) => void;
+  setSearchQuery: (query: string) => void;
   searchLoading: boolean;
   searchError: string | null;
-  searchResults: UserResult[];
+  searchResults: Array<{
+    id: string;
+    name: string;
+    profilePhoto?: string | null;
+    location?: string | null;
+    isFollowing: boolean;
+    followRequested?: boolean;
+    isPrivate: boolean;
+    followersCount: number;
+    followingCount: number;
+  }>;
   searchHasMore: boolean;
   onLoadMore: () => void;
-  onToggleFollow: (id: string, user: UserResult) => void;
-};
+  onToggleFollow: (id: string, user: any) => void;
+}
 
 // const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
 //   ({
@@ -210,7 +231,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
     onLoadMore,
     onToggleFollow,
   }) => {
-    const navigate = useNavigate(); // Add this
+    const navigate = useNavigate();
 
     return (
       <div className="w-full">
@@ -271,10 +292,11 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
                   e.stopPropagation();
                   onToggleFollow(u.id, u);
                 }}
-                className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
-                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                  : "bg-[#3F978F] text-white hover:bg-[#357f78]"
-                  }`}
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                  u.isFollowing || u.followRequested
+                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                    : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                }`}
               >
                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
               </button>
@@ -295,6 +317,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
     );
   }
 );
+
 
 const weatherIcon = (cond?: string | null) => {
   const c = (cond || "").toLowerCase();
