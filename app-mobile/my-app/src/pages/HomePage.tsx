@@ -11,7 +11,6 @@ import { motion } from 'framer-motion';
 import { getDaySelection, upsertDaySelection, deleteDaySelection, type DaySelectionDTO } from '../services/daySelectionApi';
 import { fetchAllItems } from '../services/closetApi';
 
-
 import {
   fetchRecommendedOutfits,
   RecommendedOutfit,
@@ -40,12 +39,10 @@ function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
 
-
 function getOutfitKeyFromDaySel(sel: DaySelectionDTO | null): string | null {
   if (!sel?.items?.length) return null;
   return sel.items.map(i => i.closetItemId).sort().join('-');
 }
-
 
 function toYYYYMMDD(isoOrDate: string | Date) {
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
@@ -63,11 +60,9 @@ function buildWeatherSnapshot(s?: WeatherSummary | null) {
   };
 }
 
-
 // Map style → image in /public/events/*.jpg (e.g. /events/business.jpg)
 function eventImageFor(style?: string) {
   const slug = (style || 'other').toLowerCase();
-  // put images in public/events/<slug>.jpg
   return `${slug}.jpg`;
 }
 
@@ -76,13 +71,39 @@ function formatDateOnly(iso: string) {
 }
 
 function formatTimeAmPm(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); // 3:05 PM
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    query
+  )}&count=${count}&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const results = (data?.results || []) as Array<any>;
+  return results.map(r => ({
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+    city: r.name as string,
+  }));
+}
+
+async function validateAndStandardizeCity(raw: string): Promise<string | null> {
+  const q = raw.trim();
+  if (!q) return null;
+  const matches = await geocodeCity(q, 1);
+  return matches[0]?.city ?? null; // return just the city name
+}
+
+// Added from Events: local datetime formatter for edit-prefill
+function toLocalDatetimeInputValue(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 // put this near the top of HomePage.tsx (or in a utils file)
 const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
-
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
@@ -132,7 +153,6 @@ function iconFor(conditionRaw: string | undefined) {
   if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return '🌫️';
   if (c.includes('cloud') || c.includes('overcast')) return '☁️';
   if (c.includes('wind')) return '🌬️';
-  // clear/sunny fallback
   return '☀️';
 }
 
@@ -151,9 +171,6 @@ const TypingSlogan = () => {
       document.body.classList.remove('home-fullbleed');
     };
   }, []);
-
-
-
 
   useEffect(() => {
     const handleTyping = () => {
@@ -212,7 +229,6 @@ const THEME = {
 };
 
 // ---- Weather-based adjustment helpers ----
-
 type AdjReason =
   | { kind: 'rain_on'; steps: 1 }
   | { kind: 'warming'; steps: number }
@@ -220,7 +236,7 @@ type AdjReason =
 
 type ClosetItemDTO = {
   id: string;
-  layerCategory?: string;     // API may omit this → optional here
+  layerCategory?: string;
   waterproof?: boolean;
   colorHex?: string;
   dominantColors?: string[];
@@ -231,26 +247,19 @@ function computeAdjustmentNeed(
   current: { avgTemp: number; willRain: boolean }
 ): AdjReason[] {
   const out: AdjReason[] = [];
-
-  // Rain newly expected?
   if (!saved.willRain && current.willRain) {
     out.push({ kind: 'rain_on', steps: 1 });
   }
-
-  // Temperature steps: ~10°C per layer add/remove
-  const delta = current.avgTemp - saved.avgTemp; // + = warmer, - = cooler
-  const STEP = 10; // °C per step
+  const delta = current.avgTemp - saved.avgTemp;
+  const STEP = 10;
   const steps = Math.floor(Math.abs(delta) / STEP);
   if (steps > 0) {
     out.push({ kind: delta >= 0 ? 'warming' : 'cooling', steps });
   }
-
   return out;
 }
 
 // ---- Closet pick helpers ----
-
-// Simple neutral set (matches your plan)
 const NEUTRAL_COLORS = new Set(['black', 'white', 'grey', 'gray', 'navy', 'beige']);
 
 type ClosetBasic = {
@@ -258,13 +267,9 @@ type ClosetBasic = {
   layerCategory: string;
   waterproof?: boolean;
   colorHex?: string | null;
-  dominantColors?: string[]; // server sends string names
+  dominantColors?: string[];
 };
 
-/**
- * Pick a candidate, preferring neutral-colored items if any.
- * Falls back to the first item if no neutrals exist.
- */
 function pickNeutralFirst<T extends ClosetBasic>(candidates: T[]): T | undefined {
   if (!candidates?.length) return undefined;
   const neutrals = candidates.filter(c =>
@@ -272,7 +277,6 @@ function pickNeutralFirst<T extends ClosetBasic>(candidates: T[]): T | undefined
   );
   return neutrals[0] || candidates[0];
 }
-
 
 // ---------- HomePage ----------
 export default function HomePage() {
@@ -282,6 +286,59 @@ export default function HomePage() {
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
+
+  // Top search: city autocomplete state
+  const [citySuggest, setCitySuggest] = useState<Array<{ label: string; city: string }>>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState<string | null>(null);
+  const suggestionsBoxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!suggestionsBoxRef.current) return;
+      if (!suggestionsBoxRef.current.contains(e.target as Node)) {
+        setCitySuggest([]);
+        setCityError(null);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  useEffect(() => {
+    const q = cityInput.trim();
+    setCityError(null);
+    if (!q || q.length < 2) {
+      setCitySuggest([]);
+      return;
+    }
+    let cancelled = false;
+    setCityLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const opts = await geocodeCity(q, 6);
+        if (!cancelled) setCitySuggest(opts);
+      } finally {
+        if (!cancelled) setCityLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [cityInput]);
+
+  async function commitCity(nextCity: string) {
+    setCity(nextCity);
+    localStorage.setItem('selectedCity', nextCity);
+    setCityInput('');
+    setCitySuggest([]);
+    // refresh dependent queries
+    queryClient.invalidateQueries({ queryKey: ['weather'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
+  }
+
 
   // Other UI state
   const [username, setUsername] = useState<string | null>(null);
@@ -294,6 +351,58 @@ export default function HomePage() {
     dateTo: '',
     style: 'CASUAL',
   });
+
+  // ---- City autocomplete/validation from Events (Create) ----
+  const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
+  const [locError, setLocError] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+
+  async function geocodeCity(query: string, count = 5): Promise<Array<{ label: string; city: string }>> {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+      query
+    )}&count=${count}&language=en&format=json`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const results = (data?.results || []) as Array<any>;
+      return results.map(r => ({
+        label: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+        city: r.name as string,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async function validateAndStandardizeLocation(raw: string): Promise<string | null> {
+    const q = raw.trim();
+    if (!q) return null;
+    const matches = await geocodeCity(q, 1);
+    return matches[0]?.city ?? null; // canonical city
+  }
+
+  // Debounced suggestions while typing (Create)
+  useEffect(() => {
+    const q = newEvent.location.trim();
+    setLocError(null);
+    if (!q || q.length < 2) {
+      setLocSuggest([]);
+      return;
+    }
+    let cancelled = false;
+    setLocLoading(true);
+    const t = setTimeout(async () => {
+      const opts = await geocodeCity(q, 6);
+      if (!cancelled) setLocSuggest(opts);
+      setLocLoading(false);
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [newEvent.location]);
+
   const [toast, setToast] = useState<{ msg: string } | null>(null);
   function showToast(msg: string) {
     setToast({ msg });
@@ -315,6 +424,45 @@ export default function HomePage() {
     style: '',
   });
 
+  // ---- City autocomplete/validation from Events (Edit) ----
+  const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
+  const [locErrorE, setLocErrorE] = useState<string | null>(null);
+  const [locLoadingE, setLocLoadingE] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const q = editEventData.location.trim();
+    setLocErrorE(null);
+    if (!q || q.length < 2) {
+      setLocSuggestE([]);
+      return;
+    }
+    let cancelled = false;
+    setLocLoadingE(true);
+    const t = setTimeout(async () => {
+      const opts = await geocodeCity(q, 6);
+      if (!cancelled) setLocSuggestE(opts);
+      setLocLoadingE(false);
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [isEditing, editEventData.location]);
+
+  // Prefill edit form from selectedEvent (from Events)
+  useEffect(() => {
+    if (!selectedEvent) return;
+    setEditEventData({
+      id: selectedEvent.id,
+      name: selectedEvent.name,
+      location: selectedEvent.location,
+      dateFrom: toLocalDatetimeInputValue(selectedEvent.dateFrom),
+      dateTo: toLocalDatetimeInputValue(selectedEvent.dateTo),
+      style: selectedEvent.style || 'Casual',
+    });
+  }, [selectedEvent]);
+
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
 
   // ---------- Weather (React Query) ----------
@@ -325,9 +473,6 @@ export default function HomePage() {
   const locationLabel = (city?.trim() || weather?.location || '').trim();
   const [daySel, setDaySel] = useState<DaySelectionDTO | null>(null);
   const [weatherAlert, setWeatherAlert] = useState<null | { reason: string; suggestions: string[] }>(null);
-
-
-
 
   // seed location if server returns one
   useEffect(() => {
@@ -365,7 +510,7 @@ export default function HomePage() {
         const index: Record<string, { imageUrl?: string; category?: string }> = {};
         for (const row of rows) {
           const id = String(row.id);
-          // Adjust these field names if your API uses different casing
+
           index[id] = {
             imageUrl: (row as any).imageUrl || (row as any).image_url || '',
             category: (row as any).category || '',
@@ -383,13 +528,11 @@ export default function HomePage() {
   // derive a "selectedOutfit" from daySel for rendering
   const selectedOutfitFromDaySel: RecommendedOutfit | null = useMemo(() => {
     if (!daySel?.items?.length) return null;
-    // Create a faux outfit object for display (image URLs come from outfit recs or from saved outfit id if fetched)
     return {
       id: daySel.outfitId || 'local-selected',
       outfitItems: daySel.items.map((it) => ({
         closetItemId: it.closetItemId,
-        // we may not have imageUrl here; if you want, optionally hydrate via fetchOutfitById(daySel.outfitId)
-        imageUrl: closetIndex[it.closetItemId]?.imageUrl || '', // will be absolutized downstream if needed
+        imageUrl: closetIndex[it.closetItemId]?.imageUrl || '',
         layerCategory: it.layerCategory,
         category: '',
         colorHex: '',
@@ -409,7 +552,6 @@ export default function HomePage() {
       },
     } as RecommendedOutfit;
   }, [daySel, selectedStyle]);
-
 
   const weekQuery = useQuery({
     queryKey: ['weather-week', locationLabel || 'pending'],
@@ -442,8 +584,6 @@ export default function HomePage() {
   const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
   const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
 
-
-
   // default selected date = first available day
   useEffect(() => {
     if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
@@ -461,9 +601,6 @@ export default function HomePage() {
     return hours;
   }, [selectedDate, weekByDay]);
 
-  // strictly 8 items:
-  // - today: next 8 from "now"
-  // - other days: start at 05:00
   const selectedDayHoursForDisplay: H[] = useMemo(() => {
     if (!selectedDate) return [];
     const todayKey = new Date().toISOString().slice(0, 10);
@@ -483,13 +620,12 @@ export default function HomePage() {
   const [adjustProposal, setAdjustProposal] = useState<null | {
     before: DaySelectionDTO['items'];
     after: DaySelectionDTO['items'];
-    message: string; // e.g. "Added waterproof jacket…", "Removed mid layer (warming)…"
+    message: string;
   }>(null);
 
   async function applyAdjustment(after: DaySelectionDTO['items'], message: string) {
     if (!selectedDate) return;
     try {
-      // 1) create a new Outfit from the adjusted items (so we keep a snapshot)
       const created = await createOutfit({
         outfitItems: after.map((i, idx) => ({
           closetItemId: i.closetItemId,
@@ -509,7 +645,6 @@ export default function HomePage() {
         })(),
       });
 
-      // 2) persist the updated selection with the NEW snapshot
       const newSnap = buildWeatherSnapshot(selectedDaySummary || weather?.summary)!;
       await upsertDaySelection({
         date: selectedDate,
@@ -520,7 +655,6 @@ export default function HomePage() {
         outfitId: created.id,
       });
 
-      // 3) refresh local state and notify
       const fresh = await getDaySelection(selectedDate);
       setDaySel(fresh);
       showToast(message || 'Updated your selected outfit based on the latest forecast.');
@@ -530,7 +664,6 @@ export default function HomePage() {
     }
   }
 
-  // runs on city/selectedDate/week refetch + when daySel exists
   useEffect(() => {
     (async () => {
       if (!daySel || !selectedDate) return;
@@ -542,43 +675,27 @@ export default function HomePage() {
         willRain: !!daySel.willRain,
       };
 
-      // thresholds & reasons
       const reasons = computeAdjustmentNeed(
         { avgTemp: saved.avgTemp, willRain: saved.willRain },
         { avgTemp: current.avgTemp, willRain: current.willRain }
       );
       if (reasons.length === 0) return;
 
-      // Retrieve closet
-      // Retrieve closet
       const closetResp = await fetchAllItems();
-
-      // 1) read as the loose DTO
       const raw: ClosetItemDTO[] = (closetResp.data || []) as ClosetItemDTO[];
-
-      // 2) keep only items with a layerCategory and normalize fields
-      const closet: Array<{
-        id: string;
-        layerCategory: string;
-        waterproof?: boolean;
-        colorHex?: string;
-        dominantColors?: string[];
-      }> = raw
+      const closet = raw
         .filter((c): c is ClosetItemDTO & { layerCategory: string } => !!c.layerCategory)
         .map(c => ({
           id: String(c.id),
-          layerCategory: c.layerCategory!, // safe after filter
+          layerCategory: c.layerCategory!,
           waterproof: !!c.waterproof,
           colorHex: c.colorHex ?? undefined,
           dominantColors: c.dominantColors ?? [],
         }));
 
-
-      // build "after" starting from "before"
       let after = [...daySel.items];
       let messages: string[] = [];
 
-      // 1) rain_on → add waterproof outerwear if not present
       if (reasons.some(r => r.kind === 'rain_on')) {
         const hasWaterproofOuter = after.some(sel => {
           if (sel.layerCategory !== 'outerwear') return false;
@@ -596,22 +713,18 @@ export default function HomePage() {
             }]);
             messages.push('Added waterproof jacket due to rain forecast.');
           } else {
-            // no item → notify-only
             showToast('Rain expected, but no waterproof outerwear found in your closet.');
           }
         }
       }
 
-      // 2) temperature steps
       for (const r of reasons) {
         if (r.kind === 'cooling') {
           for (let step = 0; step < r.steps; step++) {
-            // prefer mid_top first, else outerwear
             const mid = pickNeutralFirst(closet.filter(c => c.layerCategory === 'mid_top'));
             const out = pickNeutralFirst(closet.filter(c => c.layerCategory === 'outerwear'));
             const candidate = mid || out;
             if (candidate) {
-              // if the same item already in outfit, skip that candidate and try the other
               const already = after.some(i => i.closetItemId === candidate.id);
               if (already && mid && out && candidate.id === mid.id) {
                 if (!after.some(i => i.closetItemId === out.id)) {
@@ -644,25 +757,21 @@ export default function HomePage() {
             }
             let removeId = hasMid?.closetItemId || hasOut?.closetItemId;
             if (hasMid && hasOut) {
-              // 50/50 random choice
               removeId = Math.random() < 0.5 ? hasMid.closetItemId : hasOut.closetItemId;
             }
             after = after.filter(i => i.closetItemId !== removeId);
-            // re-sequence sortOrder
             after = after.map((i, idx) => ({ ...i, sortOrder: idx }));
             messages.push('Removed a layer due to warming.');
           }
         }
       }
 
-      // Stage proposal only if changed
       const changed = JSON.stringify(after.map(i => i.closetItemId).sort()) !==
         JSON.stringify(daySel.items.map(i => i.closetItemId).sort());
       if (changed) {
         await applyAdjustment(after, messages.join(' '));
       }
     })();
-    // triggers:
   }, [city, selectedDate, weekQuery.data, daySel, selectedDaySummary, weather?.summary]);
 
   useEffect(() => {
@@ -719,8 +828,6 @@ export default function HomePage() {
     setWeatherAlert(reasons.length ? { reason: reasons.join(' '), suggestions: Array.from(suggestions).slice(0, 4) } : null);
   }, [daySel, selectedDaySummary, weather?.summary]);
 
-
-
   // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
@@ -728,17 +835,15 @@ export default function HomePage() {
   const outfits: RecommendedOutfit[] = outfitsQuery.data ?? [];
   const loadingOutfits = outfitsQuery.isLoading || outfitsQuery.isFetching;
 
-  // Reorder outfits so the saved DaySelection (if any) is always first.
   const chosenKey = useMemo(() => getOutfitKeyFromDaySel(daySel), [daySel]);
 
   const outfitsOrdered: RecommendedOutfit[] = useMemo(() => {
     if (!outfits?.length || !chosenKey) return outfits;
     const idx = outfits.findIndex(o => getOutfitKey(o) === chosenKey);
-    if (idx < 0) return outfits; // saved outfit not in today's recs
+    if (idx < 0) return outfits;
     return [outfits[idx], ...outfits.slice(0, idx), ...outfits.slice(idx + 1)];
   }, [outfits, chosenKey]);
 
-  // Ensure the carousel lands on the chosen outfit (now at index 0) when data changes
   useEffect(() => {
     if (outfitsOrdered.length && chosenKey) {
       setCurrentIndex(0);
@@ -751,24 +856,38 @@ export default function HomePage() {
     null;
 
   // ---------- City enter/refresh handlers ----------
-
-  const handleEnterCity = () => {
+  const handleEnterCity = async () => {
     const next = cityInput.trim();
-    if (submittingRef.current) return;       // guard: ignore re-entrancy
+    if (submittingRef.current) return;
     submittingRef.current = true;
-    // ignore no-op searches
-    if (!next || next === city) {
+
+    if (!next) {
       submittingRef.current = false;
       return;
     }
-    setCity(next);
-    localStorage.setItem('selectedCity', next);
-    setCityInput('');
-    queryClient.invalidateQueries({ queryKey: ['weather'] });
-    queryClient.invalidateQueries({ queryKey: ['outfits'] });
-    queryClient.invalidateQueries({ queryKey: ['weather-week'] });
 
-    // release the guard on next tick (after state flush)
+    // If user chose a suggestion, accept immediately; otherwise validate
+    let finalCity = next;
+    // if there are suggestions and the top suggestion's city equals input (case-insensitive), we'll accept it directly; else validate.
+    const topMatch = citySuggest[0]?.city?.toLowerCase();
+    if (!(topMatch && topMatch === next.toLowerCase())) {
+      const standardized = await validateAndStandardizeCity(next);
+      if (!standardized) {
+        setCityError('Please select a real city (use the suggestions).');
+        submittingRef.current = false;
+        return;
+      }
+      finalCity = standardized;
+    }
+
+    if (finalCity === city) {
+      submittingRef.current = false;
+      return;
+    }
+
+    await commitCity(finalCity);
+
+    // release guard
     queueMicrotask(() => { submittingRef.current = false; });
   };
 
@@ -803,18 +922,14 @@ export default function HomePage() {
   };
 
   async function ensureOutfitSavedFor(outfit: RecommendedOutfit) {
-    // use the same key you already use elsewhere
     const key = getOutfitKey(outfit);
-
-    // if we already created it this session, reuse
     if (outfitIdMap[key]) return outfitIdMap[key];
 
-    // otherwise create it now
     const payload: SaveOutfitPayload = {
       outfitItems: outfit.outfitItems.map((i, idx) => ({
         closetItemId: i.closetItemId,
         layerCategory: i.layerCategory,
-        sortOrder: idx, // keep order consistent with the carousel layout
+        sortOrder: idx,
       })),
       warmthRating: outfit.warmthRating,
       waterproof: outfit.waterproof,
@@ -823,14 +938,15 @@ export default function HomePage() {
         temperature: outfit.weatherSummary.avgTemp,
         condition: outfit.weatherSummary.mainCondition,
       }),
+
       userRating: ratings[key] ?? null, // if the user has rated already, keep it
+
     };
 
     const created = await createOutfit(payload);
     setOutfitIdMap(prev => ({ ...prev, [key]: created.id }));
     return created.id;
   }
-
 
   // ---------- Boot-up effects ----------
   useEffect(() => {
@@ -853,7 +969,6 @@ export default function HomePage() {
   const prevIndex = outfitsOrdered.length
     ? (currentIndex - 1 + outfitsOrdered.length) % outfitsOrdered.length
     : 0;
-
   const nextIndex = outfitsOrdered.length
     ? (currentIndex + 1) % outfitsOrdered.length
     : 0;
@@ -954,6 +1069,71 @@ export default function HomePage() {
     const id = setInterval(tick, 6 * 60 * 60 * 1000);
     return () => clearInterval(id);
   }, [events]);
+
+  // ---- From Events: rebuild event weather & prewarm recs after create/edit ----
+  async function rebuildEventWeatherAndRecs(ev: Event) {
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/weather/week`, {
+        params: { location: ev.location, t: Date.now() },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      const hours: H[] = (data?.forecast || []) as H[];
+      const byDay = groupByDay(hours);
+
+      const days: Array<{ date: string; summary: ReturnType<typeof summarizeDay> | null }> = [];
+      const start = new Date(ev.dateFrom);
+      const end = new Date(ev.dateTo);
+      const seen = new Set<string>();
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().slice(0, 10);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dayHours = byDay[key] || [];
+        days.push({ date: key, summary: dayHours.length ? summarizeDay(dayHours) : null });
+      }
+
+      for (const item of days) {
+        if (item.summary) {
+          await fetchRecommendedOutfits(
+            {
+              avgTemp: item.summary.avgTemp,
+              minTemp: item.summary.minTemp,
+              maxTemp: item.summary.maxTemp,
+              willRain: item.summary.willRain,
+              mainCondition: item.summary.mainCondition,
+            },
+            ev.style || 'Casual',
+            ev.id
+          );
+        }
+      }
+
+      const withWeather: Event = {
+        ...ev,
+        weather: JSON.stringify(
+          days.map(d => ({
+            date: d.date,
+            summary: d.summary && {
+              avgTemp: d.summary.avgTemp,
+              minTemp: d.summary.minTemp,
+              maxTemp: d.summary.maxTemp,
+              willRain: d.summary.willRain,
+              mainCondition: d.summary.mainCondition,
+            },
+          }))
+        ),
+      };
+
+      setEvents(list => list.map(e => (e.id === withWeather.id ? withWeather : e)));
+      setSelectedEvent(withWeather);
+      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+    } catch (e) {
+      console.error('Failed to rebuild weather/recs after edit', e);
+      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+    }
+  }
 
   // ---------- Rating save ----------
   const handleSaveRating = async (rating: number) => {
@@ -1127,11 +1307,9 @@ export default function HomePage() {
     );
   }
 
-
   // ------------------------------------------------------------------------------------------
   // RENDER
   // ------------------------------------------------------------------------------------------
-  // hero data: description + location + avg temp
   const heroDescription =
     selectedDaySummary?.mainCondition ||
     weather?.summary?.mainCondition ||
@@ -1144,9 +1322,6 @@ export default function HomePage() {
         ? Math.round(weather.summary.avgTemp)
         : null;
 
-  // ----- HERO week UI helpers -----
-  // rotate dayKeys so the list starts at "today"
-
   const todayIso = new Date().toISOString().slice(0, 10);
 
   const orderedDays = useMemo(() => {
@@ -1155,22 +1330,17 @@ export default function HomePage() {
     return [...dayKeys.slice(i), ...dayKeys.slice(0, i)];
   }, [dayKeys, todayIso]);
 
-
-
   const orderedIdx = Math.max(0, orderedDays.indexOf(selectedDate || todayIso));
   const nextDayIso = orderedDays[(orderedIdx + 1) % orderedDays.length];
 
   const hoursForHourlyComponent =
     selectedDate === todayIso
       ? [
-        ...selectedDayHoursRaw,                     // today from now (you already filter past)
-        ...(weekByDay[nextDayIso] || []),           // add tomorrow’s hours
+        ...selectedDayHoursRaw,
+        ...(weekByDay[nextDayIso] || []),
       ]
       : selectedDayHoursRaw;
 
-
-
-  // quick lookup of summaries for each day
   const daySummaries = useMemo(() => {
     const map: Record<string, ReturnType<typeof summarizeDay>> = {};
     for (const d of dayKeys) {
@@ -1179,21 +1349,18 @@ export default function HomePage() {
     return map;
   }, [dayKeys, weekByDay]);
 
-  // formatter helpers
   const shortDow = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { weekday: 'short' }); // Mon, Tue…
+    new Date(iso).toLocaleDateString(undefined, { weekday: 'short' });
 
   const avgFor = (iso: string) =>
     daySummaries[iso] ? Math.round(daySummaries[iso].avgTemp) : null;
 
-  // change selectedDate and refetch outfits
   const pickDay = (iso: string) => {
     setSelectedDate(iso);
     setCurrentIndex(0);
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
   };
 
-  // mobile arrows
   const stepDay = (dir: -1 | 1) => {
     if (!orderedDays.length) return;
     const idx = Math.max(0, orderedDays.indexOf(selectedDate || orderedDays[0]));
@@ -1205,18 +1372,14 @@ export default function HomePage() {
   const isCurrentChosen =
     !!chosenKey && currentOutfit && getOutfitKey(currentOutfit) === chosenKey;
 
-
   return (
     <div
       className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0 ml-[calc(-50vw+50%)]"
       style={{ paddingTop: 0 }}
     >
 
-      {/* ===================== HERO (reworked with week controls) ===================== */}
-
+      {/* ===================== HERO ===================== */}
       <header className="relative w-full overflow-hidden pb-16 sm:pb-20 mb-8">
-
-        {/* Background */}
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(/background.jpg)` }}
@@ -1224,14 +1387,10 @@ export default function HomePage() {
         />
         <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
-        {/* Content */}
         <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4 sm:py-6 lg:py-8">
-            {/* two columns at all sizes so left/right sit side by side on mobile too */}
             <div className="grid grid-cols-2 gap-3 sm:gap-6 items-start">
-              {/* LEFT: welcome + tag + description (mobile switcher pinned at bottom) */}
               <div className="text-white relative pb-12 sm:pb-0">
-                {/* Top content */}
                 <p className="text-[13px] sm:text-xs uppercase tracking-wide opacity-90 mb-2">
                   {username ? `WELCOME BACK ${username.toUpperCase()}` : 'WELCOME BACK'}
                 </p>
@@ -1240,15 +1399,12 @@ export default function HomePage() {
                   <p className="text-[14px] sm:text-xs font-medium tracking-wide">Weather Forecast</p>
                 </div>
 
-                {/* Your weather description; can grow/shrink freely */}
                 <h1 className="text-4xl sm:text-4xl md:text-6xl font-livvic font-semibold leading-snug mb-2 sm:mb-3">
                   {heroDescription || '—'}
                 </h1>
 
-                {/* MOBILE day switcher — pinned to bottom of this block */}
                 {orderedDays.length > 0 && (
                   <div className="sm:hidden absolute left-0 right-0 bottom-0 flex items-center gap-3 text-white">
-                    {/* left triangle (solid white) */}
                     <button
                       type="button"
                       onClick={() => stepDay(-1)}
@@ -1260,7 +1416,6 @@ export default function HomePage() {
                       </svg>
                     </button>
 
-                    {/* weekday + temp (same size, no background) */}
                     <div className="flex items-center gap-2">
                       <span className="text-base font-medium">
                         {shortDow(selectedDate || orderedDays[0])}
@@ -1274,7 +1429,6 @@ export default function HomePage() {
                       </span>
                     </div>
 
-                    {/* right triangle (solid white) */}
                     <button
                       type="button"
                       onClick={() => stepDay(1)}
@@ -1289,8 +1443,6 @@ export default function HomePage() {
                 )}
               </div>
 
-
-              {/* RIGHT: location + temp card */}
               <div className="justify-self-end self-center">
                 <div
                   className={[
@@ -1301,64 +1453,125 @@ export default function HomePage() {
                     "text-right",
                   ].join(" ")}
                 >
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleEnterCity();
-                    }}
-                    className="w-full"
-                  >
-                    <div className="
-              relative
-              w-full
-              max-w-[90vw] sm:max-w-md
-              backdrop-blur-2xl bg-white/10
-              
-              rounded-full
-              pl-8 pr-3 py-1
-              focus-within:ring-2 focus-within:ring-[#3F978F]
-            ">
-                      {/* search icon */}
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-
-                      <input
-                        type="text"
-                        placeholder=" Select City"
-                        value={cityInput}
-                        onChange={(e) => setCityInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.stopPropagation(); // avoid bubbling to any parent handlers
-                            handleEnterCity();
-                          }
-                        }}
-                        autoComplete="off"
+                  <div className="relative inline-block">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleEnterCity();
+                      }}
+                      className="w-full"
+                    >
+                      <div
                         className="
-                  w-full bg-transparent outline-none
-                  placeholder-white/70 text-white
-                  text-sm sm:text-base
-                "
-                        aria-label=" Select City"
-                      />
-                    </div>
-                  </form>
+            relative
+            w-full
+            max-w-[90vw] sm:max-w-md
+            backdrop-blur-2xl bg-white/10
+            rounded-full
+            pl-8 pr-3 py-1
+            focus-within:ring-2 focus-within:ring-[#3F978F]
+          "
+                      >
+                        {/* search icon */}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
 
-                  {/* Location (wraps) */}
+                        <input
+                          type="text"
+                          placeholder=" Select City"
+                          value={cityInput}
+                          onChange={(e) => setCityInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleEnterCity();
+                            }
+                            if (e.key === 'Escape') setCitySuggest([]);
+                          }}
+                          autoComplete="off"
+                          aria-autocomplete="list"
+                          aria-expanded={citySuggest.length > 0}
+                          aria-controls="city-suggest-listbox"
+                          role="combobox"
+                          className="
+              w-full bg-transparent outline-none
+              placeholder-white/70 text-white
+              text-sm sm:text-base
+            "
+                          aria-label=" Select City"
+                        />
+                      </div>
+                    </form>
+
+                    {(cityLoading || citySuggest.length > 0 || cityError) && (
+                      <div
+                        ref={suggestionsBoxRef}
+                        className="
+
+            pointer-events-none
+            absolute top-0 right-full mr-2
+            w-[16rem] sm:w-[20rem]
+            z-50
+          "
+                      >
+                        {cityLoading && (
+                          <div className="pointer-events-auto text-xs text-white/90 bg-white/10 rounded-md px-3 py-2 backdrop-blur">
+                            Searching cities…
+                          </div>
+                        )}
+
+                        {!!citySuggest.length && (
+                          <ul
+                            id="city-suggest-listbox"
+                            role="listbox"
+                            className="
+                pointer-events-auto
+                mt-1 max-h-56 overflow-auto rounded-md
+                border border-white/20
+                bg-white/95 dark:bg-gray-900/95
+                text-gray-900 dark:text-gray-100 shadow-lg
+              "
+                          >
+                            {citySuggest.map((opt, i) => (
+                              <li key={i} role="option" aria-selected={false}>
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                  onClick={() => {
+                                    commitCity(opt.city);
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {cityError && (
+                          <p className="pointer-events-auto mt-1 text-sm text-red-300 bg-red-900/30 border border-red-400/40 rounded-md px-3 py-1">
+                            {cityError}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+
                   <div className="flex items-start gap-1 w-full justify-end">
                     <svg className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0 mt-[1px]" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C8.686 2 6 4.686 6 8c0 4.333 6 12 6 12s6-7.667 6-12c0-3.314-2.686-6-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
@@ -1368,7 +1581,6 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  {/* Temperature */}
                   <div className="text-3xl sm:text-5xl md:text-6xl font-semibold tabular-nums">
                     {heroAvgTemp !== null ? `${heroAvgTemp}°C` : '—'}
                   </div>
@@ -1378,7 +1590,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* DESKTOP week bar pinned to bottom of hero */}
         {orderedDays.length > 0 && (
           <div className="pointer-events-auto hidden sm:block absolute bottom-3 sm:bottom-4 left-0 right-0">
             <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1410,7 +1621,6 @@ export default function HomePage() {
         )}
       </header>
 
-
       {/* ===================== MAIN ===================== */}
       <main className="flex flex-col gap-10 px-0 w-full">
         <section className="
@@ -1419,12 +1629,9 @@ export default function HomePage() {
   grid-cols-1 lg:grid-cols-3
   px-0 sm:px-6 lg:px-8
   md:-mb-16
-  
 ">
-
           {/* LEFT: Slogan + Hourly Forecast */}
           <div className="order-2 lg:order-1 lg:col-span-1 flex flex-col items-center lg:items-start justify-start w-full z-10">
-            {/* Hourly forecast (8 hours) under the slogan */}
             <div className="w-full max-w-sm sm:max-w-md mt-0 mb-8">
               {loadingWeather ? (
                 <p className="text-center text-sm text-gray-500">Loading hours…</p>
@@ -1437,22 +1644,15 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* Hide slogan on mobile; show from sm+ */}
             <div className="hidden sm:block">
               <TypingSlogan />
             </div>
-
-
           </div>
 
-
-          {/* MIDDLE: Outfit (order 1 mobile, 2 desktop) */}
-
-
+          {/* MIDDLE: Outfit */}
           <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center w-full md:-ml-16">
             <div className="w-full">
               <div className="bg-white">
-
                 <div className="w-full mb-4">
                   <h3
                     className="
@@ -1467,6 +1667,7 @@ export default function HomePage() {
                   </h3>
                 </div>
 
+
                 {loadingOutfits && <p className="text-center">Loading outfits…</p>}
                 {error && !loadingOutfits && <p className="text-red-500 text-center">{error}</p>}
                 {!loadingOutfits && outfits.length === 0 && (
@@ -1474,6 +1675,7 @@ export default function HomePage() {
                     Sorry, we couldn't generate an outfit in that style. Please add more items to your wardrobe.
                   </p>
                 )}
+
 
                 {/* Style Dropdown — centered, same width as carousel */}
                 <div className="
@@ -1483,6 +1685,7 @@ export default function HomePage() {
       font-livvic  tracking-tight
       text-gray-900 dark:text-gray-100 
       mb-4">
+
                   <label htmlFor="style-select" className="sr-only">Style</label>
                   <select
                     id="style-select"
@@ -1501,6 +1704,7 @@ export default function HomePage() {
                     <option value="Outdoor">Outdoor</option>
                   </select>
                 </div>
+
 
                 <div className="
   md:ml-8 text-center font-livvic tracking-tight
@@ -1573,7 +1777,7 @@ export default function HomePage() {
 
                 {!loadingOutfits && outfits.length > 0 && (
                   daySel?.items?.length ? (
-                    // ---------- SINGLE-OUTFIT VIEW (when a day is selected) ----------
+                    // ---------- SINGLE-OUTFIT VIEW ----------
                     <div className="w-full flex flex-col items-center">
                       <div className="max-w-[60vw] sm:max-w-lg md:max-w-xl lg:max-w-xl md:ml-16 w-full">
                         <OutfitImagesCard
@@ -1592,7 +1796,7 @@ export default function HomePage() {
                                     const meta = selectedOutfitFromDaySel || outfitsOrdered[currentIndex];
 
                                     if (!targetId) {
-                                      // create outfit from current selection WITH REAL DATA
+
                                       const created = await createOutfit({
                                         outfitItems: daySel!.items.map((i, idx) => ({
                                           closetItemId: i.closetItemId,
@@ -1614,7 +1818,6 @@ export default function HomePage() {
                                       targetId = created.id;
                                       setOutfitIdMap(prev => ({ ...prev, [key]: targetId! }));
 
-                                      // persist link back on the day selection with fresh snapshot
                                       await upsertDaySelection({
                                         date: selectedDate!,
                                         location: locationLabel || undefined,
@@ -1663,7 +1866,7 @@ export default function HomePage() {
                       </div>
                     </div>
                   ) : (
-                    // ---------- CAROUSEL (no selection saved yet) ----------
+                    // ---------- CAROUSEL ----------
                     <>
                       <div className="w-full flex flex-col items-center">
                         <div
@@ -1678,6 +1881,7 @@ export default function HomePage() {
           max-w-[60vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl md:ml-16 w-full
           
         "
+
                         >
                           {/* Reserve height so absolute stage can sit on top */}
                           <div className="
@@ -1687,6 +1891,7 @@ export default function HomePage() {
         ">
                             <OutfitImagesCard outfit={outfitsOrdered[currentIndex]} />
                           </div>
+
 
                           {/* stage (full area), with a centered rail */}
                           <div className="mr-44 md:mr-52 absolute inset-0 flex justify-center">
@@ -1739,6 +1944,7 @@ export default function HomePage() {
                                   else if (goLeft) slideTo(-1);
                                 }}
                               >
+
                                 <OutfitImagesCard
                                   outfit={outfitsOrdered[currentIndex]}
                                   controls={
@@ -1760,6 +1966,7 @@ export default function HomePage() {
                                         >
                                           <RefreshCw className="w-6 h-6 align-middle" />
                                         </button>
+
                                       </div>
 
                                       {/* <button
@@ -1817,7 +2024,7 @@ export default function HomePage() {
                           </div>
                         </div>
                       </div>
-                      {/* Counter for carousel only */}
+
                       <div className="md:ml-32 text-center text-sm mb-2 mt-32 w-full
         w-[min(92%,360px)] sm:w-[min(92%,420px)] md:w-[min(92%,560px)] lg:w-[min(92%,680px)] xl:w-[min(92%,760px)]
         mx-auto">
@@ -1830,17 +2037,13 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-
         </section>
 
-
-        {/* Events Section */}
+        {/* Events Section (Improved UI kept) */}
         <section className="w-full sm:mt-12 px-0  bg-black">
           <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-            {/* Header */}
             <div className="grid grid-cols-3 items-center mb-6">
-              <div /> {/* spacer */}
+              <div />
               <h2 className="justify-self-center text-center text-white text-3xl sm:text-4xl font-livvic font-semibold tracking-tight">
                 Upcoming Events
               </h2>
@@ -1853,18 +2056,14 @@ export default function HomePage() {
               </button>
             </div>
 
-
-            {/* Auto-scrolling carousel */}
             {events.filter(e => e.type !== 'trip').length > 0 ? (
               <div className="relative overflow-hidden">
                 {(() => {
-                  // sorted by start date (earliest → latest)
                   const base = events
                     .filter(e => e.type !== 'trip')
                     .slice()
                     .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime());
-
-                  const loop = [...base, ...base]; // duplicate for seamless loop
+                  const loop = [...base, ...base];
                   return (
                     <motion.div
                       className="flex gap-6"
@@ -1879,16 +2078,14 @@ export default function HomePage() {
                             onClick={() => { setSelectedEvent(ev); setShowDetailModal(true); }}
                             className="group text-left min-w-[240px] sm:min-w-[240px] lg:min-w-[280px]"
                           >
-                            {/* Image */}
                             <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
                               <img
-                                src={img} // e.g. "outdoor.jpg"
+                                src={img}
                                 alt={ev.style || 'event'}
                                 className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
                               />
                             </div>
 
-                            {/* Info */}
                             <div className="mt-3">
                               <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
                                 {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
@@ -1903,11 +2100,9 @@ export default function HomePage() {
                           </button>
                         );
                       })}
-
                     </motion.div>
                   );
                 })()}
-
               </div>
             ) : (
               <div className="text-center py-10">
@@ -1922,8 +2117,6 @@ export default function HomePage() {
             )}
           </div>
         </section>
-
-
       </main>
 
       {/* Footer banner (full-bleed) */}
@@ -1939,7 +2132,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/30" />
       </div>
 
-      {/* Create New Event Modal */}
+      {/* Create New Event Modal (Improved UI + Events logic) */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-lg relative flex flex-col max-h-[90vh] overflow-y-auto">
@@ -1960,6 +2153,33 @@ export default function HomePage() {
                 value={newEvent.location}
                 onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
               />
+              {/* Events logic: suggestions + validation */}
+              {locLoading && (
+                <div className="text-xs text-gray-500 mt-1">Searching cities…</div>
+              )}
+              {locSuggest.length > 0 && (
+                <ul className="mt-1 border rounded-md max-h-40 overflow-auto bg-white dark:bg-gray-800">
+                  {locSuggest.map((opt, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => {
+                          setNewEvent(prev => ({ ...prev, location: opt.city })); // save only the city
+                          setLocSuggest([]);
+                          setLocError(null);
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {locError && (
+                <p className="text-sm text-red-500 mt-1">{locError}</p>
+              )}
+
               <input
                 type="datetime-local"
                 className="w-full p-2 border rounded"
@@ -1997,16 +2217,25 @@ export default function HomePage() {
                     alert('Please fill in name, style, and both dates.');
                     return;
                   }
+
+                  // Validate & standardize location (Events logic)
+                  setLocError(null);
+                  const standardized = await validateAndStandardizeLocation(newEvent.location);
+                  if (!standardized) {
+                    setLocError('Please select a real city (use the suggestions).');
+                    return;
+                  }
+
                   try {
                     const created = await createEvent({
                       name: newEvent.name,
-                      location: newEvent.location,
+                      location: standardized,
                       style: newEvent.style,
                       dateFrom: new Date(newEvent.dateFrom).toISOString(),
                       dateTo: new Date(newEvent.dateTo).toISOString(),
                     });
 
-                    // Pre-warm event outfit recs for each day if weather exists
+                    // Instant pre-warm (already existed in Improved) — keep
                     if (created.weather) {
                       let days: { date: string; summary: WeatherSummary }[] = [];
                       try {
@@ -2047,7 +2276,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Detail / Edit Event Modal */}
+      {/* Detail / Edit Event Modal (Improved UI + Events logic) */}
       {showDetailModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg relative flex flex-col">
@@ -2070,6 +2299,33 @@ export default function HomePage() {
                   value={editEventData.location}
                   onChange={e => setEditEventData(d => ({ ...d, location: e.target.value }))}
                 />
+                {/* Events logic: edit suggestions + validation */}
+                {locLoadingE && (
+                  <div className="text-xs text-gray-500 mt-1">Searching cities…</div>
+                )}
+                {locSuggestE.length > 0 && (
+                  <ul className="mt-1 border rounded-md max-h-40 overflow-auto bg-white dark:bg-gray-800">
+                    {locSuggestE.map((opt, i) => (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => {
+                            setEditEventData(d => ({ ...d, location: opt.city }));
+                            setLocSuggestE([]);
+                            setLocErrorE(null);
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {locErrorE && (
+                  <p className="text-sm text-red-500 mt-1">{locErrorE}</p>
+                )}
+
                 <input
                   type="datetime-local"
                   className="w-full p-2 border rounded"
@@ -2160,8 +2416,6 @@ export default function HomePage() {
                   </div>
                 )}
 
-
-
                 {selectedEvent.weather &&
                   (() => {
                     let sums: { date: string; summary: any }[] = [];
@@ -2219,30 +2473,55 @@ export default function HomePage() {
             <div className="mt-4 flex flex-wrap justify-end space-x-2">
               {isEditing ? (
                 <>
-                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-full border border-black">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const updatedDto = await updateEvent({
-                          id: editEventData.id,
-                          name: editEventData.name,
-                          location: editEventData.location,
-                          dateFrom: new Date(editEventData.dateFrom).toISOString(),
-                          dateTo: new Date(editEventData.dateTo).toISOString(),
-                          style: editEventData.style as Style,
-                          isTrip: selectedEvent?.isTrip ?? selectedEvent?.type === 'trip',
-                        });
-                        const updated = toEvent(updatedDto);
-                        setEvents(evts => evts.map(e => (e.id === updated.id ? updated : e)));
-                        setSelectedEvent(updated);
-                        setIsEditing(false);
-                      } catch (err) {
-                        console.error('update failed', err);
-                        alert('Failed to update event');
+                  <button onClick={async () => {
+                    try {
+                      // Validate city (same as Create)
+                      setLocErrorE(null);
+                      const standardized = await validateAndStandardizeLocation(editEventData.location);
+                      if (!standardized) {
+                        setLocErrorE('Please select a real city (use the suggestions).');
+                        return;
                       }
-                    }}
+
+                      // Build safe payload
+                      const payload = {
+                        id: editEventData.id || selectedEvent!.id,
+                        name: editEventData.name || selectedEvent!.name,
+                        location: standardized, // city only
+                        dateFrom: new Date(
+                          editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent!.dateFrom)
+                        ).toISOString(),
+                        dateTo: new Date(
+                          editEventData.dateTo || toLocalDatetimeInputValue(selectedEvent!.dateTo)
+                        ).toISOString(),
+                        style: (editEventData.style || selectedEvent!.style || 'Casual') as Style,
+                        isTrip: Boolean(selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip')),
+                      };
+
+                      // inside the "Save" click handler (isEditing branch)
+                      const updatedDto = await updateEvent(payload as any);
+                      let updated = toEvent(updatedDto);
+
+                      updated = { ...updated, location: payload.location };
+
+                      setEvents(list => list.map(e => (e.id === updated.id ? updated : e)));
+                      setSelectedEvent(updated);
+
+                      await rebuildEventWeatherAndRecs(updated);
+
+                      // leave edit mode + refresh outfit query
+                      setIsEditing(false);
+                      queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
+
+
+                    } catch (err: any) {
+                      console.error('update failed', err?.response?.data || err);
+                      const msg =
+                        err?.response?.data?.message ||
+                        (err?.message ? `Failed to update: ${err.message}` : 'Failed to update event');
+                      alert(msg);
+                    }
+                  }}
                     className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
                   >
                     Save
@@ -2250,9 +2529,24 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  <button onClick={() => setIsEditing(true)} className="px-4 py-2 rounded-full bg-[#3F978F] text-white">
+                  <button
+                    onClick={() => {
+                      if (!selectedEvent) return;
+                      setEditEventData({
+                        id: selectedEvent.id,
+                        name: selectedEvent.name,
+                        location: selectedEvent.location,
+                        dateFrom: toLocalDatetimeInputValue(selectedEvent.dateFrom),
+                        dateTo: toLocalDatetimeInputValue(selectedEvent.dateTo),
+                        style: selectedEvent.style || 'Casual',
+                      });
+                      setIsEditing(true);
+                    }}
+                    className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
+                  >
                     Edit
                   </button>
+
                   <button
                     onClick={async () => {
                       if (!window.confirm('Delete this event?')) return;
