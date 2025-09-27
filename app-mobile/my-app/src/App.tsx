@@ -16,6 +16,7 @@ import AddPage from "./pages/AddPage";
 import HelpPage from "./pages/HelpPage";
 import LandingPage from "./pages/LandingPage";
 import InspoPage from "./pages/InspoPage";
+import Appearance from "./pages/Appearance";
 import { ImageProvider } from "./components/ImageContext";
 import PostsPage from "./pages/PostsPage";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -114,7 +115,7 @@ function App() {
                             <Route path="calendar" element={<CalendarPage />} />
                             <Route path="feed" element={<FeedPage />} />
                             <Route path="inspo" element={<InspoPage />} />
-                            {/* <Route path="appearance" element={<Appearance />} /> */}
+                            <Route path="appearance" element={<Appearance />} />
                             <Route path="profile" element={<ProfilePage />} />
                             <Route path="create-outfit" element={<CreateAnOutfit />} />
                             <Route path="post-to-feed" element={<PostToFeed />} />

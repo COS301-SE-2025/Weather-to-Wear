@@ -1,4 +1,3 @@
-// src/pages/HomePage.tsx
 import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -34,7 +33,6 @@ import { useQuery } from '@tanstack/react-query';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
 import { formatMonthDay } from '../utils/date';
 
-// ---------- Utilities ----------
 function getOutfitKey(outfit: RecommendedOutfit): string {
   return outfit.outfitItems.map(i => i.closetItemId).sort().join('-');
 }
@@ -60,7 +58,6 @@ function buildWeatherSnapshot(s?: WeatherSummary | null) {
   };
 }
 
-// Map style → image in /public/events/*.jpg (e.g. /events/business.jpg)
 function eventImageFor(style?: string) {
   const slug = (style || 'other').toLowerCase();
   return `${slug}.jpg`;
@@ -73,6 +70,82 @@ function formatDateOnly(iso: string) {
 function formatTimeAmPm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
+
+  // === ADD: polite autoplay for horizontal scroll ===
+  function useAutoplayScrolling(
+    ref: React.RefObject<HTMLDivElement | null>,
+    opts: { intervalMs?: number; pauseMsAfterInteract?: number } = {}
+  ) {
+    const { intervalMs = 2000, pauseMsAfterInteract = 1500 } = opts;
+    const pauseUntilRef = useRef<number>(0);
+    const timerRef = useRef<number | null>(null);
+    const cardWidthRef = useRef<number>(0);
+
+    useEffect(() => {
+      const el = ref.current;
+      if (!el) return;
+
+      // measure first card width + gap
+      const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+      if (firstCard) {
+        const cs = getComputedStyle(el);
+        const gap =
+          parseFloat(cs.columnGap || cs.gap || '0') ||
+          parseFloat(cs['gridColumnGap' as any] || '0') ||
+          0;
+        cardWidthRef.current = firstCard.offsetWidth + gap;
+      }
+
+      const step = () => {
+        if (Date.now() < pauseUntilRef.current) return;
+
+        // tiny, continuous steps (tweak between 6–16px for taste)
+        const stepPx = 6;
+
+        // when we get near the end, loop back to start
+        const nearEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - stepPx * 2;
+
+        if (nearEnd) {
+          // jump back to start without smooth to avoid a “snap-back” animation
+          el.scrollLeft = 0;
+        } else {
+          // micro-step forward; no 'smooth', it looks more like continuous motion
+          el.scrollLeft = el.scrollLeft + stepPx;
+        }
+      };
+
+      const start = () => {
+        stop();
+        timerRef.current = window.setInterval(step, intervalMs) as unknown as number;
+      };
+      const stop = () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+
+      start();
+
+      const bumpPause = () => {
+        pauseUntilRef.current = Date.now() + pauseMsAfterInteract;
+      };
+
+      el.addEventListener('pointerdown', bumpPause, { passive: true });
+      el.addEventListener('wheel', bumpPause, { passive: true });
+      el.addEventListener('touchstart', bumpPause, { passive: true });
+      el.addEventListener('mouseenter', bumpPause, { passive: true });
+
+      return () => {
+        stop();
+        el.removeEventListener('pointerdown', bumpPause);
+        el.removeEventListener('wheel', bumpPause);
+        el.removeEventListener('touchstart', bumpPause);
+        el.removeEventListener('mouseenter', bumpPause);
+      };
+    }, [ref, intervalMs, pauseMsAfterInteract]);
+  }
+
 
 async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
@@ -92,17 +165,15 @@ async function validateAndStandardizeCity(raw: string): Promise<string | null> {
   const q = raw.trim();
   if (!q) return null;
   const matches = await geocodeCity(q, 1);
-  return matches[0]?.city ?? null; // return just the city name
+  return matches[0]?.city ?? null; 
 }
 
-// Added from Events: local datetime formatter for edit-prefill
 function toLocalDatetimeInputValue(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// put this near the top of HomePage.tsx (or in a utils file)
 const WI_BASE = 'https://basmilius.github.io/weather-icons/production/fill/all';
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
@@ -119,7 +190,6 @@ type Event = {
   isTrip?: boolean;
 };
 
-// Normalize API → UI
 function toEvent(dto: EventDto): Event {
   const trip =
     !!(dto as any)?.isTrip ||
@@ -164,7 +234,6 @@ const TypingSlogan = () => {
   const [displayText, setDisplayText] = useState('');
   const [index, setIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-
   useEffect(() => {
     document.body.classList.add('home-fullbleed');
     return () => {
@@ -222,13 +291,12 @@ const TypingSlogan = () => {
 
 // ---------------- Temp range bar (single definition) ----------------
 const THEME = {
-  coldHue: 185, // teal-ish, near #3F978F
-  hotHue: 18,   // warm rust/orange
+  coldHue: 185, 
+  hotHue: 18,   
   sat: 58,
   light: 38,
 };
 
-// ---- Weather-based adjustment helpers ----
 type AdjReason =
   | { kind: 'rain_on'; steps: 1 }
   | { kind: 'warming'; steps: number }
@@ -278,16 +346,13 @@ function pickNeutralFirst<T extends ClosetBasic>(candidates: T[]): T | undefined
   return neutrals[0] || candidates[0];
 }
 
-// ---------- HomePage ----------
 export default function HomePage() {
   const submittingRef = useRef(false);
 
-  // Persist user-selected city
   const [city, setCity] = useState<string>(() => localStorage.getItem('selectedCity') || '');
   const [cityInput, setCityInput] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('Casual');
 
-  // Top search: city autocomplete state
   const [citySuggest, setCitySuggest] = useState<Array<{ label: string; city: string }>>([]);
   const [cityLoading, setCityLoading] = useState(false);
   const [cityError, setCityError] = useState<string | null>(null);
@@ -333,14 +398,12 @@ export default function HomePage() {
     localStorage.setItem('selectedCity', nextCity);
     setCityInput('');
     setCitySuggest([]);
-    // refresh dependent queries
     queryClient.invalidateQueries({ queryKey: ['weather'] });
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
     queryClient.invalidateQueries({ queryKey: ['weather-week'] });
   }
 
 
-  // Other UI state
   const [username, setUsername] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -352,7 +415,6 @@ export default function HomePage() {
     style: 'CASUAL',
   });
 
-  // ---- City autocomplete/validation from Events (Create) ----
   const [locSuggest, setLocSuggest] = useState<Array<{ label: string; city: string }>>([]);
   const [locError, setLocError] = useState<string | null>(null);
   const [locLoading, setLocLoading] = useState(false);
@@ -379,10 +441,9 @@ export default function HomePage() {
     const q = raw.trim();
     if (!q) return null;
     const matches = await geocodeCity(q, 1);
-    return matches[0]?.city ?? null; // canonical city
+    return matches[0]?.city ?? null; 
   }
 
-  // Debounced suggestions while typing (Create)
   useEffect(() => {
     const q = newEvent.location.trim();
     setLocError(null);
@@ -424,7 +485,7 @@ export default function HomePage() {
     style: '',
   });
 
-  // ---- City autocomplete/validation from Events (Edit) ----
+  // ---- City autocomplete/validation from Events ----
   const [locSuggestE, setLocSuggestE] = useState<Array<{ label: string; city: string }>>([]);
   const [locErrorE, setLocErrorE] = useState<string | null>(null);
   const [locLoadingE, setLocLoadingE] = useState(false);
@@ -450,7 +511,6 @@ export default function HomePage() {
     };
   }, [isEditing, editEventData.location]);
 
-  // Prefill edit form from selectedEvent (from Events)
   useEffect(() => {
     if (!selectedEvent) return;
     setEditEventData({
@@ -463,7 +523,7 @@ export default function HomePage() {
     });
   }, [selectedEvent]);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null); // "YYYY-MM-DD"
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); 
 
   // ---------- Weather (React Query) ----------
   const weatherQuery = useWeatherQuery(city);
@@ -474,7 +534,7 @@ export default function HomePage() {
   const [daySel, setDaySel] = useState<DaySelectionDTO | null>(null);
   const [weatherAlert, setWeatherAlert] = useState<null | { reason: string; suggestions: string[] }>(null);
 
-  // seed location if server returns one
+
   useEffect(() => {
     if (!city && weather?.location) {
       setCity(weather.location);
@@ -524,8 +584,6 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
-
-  // derive a "selectedOutfit" from daySel for rendering
   const selectedOutfitFromDaySel: RecommendedOutfit | null = useMemo(() => {
     if (!daySel?.items?.length) return null;
     return {
@@ -584,7 +642,6 @@ export default function HomePage() {
   const weekByDay = useMemo(() => (week?.forecast?.length ? groupByDay(week!.forecast) : {}), [week]);
   const dayKeys = useMemo(() => Object.keys(weekByDay).sort(), [weekByDay]);
 
-  // default selected date = first available day
   useEffect(() => {
     if (!selectedDate && dayKeys.length) setSelectedDate(dayKeys[0]);
   }, [dayKeys, selectedDate]);
@@ -622,6 +679,9 @@ export default function HomePage() {
     after: DaySelectionDTO['items'];
     message: string;
   }>(null);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   async function applyAdjustment(after: DaySelectionDTO['items'], message: string) {
     if (!selectedDate) return;
@@ -828,7 +888,6 @@ export default function HomePage() {
     setWeatherAlert(reasons.length ? { reason: reasons.join(' '), suggestions: Array.from(suggestions).slice(0, 4) } : null);
   }, [daySel, selectedDaySummary, weather?.summary]);
 
-  // Outfits (React Query)
   const summaryForOutfits = selectedDaySummary || weather?.summary || null;
   const outfitsQuery = useOutfitsQuery(summaryForOutfits as any, selectedStyle);
 
@@ -866,9 +925,7 @@ export default function HomePage() {
       return;
     }
 
-    // If user chose a suggestion, accept immediately; otherwise validate
     let finalCity = next;
-    // if there are suggestions and the top suggestion's city equals input (case-insensitive), we'll accept it directly; else validate.
     const topMatch = citySuggest[0]?.city?.toLowerCase();
     if (!(topMatch && topMatch === next.toLowerCase())) {
       const standardized = await validateAndStandardizeCity(next);
@@ -887,7 +944,6 @@ export default function HomePage() {
 
     await commitCity(finalCity);
 
-    // release guard
     queueMicrotask(() => { submittingRef.current = false; });
   };
 
@@ -915,6 +971,7 @@ export default function HomePage() {
       setEvents(evt => [...evt, toEvent(created)]);
       setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
       setShowModal(false);
+      showToast('Successfully added a new event!');
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create event';
       alert(msg);
@@ -939,7 +996,7 @@ export default function HomePage() {
         condition: outfit.weatherSummary.mainCondition,
       }),
 
-      userRating: ratings[key] ?? null, // if the user has rated already, keep it
+      userRating: ratings[key] ?? null, 
 
     };
 
@@ -1030,7 +1087,6 @@ export default function HomePage() {
   const detailLoading = eventOutfitQuery.isLoading || eventOutfitQuery.isFetching;
   const detailError = eventOutfitQuery.isError ? 'Could not load outfit recommendation.' : null;
 
-  // pre-warm recommendations for near events
   useEffect(() => {
     const isWithin3Days = (d: Date) => {
       const now = new Date();
@@ -1060,7 +1116,6 @@ export default function HomePage() {
             );
           }
         } catch {
-          // ignore bad JSON
         }
       }
     };
@@ -1173,7 +1228,6 @@ export default function HomePage() {
     }
   };
 
-  // global bounds for scaling the thin min→max bar
   const { weekMin, weekMax } = useMemo(() => {
     let mn = Infinity, mx = -Infinity;
     for (const d of Object.keys(weekByDay)) {
@@ -1185,7 +1239,6 @@ export default function HomePage() {
     return { weekMin: Math.floor(mn), weekMax: Math.ceil(mx) };
   }, [weekByDay]);
 
-  // ensure "today" is selected by default
   useEffect(() => {
     if (!dayKeys.length) return;
     const todayKey = new Date().toISOString().slice(0, 10);
@@ -1307,9 +1360,99 @@ export default function HomePage() {
     );
   }
 
-  // ------------------------------------------------------------------------------------------
-  // RENDER
-  // ------------------------------------------------------------------------------------------
+  // === ADD: swipeable + snap carousel for events ===
+  function EventsCarousel({
+    items,
+    onOpen,
+  }: {
+    items: Event[];
+    onOpen: (ev: Event) => void;
+  }) {
+    const trackRef = useRef<HTMLDivElement>(null);
+    useAutoplayScrolling(trackRef, { intervalMs: 70, pauseMsAfterInteract: 2000 });
+
+    return (
+      <div className="relative">
+        <div
+          ref={trackRef}
+          className="
+                    flex gap-6 overflow-x-auto overscroll-contain scroll-smooth
+                    snap-x snap-mandatory
+                    pt-1 pb-2
+                    touch-pan-x
+                    events-track
+                  "
+          aria-label="Upcoming events carousel"
+        >
+          {items.map((ev) => {
+            const img = eventImageFor(ev.style);
+            return (
+              <button
+                key={ev.id}
+                onClick={() => onOpen(ev)}
+                className="group text-left snap-start min-w-[240px] sm:min-w-[240px] lg:min-w-[280px] focus:outline-none focus:ring-2 focus:ring-white/50 rounded-2xl"
+                data-ev-card
+              >
+                <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
+                  <img
+                    src={img}
+                    alt={ev.style || 'event'}
+                    className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
+                    {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
+                  </div>
+                  <div className="mt-1 text-gray-300 text-sm sm:text-base space-y-0.5">
+                    <div className="capitalize">{ev.style || '—'}</div>
+                    <div className="truncate">{ev.location || '—'}</div>
+                    <div>{formatDateOnly(ev.dateFrom)}</div>
+                    <div>{formatTimeAmPm(ev.dateFrom)}</div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          <div className="shrink-0 w-2" />
+        </div>
+
+        {/* optional arrows */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              const el = trackRef.current;
+              if (!el) return;
+              const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+              const w = (firstCard?.offsetWidth || 260) + 24; // 24 ≈ gap
+              el.scrollBy({ left: -w, behavior: 'smooth' });
+            }}
+            className="pointer-events-auto ml-[-6px] hidden lg:grid place-items-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white"
+            aria-label="Previous event"
+          >
+            <svg viewBox="0 0 10 10" className="w-4 h-4" fill="currentColor"><polygon points="7.5,1 2.5,5 7.5,9" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const el = trackRef.current;
+              if (!el) return;
+              const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+              const w = (firstCard?.offsetWidth || 260) + 24;
+              el.scrollBy({ left: w, behavior: 'smooth' });
+            }}
+            className="pointer-events-auto mr-[-6px] hidden lg:grid place-items-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white"
+            aria-label="Next event"
+          >
+            <svg viewBox="0 0 10 10" className="w-4 h-4" fill="currentColor"><polygon points="2.5,1 7.5,5 2.5,9" /></svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const heroDescription =
     selectedDaySummary?.mainCondition ||
     weather?.summary?.mainCondition ||
@@ -1711,7 +1854,6 @@ export default function HomePage() {
   text-gray-900 dark:text-gray-100 mb-4"
                 >
                   {!daySel ? (
-                    // ----- NOT SAVED YET: ONLY "Save" -----
                     <button
                       onClick={async () => {
                         if (isCurrentChosen) return;
@@ -1792,7 +1934,6 @@ export default function HomePage() {
                                     setSaving(true);
                                     let targetId = daySel!.outfitId || outfitIdMap[key];
 
-                                    // Prefer real metadata from the selected outfit; fall back to current carousel outfit if needed
                                     const meta = selectedOutfitFromDaySel || outfitsOrdered[currentIndex];
 
                                     if (!targetId) {
@@ -1803,17 +1944,16 @@ export default function HomePage() {
                                           layerCategory: i.layerCategory,
                                           sortOrder: idx,
                                         })),
-                                        warmthRating: meta?.warmthRating,            // real value
-                                        waterproof: !!meta?.waterproof,              // real value
-                                        overallStyle: meta?.overallStyle ?? selectedStyle, // real value or selectedStyle
+                                        warmthRating: meta?.warmthRating,            
+                                        waterproof: !!meta?.waterproof,              
+                                        overallStyle: meta?.overallStyle ?? selectedStyle, 
                                         weatherSummary: JSON.stringify(
                                           meta?.weatherSummary ?? {
-                                            // safe fallback to current snapshot if meta doesn’t carry it
                                             temperature: selectedOutfitFromDaySel!.weatherSummary.avgTemp,
                                             condition: selectedOutfitFromDaySel!.weatherSummary.mainCondition,
                                           }
                                         ),
-                                        userRating: rating ?? null,                   // nullable (see #3)
+                                        userRating: rating ?? null,                  
                                       });
                                       targetId = created.id;
                                       setOutfitIdMap(prev => ({ ...prev, [key]: targetId! }));
@@ -1839,7 +1979,6 @@ export default function HomePage() {
                                 }}
                                 value={(() => {
                                   const key = selectedOutfitFromDaySel ? getOutfitKey(selectedOutfitFromDaySel) : '';
-                                  // don't force a default; show undefined if no rating yet
                                   return ratings[key] ?? (typeof selectedOutfitFromDaySel?.userRating === 'number'
                                     ? selectedOutfitFromDaySel.userRating
                                     : undefined);
@@ -2057,53 +2196,13 @@ export default function HomePage() {
             </div>
 
             {events.filter(e => e.type !== 'trip').length > 0 ? (
-              <div className="relative overflow-hidden">
-                {(() => {
-                  const base = events
-                    .filter(e => e.type !== 'trip')
-                    .slice()
-                    .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime());
-                  const loop = [...base, ...base];
-                  return (
-                    <motion.div
-                      className="flex gap-6"
-                      animate={{ x: ['0%', '-50%'] }}
-                      transition={{ duration: 60, ease: 'linear', repeat: Infinity }}
-                    >
-                      {loop.map((ev, idx) => {
-                        const img = eventImageFor(ev.style);
-                        return (
-                          <button
-                            key={`${ev.id}-${idx}`}
-                            onClick={() => { setSelectedEvent(ev); setShowDetailModal(true); }}
-                            className="group text-left min-w-[240px] sm:min-w-[240px] lg:min-w-[280px]"
-                          >
-                            <div className="relative w-full overflow-hidden rounded-2xl shadow-md">
-                              <img
-                                src={img}
-                                alt={ev.style || 'event'}
-                                className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
-                              />
-                            </div>
-
-                            <div className="mt-3">
-                              <div className="text-white text-xl sm:text-2xl font-semibold leading-snug truncate">
-                                {ev.name?.charAt(0).toUpperCase() + ev.name?.slice(1)}
-                              </div>
-                              <div className="mt-1 text-gray-300 text-sm sm:text-base space-y-0.5">
-                                <div className="capitalize">{ev.style || '—'}</div>
-                                <div className="truncate">{ev.location || '—'}</div>
-                                <div>{formatDateOnly(ev.dateFrom)}</div>
-                                <div>{formatTimeAmPm(ev.dateFrom)}</div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  );
-                })()}
-              </div>
+              <EventsCarousel
+                items={events
+                  .filter(e => e.type !== 'trip')
+                  .slice()
+                  .sort((a, b) => new Date(a.dateFrom).getTime() - new Date(b.dateFrom).getTime())}
+                onOpen={(ev) => { setSelectedEvent(ev); setShowDetailModal(true); }}
+              />
             ) : (
               <div className="text-center py-10">
                 <p className="text-gray-400 mb-4">No upcoming events</p>
@@ -2165,7 +2264,7 @@ export default function HomePage() {
                         type="button"
                         className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => {
-                          setNewEvent(prev => ({ ...prev, location: opt.city })); // save only the city
+                          setNewEvent(prev => ({ ...prev, location: opt.city })); 
                           setLocSuggest([]);
                           setLocError(null);
                         }}
@@ -2218,7 +2317,6 @@ export default function HomePage() {
                     return;
                   }
 
-                  // Validate & standardize location (Events logic)
                   setLocError(null);
                   const standardized = await validateAndStandardizeLocation(newEvent.location);
                   if (!standardized) {
@@ -2235,7 +2333,6 @@ export default function HomePage() {
                       dateTo: new Date(newEvent.dateTo).toISOString(),
                     });
 
-                    // Instant pre-warm (already existed in Improved) — keep
                     if (created.weather) {
                       let days: { date: string; summary: WeatherSummary }[] = [];
                       try {
@@ -2255,6 +2352,7 @@ export default function HomePage() {
                     setEvents(evt => [...evt, toEvent(created)]);
                     setNewEvent({ name: '', location: '', dateFrom: '', dateTo: '', style: 'Casual' });
                     setShowModal(false);
+                    showToast('Successfully added a new event!');
                   } catch (err: any) {
                     const msg = err.response?.data?.message || 'Failed to create event';
                     alert(msg);
@@ -2404,7 +2502,6 @@ export default function HomePage() {
                         </button>
                         <button
                           onClick={() => {
-                            // TODO: optionally navigate to a “Adjust Outfit” flow or open wardrobe
                             setWeatherAlert(null);
                           }}
                           className="px-4 py-2 rounded-full bg-[#3F978F] text-white"
@@ -2475,7 +2572,6 @@ export default function HomePage() {
                 <>
                   <button onClick={async () => {
                     try {
-                      // Validate city (same as Create)
                       setLocErrorE(null);
                       const standardized = await validateAndStandardizeLocation(editEventData.location);
                       if (!standardized) {
@@ -2483,11 +2579,10 @@ export default function HomePage() {
                         return;
                       }
 
-                      // Build safe payload
                       const payload = {
                         id: editEventData.id || selectedEvent!.id,
                         name: editEventData.name || selectedEvent!.name,
-                        location: standardized, // city only
+                        location: standardized, 
                         dateFrom: new Date(
                           editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent!.dateFrom)
                         ).toISOString(),
@@ -2498,7 +2593,6 @@ export default function HomePage() {
                         isTrip: Boolean(selectedEvent?.isTrip ?? (selectedEvent?.type === 'trip')),
                       };
 
-                      // inside the "Save" click handler (isEditing branch)
                       const updatedDto = await updateEvent(payload as any);
                       let updated = toEvent(updatedDto);
 
@@ -2509,10 +2603,9 @@ export default function HomePage() {
 
                       await rebuildEventWeatherAndRecs(updated);
 
-                      // leave edit mode + refresh outfit query
                       setIsEditing(false);
                       queryClient.invalidateQueries({ queryKey: ['event-outfit'] });
-
+                      showToast('Successfully edited event!');
 
                     } catch (err: any) {
                       console.error('update failed', err?.response?.data || err);
@@ -2548,11 +2641,10 @@ export default function HomePage() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      if (!window.confirm('Delete this event?')) return;
-                      await deleteEvent(selectedEvent.id);
-                      setEvents(evts => evts.filter(e => e.id !== selectedEvent.id));
-                      setShowDetailModal(false);
+                    onClick={() => {
+                      if (!selectedEvent) return;
+                      setPendingDeleteId(selectedEvent.id);
+                      setConfirmDeleteOpen(true);
                     }}
                     className="px-4 py-2 rounded-full bg-red-500 text-white"
                   >
@@ -2562,6 +2654,39 @@ export default function HomePage() {
               )}
             </div>
           </div>
+          {confirmDeleteOpen && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative">
+                <h3 className="text-lg font-semibold">Delete this event?</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  Are you sure you want to delete this event?
+                </p>
+
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={() => setConfirmDeleteOpen(false)}
+                    className="px-4 py-2 rounded-full border border-black dark:border-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!pendingDeleteId) return;
+                      await deleteEvent(pendingDeleteId);
+                      setEvents(evts => evts.filter(e => e.id !== pendingDeleteId));
+                      setConfirmDeleteOpen(false);
+                      setShowDetailModal(false);
+                      showToast('Event successfully deleted.');
+                    }}
+                    className="px-4 py-2 rounded-full bg-red-500 text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
