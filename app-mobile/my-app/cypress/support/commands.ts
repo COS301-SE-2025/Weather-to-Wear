@@ -13,15 +13,21 @@ declare global {
 }
 
 Cypress.Commands.add('login', (username: string, password: string) => {
-  // Based on Login.tsx - email field has placeholder "Email" 
-  cy.get('input[placeholder="Email"]').clear().type(username);
-  // Password field has placeholder "Password"
-  cy.get('input[placeholder="Password"]').clear().type(password);
-  // Submit button
-  cy.get('button[type="submit"]').click();
+  // Wait for the login page to fully load
+  // cy.get('main', { timeout: 10000 }).should('be.visible');
   
-  // Wait for login to complete
-  cy.wait(2000);
+  // Wait for email input to be available and visible
+  cy.get('input[placeholder="Email"]', { timeout: 10000 }).should('be.visible').clear().type(username);
+  
+  // Wait for password input to be available and visible  
+  cy.get('input[placeholder="Password"]', { timeout: 10000 }).should('be.visible').clear().type(password);
+  
+  // Submit button
+  cy.get('button[type="submit"]').should('be.enabled').click();
+  
+  // Wait for login to complete - look for redirect or dashboard content
+  cy.url({ timeout: 15000 }).should('not.contain', '/login');
+  cy.wait(3000); // Additional wait for page to stabilize
 });
 
 export {};  
