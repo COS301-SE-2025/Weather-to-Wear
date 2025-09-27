@@ -1423,7 +1423,7 @@ export default function CalendarPage() {
 
     return (
       <div className="mt-4">
-        <h3 className="text-xl sm:text-2xl font-semibold mb-2">
+        <h3 className="text-xl sm:text-2xl font-semibold mb-2 font-livvic">
           {isToday(selectedDate)
             ? "Today's Events"
             : fmt(selectedDate, { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -1486,7 +1486,7 @@ export default function CalendarPage() {
 
     return (
       <div className="mt-6">
-        <h3 className="text-xl sm:text-2xl font-semibold mb-2">Upcoming Events</h3>
+        <h3 className="text-xl sm:text-2xl font-semibold mb-2 font-livvic">Upcoming Events</h3>
 
         {upcoming.length === 0 ? (
           <p className="text-gray-500">Nothing coming up in the next two weeks.</p>
