@@ -178,7 +178,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out">
+    <div className="min-h-screen min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden ml-[calc(-50vw+50%)]">
       {/* Profile Header */}
       <div
         className="w-full relative h-40 sm:h-48 md:h-64 -mt-16 mb-16 sm:mb-20 md:mb-24"

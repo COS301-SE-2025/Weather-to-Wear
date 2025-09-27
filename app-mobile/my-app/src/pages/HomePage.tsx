@@ -1219,7 +1219,7 @@ export default function HomePage() {
                   src={item.imageUrl.startsWith('http') ? item.imageUrl : absolutize(item.imageUrl, API_BASE)}
                   alt={item.category}
                   className="
-  w-16 h-16 max-[380px]:w-12 max-[380px]:h-12
+  w-8 h-8 max-[380px]:w-6 max-[380px]:h-6
   sm:w-20 sm:h-20
   md:w-24 md:h-24
   lg:w-28 lg:h-28

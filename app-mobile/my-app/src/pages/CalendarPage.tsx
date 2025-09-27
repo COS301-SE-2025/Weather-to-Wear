@@ -1289,24 +1289,13 @@ export default function CalendarPage() {
     localStorage.setItem(`tripDayOutfits:${tripId}`, JSON.stringify(map));
   }
 
-  const renderHeader = () => (
-    <div className="flex items-center justify-between mb-4">
-      <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
-        <ChevronLeft className="w-5 h-5" />
-      </button>
-      <h2 className="text-xl font-bold">{fmt(currentMonth, { month: 'long', year: 'numeric' })}</h2>
-      <button onClick={nextMonth} className="p-2 rounded-full hover:bg-gray-100">
-        <ChevronRight className="w-5 h-5" />
-      </button>
-    </div>
-  );
 
   const renderDayNames = () => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return (
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 gap-1 mb-2 ">
         {days.map(d => (
-          <div key={d} className="text-center font-medium text-sm py-1">{d}</div>
+          <div key={d} className="text-center font-medium text-sm py-1 font-livvic">{d}</div>
         ))}
       </div>
     );
@@ -1326,17 +1315,16 @@ export default function CalendarPage() {
             return (
               <div
                 key={d.toDateString()}
-                className={`min-h-20 p-1 border relative
-                ${inMonth ? 'bg-white' : 'bg-gray-100'}
-                ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-200'}
-                ${isSameDay(d, selectedDate) ? 'bg-[#3F978F] bg-opacity-10' : ''}`}
+                className={`relative h-24 rounded-lg overflow-hidden border p-1
+    ${inMonth ? 'bg-white' : 'bg-gray-100'}
+    ${isToday(d) ? 'border-2 border-[#3F978F]' : 'border-gray-300'}
+    ${isSameDay(d, selectedDate) ? 'bg-[#3F978F]/10' : ''}`}
                 onClick={() => {
                   const dd = new Date(d);
                   const trips = eventsOnDay(dd).filter(isTripEvent);
                   if (trips.length) {
                     const trip = trips[0];
 
-                    // Forecast horizon guard
                     const startOfToday = new Date();
                     startOfToday.setHours(0, 0, 0, 0);
                     const daysAhead = Math.floor((dd.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
@@ -1358,15 +1346,17 @@ export default function CalendarPage() {
                 }}
               >
                 <div className="text-right text-sm">{d.getDate()}</div>
+
                 {overflow > 0 && (
                   <button
-                    className="absolute bottom-1 left-1 z-20 text-[11px] leading-none px-1.5 py-0.5 rounded-full bg-gray-100 border shadow-sm"
+                    className="absolute bottom-1 left-1 z-10 text-[11px] leading-none px-1.5 rounded-full bg-gray-100 border shadow-sm"
                     onClick={(e) => { e.stopPropagation(); setShowDayList({ open: true, date: new Date(d) }); }}
                   >
                     +{overflow} more
                   </button>
                 )}
               </div>
+
             );
           });
           const segs = getWeekSegments(week, events);
@@ -1374,9 +1364,9 @@ export default function CalendarPage() {
           const segsToRender = segs.filter(s => s.lane < maxLanes);
           return (
             <div key={week[0].toDateString()} className="relative">
-              <div className="grid grid-cols-7 gap-1">{dayCells}</div>
+              <div className="grid grid-cols-7 gap-1 rounded-full">{dayCells}</div>
               <div
-                className="absolute inset-x-0 top-6 bottom-7 sm:bottom-6 z-0 grid grid-cols-7 gap-x-1 pointer-events-none"
+                className="absolute inset-x-0 top-6 bottom-7 sm:bottom-6 z-0 grid grid-cols-7 gap-x-1 pointer-events-none rounded-full"
                 style={{ gridAutoRows: `${rowPx}px`, rowGap: `${ROW_GAP_PX}px` }}
               >
                 {segsToRender.map(seg => {
@@ -1420,32 +1410,63 @@ export default function CalendarPage() {
     );
   }
 
+  // Image lives in /public as casual.jpg, formal.jpg, etc.
+  function eventSlugImage(style?: string) {
+    const slug = String(style || 'other').trim().toLowerCase().replace(/\s+/g, '-');
+    return `/${slug}.jpg`;
+  }
+
+
+
   function renderSelectedDateEvents() {
-    const dateEvents = eventsOnDay(selectedDate);
+    const dateEvents: Event[] = eventsOnDay(selectedDate);
+
     return (
       <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">
-          {isToday(selectedDate) ? "Today's Events" : fmt(selectedDate, { weekday: 'long', month: 'long', day: 'numeric' })}
+        <h3 className="text-xl sm:text-2xl font-semibold mb-2">
+          {isToday(selectedDate)
+            ? "Today's Events"
+            : fmt(selectedDate, { weekday: 'long', month: 'long', day: 'numeric' })}
         </h3>
+
         {dateEvents.length === 0 ? (
           <p className="text-gray-500">No events scheduled</p>
         ) : (
-          <div className="space-y-2">
-            {dateEvents.map(ev => (
-              <div
-                key={ev.id}
-                className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
-              >
-                <div className="font-medium">{ev.name}</div>
-                <div className="text-sm text-gray-600">
-                  {fmt(parseISO(ev.dateFrom), { hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { hour: 'numeric', minute: '2-digit' })}
-                </div>
-                {ev.location && <div className="text-sm text-gray-600">Location: {ev.location}</div>}
-                <div className="text-xs mt-1 px-2 py-1 bg-gray-100 rounded-full inline-block">{ev.style}</div>
-              </div>
+          <ul className="space-y-2">
+            {dateEvents.map((ev: Event) => (
+              <li key={ev.id}>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
+                  className="w-full text-left group"
+                  aria-label={`Open ${ev.name}`}
+                >
+                  <div className="flex items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
+                    {/* square image */}
+                    <img
+                      src={eventSlugImage(ev.style)}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/other.jpg'; }}
+                      alt={ev.style || 'event'}
+                      className="w-28 h-28 sm:w-36 sm:h-36 object-cover"
+                      loading="lazy"
+                    />
+                    <div className="flex-1 p-3">
+                      <div className="font-medium truncate">{ev.name}</div>
+                      <div className="text-sm text-white/80">
+                        {fmt(parseISO(ev.dateFrom), { hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      {ev.location && (
+                        <div className="text-sm text-white/80 truncate">{ev.location}</div>
+                      )}
+                      <div className="mt-1 inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs">
+                        {ev.style}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     );
@@ -1455,40 +1476,61 @@ export default function CalendarPage() {
     const now = new Date();
     const in14 = new Date();
     in14.setDate(now.getDate() + UPCOMING_DAYS);
-    const upcoming = events
-      .filter(ev => {
+
+    const upcoming: Event[] = events
+      .filter((ev: Event) => {
         const start = parseISO(ev.dateFrom);
         return start >= now && start <= in14;
       })
-      .sort((a, b) => parseISO(a.dateFrom).getTime() - parseISO(b.dateFrom).getTime());
+      .sort((a: Event, b: Event) => parseISO(a.dateFrom).getTime() - parseISO(b.dateFrom).getTime());
+
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-2">Upcoming Events </h3>
+        <h3 className="text-xl sm:text-2xl font-semibold mb-2">Upcoming Events</h3>
+
         {upcoming.length === 0 ? (
           <p className="text-gray-500">Nothing coming up in the next two weeks.</p>
         ) : (
-          <div className="space-y-2">
-            {upcoming.map(ev => (
-              <div
-                key={`up-${ev.id}`}
-                className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
-              >
-                <div className="font-medium">{ev.name}</div>
-                <div className="text-sm text-gray-600">
-                  {fmt(parseISO(ev.dateFrom), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  {' – '}
-                  {fmt(parseISO(ev.dateTo), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                </div>
-                {ev.location && <div className="text-sm text-gray-600">Location: {ev.location}</div>}
-                <div className="text-xs mt-1 px-2 py-1 bg-gray-100 rounded-full inline-block">{ev.style}</div>
-              </div>
+          <ul className="space-y-2">
+            {upcoming.map((ev: Event) => (
+              <li key={`up-${ev.id}`}>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedEvent(ev); setShowEventModal(true); }}
+                  className="w-full text-left group"
+                  aria-label={`Open ${ev.name}`}
+                >
+                  <div className="flex items-stretch rounded-xl overflow-hidden bg-black text-white transition group-hover:opacity-95">
+                    {/* square image */}
+                    <img
+                      src={eventSlugImage(ev.style)}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/other.jpg'; }}
+                      alt={ev.style || 'event'}
+                      className="w-28 h-28 sm:w-36 sm:h-36 object-cover"
+                      loading="lazy"
+                    />
+                    <div className="flex-1 p-3">
+                      <div className="font-medium truncate">{ev.name}</div>
+                      <div className="text-sm text-white/80">
+                        {fmt(parseISO(ev.dateFrom), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} – {fmt(parseISO(ev.dateTo), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      {ev.location && (
+                        <div className="text-sm text-white/80 truncate">{ev.location}</div>
+                      )}
+                      <div className="mt-1 inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs">
+                        {ev.style}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     );
   }
+
 
   // Small badge for weather display in the trip outfit modal
   const TripDayWeatherBadge: React.FC<{ trip: Event; date: Date }> = ({ trip, date }) => {
@@ -1507,51 +1549,67 @@ export default function CalendarPage() {
 
   return (
     <div
-      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
-      style={{ paddingTop: 0 }}
+      className="ml-[calc(-50vw+50%)] w-screen flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden "
+      // style={{ width: '100%', maxWidth: '195vw' }} // Ensures no overflow
     >
       {/* Header Image Section */}
       <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
         <div
           className="absolute inset-0 bg-cover bg-top md:bg-center"
-          style={{ backgroundImage: `url(/header.jpg)` }}
+          style={{ backgroundImage: `url(/calHeader1.jpg)` }}
         />
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative z-10 flex h-full items-center justify-center px-0">
 
           <div className="px-6 py-2 border-2 border-white">
             <h1 className="text-2xl font-bodoni font-light text-center text-white">
-              MY CALENDAR
+              <div className="flex items-center justify-between">
+                <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <h2 className="uppercase text-xl font-bold"> {fmt(currentMonth, { month: 'long', year: 'numeric' })}
+                </h2>
+                <button onClick={nextMonth} className="p-2 rounded-full hover:bg-gray-100">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
             </h1>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
 
+      <div className="flex justify-center mb-4">
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => setShowCreateModal(true)}
-            className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
+            className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition inline-flex items-center gap-2"
             aria-label="Add event"
           >
             <CalendarPlus className="w-5 h-5" />
+            <span>Add Event</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setShowTripModal(true)}
-            className="p-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition"
-            aria-label="Add trip"
+            className="px-3 py-2 rounded-full bg-[#3F978F] text-white hover:bg-[#347e77] transition inline-flex items-center gap-2"
+            aria-label="Plan a trip"
           >
             <Luggage className="w-5 h-5" />
+            <span>Plan a Trip</span>
           </button>
         </div>
       </div>
 
-      {renderHeader()}
+
+<div className='px-4 sm:px-8'>
       {renderDayNames()}
       {renderWeeks()}
       {renderSelectedDateEvents()}
       {renderUpcomingEvents()}
+</div>
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1870,7 +1928,7 @@ export default function CalendarPage() {
             {/* Landing: choose Pick vs Generate */}
             {planTab === 'landing' && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ">
                   <button
                     disabled={suitcaseOutfits.length === 0}
                     onClick={() => {
