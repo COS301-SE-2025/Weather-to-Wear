@@ -211,7 +211,7 @@ const PostToFeed = () => {
       <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
         <div
           className="absolute inset-0 bg-cover bg-top md:bg-center"
-          style={{ backgroundImage: `url(/header.jpg)` }}
+          style={{ backgroundImage: `url(/postheader1.jpg)` }}
         />
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative z-10 flex h-full items-center justify-center px-0">
