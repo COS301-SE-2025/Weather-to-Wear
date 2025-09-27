@@ -344,11 +344,8 @@ class SocialService {
 
     // Extract clothing items from the liked post and generate inspiration
     await this.generateInspirationFromLikedPost(userId, post);
-    //!bemo change
-    //return like;
     
-    //! Alisha return
-    return this.prisma.like.create({ data: { postId, userId } });
+    return like;
   }
 
   private async generateInspirationFromLikedPost(userId: string, post: any) {
@@ -565,7 +562,7 @@ class SocialService {
       profilePhoto: l.user.profilePhoto || undefined,
     },
     postId: l.postId || undefined,
-    postContent: l.post?.caption || undefined, // keep post caption for likes
+    postContent: l.post?.caption || undefined, 
     createdAt: l.createdAt.toISOString(),
   })),
   ...comments.map((c) => ({
@@ -577,7 +574,7 @@ class SocialService {
       profilePhoto: c.user.profilePhoto || undefined,
     },
     postId: c.postId || undefined,
-    postContent: c.content || undefined, // <-- CHANGE: use the actual comment text
+    postContent: c.content || undefined, 
     createdAt: c.createdAt.toISOString(),
   })),
   ...followRequests.map((f) => ({
@@ -591,8 +588,8 @@ class SocialService {
     postId: undefined,
     postContent: undefined,
     createdAt: f.createdAt.toISOString(),
-    status: f.status as "pending" | "accepted" | "rejected", // ✅ include status
-    followId: f.id, // ✅ include followId for accept/reject
+    status: f.status as "pending" | "accepted" | "rejected",
+    followId: f.id,
   })),
 ];
 
