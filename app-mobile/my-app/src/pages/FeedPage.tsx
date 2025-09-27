@@ -10,9 +10,10 @@ import {
   Snowflake,
   Wind,
   CloudSun,
+  Sparkles,
 } from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   getPosts,
   addComment,
@@ -78,21 +79,21 @@ type UserResult = {
 
 export type NotificationAPIItem =
   | {
-      id: string;
-      type: "like" | "comment";
-      fromUser: { id: string; name: string; profilePhoto?: string | null };
-      postId?: string;
-      postContent?: string;
-      createdAt: string;
-      followId: string;
-    }
+    id: string;
+    type: "like" | "comment";
+    fromUser: { id: string; name: string; profilePhoto?: string | null };
+    postId?: string;
+    postContent?: string;
+    createdAt: string;
+    followId: string;
+  }
   | {
-      id: string;
-      type: "follow";
-      fromUser: { id: string; name: string; profilePhoto?: string | null };
-      createdAt: string;
-      status: "pending" | "accepted" | "rejected";
-    };
+    id: string;
+    type: "follow";
+    fromUser: { id: string; name: string; profilePhoto?: string | null };
+    createdAt: string;
+    status: "pending" | "accepted" | "rejected";
+  };
 
 const API_URL = `${API_BASE}`;
 
@@ -173,11 +174,10 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
 
               <button
                 onClick={() => onToggleFollow(u.id, u)}
-                className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                  u.isFollowing || u.followRequested
-                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                    : "bg-[#3F978F] text-white hover:bg-[#357f78]"
-                }`}
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
+                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                  : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                  }`}
               >
                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
               </button>
@@ -212,6 +212,7 @@ const weatherIcon = (cond?: string | null) => {
 
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [leftTab, setLeftTab] = useState<"notifications" | "inspo">("notifications");
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
   const [following, setFollowing] = useState<Account[]>([]);
@@ -249,6 +250,19 @@ const FeedPage: React.FC = () => {
   const postsContainerRef = useRef<HTMLDivElement | null>(null);
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
+
+
+  // inspo (sidebar) state
+  type SidebarInspoOutfit = {
+    id: string;
+    overallStyle: string;
+    inspoItems: { closetItemId: string; imageUrl: string; sortOrder: number; category: string }[];
+  };
+
+  const [inspoLoading, setInspoLoading] = useState(false);
+  const [inspoError, setInspoError] = useState<string | null>(null);
+  const [inspoOutfits, setInspoOutfits] = useState<SidebarInspoOutfit[]>([]);
+
   useEffect(() => {
     if (location.state?.postSuccess) {
       setShowSuccessPopup(true);
@@ -256,6 +270,40 @@ const FeedPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    const loadInspo = async () => {
+      try {
+        setInspoError(null);
+        setInspoLoading(true);
+
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setInspoError("Please log in to see inspiration.");
+          setInspoOutfits([]);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/api/inspo`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch inspiration outfits");
+        const data = await res.json();
+
+        // keep it lightweight for the sidebar: top 3 by whatever score server sends
+        const top = (data ?? []).slice(0, 3);
+        setInspoOutfits(top);
+      } catch (e: any) {
+        setInspoError(e.message || "Failed to load inspiration");
+      } finally {
+        setInspoLoading(false);
+      }
+    };
+
+    if (leftTab === "inspo") loadInspo();
+  }, [leftTab]);
+
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -346,21 +394,45 @@ const FeedPage: React.FC = () => {
     fetchNotifications();
   }, [currentUserId, fetchNotifications]);
 
+  const [liking, setLiking] = useState<Record<string, boolean>>({});
+
   const toggleLike = async (id: string) => {
-    const post = posts.find((p) => p.id === id);
-    if (!post) return;
+    if (liking[id]) return; // prevent double taps
+
+    // read the current value once
+    const current = posts.find((p) => p.id === id);
+    if (!current) return;
+
+    setLiking((m) => ({ ...m, [id]: true }));
+
     try {
-      if (post.liked) {
+      if (current.liked) {
+        // UNLIKE (same as your working path)
         await unlikePost(id);
-        setPosts(posts.map((p) => (p.id === id ? { ...p, liked: false, likes: p.likes - 1 } : p)));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, liked: false, likes: Math.max(0, p.likes - 1) } : p
+          )
+        );
       } else {
+        // LIKE (mirror the unlike path)
         await likePost(id);
-        setPosts(posts.map((p) => (p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p)));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, liked: true, likes: p.likes + 1 } : p
+          )
+        );
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to update like");
+    } finally {
+      setLiking((m) => {
+        const { [id]: _, ...rest } = m;
+        return rest;
+      });
     }
   };
+
 
   const addCommentHandler = async (postId: string) => {
     const content = (newComment[postId] || "").trim();
@@ -426,12 +498,12 @@ const FeedPage: React.FC = () => {
         prev.map((p) =>
           p.id === postId
             ? {
-                ...p,
-                content: updated.caption ?? p.content,
-                location: updated.location ?? p.location,
-                weather: updated.weather ?? p.weather,
-                imageUrl: updated.imageUrl ? absolutize(updated.imageUrl, API_BASE) : p.imageUrl,
-              }
+              ...p,
+              content: updated.caption ?? p.content,
+              location: updated.location ?? p.location,
+              weather: updated.weather ?? p.weather,
+              imageUrl: updated.imageUrl ? absolutize(updated.imageUrl, API_BASE) : p.imageUrl,
+            }
             : p
         )
       );
@@ -483,17 +555,25 @@ const FeedPage: React.FC = () => {
 
   useEffect(() => {
     const el = sentinelRef.current;
+    const rootEl = postsContainerRef.current;
     if (!el) return;
+
     const io = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
         if (first.isIntersecting) fetchNext();
       },
-      { rootMargin: "600px" }
+      {
+        root: rootEl ?? null,   // <— use the actual scrolling container
+        rootMargin: "600px",
+        threshold: 0.01,
+      }
     );
+
     io.observe(el);
     return () => io.disconnect();
   }, [fetchNext]);
+
 
   useEffect(() => {
     let timer: number | undefined;
@@ -558,6 +638,8 @@ const FeedPage: React.FC = () => {
   }, [menuOpen]);
   // ---
 
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <style>
@@ -572,6 +654,7 @@ const FeedPage: React.FC = () => {
           Post created successfully!
         </div>
       )}
+
 
       {/* Mobile header: centered search + bell */}
       <div className="lg:hidden sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b">
@@ -588,6 +671,17 @@ const FeedPage: React.FC = () => {
               />
             </div>
           </form>
+
+
+          <button
+            type="button"
+            aria-label="Inspo"
+            className="shrink-0 w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
+            onClick={() => navigate("/inspo")}
+          >
+            <Sparkles className="h-5 w-5" />
+          </button>
+
 
           <button
             type="button"
@@ -731,141 +825,252 @@ const FeedPage: React.FC = () => {
 
       {/* Desktop layout grid */}
       <div
-        className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-4 gap-4
-                  h-[calc(100vh-120px)] overflow-hidden"
+        className="    max-w-8xl mx-auto
+    px-0 lg:px-4
+    py-0 lg:py-4
+    pt-0
+    grid grid-cols-1 lg:grid-cols-4
+    gap-0 lg:gap-4
+                  "
       >
         {/* Left Sidebar (desktop) */}
-        <aside className="hidden lg:block lg:col-span-1">
+        <aside className="hidden lg:block lg:col-span-1 pr-8">
           <div
             className="sticky top-4 bg-white dark:bg-gray-800 rounded-xl shadow-md p-4
-                          h-[calc(100vh-140px)] flex flex-col"
+                h-[calc(100vh-160px)] flex flex-col"
           >
-            <div className="flex gap-2 mb-4">
-              <button className="flex-1 py-2 rounded-full text-sm font-medium bg-[#3F978F] text-white">
+            <div className="flex gap-2 mb-1">
+              <button
+                className={`flex-1 py-2 rounded-full text-sm font-medium transition ${leftTab === "notifications"
+                  ? "bg-[#3F978F] text-white"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                  }`}
+                onClick={() => setLeftTab("notifications")}
+              >
                 Notifications
               </button>
+              <button
+                className={`flex-1 py-2 rounded-full text-sm font-medium transition flex items-center justify-center gap-1 ${leftTab === "inspo"
+                  ? "bg-[#3F978F] text-white"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                  }`}
+                onClick={() => setLeftTab("inspo")}
+              >
+
+                Inspo
+              </button>
+
+
+
             </div>
+
+
 
             <div
               ref={notificationsContainerRef}
-              className="flex-1 min-h-0 space-y-3 overflow-y-auto scrollbar-hide overscroll-contain"
+              className="flex-1 min-h-0 space-y-3 overflow-y-auto scrollbar-hide overscroll-contain pt-4"
             >
-              {loadingNotifications && (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="animate-spin w-6 h-6 text-[#3F978F]" />
-                </div>
-              )}
-              {notificationsError && (
-                <div className="text-red-500 text-sm text-center bg-red-100 dark:bg-red-900/30 p-2 rounded-md">
-                  {notificationsError}
-                </div>
-              )}
-              {!loadingNotifications && notifications.length === 0 && (
-                <div className="text-gray-500 dark:text-gray-400 text-sm text-center p-4">
-                  No notifications yet.
-                </div>
-              )}
-
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                >
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
-                    {n.fromUser.profilePhoto ? (
-                      <img
-                        src={absolutize(n.fromUser.profilePhoto, API_BASE)}
-                        alt={n.fromUser.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span>{n.fromUser.name?.[0] || "U"}</span>
-                    )}
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                        {n.fromUser.name}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(n.date).toLocaleString()}
-                      </span>
+              {leftTab === "notifications" ? (
+                <>
+                  {loadingNotifications && (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="animate-spin w-6 h-6 text-[#3F978F]" />
                     </div>
+                  )}
 
-                    <div className="text-sm text-gray-700 dark:text-gray-200 mt-1">
-                      {n.type === "like" && (
-                        <span className="flex items-center gap-1">
-                          <Heart className="w-4 h-4 text-red-500" fill="red" />
-                          Liked your post
-                        </span>
-                      )}
-                      {n.type === "comment" && <span>Commented on your post</span>}
-                      {n.type === "follow" && n.followStatus === "pending" && <span>Sent you a follow request</span>}
-                      {n.type === "follow" && n.followStatus === "accepted" && <span>Started following you</span>}
-                      {n.type === "follow" && n.followStatus === "rejected" && <span>Follow request rejected</span>}
+                  {notificationsError && (
+                    <div className="text-red-500 text-sm text-center bg-red-100 dark:bg-red-900/30 p-2 rounded-md">
+                      {notificationsError}
                     </div>
+                  )}
 
-                    {n.postContent && (
-                      <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
-                        "{n.postContent}"
-                      </div>
-                    )}
+                  {!loadingNotifications && notifications.length === 0 && (
+                    <div className="text-gray-500 dark:text-gray-400 text-sm text-center p-4">
+                      No notifications yet.
+                    </div>
+                  )}
 
-                    {n.type === "follow" && n.followStatus === "pending" && (
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          className="px-3 py-1 text-xs bg-[#3F978F] text-white rounded-full hover:bg-[#357f78] transition-colors duration-150"
-                          onClick={async () => {
-                            try {
-                              if (!n.followId) throw new Error("Missing followId");
-                              await acceptFollowRequest(n.followId);
-                              setFollowing((prev) => [
-                                ...prev,
-                                {
-                                  id: n.fromUser.id,
-                                  username: n.fromUser.name,
-                                  profilePhoto: n.fromUser.profilePhoto || undefined,
-                                },
-                              ]);
-                              setNotifications((prev) =>
-                                prev.map((notif) =>
-                                  notif.id === n.id ? { ...notif, followStatus: "accepted" } : notif
-                                )
-                              );
-                            } catch (err: any) {
-                              setNotificationsError(err.message || "Failed to accept request");
-                            }
-                          }}
-                        >
-                          Accept
-                        </button>
-                        <button
-                          className="px-3 py-1 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-150"
-                          onClick={async () => {
-                            try {
-                              if (!n.followId) throw new Error("Missing followId");
-                              await rejectFollowRequest(n.followId);
-                              setNotifications((prev) =>
-                                prev.map((notif) =>
-                                  notif.id === n.id ? { ...notif, followStatus: "rejected" } : notif
-                                )
-                              );
-                            } catch (err: any) {
-                              setNotificationsError(err.message || "Failed to reject request");
-                            }
-                          }}
-                        >
-                          Reject
-                        </button>
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
+                        {n.fromUser.profilePhoto ? (
+                          <img
+                            src={absolutize(n.fromUser.profilePhoto, API_BASE)}
+                            alt={n.fromUser.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{n.fromUser.name?.[0] || "U"}</span>
+                        )}
                       </div>
-                    )}
-                  </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                            {n.fromUser.name}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(n.date).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="text-sm text-gray-700 dark:text-gray-200 mt-1">
+                          {n.type === "like" && (
+                            <span className="flex items-center gap-1">
+                              <Heart className="w-4 h-4 text-red-500" fill="red" />
+                              Liked your post
+                            </span>
+                          )}
+                          {n.type === "comment" && <span>Commented on your post</span>}
+                          {n.type === "follow" && n.followStatus === "pending" && (
+                            <span>Sent you a follow request</span>
+                          )}
+                          {n.type === "follow" && n.followStatus === "accepted" && (
+                            <span>Started following you</span>
+                          )}
+                          {n.type === "follow" && n.followStatus === "rejected" && (
+                            <span>Follow request rejected</span>
+                          )}
+                        </div>
+
+                        {n.postContent && (
+                          <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
+                            "{n.postContent}"
+                          </div>
+                        )}
+
+                        {n.type === "follow" && n.followStatus === "pending" && (
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              className="px-3 py-1 text-xs bg-[#3F978F] text-white rounded-full hover:bg-[#357f78] transition-colors duration-150"
+                              onClick={async () => {
+                                try {
+                                  if (!n.followId) throw new Error("Missing followId");
+                                  await acceptFollowRequest(n.followId);
+                                  setFollowing((prev) => [
+                                    ...prev,
+                                    {
+                                      id: n.fromUser.id,
+                                      username: n.fromUser.name,
+                                      profilePhoto: n.fromUser.profilePhoto || undefined,
+                                    },
+                                  ]);
+                                  setNotifications((prev) =>
+                                    prev.map((notif) =>
+                                      notif.id === n.id ? { ...notif, followStatus: "accepted" } : notif
+                                    )
+                                  );
+                                } catch (err: any) {
+                                  setNotificationsError(err.message || "Failed to accept request");
+                                }
+                              }}
+                            >
+                              Accept
+                            </button>
+                            <button
+                              className="px-3 py-1 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-150"
+                              onClick={async () => {
+                                try {
+                                  if (!n.followId) throw new Error("Missing followId");
+                                  await rejectFollowRequest(n.followId);
+                                  setNotifications((prev) =>
+                                    prev.map((notif) =>
+                                      notif.id === n.id ? { ...notif, followStatus: "rejected" } : notif
+                                    )
+                                  );
+                                } catch (err: any) {
+                                  setNotificationsError(err.message || "Failed to reject request");
+                                }
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                /* ===== Inspo panel (desktop) — wired to /api/inspo ===== */
+                <div className="space-y-3">
+                  {inspoLoading && (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="animate-spin w-6 h-6 text-[#3F978F]" />
+                    </div>
+                  )}
+
+                  {inspoError && (
+                    <div className="text-red-500 text-sm text-center bg-red-100 dark:bg-red-900/30 p-2 rounded-md">
+                      {inspoError}
+                    </div>
+                  )}
+
+                  {!inspoLoading && !inspoError && inspoOutfits.length === 0 && (
+                    <div className="text-gray-500 dark:text-gray-400 text-sm text-center p-4">
+                      No inspo yet. Like some outfits, then{" "}
+                      <button
+                        onClick={() => navigate("/inspo")}
+                        className="text-[#3F978F] hover:underline"
+                      >
+                        generate inspo →
+                      </button>
+                    </div>
+                  )}
+
+                  {inspoOutfits.map((outfit) => {
+                    const items = [...(outfit.inspoItems || [])]
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .slice(0, 4); // small preview
+                    return (
+                      <div
+                        key={outfit.id}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                      >
+                        <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                          {outfit.overallStyle ? `${outfit.overallStyle} Style` : "Inspiration"}
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {items.map((it) => (
+                            <div key={it.closetItemId} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                              <img
+                                src={it.imageUrl ? absolutize(it.imageUrl, API_BASE) : "/api/placeholder/150/150"}
+                                alt={it.category}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
             </div>
+
+            {leftTab === "inspo" ? (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => navigate("/inspo")}
+                  className="text-xs text-[#3F978F] hover:underline"
+                  aria-label="See more inspo"
+                >
+                  See more inspo →
+                </button>
+              </div>
+            ) : (
+              <div />
+            )}
+
           </div>
+
+
+
         </aside>
+
 
         {/* Main Feed (desktop + mobile) */}
         <main className="lg:col-span-3 space-y-4">
@@ -886,10 +1091,10 @@ const FeedPage: React.FC = () => {
           {/* Posts */}
           <div
             ref={postsContainerRef}
-            className="space-y-6 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide overscroll-contain"
+            className="space-y-0 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide overscroll-contain"
           >
             {posts.map((post) => (
-              <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+              <div key={post.id} className="p-4 border  bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-2 relative">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
@@ -964,13 +1169,19 @@ const FeedPage: React.FC = () => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-4 text-sm mb-2">
-                  <button className="flex items-center gap-1" onClick={() => toggleLike(post.id)}>
+                  <button
+                    className="flex items-center gap-1 disabled:opacity-60"
+                    onClick={() => toggleLike(post.id)}
+                    disabled={!!liking[post.id]}
+                    aria-pressed={post.liked}
+                  >
                     <Heart
                       className={`w-4 h-4 ${post.liked ? "text-red-500" : "text-gray-400"}`}
                       fill={post.liked ? "red" : "none"}
                     />
                     {post.likes}
                   </button>
+
                 </div>
 
                 {/* Caption (username + text) */}

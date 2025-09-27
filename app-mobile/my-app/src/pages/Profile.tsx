@@ -183,7 +183,7 @@ const Profile = () => {
       <div
         className="w-full relative h-40 sm:h-48 md:h-64 -mt-16 mb-16 sm:mb-20 md:mb-24"
         style={{
-          backgroundImage: `url(/header.jpg)`,
+          backgroundImage: `url(/postheader1.jpg)`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
