@@ -772,7 +772,7 @@ const FeedPage: React.FC = () => {
             className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide"
           >
             {posts.map((post) => (
-              <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm">
+              <div key={post.id} className="p-4 border rounded-xl bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold">
                     {post.profilePhoto ? (
@@ -790,7 +790,13 @@ const FeedPage: React.FC = () => {
 
                 <div className="text-sm mb-2">{post.content}</div>
                 {post.imageUrl && (
-                  <img src={post.imageUrl} alt="Post" className="w-full rounded-xl mb-2 object-cover" />
+                  <div className="-mx-4 mb-2">
+                    <img
+                      src={post.imageUrl}
+                      alt="Post"
+                      className="block w-full h-auto object-cover"
+                    />
+                  </div>
                 )}
 
                 <div className="flex items-center gap-4 text-sm mb-2">
