@@ -28,3 +28,19 @@ export async function uploadProfilePhoto(file: File) {
 
   return res.json(); // { user: {...} }
 }
+
+// --- function to update privacy ---
+export async function updatePrivacy(isPrivate: boolean) {
+  const res = await fetchWithAuth(`${API_URL}/me/privacy`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isPrivate }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to update privacy settings");
+  }
+
+  return res.json(); // { message: "...", user: {...} }
+}

@@ -1,3 +1,4 @@
+// src/modules/auth/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import { validatePassword } from './auth.utils';
 import jwt from 'jsonwebtoken';
@@ -13,9 +14,13 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
 
-export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function authenticateToken(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Expecting: Bearer <token>
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
@@ -24,8 +29,6 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      // Handle expiry specifically, so the client can auto-logout.
-      // jsonwebtoken sets err.name === 'TokenExpiredError' on expiry.
       if ((err as any)?.name === 'TokenExpiredError') {
         res.setHeader('X-Session-Expired', 'true');
         res.status(401).json({
@@ -35,7 +38,6 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
         return;
       }
 
-      // Invalid for any other reason
       res.status(401).json({ code: 'INVALID_TOKEN', error: 'Invalid token' });
       return;
     }

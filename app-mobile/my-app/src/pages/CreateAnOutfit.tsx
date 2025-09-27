@@ -175,20 +175,33 @@ export default function CreateAnOutfit() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 -mt-12 md:mt-0">
-      {/* Hero header (matches other pages) */}
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
+      {/* Header Image Section */}
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/header.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              CREATE AN OUTFIT 
+            </h1>
+          </div>
+        </div>
+      </div>
 
 
       {/* Main grid */}
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_360px] gap-5 sm:gap-8 px-3 sm:px-4 md:px-0 pb-10">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_400px] gap-5 sm:gap-8 px-3 sm:px-4 md:px-0 pb-10">
         {/* FORM CARD */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md px-5 sm:px-7 py-6 sm:py-7">
-          {/* Section title pill */}
-          <div className="flex justify-center mb-5">
-            <h2 className="text-lg md:text-xl font-livvic border-2 border-black dark:border-gray-100 px-4 py-1 text-black dark:text-gray-100">
-              Create an Outfit
-            </h2>
-          </div>
+          
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Base Top */}
