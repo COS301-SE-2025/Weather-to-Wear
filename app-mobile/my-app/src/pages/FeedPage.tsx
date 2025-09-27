@@ -199,7 +199,7 @@ type SearchUsersCardProps = {
 //   }
 // );
 
-const SearchUsersCard: React.FC<SearchUsersCardProps & { onUserClick: (id: string) => void }> = React.memo(
+const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
   ({
     searchQuery,
     setSearchQuery,
@@ -209,8 +209,9 @@ const SearchUsersCard: React.FC<SearchUsersCardProps & { onUserClick: (id: strin
     searchHasMore,
     onLoadMore,
     onToggleFollow,
-    onUserClick,
   }) => {
+    const navigate = useNavigate(); // Add this
+
     return (
       <div className="w-full">
         <div className="relative mb-4">
@@ -240,8 +241,8 @@ const SearchUsersCard: React.FC<SearchUsersCardProps & { onUserClick: (id: strin
           {searchResults.map((u) => (
             <div
               key={u.id}
-              onClick={() => onUserClick(u.id)}
-              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => navigate(`/profile/${u.id}`, { state: { user: u } })}
             >
               <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                 {u.profilePhoto ? (
@@ -267,7 +268,7 @@ const SearchUsersCard: React.FC<SearchUsersCardProps & { onUserClick: (id: strin
 
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent navigating when clicking follow button
+                  e.stopPropagation();
                   onToggleFollow(u.id, u);
                 }}
                 className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
@@ -1181,7 +1182,7 @@ const FeedPage: React.FC = () => {
               searchHasMore={searchHasMore}
               onLoadMore={loadMoreSearch}
               onToggleFollow={toggleFollowFromSearch}
-              onUserClick={(id) => navigate(`/profile/${id}`)}
+              
             />
           </div>
 
