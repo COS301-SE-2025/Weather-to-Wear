@@ -1,12 +1,27 @@
 {
-  "name": "Cypress Example",
-  "version": "1.0.0",
-  "description": "Sample fixture data for Cypress tests",
-  "data": {
-    "greeting": "Hello, World!",
-    "user": {
-      "name": "Test User",
-      "email": "testuser@example.com"
+  "testUser": {
+    "username": "testuser123",
+    "email": "testuser123@example.com",
+    "password": "TestPassword123!"
+  },
+  "clothing": {
+    "shirt": {
+      "type": "shirt",
+      "color": "blue",
+      "size": "M",
+      "brand": "Test Brand",
+      "season": "spring",
+      "occasion": "casual"
     }
+  },
+  "event": {
+    "title": "Cypress Test Event",
+    "description": "This is a test event created by Cypress",
+    "date": "2025-12-31",
+    "time": "18:00",
+    "location": "Test Venue"
+  },
+  "users": {
+    "followTarget": "Bemo"
   }
 }

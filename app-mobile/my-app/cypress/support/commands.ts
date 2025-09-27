@@ -13,9 +13,15 @@ declare global {
 }
 
 Cypress.Commands.add('login', (username: string, password: string) => {
-  cy.get('input[name="username"], input[type="email"]').type(username);
-  cy.get('input[name="password"], input[type="password"]').type(password);
-  cy.get('button[type="submit"], button').contains(/login|sign in/i).click();
+  // Based on Login.tsx - email field has placeholder "Email" 
+  cy.get('input[placeholder="Email"]').clear().type(username);
+  // Password field has placeholder "Password"
+  cy.get('input[placeholder="Password"]').clear().type(password);
+  // Submit button
+  cy.get('button[type="submit"]').click();
+  
+  // Wait for login to complete
+  cy.wait(2000);
 });
 
 export {};  
