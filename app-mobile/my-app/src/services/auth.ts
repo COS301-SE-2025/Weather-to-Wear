@@ -37,7 +37,6 @@
 //   }
 // }
 
-// src/services/auth.ts
 import { API_BASE } from '../config';
 import { clearAllAppStorage, setToken, clearPersistedCache } from '../persist';
 import { resetQueryClient } from '../queryClient';
@@ -48,7 +47,6 @@ function decodeJwtExp(token: string): number | null {
   try {
     const [, payloadB64] = token.split('.');
     const json = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-    // exp is seconds since epoch
     return typeof json?.exp === 'number' ? json.exp * 1000 : null;
   } catch {
     return null;
@@ -56,7 +54,6 @@ function decodeJwtExp(token: string): number | null {
 }
 
 export function scheduleTokenAutoLogout(token: string) {
-  // clear any previous timer
   if (tokenExpiryTimer) {
     window.clearTimeout(tokenExpiryTimer);
     tokenExpiryTimer = null;
@@ -65,7 +62,6 @@ export function scheduleTokenAutoLogout(token: string) {
   if (!expMs) return;
 
   const now = Date.now();
-  // fire a few seconds early to be safe
   const delay = Math.max(0, expMs - now - 3000);
 
   tokenExpiryTimer = window.setTimeout(async () => {
@@ -82,7 +78,6 @@ export function cancelTokenAutoLogout() {
   }
 }
 
-// Call this right after a successful login to persist & schedule
 export function applyAuthToken(token: string) {
   setToken(token);
   scheduleTokenAutoLogout(token);
@@ -96,7 +91,6 @@ export async function loginUser(email: string, password: string) {
   });
   if (!res.ok) throw new Error((await res.json()).error);
   const json = await res.json();
-  // If your backend returns { token, user }, schedule here:
   if (json?.token) scheduleTokenAutoLogout(json.token);
   return json;
 }

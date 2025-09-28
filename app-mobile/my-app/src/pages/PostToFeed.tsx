@@ -16,17 +16,14 @@ import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
 import PostClothingPicker from "../components/PostClothingPicker";
 
-// Human-friendly labels for NSFW categories (images & text)
   const formatNsfwLabel = (raw?: string) => {
     const key = (raw || "").toLowerCase();
     const map: Record<string, string> = {
-      // image
       explicit: "explicit content",
       suggestive: "suggestive content",
       "offensive_any": "offensive content",
       "explicit_image": "explicit content",
 
-      // text (kept here in case the API ever flags captions, etc.)
       sexual: "sexual content",
       insulting: "insulting language",
       toxic: "toxic language",
@@ -54,7 +51,6 @@ const PostToFeed = () => {
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
   const [showCameraPopup, setShowCameraPopup] = useState(false);
 
-  // Clothing picker state
   const [showClothingPicker, setShowClothingPicker] = useState(false);
   const [selectedClothingItems, setSelectedClothingItems] = useState<{
     id: string;
@@ -72,7 +68,6 @@ const PostToFeed = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 
-  // Camera stream lifecycle
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
       const video = videoRef.current;
@@ -206,18 +201,14 @@ const PostToFeed = () => {
           : undefined,
       });
 
-      // Navigate with success message
       navigate("/feed", { state: { postSuccess: true } });
 
     } catch (err: any) {
-    // Prefer structured payload from our fetch layer
     const data = err?.data || err?.response?.data;
 
     if (data?.error === "NSFW_BLOCKED") {
-      // Clear all form fields & inputs
       handleReset();
 
-      // Choose the top numeric score from the server's scores object
       const scores = (data?.scores ?? {}) as Record<string, number>;
       const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
 
@@ -234,7 +225,7 @@ const PostToFeed = () => {
         displayLabel: formatNsfwLabel(rawLabel),
         score: topScore,
       });
-      return; // stop normal error flow
+      return; 
     }
 
     console.error("Failed to create post:", err);
@@ -256,7 +247,6 @@ const PostToFeed = () => {
     setShowWeatherDropdown(false);
   };
 
-  // Allow caption-only OR photo-only
   const canSubmit = Boolean(
     (content && content.trim().length > 0) || uploadedImage || image
   );

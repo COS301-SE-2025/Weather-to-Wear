@@ -210,10 +210,8 @@ const PostsPage: React.FC = () => {
     }, [fetchNext, posts.length]);
 
 
-    // ----- derived counts -----
     const postsCount = posts.length;
 
-    // ----- like toggle inside modal -----
     const isLikedByMe = (post: Post) =>
         (post.likes ?? []).some((l) => l.userId === currentUserId);
 
@@ -221,7 +219,6 @@ const PostsPage: React.FC = () => {
         if (!currentUserId) return;
         const liked = isLikedByMe(post);
 
-        // optimistic update within grid + active modal
         setPosts(prev =>
             prev.map(p =>
                 p.id === post.id
@@ -249,7 +246,6 @@ const PostsPage: React.FC = () => {
             if (liked) await unlikePost(post.id);
             else await likePost(post.id);
         } catch {
-            // revert on failure
             setPosts(prev =>
                 prev.map(p =>
                     p.id === post.id
@@ -261,7 +257,6 @@ const PostsPage: React.FC = () => {
         }
     };
 
-    // ----- comment add (modal) -----
     const handleAddComment = async () => {
         const content = newComment.trim();
         if (!activePost || !content) return;
@@ -289,11 +284,9 @@ const PostsPage: React.FC = () => {
             );
             setNewComment("");
         } catch {
-            // ignore for now
         }
     };
 
-    // ----- small helpers -----
     const visibleComments = (comments?: Comment[], expanded?: boolean) => {
         if (!comments) return [];
         if (expanded) return comments;
@@ -302,7 +295,6 @@ const PostsPage: React.FC = () => {
 
     const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
-    // ----- UI -----
     return (
         <div
       className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden ml-[calc(-50vw+50%)]"
@@ -313,13 +305,12 @@ const PostsPage: React.FC = () => {
                     <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                         {currentUserAvatar ? (
                             <img
-                                // src={prefixed(currentUserAvatar)}
                                 src={absolutize(currentUserAvatar, API_BASE)}
                                 alt={currentUserName}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                     (e.currentTarget as HTMLImageElement).style.display = "none";
-                                    setCurrentUserAvatar(null); // fall back to initial
+                                    setCurrentUserAvatar(null); 
                                 }}
                             />
                         ) : (

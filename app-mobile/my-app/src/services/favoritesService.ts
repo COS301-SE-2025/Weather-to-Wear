@@ -1,8 +1,7 @@
-// src/services/favoritesService.ts
 export interface FavoriteItem {
   id: string;
   tab: "items" | "outfits";
-  [key: string]: any; // other item properties
+  [key: string]: any; 
 }
 
 export const getFavoritesKey = (token: string) => `closet-favs-${token}`;

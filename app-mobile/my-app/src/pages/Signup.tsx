@@ -1,5 +1,3 @@
-// src/pages/Signup.tsx
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';
@@ -8,7 +6,6 @@ import { signupUser } from '../services/auth';
 //import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 
-// ✅ same image as Login (import from src/assets)
 import landingImg from '../assets/landing.jpg';
 
 export default function Signup() {
@@ -24,7 +21,6 @@ export default function Signup() {
   const [showToast, setShowToast] = useState(false);
 
   const navigate = useNavigate();
-  //const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

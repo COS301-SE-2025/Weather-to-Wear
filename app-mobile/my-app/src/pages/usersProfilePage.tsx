@@ -1,5 +1,3 @@
-
-// src/pages/usersPostsPage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MoreHorizontal, X, Heart } from "lucide-react";
 import {
@@ -18,7 +16,6 @@ import { getMe } from "../services/usersApi";
 import { absolutize } from "../utils/url";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 
-// Adjust to your backend origin
 const API_URL = `${API_BASE}`;
 const prefixed = (url: string) =>
   url.startsWith("http") ? url : `${API_URL}${url}`;
@@ -64,7 +61,7 @@ function decodeToken() {
     if (!raw) return null;
     const [, payload] = raw.split(".");
     const json = JSON.parse(atob(payload));
-    return json; // expect { id, name?, profilePhoto? ... }
+    return json; 
   } catch {
     return null;
   }
@@ -158,7 +155,6 @@ const UsersPostsPage: React.FC = () => {
         setCurrentUserAvatar(user.profilePhoto ?? null);
         localStorage.setItem("user", JSON.stringify(user));
       } catch {
-        // Fallback to token/localStorage data
       }
     })();
   }, [userId]);
@@ -176,7 +172,6 @@ const UsersPostsPage: React.FC = () => {
       setFollowRequested(initialUser.followRequested ?? false);
       setIsPrivate(initialUser.isPrivate);
     } else {
-      // Fallback if no state
       (async () => {
         try {
           const data = await searchUsers(userId, 1, 0);
@@ -222,11 +217,10 @@ const UsersPostsPage: React.FC = () => {
     setLoadingMore(true);
 
     try {
-      console.log(`Fetching posts for userId: ${userId}`); // Debug log
+      console.log(`Fetching posts for userId: ${userId}`); 
       const resp = await getPosts(pageSize, offset, ["user", "comments", "comments.user", "likes"], userId);
       const batch: Post[] = (resp.posts ?? []) as Post[];
 
-      // Verify posts belong to the correct user
       const filteredBatch = batch.filter((post) => post.userId === userId);
       if (batch.length > 0 && filteredBatch.length === 0) {
         console.warn(`Backend returned posts for wrong user. Expected userId: ${userId}`);
@@ -252,22 +246,19 @@ const UsersPostsPage: React.FC = () => {
     }
   }, [userId, offset, hasMore, canViewPosts, pageSize]);
 
-  // reset when user changes
   useEffect(() => {
     if (!userId) return;
-    console.log(`Resetting posts for userId: ${userId}`); // Debug log
-    setPosts([]); // Clear posts
+    console.log(`Resetting posts for userId: ${userId}`); 
+    setPosts([]); 
     setOffset(0);
     setHasMore(true);
     setError(null);
   }, [userId]);
 
-  // kick off first page
   useEffect(() => {
     fetchNext();
   }, [fetchNext]);
 
-  // infinite scroll
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || posts.length === 0) return;
@@ -283,7 +274,6 @@ const UsersPostsPage: React.FC = () => {
     return () => io.disconnect();
   }, [fetchNext, posts.length]);
 
-  // ----- like toggle inside modal -----
   const isLikedByMe = (post: Post) =>
     (post.likes ?? []).some((l) => l.userId === currentUserId);
 
@@ -291,7 +281,6 @@ const UsersPostsPage: React.FC = () => {
     if (!currentUserId) return;
     const liked = isLikedByMe(post);
 
-    // optimistic update within grid + active modal
     setPosts((prev) =>
       prev.map((p) =>
         p.id === post.id
@@ -319,7 +308,6 @@ const UsersPostsPage: React.FC = () => {
       if (liked) await unlikePost(post.id);
       else await likePost(post.id);
     } catch {
-      // revert on failure
       setPosts((prev) =>
         prev.map((p) =>
           p.id === post.id ? { ...p, likes: post.likes } : p
@@ -329,7 +317,6 @@ const UsersPostsPage: React.FC = () => {
     }
   };
 
-  // ----- comment add (modal) -----
   const handleAddComment = async () => {
     const content = newComment.trim();
     if (!activePost || !content) return;
@@ -366,7 +353,7 @@ const UsersPostsPage: React.FC = () => {
     if (isMe || !userId) return;
     const liked = isFollowing || followRequested;
     setIsFollowing(!liked);
-    setFollowRequested(false); // Reset requested if unfollowing
+    setFollowRequested(false); 
     try {
       if (liked) await unfollowUser(userId);
       else {
@@ -424,7 +411,7 @@ const UsersPostsPage: React.FC = () => {
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
-                  setCurrentUserAvatar(null); // fall back to initial
+                  setCurrentUserAvatar(null); 
                 }}
               />
             ) : (

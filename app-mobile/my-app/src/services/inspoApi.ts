@@ -1,4 +1,3 @@
-// src/services/inspoApi.ts
 import { fetchWithAuth } from './fetchWithAuth';
 import { API_BASE } from '../config';
 
@@ -42,7 +41,6 @@ export interface GenerateInspoRequest {
   limit?: number;
 }
 
-// Like an item for inspiration
 export const likeItemForInspiration = async (closetItemId: string): Promise<void> => {
   const response = await fetchWithAuth(`${API_BASE}/inspo/like`, {
     method: 'POST',
@@ -55,7 +53,6 @@ export const likeItemForInspiration = async (closetItemId: string): Promise<void
   }
 };
 
-// Generate inspiration outfits
 export const generateInspoOutfits = async (request: GenerateInspoRequest): Promise<InspoOutfitRecommendation[]> => {
   const response = await fetchWithAuth(`${API_BASE}/inspo/generate`, {
     method: 'POST',
@@ -70,7 +67,6 @@ export const generateInspoOutfits = async (request: GenerateInspoRequest): Promi
   return response.json();
 };
 
-// Get all stored inspiration outfits
 export const getAllInspoOutfits = async (): Promise<InspoOutfitRecommendation[]> => {
   const response = await fetchWithAuth(`${API_BASE}/inspo`);
 
@@ -82,7 +78,6 @@ export const getAllInspoOutfits = async (): Promise<InspoOutfitRecommendation[]>
   return response.json();
 };
 
-// Delete an inspiration outfit
 export const deleteInspoOutfit = async (inspoOutfitId: string): Promise<void> => {
   const response = await fetchWithAuth(`${API_BASE}/inspo/${inspoOutfitId}`, {
     method: 'DELETE',

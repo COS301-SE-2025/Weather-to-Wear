@@ -158,9 +158,8 @@ const Profile = () => {
     );
   };
 
-  // Handle privacy toggle click
   const handlePrivacyToggle = () => {
-    setPendingPrivacy(!isPrivate); // store the target value
+    setPendingPrivacy(!isPrivate); 
     setShowConfirmPrivacy(true);
   };
 
