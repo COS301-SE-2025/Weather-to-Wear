@@ -144,13 +144,12 @@ export default function CreateAnOutfit() {
         })),
       ];
 
-      // Align with Home: include userRating when creating
       const body = {
         outfitItems,
         warmthRating: 5,
         waterproof: false,
         overallStyle: "Casual",
-        userRating: rating,          // ⭐ important
+        userRating: rating,          
         // (Home’s SaveOutfitPayload also has weatherSummary, but manual create
         // works without it; add if your backend marks it required)
         // weatherSummary: "",
