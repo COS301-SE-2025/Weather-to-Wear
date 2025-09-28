@@ -11,6 +11,11 @@ import { queryClient } from '../queryClient';
 import { groupByDay, summarizeDay, type HourlyForecast as H } from '../utils/weather';
 import Toast from '../components/Toast';
 
+function toSentenceCase(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
 type Event = {
@@ -284,7 +289,7 @@ export default function CalendarPage() {
           ...prev,
           {
             closetItemId,
-            name: meta?.name || fallbackName || 'Item',
+            name: toSentenceCase(meta?.name || fallbackName || 'Item'),
             imageUrl: meta?.imageUrl || fallbackImg || null,
             checked: false,
           },
@@ -305,7 +310,7 @@ export default function CalendarPage() {
           ...prev,
           {
             closetItemId: item.id,
-            name: item.name,
+            name: toSentenceCase(item.name), 
             imageUrl: normalizeUrl(item.imageUrl),
             checked: false,
           },
@@ -326,7 +331,7 @@ export default function CalendarPage() {
           ...prev,
           {
             outfitId: o.id,
-            name: o.name,
+            name: toSentenceCase(o.name),
             imageUrl: o.coverImageUrl || (o.outfitItems?.[0]?.imageUrl ?? null),
             checked: false,
           },
@@ -679,7 +684,7 @@ export default function CalendarPage() {
       const ofRaw = Array.isArray((ofRes as any)?.data) ? (ofRes as any).data : ((ofRes as any)?.data?.outfits ?? (ofRes as any)?.data ?? ofRes);
       const ciList: ClothingItem[] = (ciRaw as any[]).map((it: any) => ({
         id: String(it.id ?? it.itemId ?? ''),
-        name: it.name ?? it.title ?? it.category ?? '',
+        name: toSentenceCase(it.name ?? it.title ?? it.category ?? ''),
         category: it.category ?? it.type ?? 'Other',
         imageUrl: it.imageUrl ? normalizeUrl(it.imageUrl) : null,
         style: (it.style ?? it.tag ?? null) as any,
@@ -2090,8 +2095,7 @@ export default function CalendarPage() {
                   <div className="p-3 space-y-3">
                     {Array.from(new Set(closetItems.map(i => i.category))).map(cat => (
                       <div key={cat}>
-                        <h4 className="font-medium mb-1">{cat}</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+<h4 className="font-medium mb-1">{toSentenceCase(cat)}</h4>                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {closetItems.filter(i => i.category === cat).map(i => {
                             const selected = packItems.some(p => p.closetItemId === i.id);
                             return (
@@ -2099,10 +2103,9 @@ export default function CalendarPage() {
                                 key={i.id}
                                 className={`flex items-center justify-center p-2 border rounded hover:bg-gray-50 text-left ${selected ? 'border-2 border-[#3F978F]' : ''}`}
                                 onClick={() => toggleItemInPack(i)}
-                                title={i.name}
+                               title={toSentenceCase(i.name)}
                               >
-                                {i.imageUrl && <img src={i.imageUrl} alt={i.name} className="w-12 h-12 rounded object-cover" />}
-                              </button>
+{i.imageUrl && <img src={i.imageUrl} alt={toSentenceCase(i.name)} className="w-12 h-12 rounded object-cover" />}                              </button>
                             );
                           })}
                         </div>
@@ -2127,7 +2130,7 @@ export default function CalendarPage() {
                       )
                     ).map(style => (
                       <div key={String(style)}>
-                        <h4 className="font-medium mb-1">{String(style)}</h4>
+                        <h4 className="font-medium mb-1">{toSentenceCase(String(style))}</h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {outfits
                             .filter(o => (o.outfitItems?.length ?? 0) > 0 && (o.style ?? 'Other') === style)
@@ -2141,8 +2144,7 @@ export default function CalendarPage() {
                                     ? 'border-[#3F978F] ring-2 ring-[#3F978F]'
                                     : 'border-gray-200'
                                     }`}
-                                  title={o.name}
-                                >
+title={toSentenceCase(o.name)}                                >
                                   <div className="space-y-1">
                                     <div className={`${o.outfitItems?.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
                                       {o.outfitItems?.filter(it => ['headwear', 'accessory'].includes(it.layerCategory)).map(it => (
@@ -2306,8 +2308,8 @@ export default function CalendarPage() {
                                         />
                                       )}
                                       <div className="text-xs text-center font-medium truncate w-full">
-                                        {(it.category || it.name || 'Item').toString()}
-                                      </div>
+            {toSentenceCase((it.category || it.name || 'Item').toString())} 
+          </div>
                                       <button
                                         className={`w-full text-xs px-2 py-1 rounded ${already ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3F978F] text-white'
                                           }`}
@@ -2346,8 +2348,9 @@ export default function CalendarPage() {
                       onChange={() => togglePackedItem(p.closetItemId)}
                     />
                     {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-8 h-8 rounded mr-2 object-cover" />}
-                    <span className={`flex-1 ${p.checked ? 'line-through text-gray-500' : ''}`}>{p.name}</span>
-                    <button
+<span className={`flex-1 ${p.checked ? 'line-through text-gray-500' : ''}`}>
+        {toSentenceCase(p.name)} 
+      </span>                    <button
                       className="text-red-500 text-lg ml-2"
                       onClick={() => removeItemFromPack(p.closetItemId)}
                       aria-label={`Remove ${p.name}`}

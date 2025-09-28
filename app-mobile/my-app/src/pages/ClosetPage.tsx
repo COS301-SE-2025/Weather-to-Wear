@@ -24,6 +24,11 @@ function isItem(obj: any): obj is Item {
   return obj && (!obj.tab || obj.tab === 'items');
 }
 
+function toSentenceCase(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
   { value: "base_top", label: "Base Top" },
@@ -1575,9 +1580,8 @@ export default function ClosetPage() {
 
                 {/* info */}
                 <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
-                  <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div>
+                  <div><span className="font-semibold">Name:</span> {toSentenceCase(activeDetailsItem.name)}</div>
                   <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
-                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div>
                   <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
                   <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
                   <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
@@ -1730,17 +1734,17 @@ export default function ClosetPage() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Category</label>
                   <select
-                    value={editedCategory}
-                    onChange={e => setEditedCategory(e.target.value)}
-                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  >
-                    <option value="">Select Category</option>
-                    {itemToEdit.layerCategory &&
-                      (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))
-                    }
-                  </select>
+  value={editedCategory}
+  onChange={e => setEditedCategory(e.target.value)}
+  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+>
+  <option value="">Select Category</option>
+  {itemToEdit.layerCategory &&
+    (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
+      <option key={o.value} value={o.value}>{o.label}</option>
+    ))
+  }
+</select>
                 </div>
 
                 {/* Style & Material */}
@@ -1838,42 +1842,42 @@ export default function ClosetPage() {
         </AnimatePresence>
 
         {editingOutfit && (
-          <EditOutfitModal
-            outfitId={editingOutfit.id}
-            initialStyle={editingOutfit.overallStyle}
-            initialRating={editingOutfit.userRating}
-            initialItems={editingOutfit.outfitItems.map(it => ({
-              closetItemId: it.closetItemId,
-              layerCategory: it.layerCategory,
-              imageUrl: it.imageUrl,
-              category: it.category,
-            }))}
-            onClose={() => setEditingOutfit(null)}
-            onSaved={(updated) => {
-              setOutfits(prev =>
-                prev.map(o =>
-                  o.id === updated.id
-                    ? {
-                      ...o,
-                      overallStyle: updated.overallStyle,
-                      userRating: updated.userRating ?? o.userRating,
-                      outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                        closetItemId: it.closetItemId,
-                        layerCategory: it.layerCategory,
-                        imageUrl:
-                          it.imageUrl && it.imageUrl.length > 0
-                            ? it.imageUrl
-                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
-                        category: it?.closetItem?.category ?? it.category,
-                      })),
-                    }
-                    : o
-                )
-              );
-              showToast('Outfit updated successfully.');
-            }}
-          />
-        )}
+  <EditOutfitModal
+    outfitId={editingOutfit.id}
+    initialStyle={editingOutfit.overallStyle}
+    initialRating={editingOutfit.userRating}
+    initialItems={editingOutfit.outfitItems.map(it => ({
+      closetItemId: it.closetItemId,
+      layerCategory: it.layerCategory,
+      imageUrl: it.imageUrl,
+      category: toSentenceCase(it.category),
+    }))}
+    onClose={() => setEditingOutfit(null)}
+    onSaved={(updated) => {
+      setOutfits(prev =>
+        prev.map(o =>
+          o.id === updated.id
+            ? {
+              ...o,
+              overallStyle: updated.overallStyle,
+              userRating: updated.userRating ?? o.userRating,
+              outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                closetItemId: it.closetItemId,
+                layerCategory: it.layerCategory,
+                imageUrl:
+                  it.imageUrl && it.imageUrl.length > 0
+                    ? it.imageUrl
+                    : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
+                category: it?.closetItem?.category ?? it.category,
+              })),
+            }
+            : o
+        )
+      );
+      showToast('Outfit updated successfully.');
+    }}
+  />
+)}
       </div>
 
       {toast ? <Toast message={toast.msg} /> : null}
