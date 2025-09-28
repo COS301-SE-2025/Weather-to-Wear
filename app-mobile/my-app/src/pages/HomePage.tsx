@@ -95,7 +95,6 @@ function formatTimeAmPm(iso: string) {
       const intervalRef = useRef<number | null>(null);
       const halfRef = useRef(0);
 
-      // stable pause fn
       const pause = useCallback((ms?: number) => {
         const dur = typeof ms === "number" ? ms : pauseMsAfterInteract;
         pauseUntilRef.current = Date.now() + Math.max(0, dur);
@@ -120,14 +119,12 @@ function formatTimeAmPm(iso: string) {
 
         const bumpPause = () => pause();
 
-        // Hover/focus/touch should also pause a bit
         el.addEventListener("pointerdown", bumpPause, { passive: true });
         el.addEventListener("wheel", bumpPause, { passive: true });
         el.addEventListener("mouseenter", bumpPause, { passive: true });
         el.addEventListener("focusin", bumpPause, { passive: true });
         el.addEventListener("touchstart", bumpPause, { passive: true });
 
-        // per-frame advance
         let last = performance.now();
         const stepFrame = (dtMs: number) => {
           if (Date.now() < pauseUntilRef.current) return;
@@ -1411,7 +1408,6 @@ export default function HomePage() {
       respectReducedMotion: false,
     });
 
-    // single definition
     const stepByCard = (dir: -1 | 1) => {
       const el = trackRef.current;
       if (!el) return;
@@ -1423,7 +1419,7 @@ export default function HomePage() {
         24;
       const w = (firstCard?.offsetWidth || 260) + gap;
       el.scrollBy({ left: dir * w, behavior: 'smooth' });
-      pauseAuto(1200); // prevent autoplay from fighting the user
+      pauseAuto(1200); 
     };
 
 

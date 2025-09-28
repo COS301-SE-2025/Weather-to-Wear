@@ -37,7 +37,7 @@ interface Post {
   userId: string;
   username: string;
   profilePhoto?: string;
-  content: string; // caption
+  content: string; 
   likes: number;
   liked: boolean;
   date: string;
@@ -227,7 +227,6 @@ const weatherIcon = (cond?: string | null) => {
   return null;
 };
 
-// Maps raw labels/keys to human-friendly phrases used in the NSFW popup
   const formatNsfwLabel = (raw: string | undefined) => {
     const key = (raw || "").toLowerCase();
     const map: Record<string, string> = {
@@ -288,7 +287,6 @@ const FeedPage: React.FC = () => {
   const postsContainerRef = useRef<HTMLDivElement | null>(null);
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // inspo (sidebar) state
   type SidebarInspoOutfit = {
     id: string;
     overallStyle: string;
@@ -326,7 +324,6 @@ const FeedPage: React.FC = () => {
         if (!res.ok) throw new Error("Failed to fetch inspiration outfits");
         const data = await res.json();
 
-        // keep it lightweight for the sidebar: top 3 by whatever score server sends
         const top = (data ?? []).slice(0, 3);
         setInspoOutfits(top);
       } catch (e: any) {
@@ -423,7 +420,6 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId]);
 
-  // Load notifications once (desktop) and when mobile popover opens
   useEffect(() => {
     if (!currentUserId) return;
     fetchNotifications();
@@ -432,9 +428,8 @@ const FeedPage: React.FC = () => {
   const [liking, setLiking] = useState<Record<string, boolean>>({});
 
   const toggleLike = async (id: string) => {
-    if (liking[id]) return; // prevent double taps
+    if (liking[id]) return; 
 
-    // read the current value once
     const current = posts.find((p) => p.id === id);
     if (!current) return;
 
@@ -442,7 +437,6 @@ const FeedPage: React.FC = () => {
 
     try {
       if (current.liked) {
-        // UNLIKE (same as your working path)
         await unlikePost(id);
         setPosts((prev) =>
           prev.map((p) =>
@@ -450,7 +444,6 @@ const FeedPage: React.FC = () => {
           )
         );
       } else {
-        // LIKE (mirror the unlike path)
         await likePost(id);
         setPosts((prev) =>
           prev.map((p) =>
@@ -486,13 +479,10 @@ const FeedPage: React.FC = () => {
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
     } catch (err: any) {
-      // Handle NSFW filter responses
       const data = err?.data;
       if (data?.error === "NSFW_BLOCKED") {
-        // Clear the input for this post
         setNewComment((prev) => ({ ...prev, [postId]: "" }));
 
-        // Determine the top scoring category (ignore profanityMatches)
         const scores = (data?.scores ?? {}) as Record<string, number>;
         const entries = Object.entries(scores).filter(([k]) => k !== "profanityMatches");
 
@@ -501,24 +491,22 @@ const FeedPage: React.FC = () => {
 
         if (entries.length) {
           const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
-          rawLabel = k;                 // use the top score's key (e.g., "toxic")
+          rawLabel = k;                 
           topScore = Number(v);
         }
 
-        // If the API only reports profanityMatches, treat it as profanity with score 1.0
         const fallbackScore =
           typeof scores?.profanityMatches === "number" && scores.profanityMatches > 0 ? 1 : 0;
         const finalScore = Math.max(topScore, fallbackScore);
 
         setNsfwNotice({
-          displayLabel: formatNsfwLabel(rawLabel),  // human-friendly text
+          displayLabel: formatNsfwLabel(rawLabel),  
           score: finalScore,
         });
         return;
       }
      
 
-      // Fallback error
       setError(err?.message || "Failed to add comment");
     }
   };
@@ -602,7 +590,7 @@ const FeedPage: React.FC = () => {
       setMenuOpen(null);
       setDeletePostId(null);
     } catch (err: any) {
-      setPosts(previous); // rollback
+      setPosts(previous); 
       setError(err.message || "Failed to delete post");
     } finally {
       setIsDeleting(false);
@@ -632,7 +620,7 @@ const FeedPage: React.FC = () => {
         if (first.isIntersecting) fetchNext();
       },
       {
-        root: rootEl ?? null,   // <— use the actual scrolling container
+        root: rootEl ?? null,   
         rootMargin: "600px",
         threshold: 0.01,
       }
@@ -687,7 +675,6 @@ const FeedPage: React.FC = () => {
     }
   };
 
-  // --- Auto-close the three-dot menu on outside click or Esc
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (menuOpen && !(e.target as HTMLElement).closest("[data-post-menu]")) {
@@ -704,7 +691,6 @@ const FeedPage: React.FC = () => {
       document.removeEventListener("keyup", handleEsc);
     };
   }, [menuOpen]);
-  // ---
 
   const navigate = useNavigate();
 
@@ -751,7 +737,7 @@ const FeedPage: React.FC = () => {
             onClick={() => {
               setShowNotifications((prev) => {
                 const next = !prev;
-                if (next) fetchNotifications(); // refresh when opening
+                if (next) fetchNotifications(); 
                 return next;
               });
             }}
@@ -1085,7 +1071,7 @@ const FeedPage: React.FC = () => {
                   {inspoOutfits.map((outfit) => {
                     const items = [...(outfit.inspoItems || [])]
                       .sort((a, b) => a.sortOrder - b.sortOrder)
-                      .slice(0, 4); // small preview
+                      .slice(0, 4); 
                     return (
                       <div
                         key={outfit.id}

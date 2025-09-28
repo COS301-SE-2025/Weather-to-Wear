@@ -36,14 +36,12 @@ const Appearance: React.FC = () => {
 
   const [showToast, setShowToast] = useState(false);
 
-  // apply theme to <html>
   useEffect(() => {
     document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // fetch saved prefs
   useEffect(() => {
     const fetchPreferences = async () => {
       setIsLoading(true);
@@ -127,7 +125,6 @@ const Appearance: React.FC = () => {
       }
 
       setPreferences(updatedPrefs);
-      // setSuccess("Preferences updated successfully!");
       setShowToast(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not update preferences.");
