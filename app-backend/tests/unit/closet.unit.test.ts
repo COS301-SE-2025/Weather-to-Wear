@@ -110,7 +110,7 @@ describe('ClosetController', () => {
       expect(res.json).toHaveBeenCalledWith({
         id: '1',
         category: 'SHOES',
-        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/img.png',
+        imageUrl: '/uploads/img.png',
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         colorHex: null,
         warmthFactor: null,
@@ -158,7 +158,7 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: 1,
           category: 'SHOES',
-          imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
+          imageUrl: '/uploads/a.png',
           createdAt: expect.any(Date),
         })
       ]);
@@ -195,7 +195,7 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: 1,
           category: 'SHOES',
-          imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
+          imageUrl: '/uploads/a.png',
           createdAt: expect.any(Date),
         })
       ]);
@@ -233,7 +233,7 @@ describe('ClosetController', () => {
       expect(res.json).toHaveBeenCalledWith({
         id: '1',
         category: 'SHIRT',
-        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/shirt.png',
+        imageUrl: '/uploads/shirt.png',
         createdAt: expect.any(Date),
         colorHex: null,
         warmthFactor: null,
@@ -333,7 +333,7 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: '1',
           category: 'SHOES',
-          imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png'
+          imageUrl: '/uploads/a.png'
         })
       ]);
     });
@@ -386,7 +386,7 @@ describe('Closet Routes Extended', () => {
       expect.objectContaining({
         id: 1,
         category: 'SHOES',
-        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
+        imageUrl: '/uploads/a.png',
         createdAt: expect.any(String),
       })
     ]);
@@ -401,7 +401,7 @@ describe('Closet Routes Extended', () => {
       expect.objectContaining({
         id: 1,
         category: 'SHOES',
-        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
+        imageUrl: '/uploads/a.png',
         createdAt: expect.any(String),
       })
     ]);
@@ -417,7 +417,8 @@ describe('Closet Routes Extended', () => {
     expect(res.body).toEqual(expect.objectContaining({
       id: '1',
       category: 'SHIRT',
-      imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/shirt.png',
+      // imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/shirt.png',
+      imageUrl: '/uploads/shirt.png',
       createdAt: expect.any(String),
       colorHex: null,
       warmthFactor: null,
