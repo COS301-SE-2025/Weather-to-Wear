@@ -1,6 +1,3 @@
-// src/services/closetApiTypes.ts
-
-// Mirror your Prisma enums as string unions for the FE
 export type Category =
   | 'SHIRT' | 'HOODIE' | 'PANTS' | 'SHORTS' | 'SHOES' | 'TSHIRT' | 'LONGSLEEVE'
   | 'SWEATER' | 'JACKET' | 'JEANS' | 'BEANIE' | 'HAT' | 'SCARF' | 'GLOVES'
@@ -17,11 +14,10 @@ export type Material =
   | 'Cotton' | 'Wool' | 'Polyester' | 'Leather' | 'Nylon' | 'Fleece'
   | 'Denim' | 'Linen' | 'Silk' | 'Suede' | 'Fabric';
 
-// What your closet endpoints return (based on closet.controller.ts mapping)
 export interface ClosetItemDTO {
   id: string;
   category: Category;
-  layerCategory?: LayerCategory; // not included by /category/:category in your controller, present in /all
+  layerCategory?: LayerCategory; 
   imageUrl: string;
   createdAt: string;
   colorHex?: string | null;
@@ -30,10 +26,9 @@ export interface ClosetItemDTO {
   waterproof?: boolean | null;
   style?: Style | null;
   material?: Material | null;
-  favourite?: boolean; // included by /all and /category
+  favourite?: boolean; 
 }
 
-// Minimal payloads used in the app
 export interface UploadExtras {
   colorHex?: string;
   warmthFactor?: number;

@@ -1,4 +1,3 @@
-// src/services/socialApi.ts
 import { fetchWithAuth } from "./fetchWithAuth";
 import { API_BASE } from '../config';
 const API_URL = `${API_BASE}/api/social`;
@@ -72,7 +71,7 @@ export async function createPost(data: {
     throw new Error(errorData.message || "Failed to create post");
   }
 
-  return response.json(); // Returns { post: {...} }
+  return response.json(); 
 }
 
 // export async function getPosts(limit = 20, offset = 0, include: string[] = []) {
@@ -105,7 +104,7 @@ export async function getPosts(limit = 20, offset = 0, include: string[] = [], u
     throw new Error(errorData.message || "Failed to fetch posts");
   }
 
-  return response.json(); // Returns { posts: [...] }
+  return response.json(); 
 }
 
 export async function getPostById(id: string, include: string[] = []) {
@@ -118,7 +117,7 @@ export async function getPostById(id: string, include: string[] = []) {
     throw new Error(errorData.message || "Failed to fetch post");
   }
 
-  return response.json(); // Returns { post: {...} }
+  return response.json(); 
 }
 
 export async function addComment(postId: string, content: string) {
@@ -133,7 +132,7 @@ export async function addComment(postId: string, content: string) {
     throw new Error(errorData.message || "Failed to add comment");
   }
 
-  return response.json(); // Returns { comment: {...} }
+  return response.json(); 
 }
 
 export async function getCommentsForPost(postId: string, limit = 20, offset = 0, include: string[] = []) {
@@ -149,7 +148,7 @@ export async function getCommentsForPost(postId: string, limit = 20, offset = 0,
     throw new Error(errorData.message || "Failed to fetch comments");
   }
 
-  return response.json(); // Returns { comments: [...] }
+  return response.json(); 
 }
 
 export async function likePost(postId: string) {
@@ -162,7 +161,7 @@ export async function likePost(postId: string) {
     throw new Error(errorData.message || "Failed to like post");
   }
 
-  return response.json(); // Returns { like: {...} }
+  return response.json();
 }
 
 export async function unlikePost(postId: string) {

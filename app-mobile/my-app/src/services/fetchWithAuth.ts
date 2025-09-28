@@ -1,15 +1,10 @@
-// src/services/fetchWithAuth.ts
 import { getToken } from '../persist';
 
-// Note: We can't directly use AuthContext here since this is a service function
-// The AuthContext will be handled by the ProtectedRoute components
 async function clearAuthData() {
-  // Clear all auth data
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem("selectedCity");
   
-  // Clear any user-specific data
   const allKeys = Object.keys(localStorage);
   allKeys.forEach(key => {
     if (key.startsWith('closet-favs-')) {
@@ -17,7 +12,6 @@ async function clearAuthData() {
     }
   });
   
-  // Clear React Query cache
   const { queryClient } = await import('../queryClient');
   const { clearPersistedCache } = await import('../persist');
   
@@ -36,9 +30,7 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
 
   if (response.ok) return response;
 
-  // Handle auth errors in one place
   if (response.status === 401 || response.status === 403) {
-    // header sent by backend on expiry
     const expiredHeader = response.headers.get('X-Session-Expired') === 'true';
 
     let code = '';
@@ -56,7 +48,6 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
 
       try { localStorage.setItem('sessionExpiredNotice', '1'); } catch {}
 
-      // hard redirect to ensure a clean slate
       window.location.assign('/login');
       throw new Error('SESSION_EXPIRED');
     }
@@ -68,18 +59,16 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
     }
   }
 
-  // Build a rich error so callers can read the body (e.g., NSFW scores)
   let body: any = null;
   try {
     const cloned = response.clone();
     body = await cloned.json();
   } catch {
-    // not JSON or empty body — that's fine
   }
 
   const err: any = new Error(body?.message || `${response.status} ${response.statusText}`);
   err.status = response.status;
-  err.data = body;                           // <-- key: attach parsed JSON
+  err.data = body;                           
   err.headers = Object.fromEntries(response.headers.entries());
   throw err;
 

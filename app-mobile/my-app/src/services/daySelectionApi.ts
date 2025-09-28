@@ -1,4 +1,3 @@
-// src/services/daySelectionApi.ts
 import http from './http';
 import { API_BASE } from '../config';
 
@@ -6,7 +5,7 @@ const URL = `${API_BASE}/api/day-selections`;
 
 export type DaySelectionDTO = {
   id: string;
-  date: string; // ISO
+  date: string; 
   location?: string;
   style?: string;
   items: { closetItemId: string; layerCategory: string; sortOrder: number }[];
@@ -29,7 +28,7 @@ export async function getDaySelection(dateISO: string) {
 }
 
 export async function upsertDaySelection(payload: {
-  date: string; // "YYYY-MM-DD"
+  date: string; 
   location?: string;
   style?: string;
   items: { closetItemId: string; layerCategory: string; sortOrder: number }[];
@@ -43,7 +42,6 @@ export async function upsertDaySelection(payload: {
 }
 
 export async function deleteDaySelection(dateISO: string) {
-  // DELETE /api/day-selections/:date
   const url = `${URL}/${encodeURIComponent(dateISO)}`;
   await http.delete(url, {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },

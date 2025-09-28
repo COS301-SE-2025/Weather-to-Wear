@@ -4,7 +4,6 @@ import { logoutAndResetApp } from "./auth";
 let redirecting = false;
 
 axios.interceptors.request.use((config) => {
-  // Attach token automatically
   try {
     const token = localStorage.getItem("token");
     if (token) {
@@ -32,7 +31,6 @@ axios.interceptors.response.use(
         redirecting = true;
         window.location.assign("/login");
       }
-      // Reject so callers stop further handling; we're navigating anyway.
       return Promise.reject(error);
     }
 
@@ -40,4 +38,4 @@ axios.interceptors.response.use(
   }
 );
 
-export default axios; // default axios singleton, now globally configured
+export default axios; 

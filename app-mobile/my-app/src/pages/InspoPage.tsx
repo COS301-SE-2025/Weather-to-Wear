@@ -57,10 +57,8 @@ type ConfirmState = {
   resolve?: (ok: boolean) => void;
 };
 
-// Create API endpoint from the imported API_BASE
 const API_ENDPOINT = `${API_BASE}/api`;
 
-// API Functions
 const generateInspoOutfits = async (request: GenerateInspoRequest, token: string): Promise<InspoOutfit[]> => {
   if (!token) {
     throw new Error('Authentication required');
@@ -118,7 +116,6 @@ const deleteInspoOutfit = async (id: string, token: string): Promise<void> => {
   }
 };
 
-// Weather Icons Component (no color)
 const WeatherIcon = ({ condition, size = 16 }: { condition: string; size?: number }) => {
   const icons = {
     sunny: <Sun size={size} />,
@@ -138,7 +135,6 @@ const WeatherIcon = ({ condition, size = 16 }: { condition: string; size?: numbe
 
 
 
-// Helper function to get weather icon based on temperature
 const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = [], size = 16) => {
   const hasRain = conditions.some(c => c.toLowerCase().includes('rain') || c.toLowerCase().includes('drizzle'));
   if (hasRain) return <CloudRain size={size} />;
@@ -160,7 +156,6 @@ const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = []
 };
 
 
-// Outfit Card Component
 const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: string) => void }) => {
   return (
     <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-4 border border-gray-200">
@@ -221,27 +216,22 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
           </div>
 
           {(() => {
-            // Calculate average temperature for the outfit
             const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
             console.log(`Temperature: ${avgTemp}°C (${outfit.recommendedWeather.minTemp}°C - ${outfit.recommendedWeather.maxTemp}°C)`);
 
-            // Determine bar color and fill based on temperature
             let barColor, fillPercentage, tempLabel;
 
             if (avgTemp >= 22) {
-              // Hot weather - salmon gradient bar, high fill (60-85%)
               barColor = 'from-rose-300 via-rose-500 to-rose-700';
-              fillPercentage = Math.min(85, 60 + ((avgTemp - 22) / 14) * 25); // 60-85% fill for 22-36°C
+              fillPercentage = Math.min(85, 60 + ((avgTemp - 22) / 14) * 25); 
               tempLabel = 'Hot Weather';
             } else if (avgTemp >= 12) {
-              // Moderate weather - yellow to salmon gradient bar, medium fill (35-55%)
               barColor = 'from-yellow-400 via-orange-400 to-rose-400';
-              fillPercentage = 35 + ((avgTemp - 12) / 10) * 20; // 35-55% fill for 12-22°C
+              fillPercentage = 35 + ((avgTemp - 12) / 10) * 20; 
               tempLabel = 'Moderate Weather';
             } else {
-              // Cold weather - teal gradient bar, low fill (10-30%)
               barColor = 'from-teal-300 via-teal-500 to-teal-700';
-              fillPercentage = Math.max(10, 30 - ((12 - avgTemp) / 22) * 20); // 10-30% fill for -10-12°C
+              fillPercentage = Math.max(10, 30 - ((12 - avgTemp) / 22) * 20); 
               tempLabel = 'Cold Weather';
             }
 
@@ -269,14 +259,13 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
           {(() => {
             const rating = outfit.warmthRating;
 
-            // thresholds match your old labels
             let label: string;
             let Icon: React.ComponentType<{ size?: number }>;
 
             if (rating >= 25) { label = 'Extreme Warmth'; Icon = Flame; }
             else if (rating >= 20) { label = 'Very Warm'; Icon = Flame; }
             else if (rating >= 15) { label = 'Warm'; Icon = Thermometer; }
-            else if (rating >= 10) { label = 'Moderate'; Icon = Sun; }         // or SunMedium if you prefer
+            else if (rating >= 10) { label = 'Moderate'; Icon = Sun; }         
             else if (rating >= 6) { label = 'Cool'; Icon = Wind; }
             else { label = 'Cold'; Icon = Snowflake; }
 
@@ -321,13 +310,11 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
 
           {/* Color Scheme Tag */}
           {(() => {
-            // Collect all dominant colors from outfit items
             const allColors = outfit.inspoItems
               .flatMap(item => item.dominantColors || (item.colorHex ? [item.colorHex] : []))
               .filter(Boolean);
 
-            // Get unique colors (remove duplicates)
-            const uniqueColors = Array.from(new Set(allColors)).slice(0, 4); // Show max 4 colors
+            const uniqueColors = Array.from(new Set(allColors)).slice(0, 4); 
 
             if (uniqueColors.length > 0) {
               return (
@@ -359,7 +346,6 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
   );
 };
 
-// Filter Panel Component
 const FilterPanel = ({
   onFilterChange,
   onGenerate,
@@ -389,7 +375,6 @@ const FilterPanel = ({
   const styles = ['casual', 'formal', 'athletic', 'party', 'business', 'outdoor'];
 
   return (
-    // removed border & shadow
     <div className="bg-white rounded-2xl p-4 mb-6">
       {/* centered buttons row */}
       <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2">        <button
@@ -518,9 +503,8 @@ const FilterPanel = ({
   );
 };
 
-// Main InspoPage Component
 const InspoPage = () => {
-  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 5 }); // Fixed limit to 5
+  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 5 }); 
   const queryClient = useQueryClient();
   const { token, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -538,18 +522,15 @@ const InspoPage = () => {
     }
   }, []);
 
-  // State for generated outfits (like dashboard - only show these)
   const [generatedOutfits, setGeneratedOutfits] = useState<InspoOutfit[]>([]);
-  const [hasGenerated, setHasGenerated] = useState(false); // Track if user has generated outfits
+  const [hasGenerated, setHasGenerated] = useState(false); 
 
-  // Confirm dialog state and helper
   const [confirmState, setConfirmState] = useState<ConfirmState>({ open: false, message: '' });
   const askConfirm = (message: string, confirmLabel = 'Delete', cancelLabel = 'Cancel') =>
     new Promise<boolean>((resolve) => {
       setConfirmState({ open: true, message, confirmLabel, cancelLabel, resolve });
     });
 
-  // Enable full bleed layout like HomePage
   useEffect(() => {
     document.body.classList.add('home-fullbleed');
     return () => {
@@ -557,23 +538,21 @@ const InspoPage = () => {
     };
   }, []);
 
-  // Generate new outfits mutation
   const generateMutation = useMutation({
     mutationFn: (request: GenerateInspoRequest) => {
       if (!token) return Promise.reject(new Error('Authentication required'));
       return generateInspoOutfits(request, token);
     },
     onSuccess: (data) => {
-      setGeneratedOutfits(data); // Replace old outfits with new ones (max 5)
+      setGeneratedOutfits(data);
       setHasGenerated(true);
     },
     onError: (error) => {
       console.error('Failed to generate outfits:', error);
-      setHasGenerated(true); // Still mark as generated attempt
+      setHasGenerated(true); 
     },
   });
 
-  // Delete outfit mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
       if (!token) return Promise.reject(new Error('Authentication required'));
@@ -584,7 +563,6 @@ const InspoPage = () => {
     },
   });
 
-  // Auto-generate outfits when page first loads (like dashboard)
   useEffect(() => {
     if (isAuthenticated && token && !hasGenerated && generatedOutfits.length === 0) {
       console.log('Auto-generating initial outfits...');
@@ -612,11 +590,9 @@ const InspoPage = () => {
     }
   };
 
-  // Only show generated outfits (max 5, like dashboard)
   const allOutfits = generatedOutfits;
 
 
-  // Auto-generate outfits when page first loads (like dashboard)
   useEffect(() => {
     if (isAuthenticated && token && !hasGenerated && generatedOutfits.length === 0) {
       console.log('Auto-generating initial outfits...');
@@ -624,7 +600,6 @@ const InspoPage = () => {
     }
   }, [isAuthenticated, token, hasGenerated]);
 
-  // If not authenticated, show login prompt
   if (!isAuthenticated || !token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
