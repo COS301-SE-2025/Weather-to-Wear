@@ -210,6 +210,24 @@ const weatherIcon = (cond?: string | null) => {
   return null;
 };
 
+// Maps raw labels/keys to human-friendly phrases used in the NSFW popup
+  const formatNsfwLabel = (raw: string | undefined) => {
+    const key = (raw || "").toLowerCase();
+    const map: Record<string, string> = {
+      sexual: "sexual content",
+      insulting: "insulting language",
+      toxic: "toxic language",
+      discriminatory: "discriminatory language",
+      violent: "violent content",
+      hasprofanity: "profanity",
+      profanity: "profanity",
+      "profanity_text": "profanity",
+      nsfw: "inappropriate content",
+    };
+    return map[key] || key || "inappropriate content";
+  };
+
+
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [leftTab, setLeftTab] = useState<"notifications" | "inspo">("notifications");
@@ -245,7 +263,7 @@ const FeedPage: React.FC = () => {
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [nsfwNotice, setNsfwNotice] = useState<{ label: string; score: number } | null>(null);
+  const [nsfwNotice, setNsfwNotice] = useState<{ displayLabel: string; score: number } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -454,27 +472,36 @@ const FeedPage: React.FC = () => {
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
     } catch (err: any) {
       // Handle NSFW filter responses
-      const data = err?.response?.data;
+      const data = err?.data;
       if (data?.error === "NSFW_BLOCKED") {
         // Clear the input for this post
         setNewComment((prev) => ({ ...prev, [postId]: "" }));
 
-        // Find the highest-scoring category (ignore profanityMatches)
+        // Determine the top scoring category (ignore profanityMatches)
         const scores = (data?.scores ?? {}) as Record<string, number>;
         const entries = Object.entries(scores).filter(([k]) => k !== "profanityMatches");
-        let topLabel = data?.label || "NSFW";
+
+        let rawLabel = data?.label || "nsfw";
         let topScore = 0;
 
         if (entries.length) {
           const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
-          topLabel = k;
+          rawLabel = k;                 // use the top score's key (e.g., "toxic")
           topScore = Number(v);
         }
 
-        // Open the modal with label + score
-        setNsfwNotice({ label: topLabel, score: topScore });
+        // If the API only reports profanityMatches, treat it as profanity with score 1.0
+        const fallbackScore =
+          typeof scores?.profanityMatches === "number" && scores.profanityMatches > 0 ? 1 : 0;
+        const finalScore = Math.max(topScore, fallbackScore);
+
+        setNsfwNotice({
+          displayLabel: formatNsfwLabel(rawLabel),  // human-friendly text
+          score: finalScore,
+        });
         return;
       }
+     
 
       // Fallback error
       setError(err?.message || "Failed to add comment");
@@ -1344,12 +1371,11 @@ const FeedPage: React.FC = () => {
                 Comment Blocked
               </h3>
               <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                Comment blocked due to{" "}
-                <span className="font-medium">{nsfwNotice.label.toLowerCase()}</span>
-                {" "}–{" "}
-                <span className="tabular-nums">{nsfwNotice.score.toFixed(2)}</span>
-                {" "}content.
+                Your comment was blocked due to{" "}
+                <span className="font-medium">{nsfwNotice.displayLabel}</span>
+                {" "}
               </p>
+
 
               <div className="mt-4 flex justify-end">
                 <button
