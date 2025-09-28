@@ -730,7 +730,7 @@ const FeedPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <style>
         {`
           .scrollbar-hide::-webkit-scrollbar { display: none; }
