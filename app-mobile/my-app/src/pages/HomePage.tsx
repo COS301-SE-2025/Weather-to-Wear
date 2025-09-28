@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
 import axios from 'axios';
 import { Plus, RefreshCw } from 'lucide-react';
 import Footer from '../components/Footer';
@@ -73,77 +73,112 @@ function formatTimeAmPm(iso: string) {
 
     function useAutoplayScrolling(
       ref: React.RefObject<HTMLDivElement | null>,
-      opts: { pxPerSec?: number; pauseMsAfterInteract?: number } = {}
-    ) {
-      const { pxPerSec = 280, pauseMsAfterInteract = 1800 } = opts;
+      opts: {
+        pxPerSec?: number;
+        pauseMsAfterInteract?: number;
+        respectReducedMotion?: boolean;
+      } = {}
+    ): { pause: (ms?: number) => void } {
+      const isCoarse =
+        typeof window !== "undefined" &&
+        typeof matchMedia === "function" &&
+        matchMedia("(pointer: coarse)").matches;
+
+      const {
+        pxPerSec = isCoarse ? 30 : 60,
+        pauseMsAfterInteract = isCoarse ? 1200 : 1600,
+        respectReducedMotion = false,
+      } = opts;
+
       const pauseUntilRef = useRef(0);
       const rafRef = useRef<number | null>(null);
+      const intervalRef = useRef<number | null>(null);
       const halfRef = useRef(0);
+
+      // stable pause fn
+      const pause = useCallback((ms?: number) => {
+        const dur = typeof ms === "number" ? ms : pauseMsAfterInteract;
+        pauseUntilRef.current = Date.now() + Math.max(0, dur);
+      }, [pauseMsAfterInteract]);
 
       useEffect(() => {
         const el = ref.current;
         if (!el) return;
 
-        // Make sure the two halves are equal width (see step 2 below)
         const updateHalf = () => { halfRef.current = el.scrollWidth / 2; };
         updateHalf();
         const ro = new ResizeObserver(updateHalf);
         ro.observe(el);
 
-        const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
-        if (mql.matches) return;
+        const reduce =
+          typeof matchMedia === "function" &&
+          matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+        if (respectReducedMotion && reduce && !isCoarse) {
+          return () => ro.disconnect();
+        }
+
+        const bumpPause = () => pause();
+
+        // Hover/focus/touch should also pause a bit
+        el.addEventListener("pointerdown", bumpPause, { passive: true });
+        el.addEventListener("wheel", bumpPause, { passive: true });
+        el.addEventListener("mouseenter", bumpPause, { passive: true });
+        el.addEventListener("focusin", bumpPause, { passive: true });
+        el.addEventListener("touchstart", bumpPause, { passive: true });
+
+        // per-frame advance
         let last = performance.now();
-
-        const tick = (now: number) => {
-          rafRef.current = requestAnimationFrame(tick);
-          if (now < pauseUntilRef.current) { last = now; return; }
-
-          const dt = now - last;
-          last = now;
-
-          const step = (pxPerSec * dt) / 1000;
-
-          // seamless wrap: once we pass the first half, jump back by exactly that half
-          let next = el.scrollLeft + step;
+        const stepFrame = (dtMs: number) => {
+          if (Date.now() < pauseUntilRef.current) return;
+          const step = (pxPerSec * dtMs) / 1000;
           const half = halfRef.current || 0;
+
+          let next = el.scrollLeft + step;
           if (half > 0 && next >= half) next -= half;
 
-          // avoid smooth behavior interfering
-          el.style.scrollBehavior = 'auto';
+          const prev = el.style.scrollBehavior;
+          el.style.scrollBehavior = "auto";
           el.scrollLeft = next;
+          el.style.scrollBehavior = prev;
         };
 
-        const start = () => {
-          stop();
+        const startRaf = () => {
+          const tick = (now: number) => {
+            rafRef.current = requestAnimationFrame(tick);
+            const dt = now - last;
+            last = now;
+            stepFrame(dt);
+          };
           last = performance.now();
           rafRef.current = requestAnimationFrame(tick);
         };
-        const stop = () => {
-          if (rafRef.current) cancelAnimationFrame(rafRef.current);
-          rafRef.current = null;
+
+        const startInterval = () => {
+          last = performance.now();
+          intervalRef.current = window.setInterval(() => {
+            const now = performance.now();
+            const dt = now - last;
+            last = now;
+            stepFrame(dt);
+          }, 16);
         };
 
-        const bumpPause = () => (pauseUntilRef.current = Date.now() + pauseMsAfterInteract);
-
-        start();
-
-        el.addEventListener('pointerdown', bumpPause, { passive: true });
-        el.addEventListener('wheel', bumpPause, { passive: true });
-        el.addEventListener('touchstart', bumpPause, { passive: true });
-        el.addEventListener('mouseenter', bumpPause, { passive: true });
-        el.addEventListener('keydown', bumpPause, { passive: true });
+        if (isCoarse) startInterval(); else startRaf();
 
         return () => {
-          stop();
           ro.disconnect();
-          el.removeEventListener('pointerdown', bumpPause);
-          el.removeEventListener('wheel', bumpPause);
-          el.removeEventListener('touchstart', bumpPause);
-          el.removeEventListener('mouseenter', bumpPause);
-          el.removeEventListener('keydown', bumpPause);
+          el.removeEventListener("pointerdown", bumpPause);
+          el.removeEventListener("wheel", bumpPause);
+          el.removeEventListener("mouseenter", bumpPause);
+          el.removeEventListener("focusin", bumpPause);
+          el.removeEventListener("touchstart", bumpPause);
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          if (intervalRef.current) clearInterval(intervalRef.current);
         };
-      }, [ref, pxPerSec, pauseMsAfterInteract]);
+      }, [ref, pxPerSec, respectReducedMotion, isCoarse, pause]);
+
+      return { pause };
     }
 
 async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
@@ -1368,33 +1403,15 @@ export default function HomePage() {
     onOpen: (ev: Event) => void;
   }) {
     const trackRef = useRef<HTMLDivElement>(null);
+    const isCoarse = typeof window !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
-    // gentle continuous motion with pause after interaction
-    useAutoplayScrolling(trackRef, { pxPerSec: 60, pauseMsAfterInteract: 1000 });
+    const { pause: pauseAuto } = useAutoplayScrolling(trackRef, {
+      pxPerSec: isCoarse ? 32 : 45,
+      pauseMsAfterInteract: isCoarse ? 1200 : 1600,
+      respectReducedMotion: false,
+    });
 
-    // keyboard support for accessibility (focus the track and use arrows)
-    useEffect(() => {
-      const el = trackRef.current;
-      if (!el) return;
-      const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
-          const w = (firstCard?.offsetWidth || 260) + 24;
-          el.scrollBy({ left: w, behavior: 'smooth' });
-        }
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
-          const w = (firstCard?.offsetWidth || 260) + 24;
-          el.scrollBy({ left: -w, behavior: 'smooth' });
-        }
-      };
-      el.addEventListener('keydown', onKey);
-      return () => el.removeEventListener('keydown', onKey);
-    }, []);
-
-    // helper to step by one card (used by arrows)
+    // single definition
     const stepByCard = (dir: -1 | 1) => {
       const el = trackRef.current;
       if (!el) return;
@@ -1406,7 +1423,9 @@ export default function HomePage() {
         24;
       const w = (firstCard?.offsetWidth || 260) + gap;
       el.scrollBy({ left: dir * w, behavior: 'smooth' });
+      pauseAuto(1200); // prevent autoplay from fighting the user
     };
+
 
     return (
       <div className="relative">
@@ -1421,7 +1440,7 @@ export default function HomePage() {
           className="
             events-track no-scrollbar
             flex gap-6 overflow-x-auto overscroll-contain scroll-smooth
-            snap-x snap-mandatory lg:snap-none   /* see #2 */
+            snap-none md:snap-x md:snap-proximity /* see #2 */
             pt-1 pb-2 touch-pan-x focus:outline-none
           "
         >
