@@ -1233,7 +1233,7 @@ export default function ClosetPage() {
                       Virtual Try On
                     </button>
                     <button
-                      className="px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full text-sm bg-black text-white"
                       disabled
                       aria-current="page"
                     >
@@ -1318,9 +1318,8 @@ export default function ClosetPage() {
                       Virtual Try On
                     </button>
                     <button
-                      className="px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
                       onClick={() => {
-                        // Switch to Avatar try-on, keep the tab strip on the next modal
                         if (!selfTryOnOutfit) return;
                         setShowSelfTryOnModal(false);
                         setTryOnOutfit(selfTryOnOutfit);
