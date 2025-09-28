@@ -411,7 +411,6 @@ const PostToFeed = () => {
                             className="w-16 h-16 object-contain rounded-md border border-gray-200 dark:border-gray-700 bg-white"
                           />
                         ) : (
-                          // graceful fallback if an item has no imageUrl
                           <span
                             key={item.id}
                             className="inline-flex items-center px-3 py-1.5 rounded-full bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 text-sm font-medium shadow-sm"
@@ -551,7 +550,6 @@ const PostToFeed = () => {
               name: item.name,
               category: item.category,
               layerCategory: item.layerCategory,
-              // be permissive about source; TS-safe via any
               imageUrl: (item?.imageUrl ?? item?.image ?? item?.thumbnailUrl) as string | undefined,
             })));
           }}
