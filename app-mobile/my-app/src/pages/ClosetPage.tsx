@@ -24,6 +24,11 @@ function isItem(obj: any): obj is Item {
   return obj && (!obj.tab || obj.tab === 'items');
 }
 
+function toSentenceCase(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
   { value: "base_top", label: "Base Top" },
@@ -1575,9 +1580,17 @@ export default function ClosetPage() {
 
                 {/* info */}
                 <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
-                  <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div>
+                  {/* <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div> */}
+                  <div><span className="font-semibold">Name:</span> {toSentenceCase(activeDetailsItem.name)}</div>
                   <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
-                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div>
+                  {/* <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div> */}
+                  <div><span className="font-semibold">Category:</span> {(() => {
+  const layer = activeDetailsItem.layerCategory;
+  if (!layer) return '—';
+  const categories = CATEGORY_BY_LAYER[layer] || [];
+  const categoryObj = categories.find(cat => cat.value === activeDetailsItem.category);
+  return categoryObj ? categoryObj.label : activeDetailsItem.category || '—';
+})()}</div>
                   <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
                   <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
                   <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
@@ -1730,17 +1743,17 @@ export default function ClosetPage() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Category</label>
                   <select
-                    value={editedCategory}
-                    onChange={e => setEditedCategory(e.target.value)}
-                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  >
-                    <option value="">Select Category</option>
-                    {itemToEdit.layerCategory &&
-                      (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))
-                    }
-                  </select>
+  value={editedCategory}
+  onChange={e => setEditedCategory(e.target.value)}
+  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+>
+  <option value="">Select Category</option>
+  {itemToEdit.layerCategory &&
+    (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
+      <option key={o.value} value={o.value}>{o.label}</option>
+    ))
+  }
+</select>
                 </div>
 
                 {/* Style & Material */}
