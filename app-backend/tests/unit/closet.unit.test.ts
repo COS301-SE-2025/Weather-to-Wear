@@ -422,7 +422,7 @@ describe('Closet Routes Extended', () => {
       createdAt: expect.any(String),
       colorHex: null,
       warmthFactor: null,
-      waterproof: null,
+      waterproof: null, 
       style: 'Casual',
       material: null
     }));

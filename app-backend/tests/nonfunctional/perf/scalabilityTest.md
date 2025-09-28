@@ -144,7 +144,7 @@ jobs:
 
 ## Required repository secrets
 
-Set these under **Settings → Secrets and variables → Actions → New repository secret**:
+To be set under **Settings → Secrets and variables → Actions → New repository secret**:
 
 * `PERF_BASE_URL` → `https://gi2cijr3xa.eu-west-1.awsapprunner.com`
 * `PERF_USER_EMAIL` → `perf@test.com`
