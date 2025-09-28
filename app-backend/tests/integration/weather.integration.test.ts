@@ -1,9 +1,20 @@
 import request from 'supertest';
-import app from '../../src/app';
-import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+let app: any;
+let httpGet: jest.Mock;
+
+async function loadApp() {
+  jest.resetModules();
+  httpGet = jest.fn();
+  jest.doMock('axios', () => {
+    const create = () => ({ get: httpGet });
+    const def = { create: create as any };
+    return { __esModule: true, default: def, create };
+  });
+  const mod = await import('../../src/app');
+  app = mod.default || mod;
+}
 
 /* ---------- helpers ---------- */
 function resp<T>(data: T): AxiosResponse<T> {
@@ -95,16 +106,16 @@ describe('Integration: Weather API', () => {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    // icons are optional; setting a base avoids undefined if you ever assert them later
     process.env.OPEN_METEO_ICON_BASE =
       'https://basmilius.github.io/weather-icons/production/fill/all';
+    await loadApp();
   });
 
   it('GET /api/weather returns weather for valid location', async () => {
     // Open-Meteo: geocode → hourly (future hours so they pass the 24h filter)
-    mockedAxios.get
+    httpGet
       .mockResolvedValueOnce(makeOMGeocode('Pretoria'))
       .mockResolvedValueOnce(makeOMHourly(6, 2, { code: 1, isDay: 1, baseTemp: 25 }));
 
@@ -117,9 +128,9 @@ describe('Integration: Weather API', () => {
   });
 
   it('GET /api/weather/day returns weather for specific day', async () => {
-    mockedAxios.get
+    httpGet
       .mockResolvedValueOnce(makeOMGeocode('Pretoria'))
-      .mockResolvedValueOnce(makeOMHourlyForDay(todayStr));
+      .mockResolvedValueOnce(makeOMHourlyForDay(todayStr))
 
     const res = await request(app).get(`/api/weather/day?location=Pretoria&date=${todayStr}`);
     expect(res.status).toBe(200);
@@ -130,10 +141,10 @@ describe('Integration: Weather API', () => {
 
   it('GET /api/weather returns 500 if all providers fail', async () => {
     // OM geocode -> no results; FW fails; OWM geo fails
-    mockedAxios.get
-      .mockResolvedValueOnce(resp({ results: [] }))   // OM geocode empty
-      .mockRejectedValueOnce(new Error('FW down'))    // FreeWeather
-      .mockRejectedValueOnce(new Error('OWM geo down')); // OWM geocode
+    httpGet
+      .mockResolvedValueOnce(resp({ results: [] }))
+      .mockRejectedValueOnce(new Error('FW down'))
+      .mockRejectedValueOnce(new Error('OWM geo down'));
 
     const res = await request(app).get('/api/weather?location=Nowhere');
     expect(res.status).toBe(500);
@@ -143,23 +154,12 @@ describe('Integration: Weather API', () => {
   it('GET /api/weather/day returns 404 or 500 if no forecast available (far future)', async () => {
     // OM geocode succeeds but OM hourly returns empty arrays,
     // then FW returns no matching day, and OWM returns empty list.
-    mockedAxios.get
-      .mockResolvedValueOnce(makeOMGeocode('Pretoria')) // OM geocode
-      .mockResolvedValueOnce(
-        resp({
-          hourly: {
-            time: [],
-            temperature_2m: [],
-            weathercode: [],
-            is_day: [],
-            precipitation: [],
-            precipitation_probability: [],
-          },
-        }),
-      ) // OM hourly empty -> treated as unavailable
-      .mockResolvedValueOnce(resp({ location: { name: 'Pretoria' }, forecast: { forecastday: [] } })) // FW no match
-      .mockResolvedValueOnce(resp([{ name: 'Pretoria', lat: -25.74, lon: 28.19 }])) // OWM geo
-      .mockResolvedValueOnce(resp({ list: [], city: { name: 'Pretoria' } })); // OWM no entries
+    httpGet
+      .mockResolvedValueOnce(makeOMGeocode('Pretoria'))
+      .mockResolvedValueOnce(resp({ hourly: { time: [], temperature_2m: [], weathercode: [], is_day: [], precipitation: [], precipitation_probability: [] } }))
+      .mockResolvedValueOnce(resp({ location: { name: 'Pretoria' }, forecast: { forecastday: [] } }))
+      .mockResolvedValueOnce(resp([{ name: 'Pretoria', lat: -25.74, lon: 28.19 }]))
+      .mockResolvedValueOnce(resp({ list: [], city: { name: 'Pretoria' } }));
 
     const res = await request(app).get(`/api/weather/day?location=Pretoria&date=2050-01-01`);
     expect([404, 500]).toContain(res.status);
