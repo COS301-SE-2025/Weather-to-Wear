@@ -738,7 +738,7 @@ export default function ClosetPage() {
 
             {favView === 'items' ? (
               <div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {items.filter(i => i.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
                   ) : (
@@ -790,7 +790,7 @@ export default function ClosetPage() {
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
                   {outfits.filter(o => o.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
@@ -887,7 +887,7 @@ export default function ClosetPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
                 return (
@@ -1046,7 +1046,7 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl min-w-0 p-8 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl p-8 relative flex flex-col gap-4 w-[92vw] sm:w-[540px] md:w-[640px] lg:w-[450px] max-w-[680px]"
               >
                 {/* Close Button */}
                 <button
@@ -1133,63 +1133,61 @@ export default function ClosetPage() {
                   {typeof activeDetailsOutfit.userRating === 'number' && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">Your Rating:</span>
-                      {Array(activeDetailsOutfit.userRating || 0)
-                        .fill(0)
-                        .map((_, i) => (
-                          <Star key={i} className="w-5 h-5 text-teal-500" />
+
+                      <div className="flex gap-1">
+                        {[0,1,2,3,4].map(i => (
+                          <Star
+                            key={i}
+                            className={`w-5 h-5 ${
+                              i < (activeDetailsOutfit.userRating || 0)
+                                ? 'text-teal-500'
+                                : 'text-gray-300'
+                            }`}
+                          />
                         ))}
+                      </div>
+
                       <span className="ml-1">{activeDetailsOutfit.userRating}/5</span>
                     </div>
                   )}
                 </div>
 
-                {/* Try On Avatar */}
-                <div className="flex justify-end gap-2 pt-6">
-                  <button
-                    onClick={() => {
-                      if (activeDetailsOutfit) {
-                        setTryOnOutfit(activeDetailsOutfit); 
-                        setShowTryOnModal(true);
-                        setActiveDetailsOutfit(null); 
-                      }
-                    }}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
-                  >
-                    Try On Avatar
-                  </button>
-
-                  {/*Try On Yourself */}
+                {/* Actions: single Try On (left) + Edit/Delete (right) */}
+                <div className="flex justify-between items-center pt-6">
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
+                      // Default flow opens Virtual Try On (self)
                       openSelfTryOnOrPreview(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
                     }}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                    className="px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
                   >
-                    Try On Yourself
+                    Try On
                   </button>
 
-                  <button
-                    onClick={() => {
-                      if (!activeDetailsOutfit) return;
-                      setEditingOutfit(activeDetailsOutfit);
-                      setActiveDetailsOutfit(null);
-                    }}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
-                      setShowModal(true);
-                      setActiveDetailsOutfit(null);
-                    }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!activeDetailsOutfit) return;
+                        setEditingOutfit(activeDetailsOutfit);
+                        setActiveDetailsOutfit(null);
+                      }}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
+                        setShowModal(true);
+                        setActiveDetailsOutfit(null);
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -1220,7 +1218,29 @@ export default function ClosetPage() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Close Button */}
+                {/* Header + Tabs */}
+                <div className="px-5 pt-5">
+                  <h2 className="text-xl font-semibold">Try On Avatar</h2>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      onClick={() => {
+                        if (!tryOnOutfit) return;
+                        setShowTryOnModal(false);
+                        openSelfTryOn(tryOnOutfit); // opens Virtual Try On with the same outfit
+                      }}
+                    >
+                      Virtual Try On
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      disabled
+                      aria-current="page"
+                    >
+                      Try On Avatar
+                    </button>
+                  </div>
+                </div>
                 <button
                   onClick={() => {
                     setShowTryOnModal(false);
@@ -1281,12 +1301,35 @@ export default function ClosetPage() {
                   <X className="w-5 h-5" />
                 </button>
 
-                {/* Header */}
+                {/* Header + Tabs */}
                 <div className="px-5 pt-5">
-                  <h2 className="text-xl font-semibold">Try On Yourself</h2>
+                  <h2 className="text-xl font-semibold">Virtual Try On</h2>
                   <p className="text-sm text-gray-500">
                     Use your stored full-body photo or upload a new one, then we’ll put this outfit on you.
                   </p>
+
+                  {/* Tabs */}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      disabled
+                      aria-current="page"
+                    >
+                      Virtual Try On
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      onClick={() => {
+                        // Switch to Avatar try-on, keep the tab strip on the next modal
+                        if (!selfTryOnOutfit) return;
+                        setShowSelfTryOnModal(false);
+                        setTryOnOutfit(selfTryOnOutfit);
+                        setShowTryOnModal(true);
+                      }}
+                    >
+                      Try On Avatar
+                    </button>
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -1835,7 +1878,7 @@ export default function ClosetPage() {
         )}
       </div>
 
-      {toast && <Toast message={toast.msg} />}
+      {toast ? <Toast message={toast.msg} /> : null}
 
     </div>
   );
