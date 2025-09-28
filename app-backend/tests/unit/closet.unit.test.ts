@@ -36,7 +36,6 @@ describe('ClosetService', () => {
     };
   });
 
-
   it('getAllImages calls prisma.closetItem.findMany and returns array', async () => {
     const items = await service.getAllImages('test-user-id');
     expect((service as any).prisma.closetItem.findMany).toHaveBeenCalled();
@@ -104,13 +103,14 @@ describe('ClosetController', () => {
           waterproof: undefined,
           style: undefined,
           material: undefined,
-        }
+        },
+        undefined
       );
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
         id: '1',
         category: 'SHOES',
-        imageUrl: '/uploads/img.png',
+        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/img.png',
         createdAt: new Date('2025-05-27T00:00:00.000Z'),
         colorHex: null,
         warmthFactor: null,
@@ -134,8 +134,6 @@ describe('ClosetController', () => {
 
   describe('getAll', () => {
     it('returns 200 + formatted URLs', async () => {
-      const items = [{ id: 1, filename: 'a.png', category: 'SHOES', createdAt: new Date(), ownerId: 'test-user-id' }];
-      // (service.getAllImages as jest.Mock) = jest.fn().mockResolvedValue(items);
       (service.getAllImages as jest.Mock) = jest.fn().mockResolvedValue([
         {
           id: 1,
@@ -146,7 +144,6 @@ describe('ClosetController', () => {
           dominantColors: null,
         }
       ]);
-
 
       let req: Partial<AuthenticatedRequest> = {};
       (req as any).protocol = 'http';
@@ -161,7 +158,8 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: 1,
           category: 'SHOES',
-          imageUrl: '/uploads/a.png'
+          imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
+          createdAt: expect.any(Date),
         })
       ]);
     });
@@ -197,7 +195,7 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: 1,
           category: 'SHOES',
-          imageUrl: '/uploads/a.png',
+          imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
           createdAt: expect.any(Date),
         })
       ]);
@@ -235,7 +233,7 @@ describe('ClosetController', () => {
       expect(res.json).toHaveBeenCalledWith({
         id: '1',
         category: 'SHIRT',
-        imageUrl: '/uploads/shirt.png',
+        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/shirt.png',
         createdAt: expect.any(Date),
         colorHex: null,
         warmthFactor: null,
@@ -243,7 +241,6 @@ describe('ClosetController', () => {
         style: 'Casual',
         material: null
       });
-
     });
   });
 
@@ -269,7 +266,7 @@ describe('ClosetController', () => {
       let req: Partial<AuthenticatedRequest> = {};
       req.files = [{ filename: 'a.png' }] as any;
       req.body = { category: 'SHOES', layerCategory: 'footwear' };
-      req.user = undefined; // or missing id
+      req.user = undefined;
       await controller.uploadImagesBatch(req as Request, res as Response, next);
       expect(res.status).toHaveBeenCalledWith(401);
     });
@@ -278,7 +275,6 @@ describe('ClosetController', () => {
       let req: Partial<AuthenticatedRequest> = { user: { ...TEST_USER }, files: undefined, body: { category: 'SHOES' } };
       await controller.uploadImagesBatch(req as Request, res as Response, next);
       expect(res.status).toHaveBeenCalledWith(400);
-      // expect(res.json).toHaveBeenCalledWith({ message: 'No files provided' });
       expect(res.json).toHaveBeenCalledWith({ message: 'Missing "items" field in body' });
     });
 
@@ -290,36 +286,8 @@ describe('ClosetController', () => {
       };
       await controller.uploadImagesBatch(req as Request, res as Response, next);
       expect(res.status).toHaveBeenCalledWith(400);
-      // expect(res.json).toHaveBeenCalledWith({ message: expect.stringContaining('Invalid category') });
       expect(res.json).toHaveBeenCalledWith({ message: 'Missing "items" field in body' });
     });
-
-    // it('calls service.saveImagesBatch and returns 201 + payload', async () => {
-    //   jest.spyOn(service, 'saveImagesBatch').mockResolvedValue([
-    //     { id: '1', filename: 'a.png', category: 'SHOES', layerCategory: 'footwear', createdAt: new Date(), ownerId: 'test-user-id', colorHex: null, warmthFactor: null, waterproof: null, style: null, material: null, favourite: false }
-    //   ]);
-    //   let req: Partial<AuthenticatedRequest> = {
-    //     user: { ...TEST_USER },
-    //     files: [{ filename: 'a.png' }] as any,
-    //     body: { category: 'SHOES', layerCategory: 'footwear' }
-    //   };
-    //   await controller.uploadImagesBatch(req as Request, res as Response, next);
-    //   expect(service.saveImage).toHaveBeenCalledWith(
-    //     expect.anything(),
-    //     'SHOES',
-    //     'footwear',
-    //     'test-user-id',
-    //     expect.objectContaining({
-    //       colorHex: '#ffffff',
-    //       warmthFactor: 5,
-    //       waterproof: false,
-    //       style: 'Casual',
-    //       material: 'Cotton'
-    //     })
-    //   );
-    //   expect(res.status).toHaveBeenCalledWith(201);
-    //   expect(res.json).toHaveBeenCalled();
-    // });
 
     it('calls service.saveImage and returns 201 + payload', async () => {
       jest.spyOn(service, 'saveImage').mockResolvedValue({
@@ -365,11 +333,10 @@ describe('ClosetController', () => {
         expect.objectContaining({
           id: '1',
           category: 'SHOES',
-          imageUrl: '/uploads/a.png'
+          imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png'
         })
       ]);
     });
-
   });
 });
 
@@ -401,9 +368,9 @@ describe('Closet Routes Extended', () => {
       favourite: false
     });
 
+  });
 
-    jest.spyOn(service, 'deleteImage').mockResolvedValue(undefined);
-
+  beforeEach(() => {
     app = express();
     app.use(express.json());
     app.use('/uploads', express.static(path.join(__dirname, '../src/uploads')));
@@ -419,7 +386,7 @@ describe('Closet Routes Extended', () => {
       expect.objectContaining({
         id: 1,
         category: 'SHOES',
-        imageUrl: '/uploads/a.png',
+        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
         createdAt: expect.any(String),
       })
     ]);
@@ -434,7 +401,7 @@ describe('Closet Routes Extended', () => {
       expect.objectContaining({
         id: 1,
         category: 'SHOES',
-        imageUrl: '/uploads/a.png',
+        imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/a.png',
         createdAt: expect.any(String),
       })
     ]);
@@ -450,14 +417,14 @@ describe('Closet Routes Extended', () => {
     expect(res.body).toEqual(expect.objectContaining({
       id: '1',
       category: 'SHIRT',
-      imageUrl: expect.stringContaining('/uploads/'),
+      imageUrl: 'https://d1ij89nbpof6q0.cloudfront.net/shirt.png',
       createdAt: expect.any(String),
       colorHex: null,
       warmthFactor: null,
       waterproof: null,
       style: 'Casual',
       material: null
-    }))
+    }));
   });
 
   it('DELETE /api/closet/:id → deletes item', async () => {
