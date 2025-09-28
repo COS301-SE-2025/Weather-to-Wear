@@ -71,81 +71,80 @@ function formatTimeAmPm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-  // === ADD: polite autoplay for horizontal scroll ===
-  function useAutoplayScrolling(
-    ref: React.RefObject<HTMLDivElement | null>,
-    opts: { intervalMs?: number; pauseMsAfterInteract?: number } = {}
-  ) {
-    const { intervalMs = 2000, pauseMsAfterInteract = 1500 } = opts;
-    const pauseUntilRef = useRef<number>(0);
-    const timerRef = useRef<number | null>(null);
-    const cardWidthRef = useRef<number>(0);
+    function useAutoplayScrolling(
+      ref: React.RefObject<HTMLDivElement | null>,
+      opts: { pxPerSec?: number; pauseMsAfterInteract?: number } = {}
+    ) {
+      const { pxPerSec = 280, pauseMsAfterInteract = 1800 } = opts;
+      const pauseUntilRef = useRef(0);
+      const rafRef = useRef<number | null>(null);
+      const halfRef = useRef(0);
 
-    useEffect(() => {
-      const el = ref.current;
-      if (!el) return;
+      useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
 
-      // measure first card width + gap
-      const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
-      if (firstCard) {
-        const cs = getComputedStyle(el);
-        const gap =
-          parseFloat(cs.columnGap || cs.gap || '0') ||
-          parseFloat(cs['gridColumnGap' as any] || '0') ||
-          0;
-        cardWidthRef.current = firstCard.offsetWidth + gap;
-      }
+        // Make sure the two halves are equal width (see step 2 below)
+        const updateHalf = () => { halfRef.current = el.scrollWidth / 2; };
+        updateHalf();
+        const ro = new ResizeObserver(updateHalf);
+        ro.observe(el);
 
-      const step = () => {
-        if (Date.now() < pauseUntilRef.current) return;
+        const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (mql.matches) return;
 
-        // tiny, continuous steps (tweak between 6–16px for taste)
-        const stepPx = 6;
+        let last = performance.now();
 
-        // when we get near the end, loop back to start
-        const nearEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - stepPx * 2;
+        const tick = (now: number) => {
+          rafRef.current = requestAnimationFrame(tick);
+          if (now < pauseUntilRef.current) { last = now; return; }
 
-        if (nearEnd) {
-          // jump back to start without smooth to avoid a “snap-back” animation
-          el.scrollLeft = 0;
-        } else {
-          // micro-step forward; no 'smooth', it looks more like continuous motion
-          el.scrollLeft = el.scrollLeft + stepPx;
-        }
-      };
+          const dt = now - last;
+          last = now;
 
-      const start = () => {
-        stop();
-        timerRef.current = window.setInterval(step, intervalMs) as unknown as number;
-      };
-      const stop = () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      };
+          const step = (pxPerSec * dt) / 1000;
 
-      start();
+          // seamless wrap: once we pass the first half, jump back by exactly that half
+          let next = el.scrollLeft + step;
+          const half = halfRef.current || 0;
+          if (half > 0 && next >= half) next -= half;
 
-      const bumpPause = () => {
-        pauseUntilRef.current = Date.now() + pauseMsAfterInteract;
-      };
+          // avoid smooth behavior interfering
+          el.style.scrollBehavior = 'auto';
+          el.scrollLeft = next;
+        };
 
-      el.addEventListener('pointerdown', bumpPause, { passive: true });
-      el.addEventListener('wheel', bumpPause, { passive: true });
-      el.addEventListener('touchstart', bumpPause, { passive: true });
-      el.addEventListener('mouseenter', bumpPause, { passive: true });
+        const start = () => {
+          stop();
+          last = performance.now();
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        const stop = () => {
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        };
 
-      return () => {
-        stop();
-        el.removeEventListener('pointerdown', bumpPause);
-        el.removeEventListener('wheel', bumpPause);
-        el.removeEventListener('touchstart', bumpPause);
-        el.removeEventListener('mouseenter', bumpPause);
-      };
-    }, [ref, intervalMs, pauseMsAfterInteract]);
-  }
+        const bumpPause = () => (pauseUntilRef.current = Date.now() + pauseMsAfterInteract);
 
+        start();
+
+        el.addEventListener('pointerdown', bumpPause, { passive: true });
+        el.addEventListener('wheel', bumpPause, { passive: true });
+        el.addEventListener('touchstart', bumpPause, { passive: true });
+        el.addEventListener('mouseenter', bumpPause, { passive: true });
+        el.addEventListener('keydown', bumpPause, { passive: true });
+
+        return () => {
+          stop();
+          ro.disconnect();
+          el.removeEventListener('pointerdown', bumpPause);
+          el.removeEventListener('wheel', bumpPause);
+          el.removeEventListener('touchstart', bumpPause);
+          el.removeEventListener('mouseenter', bumpPause);
+          el.removeEventListener('keydown', bumpPause);
+        };
+      }, [ref, pxPerSec, pauseMsAfterInteract]);
+    }
 
 async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
@@ -1360,7 +1359,7 @@ export default function HomePage() {
     );
   }
 
-  // === ADD: swipeable + snap carousel for events ===
+    // === REPLACE: marquee-feel + swipe + desktop arrows ===
   function EventsCarousel({
     items,
     onOpen,
@@ -1369,26 +1368,70 @@ export default function HomePage() {
     onOpen: (ev: Event) => void;
   }) {
     const trackRef = useRef<HTMLDivElement>(null);
-    useAutoplayScrolling(trackRef, { intervalMs: 70, pauseMsAfterInteract: 2000 });
+
+    // gentle continuous motion with pause after interaction
+    useAutoplayScrolling(trackRef, { pxPerSec: 60, pauseMsAfterInteract: 1000 });
+
+    // keyboard support for accessibility (focus the track and use arrows)
+    useEffect(() => {
+      const el = trackRef.current;
+      if (!el) return;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+          const w = (firstCard?.offsetWidth || 260) + 24;
+          el.scrollBy({ left: w, behavior: 'smooth' });
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+          const w = (firstCard?.offsetWidth || 260) + 24;
+          el.scrollBy({ left: -w, behavior: 'smooth' });
+        }
+      };
+      el.addEventListener('keydown', onKey);
+      return () => el.removeEventListener('keydown', onKey);
+    }, []);
+
+    // helper to step by one card (used by arrows)
+    const stepByCard = (dir: -1 | 1) => {
+      const el = trackRef.current;
+      if (!el) return;
+      const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
+      const style = getComputedStyle(el);
+      const gap =
+        parseFloat(style.columnGap || style.gap || '0') ||
+        parseFloat((style as any)['gridColumnGap'] || '0') ||
+        24;
+      const w = (firstCard?.offsetWidth || 260) + gap;
+      el.scrollBy({ left: dir * w, behavior: 'smooth' });
+    };
 
     return (
       <div className="relative">
+        {/* fade edges for nicer marquee illusion */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black via-black/60 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black via-black/60 to-transparent" />
+
         <div
           ref={trackRef}
-          className="
-                    flex gap-6 overflow-x-auto overscroll-contain scroll-smooth
-                    snap-x snap-mandatory
-                    pt-1 pb-2
-                    touch-pan-x
-                    events-track
-                  "
+          tabIndex={0}
           aria-label="Upcoming events carousel"
+          className="
+            events-track no-scrollbar
+            flex gap-6 overflow-x-auto overscroll-contain scroll-smooth
+            snap-x snap-mandatory lg:snap-none   /* see #2 */
+            pt-1 pb-2 touch-pan-x focus:outline-none
+          "
         >
-          {items.map((ev) => {
+          {/* duplicate once to make the loop feel continuous when auto-scrolling */}
+          {[...items, ...items].map((ev, i) => {
             const img = eventImageFor(ev.style);
+            const key = `${ev.id}-${i < items.length ? 'a' : 'b'}-${i}`;
             return (
               <button
-                key={ev.id}
+                key={key}
                 onClick={() => onOpen(ev)}
                 className="group text-left snap-start min-w-[240px] sm:min-w-[240px] lg:min-w-[280px] focus:outline-none focus:ring-2 focus:ring-white/50 rounded-2xl"
                 data-ev-card
@@ -1398,6 +1441,8 @@ export default function HomePage() {
                     src={img}
                     alt={ev.style || 'event'}
                     className="w-full h-36 sm:h-40 lg:h-44 object-cover transform transition duration-300 group-hover:scale-[1.02]"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
 
@@ -1418,33 +1463,23 @@ export default function HomePage() {
           <div className="shrink-0 w-2" />
         </div>
 
-        {/* optional arrows */}
+        {/* desktop arrows (hidden on small screens) */}
         <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => {
-              const el = trackRef.current;
-              if (!el) return;
-              const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
-              const w = (firstCard?.offsetWidth || 260) + 24; // 24 ≈ gap
-              el.scrollBy({ left: -w, behavior: 'smooth' });
-            }}
+            onClick={() => stepByCard(-1)}
             className="pointer-events-auto ml-[-6px] hidden lg:grid place-items-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white"
             aria-label="Previous event"
+            title="Previous"
           >
             <svg viewBox="0 0 10 10" className="w-4 h-4" fill="currentColor"><polygon points="7.5,1 2.5,5 7.5,9" /></svg>
           </button>
           <button
             type="button"
-            onClick={() => {
-              const el = trackRef.current;
-              if (!el) return;
-              const firstCard = el.querySelector<HTMLElement>('[data-ev-card]');
-              const w = (firstCard?.offsetWidth || 260) + 24;
-              el.scrollBy({ left: w, behavior: 'smooth' });
-            }}
+            onClick={() => stepByCard(1)}
             className="pointer-events-auto mr-[-6px] hidden lg:grid place-items-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white"
             aria-label="Next event"
+            title="Next"
           >
             <svg viewBox="0 0 10 10" className="w-4 h-4" fill="currentColor"><polygon points="2.5,1 7.5,5 2.5,9" /></svg>
           </button>
