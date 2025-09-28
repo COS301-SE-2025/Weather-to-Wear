@@ -3,14 +3,11 @@ import { cosineSimilarity } from "./itemItemKnn";
 
 export type RatingPoint = {
   userId: string;
-  vec: number[];   // feature vector from getFeatureVector(buildFakeRec(...))
-  rating: number;  // 1..5 (explicit)
+  vec: number[];  
+  rating: number; 
 };
 
-/**
- * Build a per-user centroid (mean vector) of their "liked" outfits.
- * minRating defaults to 4 so we emphasize clear positives.
- */
+
 export function summarizeUser(
   points: RatingPoint[],
   minRating = 4
@@ -36,10 +33,6 @@ export function summarizeUser(
   return out;
 }
 
-/**
- * Find top-K neighbor users for the target user by centroid cosine similarity.
- * minCount filters out users with very few positives (noisy).
- */
 export function topNeighbors(
   targetUserId: string,
   userCentroids: Map<string, { meanVec: number[]; count: number }>,
@@ -57,10 +50,6 @@ export function topNeighbors(
   return all.sort((a, b) => b.sim - a.sim).slice(0, k);
 }
 
-/**
- * Predict a rating for a candidate vector using neighbor users' rated points.
- * Baseline-adjusted weighted average on cosine similarities.
- */
 export function predictFromNeighbors(
   candidateVec: number[],
   neighborPoints: RatingPoint[],
@@ -71,7 +60,7 @@ export function predictFromNeighbors(
 
   const sims = neighborPoints
     .map(p => ({ sim: cosineSimilarity(candidateVec, p.vec), rating: p.rating }))
-    .filter(x => x.sim > 0); // drop negatives / orthogonal as noise
+    .filter(x => x.sim > 0); 
 
   if (!sims.length) return globalMean;
 
@@ -87,12 +76,6 @@ export function predictFromNeighbors(
   return den ? (neighborMean + num / den) : neighborMean;
 }
 
-/**
- * Small helper to load blend weights from env (and enforce they sum to 1).
- * `wRule` = rule-based score weight
- * `wKnn`  = item-item KNN weight
- * `wCf`   = collaborative filtering weight
- */
 export function getBlendWeights() {
   const wRule = parseFloat(process.env.CF_W_RULE ?? "0.40");
   const wKnn  = parseFloat(process.env.CF_W_KNN  ?? "0.25");
@@ -100,6 +83,5 @@ export function getBlendWeights() {
 
   let sum = wRule + wKnn + wCf;
   if (!isFinite(sum) || sum <= 0) return { wRule: 0.25, wKnn: 0.35, wCf: 0.40 };
-  // normalize to 1.0 for safety
   return { wRule: wRule / sum, wKnn: wKnn / sum, wCf: wCf / sum };
 }
