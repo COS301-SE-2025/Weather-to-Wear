@@ -57,6 +57,7 @@ const PostToFeed = () => {
     name: string;
     category: string;
     layerCategory: string;
+    imageUrl?: string;
   }[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -399,16 +400,27 @@ const PostToFeed = () => {
 
                 {selectedClothingItems.length > 0 && (
                   <div className="mb-3">
-                    <div className="flex flex-wrap gap-2 justify-center">
+                    <div className="flex flex-wrap gap-3 justify-center items-center">
                       {selectedClothingItems.map((item) => (
-                        <span
-                          key={item.id}
-                          className="inline-flex items-center px-3 py-1.5 rounded-full bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 text-sm font-medium shadow-sm"
-                          title={`${item.layerCategory}: ${item.name}`}
-                        >
-                          {item.name}
-                          <span className="ml-1 text-xs opacity-75">({item.layerCategory.replace('_', ' ')})</span>
-                        </span>
+                        item.imageUrl ? (
+                          <img
+                            key={item.id}
+                            src={item.imageUrl}
+                            alt={item.name}
+                            title={`${item.layerCategory.replace('_', ' ')}: ${item.name}`}
+                            className="w-16 h-16 object-contain rounded-md border border-gray-200 dark:border-gray-700 bg-white"
+                          />
+                        ) : (
+                          // graceful fallback if an item has no imageUrl
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center px-3 py-1.5 rounded-full bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 text-sm font-medium shadow-sm"
+                            title={`${item.layerCategory}: ${item.name}`}
+                          >
+                            {item.name}
+                            <span className="ml-1 text-xs opacity-75">({item.layerCategory.replace('_', ' ')})</span>
+                          </span>
+                        )
                       ))}
                     </div>
                     <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
@@ -534,11 +546,13 @@ const PostToFeed = () => {
           selectedItemIds={selectedClothingItems.map(item => item.id)}
           onClose={() => setShowClothingPicker(false)}
           onConfirm={(items) => {
-            setSelectedClothingItems(items.map(item => ({
+            setSelectedClothingItems(items.map((item: any) => ({
               id: item.id,
               name: item.name,
               category: item.category,
               layerCategory: item.layerCategory,
+              // be permissive about source; TS-safe via any
+              imageUrl: (item?.imageUrl ?? item?.image ?? item?.thumbnailUrl) as string | undefined,
             })));
           }}
         />
