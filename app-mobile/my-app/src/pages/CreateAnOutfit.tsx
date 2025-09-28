@@ -279,7 +279,6 @@ export default function CreateAnOutfit() {
                 Additional Items
               </label>
 
-              {/* Chips */}
               <div className="flex flex-wrap gap-2 mb-2">
                 {additional.map((item) => (
                   <div
@@ -445,8 +444,6 @@ export default function CreateAnOutfit() {
       </div>
 
       {/* MODALS */}
-      {/* We need to modify the ClosetPickerModal to display names in sentence case */}
-      {/* Since we can't modify the modal directly, we'll create a wrapper or modify the items passed to it */}
       <ClosetPickerModal
         visible={modal === "base_top"}
         onClose={() => setModal(null)}

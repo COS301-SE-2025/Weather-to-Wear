@@ -1580,17 +1580,8 @@ export default function ClosetPage() {
 
                 {/* info */}
                 <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
-                  {/* <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div> */}
                   <div><span className="font-semibold">Name:</span> {toSentenceCase(activeDetailsItem.name)}</div>
                   <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
-                  {/* <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div> */}
-                  {/* <div><span className="font-semibold">Category:</span> {(() => {
-  const layer = activeDetailsItem.layerCategory;
-  if (!layer) return '—';
-  const categories = CATEGORY_BY_LAYER[layer] || [];
-  const categoryObj = categories.find(cat => cat.value === activeDetailsItem.category);
-  return categoryObj ? categoryObj.label : activeDetailsItem.category || '—';
-})()}</div> */}
                   <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
                   <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
                   <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
@@ -1859,7 +1850,6 @@ export default function ClosetPage() {
       closetItemId: it.closetItemId,
       layerCategory: it.layerCategory,
       imageUrl: it.imageUrl,
-      // Override the category with sentence case
       category: toSentenceCase(it.category),
     }))}
     onClose={() => setEditingOutfit(null)}
