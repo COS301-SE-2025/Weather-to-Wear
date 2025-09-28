@@ -60,7 +60,8 @@ class ClosetService {
     category: Category,
     layerCategory: LayerCategory,
     userId: string,
-    extras?: Extras
+    extras?: Extras,
+    keyPrefix?: string
   ): Promise<ClosetItem> {
     const skipPipeline = process.env.SKIP_IMAGE_PIPELINE === 'true';
 
@@ -114,7 +115,9 @@ class ClosetService {
     }
 
     // 3) Store (S3 if configured, else /uploads)
-    const key = `users/${userId}/closet/${Date.now()}-${randomUUID()}.png`;
+    // const key = `users/${userId}/closet/${Date.now()}-${randomUUID()}.png`;
+    const base = (keyPrefix && keyPrefix.trim()) ? keyPrefix : `users/${userId}/`; // ! perf
+    const key = `${base}closet/${Date.now()}-${randomUUID()}.png`;
     const { key: storedKey } = await putBufferSmart({
       key,
       contentType: 'image/png',

@@ -1,16 +1,47 @@
-import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import {
-  __weatherCache,
-  getWeatherByLocation,
-  getWeatherByDay,
-  getWeatherWeek,
-  groupByDay,
-  summarizeWeather,
-  searchCities,
-} from '../../src/modules/weather/weather.service';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+let httpGet: jest.Mock;
+
+let __weatherCache: any;
+let getWeatherByLocation: any;
+let getWeatherByDay: any;
+let getWeatherWeek: any;
+let groupByDay: any;
+let summarizeWeather: any;
+let searchCities: any;
+
+async function loadService() {
+  jest.resetModules();
+
+  process.env.FREE_WEATHER_API_URL = process.env.FREE_WEATHER_API_URL || 'https://freeweather.example';
+  process.env.FREE_WEATHER_API_KEY = process.env.FREE_WEATHER_API_KEY || 'test-key';
+  process.env.OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY || 'owm-key';
+  process.env.OPEN_METEO_ICON_BASE =
+    process.env.OPEN_METEO_ICON_BASE ||
+    'https://basmilius.github.io/weather-icons/production/fill/all';
+
+  httpGet = jest.fn();
+
+  jest.doMock('axios', () => {
+    const create = () => ({ get: httpGet });
+    const defaultExport = { create: create as any };
+    return {
+      __esModule: true,
+      default: defaultExport,
+      create, 
+    };
+  });
+
+  const svc = await import('../../src/modules/weather/weather.service');
+
+  __weatherCache = svc.__weatherCache;
+  getWeatherByLocation = svc.getWeatherByLocation;
+  getWeatherByDay = svc.getWeatherByDay;
+  getWeatherWeek = svc.getWeatherWeek;
+  groupByDay = svc.groupByDay;
+  summarizeWeather = svc.summarizeWeather;
+  searchCities = svc.searchCities;
+}
 
 function resp<T>(data: T): AxiosResponse<T> {
   return {
@@ -43,10 +74,14 @@ function makeOMGeocodeEmpty() {
   return resp({ results: [] as any[] });
 }
 
-function makeOMHourly(hours = 6, startOffsetHours = 0, opts?: { code?: number; isDay?: number; baseTemp?: number }) {
+function makeOMHourly(
+  hours = 6,
+  startOffsetHours = 0,
+  opts?: { code?: number; isDay?: number; baseTemp?: number }
+) {
   const now = Date.now();
-  const code = opts?.code ?? 1; // 1 = mainly clear
-  const isDay = opts?.isDay ?? 1; // 1 = day, 0 = night
+  const code = opts?.code ?? 1;
+  const isDay = opts?.isDay ?? 1;
   const baseTemp = opts?.baseTemp ?? 20;
 
   const time: string[] = [];
@@ -58,8 +93,7 @@ function makeOMHourly(hours = 6, startOffsetHours = 0, opts?: { code?: number; i
 
   for (let i = 0; i < hours; i++) {
     const dt = new Date(now + (startOffsetHours + i) * 3600 * 1000);
-    // ISO like "YYYY-MM-DDTHH:mm"
-    const t = dt.toISOString().slice(0, 16);
+    const t = dt.toISOString().slice(0, 16) + ':00';
     time.push(t);
     temperature_2m.push(baseTemp + i * 0.1);
     weathercode.push(code);
@@ -84,7 +118,6 @@ function makeFreeWeatherHours(n = 6) {
   const now = Date.now();
   return Array.from({ length: n }).map((_, i) => {
     const dt = new Date(now + i * 3600 * 1000);
-    // "YYYY-MM-DD HH:00"
     const formatted = dt.toISOString().slice(0, 13).replace('T', ' ') + ':00';
     return {
       time: formatted,
@@ -97,16 +130,12 @@ function makeFreeWeatherHours(n = 6) {
 function makeFreeWeatherResp(name = 'Cape Town', n = 6) {
   return resp({
     location: { name },
-    forecast: {
-      forecastday: [{ hour: makeFreeWeatherHours(n) }],
-    },
+    forecast: { forecastday: [{ hour: makeFreeWeatherHours(n) }] },
   });
 }
 
 function makeOWMGeo(name = 'Cape Town') {
-  return resp([
-    { name, lat: -33.918861, lon: 18.4233 },
-  ]);
+  return resp([{ name, lat: -33.918861, lon: 18.4233 }]);
 }
 
 function makeOWM3HourlyForDay(date: string) {
@@ -119,28 +148,21 @@ function makeOWM3HourlyForDay(date: string) {
   return resp({ list: entries, city: { name: 'Cape Town' } });
 }
 
-/* ---------- Test setup ---------- */
+/* ---------- Tests ---------- */
 
 describe('Weather Service — Open-Meteo primary & fallbacks', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await loadService();
     __weatherCache.clear();
     jest.clearAllMocks();
-    process.env.OPEN_METEO_ICON_BASE =
-      'https://basmilius.github.io/weather-icons/production/fill/all';
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  /* -------- getWeatherByLocation -------- */
+  // -------- getWeatherByLocation -------- 
 
   it('returns weather from Open-Meteo (primary) with icon + precip fields', async () => {
-    // OM geocoding
-    mockedAxios.get
+    httpGet
       .mockResolvedValueOnce(makeOMGeocode())
-      // OM forecast (hours within next 24h)
-      .mockResolvedValueOnce(makeOMHourly(6, 0, { code: 0, isDay: 1, baseTemp: 19 }));
+      .mockResolvedValueOnce(makeOMHourly(6, 2, { code: 0, isDay: 1, baseTemp: 19 }));
 
     const result = await getWeatherByLocation('Cape Town');
 
@@ -149,18 +171,14 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
     expect(result.summary).toBeDefined();
     expect(result.forecast.length).toBeGreaterThan(0);
     expect(result.forecast[0].description).toMatch(/clear/i);
-    // icon should be a full URL- backend maps 0+day = clear-day.svg
     expect(result.forecast[0].icon).toMatch(/clear-day\.svg$/);
-    // precipitation fields present
     expect(result.forecast[0]).toHaveProperty('precipitationMm');
     expect(result.forecast[0]).toHaveProperty('precipitationProbability');
   });
 
   it('falls back to FreeWeatherAPI when Open-Meteo fails (geocoding)', async () => {
-    mockedAxios.get
-      // OM geocoding fails
+    httpGet
       .mockResolvedValueOnce(makeOMGeocodeEmpty())
-      // FreeWeatherAPI succeeds
       .mockResolvedValueOnce(makeFreeWeatherResp('Cape Town', 6));
 
     const result = await getWeatherByLocation('Cape Town');
@@ -171,14 +189,10 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   });
 
   it('falls back to OpenWeatherMap when Open-Meteo and FreeWeatherAPI fail', async () => {
-    mockedAxios.get
-      // OM geocoding fails
+    httpGet
       .mockResolvedValueOnce(makeOMGeocodeEmpty())
-      // FreeWeatherAPI fails
       .mockRejectedValueOnce(new Error('FW down'))
-      // OWM geocoding
       .mockResolvedValueOnce(makeOWMGeo())
-      // OWM forecast
       .mockResolvedValueOnce(
         resp({
           list: [
@@ -201,10 +215,10 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   });
 
   it('throws an error if all providers fail for location', async () => {
-    mockedAxios.get
-      .mockResolvedValueOnce(makeOMGeocodeEmpty()) // OM geocode -> no results
-      .mockRejectedValueOnce(new Error('FW down'))  // FW
-      .mockRejectedValueOnce(new Error('OWM geo down')); // OWM geo
+    httpGet
+      .mockResolvedValueOnce(makeOMGeocodeEmpty())
+      .mockRejectedValueOnce(new Error('FW down'))
+      .mockRejectedValueOnce(new Error('OWM geo down'));
 
     await expect(getWeatherByLocation('Cape Town'))
       .rejects.toThrow(/Both weather services failed/i);
@@ -215,7 +229,6 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   it('returns weather for a specific day from Open-Meteo (primary)', async () => {
     const day = '2025-06-24';
 
-    // Build 24 entries for that date
     const times: string[] = [];
     const temps: number[] = [];
     const codes: number[] = [];
@@ -223,16 +236,16 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
     const precip: number[] = [];
     const precipProb: number[] = [];
     for (let h = 0; h < 24; h++) {
-      const t = `${day}T${String(h).padStart(2, '0')}:00`;
+      const t = `${day}T${String(h).padStart(2, '0')}:00:00`;
       times.push(t);
       temps.push(18 + h * 0.25);
-      codes.push(2); // partly cloudy
+      codes.push(2);
       isDay.push(h >= 6 && h <= 18 ? 1 : 0);
       precip.push(0);
       precipProb.push(20);
     }
 
-    mockedAxios.get
+    httpGet
       .mockResolvedValueOnce(makeOMGeocode())
       .mockResolvedValueOnce(
         resp({
@@ -259,10 +272,8 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   it('falls back to FreeWeatherAPI for a day when Open-Meteo fails', async () => {
     const day = '2025-06-24';
 
-    mockedAxios.get
-      // OM geocoding fails
+    httpGet
       .mockResolvedValueOnce(makeOMGeocodeEmpty())
-      // FW returns a matching forecast day
       .mockResolvedValueOnce(
         resp({
           location: { name: 'Cape Town' },
@@ -291,31 +302,26 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   it('falls back to OpenWeatherMap for a day when Open-Meteo and FreeWeatherAPI fail', async () => {
     const day = '2025-06-25';
 
-    mockedAxios.get
-      // OM geocoding fails
+    httpGet
       .mockResolvedValueOnce(makeOMGeocodeEmpty())
-      // FreeWeatherAPI fails
       .mockRejectedValueOnce(new Error('FW day down'))
-      // OWM geo
       .mockResolvedValueOnce(makeOWMGeo())
-      // OWM 3-hour forecast for that day
       .mockResolvedValueOnce(makeOWM3HourlyForDay(day));
 
     const result = await getWeatherByDay('Cape Town', day);
 
     expect(result.source).toBe('OpenWeatherMap');
     expect(result.location).toBe('Cape Town');
-    // interpolated to 24 hours
     expect(result.forecast.length).toBe(24);
     expect(result.forecast[0].description).toBe('Cloudy');
   });
 
   it('throws when all providers fail for the requested day', async () => {
     const day = '2025-06-26';
-    mockedAxios.get
-      .mockResolvedValueOnce(makeOMGeocodeEmpty()) // OM geocode -> none
-      .mockRejectedValueOnce(new Error('FW day down')) // FW day
-      .mockRejectedValueOnce(new Error('OWM geo down')) // OWM geo
+    httpGet
+      .mockResolvedValueOnce(makeOMGeocodeEmpty())
+      .mockRejectedValueOnce(new Error('FW day down'))
+      .mockRejectedValueOnce(new Error('OWM geo down'));
 
     await expect(getWeatherByDay('Cape Town', day))
       .rejects.toThrow(/Both weather services failed/i);
@@ -324,8 +330,7 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   // -------- getWeatherWeek -------- 
 
   it('returns a 7-day (hourly) planner from Open-Meteo', async () => {
-    // keep payload small provide only 30 hours
-    mockedAxios.get
+    httpGet
       .mockResolvedValueOnce(makeOMGeocode())
       .mockResolvedValueOnce(makeOMHourly(30, 0, { code: 1, isDay: 1, baseTemp: 21 }));
 
@@ -343,9 +348,9 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
     const day1 = '2025-09-19';
     const day2 = '2025-09-20';
     const f = [
-      { time: `${day1}T00:00`, temperature: 10, description: 'Clear' },
-      { time: `${day2}T01:00`, temperature: 11, description: 'Clear' },
-      { time: `${day1}T02:00`, temperature: 12, description: 'Cloudy' },
+      { time: `${day1}T00:00:00`, temperature: 10, description: 'Clear' },
+      { time: `${day2}T01:00:00`, temperature: 11, description: 'Clear' },
+      { time: `${day1}T02:00:00`, temperature: 12, description: 'Cloudy' },
     ] as any;
 
     const grouped = groupByDay(f);
@@ -356,8 +361,8 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
 
   it('summarizeWeather sets willRain true when precipitation signals are high even if description lacks "rain"', () => {
     const hours = [
-      { time: '2025-09-19T00:00', temperature: 20, description: 'Overcast', precipitationProbability: 60 },
-      { time: '2025-09-19T01:00', temperature: 20, description: 'Overcast', precipitationMm: 0.3 },
+      { time: '2025-09-19T00:00:00', temperature: 20, description: 'Overcast', precipitationProbability: 60 },
+      { time: '2025-09-19T01:00:00', temperature: 20, description: 'Overcast', precipitationMm: 0.3 },
     ] as any;
 
     const sum = summarizeWeather(hours);
@@ -366,7 +371,7 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   });
 
   it('searchCities maps Open-Meteo geocoding results', async () => {
-    mockedAxios.get.mockResolvedValueOnce(makeOMGeocode('Pretoria'));
+    httpGet.mockResolvedValueOnce(makeOMGeocode('Pretoria'));
 
     const matches = await searchCities('Pretoria');
     expect(matches.length).toBeGreaterThan(0);
@@ -377,16 +382,16 @@ describe('Weather Service — Open-Meteo primary & fallbacks', () => {
   });
 
   it('uses correct icon mapping for night variant', async () => {
-    // code=0 (clear), isDay=0 -> clear-night.svg
-    // Push hours at least +2h into the future to avoid edge filtering at "now"
-    mockedAxios.get
+    httpGet
       .mockResolvedValueOnce(makeOMGeocode())
       .mockResolvedValueOnce(makeOMHourly(3, 2, { code: 0, isDay: 0, baseTemp: 19 }));
 
     const result = await getWeatherByLocation('Cape Town');
     expect(result.source).toBe('openMeteo');
     expect(result.forecast.length).toBeGreaterThan(0);
-    const nightIconEntry = result.forecast.find(h => (h.icon || '').includes('clear-night.svg'));
+    const nightIconEntry = result.forecast.find((h: any) =>
+      (h.icon || '').includes('clear-night.svg')
+    );
     expect(nightIconEntry).toBeDefined();
   });
 });

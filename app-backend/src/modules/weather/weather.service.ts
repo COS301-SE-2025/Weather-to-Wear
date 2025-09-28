@@ -622,7 +622,7 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
   throw new Error('Both weather services failed. Please try again later.');
 }
 
-// NEW: full 7-day planner (hourly across 7 days) 
+// full 7-day planner (hourly across 7 days) 
 export async function getWeatherWeek(location: string): Promise<WeatherDataWithSummary> {
   if (!location) throw new Error('Location is required');
   const cacheKey = `week:${location.trim().toLowerCase()}`;

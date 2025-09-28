@@ -138,12 +138,3 @@ Optional CI (GitHub Actions) is ready to add; the workflow will fail on SLO brea
 * **SLI (Service Level Indicator):** the measured metric (e.g., k6’s `http_req_duration` p95).
 * **p95 / p99:** the latency under which 95% / 99% of requests fall.
 * **VU (Virtual User):** a k6 execution context that runs your script in a loop; “5 VUs for 1m” ≈ up to 5 concurrent users exercising the flow for one minute.
-
----
-
-## 9) Artifacts & paths
-
-* **Scripts:** `tests/nonfunctional/perf/smoke-read.k6.js`, `tests/nonfunctional/perf/upload-pipeline.k6.js`, `tests/nonfunctional/perf/lib.js`
-* **Test user:** `perf@test.com` (PerfTest)
-* **S3 hygiene:** uploads under `perf-tests/` prefix with 1-day lifecycle
-* **Backend change:** weather client **3 s timeout + serve-stale fallback** (removes 60s outliers)
