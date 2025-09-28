@@ -75,13 +75,30 @@ export async function createPost(data: {
   return response.json(); // Returns { post: {...} }
 }
 
-export async function getPosts(limit = 20, offset = 0, include: string[] = []) {
-  const response = await fetchWithAuth(
-    `${API_URL}/posts?limit=${limit}&offset=${offset}&include=${include.join(",")}`,
-    {
-      method: "GET",
-    }
-  );
+// export async function getPosts(limit = 20, offset = 0, include: string[] = []) {
+//   const response = await fetchWithAuth(
+//     `${API_URL}/posts?limit=${limit}&offset=${offset}&include=${include.join(",")}`,
+//     {
+//       method: "GET",
+//     }
+//   );
+
+//   if (!response.ok) {
+//     const errorData = await response.json();
+//     throw new Error(errorData.message || "Failed to fetch posts");
+//   }
+
+//   return response.json(); // Returns { posts: [...] }
+// }
+// src/services/socialApi.ts
+export async function getPosts(limit = 20, offset = 0, include: string[] = [], userId?: string) {
+  let url = `${API_URL}/posts?limit=${limit}&offset=${offset}&include=${include.join(",")}`;
+  if (userId) {
+    url += `&userId=${userId}`;
+  }
+  const response = await fetchWithAuth(url, {
+    method: "GET",
+  });
 
   if (!response.ok) {
     const errorData = await response.json();
@@ -380,3 +397,4 @@ export async function deletePost(postId: string) {
 
   return response.json(); // Returns { message: 'Post deleted successfully' }
 }
+

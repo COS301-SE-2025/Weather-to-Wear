@@ -97,16 +97,26 @@ export type NotificationAPIItem =
 
 const API_URL = `${API_BASE}`;
 
-type SearchUsersCardProps = {
+interface SearchUsersCardProps {
   searchQuery: string;
-  setSearchQuery: (v: string) => void;
+  setSearchQuery: (query: string) => void;
   searchLoading: boolean;
   searchError: string | null;
-  searchResults: UserResult[];
+  searchResults: Array<{
+    id: string;
+    name: string;
+    profilePhoto?: string | null;
+    location?: string | null;
+    isFollowing: boolean;
+    followRequested?: boolean;
+    isPrivate: boolean;
+    followersCount: number;
+    followingCount: number;
+  }>;
   searchHasMore: boolean;
   onLoadMore: () => void;
-  onToggleFollow: (id: string, user: UserResult) => void;
-};
+  onToggleFollow: (id: string, user: any) => void;
+}
 
 const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
   ({
@@ -119,6 +129,8 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
     onLoadMore,
     onToggleFollow,
   }) => {
+    const navigate = useNavigate();
+
     return (
       <div className="w-full">
         <div className="relative mb-4">
@@ -148,7 +160,8 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
           {searchResults.map((u) => (
             <div
               key={u.id}
-              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => navigate(`/user/${u.id}/posts`, { state: { user: u } })}
             >
               <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                 {u.profilePhoto ? (
@@ -173,11 +186,15 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
               </div>
 
               <button
-                onClick={() => onToggleFollow(u.id, u)}
-                className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
-                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                  : "bg-[#3F978F] text-white hover:bg-[#357f78]"
-                  }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFollow(u.id, u);
+                }}
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                  u.isFollowing || u.followRequested
+                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                    : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                }`}
               >
                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
               </button>
@@ -270,8 +287,6 @@ const FeedPage: React.FC = () => {
 
   const postsContainerRef = useRef<HTMLDivElement | null>(null);
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
-
-
 
   // inspo (sidebar) state
   type SidebarInspoOutfit = {
@@ -1131,6 +1146,7 @@ const FeedPage: React.FC = () => {
               searchHasMore={searchHasMore}
               onLoadMore={loadMoreSearch}
               onToggleFollow={toggleFollowFromSearch}
+              
             />
           </div>
 
