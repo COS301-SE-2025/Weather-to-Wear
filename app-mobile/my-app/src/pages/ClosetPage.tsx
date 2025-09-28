@@ -1859,9 +1859,8 @@ export default function ClosetPage() {
       closetItemId: it.closetItemId,
       layerCategory: it.layerCategory,
       imageUrl: it.imageUrl,
-      category: it.category,
-      // Add a displayName field with sentence case
-      displayName: toSentenceCase(it.category),
+      // Override the category with sentence case
+      category: toSentenceCase(it.category),
     }))}
     onClose={() => setEditingOutfit(null)}
     onSaved={(updated) => {
