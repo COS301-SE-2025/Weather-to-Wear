@@ -209,3 +209,5 @@ export function nsfwImageFromReq(fileField = "image", urlField = "imageUrl"): Re
         }
     };
 }
+
+export { decideImage, decideText };
