@@ -20,6 +20,7 @@ import AddPage from "./pages/AddPage";
 import HelpPage from "./pages/HelpPage";
 import LandingPage from "./pages/LandingPage";
 import InspoPage from "./pages/InspoPage";
+import Appearance from "./pages/Appearance";
 import { ImageProvider } from "./components/ImageContext";
 import PostsPage from "./pages/PostsPage";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -100,6 +101,7 @@ function App() {
                             <Route path="inspo" element={<InspoPage />} />
                             <Route path="profile" element={<Profile />} /> {/* Current user's profile */}
                             <Route path="user/:userId/posts" element={<UsersPostsPage />} />
+                            <Route path="appearance" element={<Appearance />} />
                             <Route path="create-outfit" element={<CreateAnOutfit />} />
                             <Route path="post-to-feed" element={<PostToFeed />} />
                             <Route path="help" element={<HelpPage />} />

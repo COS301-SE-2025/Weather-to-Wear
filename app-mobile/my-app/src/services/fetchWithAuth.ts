@@ -68,5 +68,19 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
     }
   }
 
-  throw new Error(`${response.status} ${response.statusText}`);
+  // Build a rich error so callers can read the body (e.g., NSFW scores)
+  let body: any = null;
+  try {
+    const cloned = response.clone();
+    body = await cloned.json();
+  } catch {
+    // not JSON or empty body — that's fine
+  }
+
+  const err: any = new Error(body?.message || `${response.status} ${response.statusText}`);
+  err.status = response.status;
+  err.data = body;                           // <-- key: attach parsed JSON
+  err.headers = Object.fromEntries(response.headers.entries());
+  throw err;
+
 }

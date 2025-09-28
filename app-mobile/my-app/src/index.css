@@ -51,3 +51,28 @@ code {
   font-style: normal;
   font-display: swap;
 }
+
+@media (min-width: 1024px) {
+  .events-track {
+    /* Firefox + legacy Edge/IE */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Chromium/WebKit */
+  .events-track::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent; /* hides track “ghosts” on some Windows setups */
+  }
+  .events-track::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  .events-track::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* works across Chrome/Safari/Firefox/Edge */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; background: transparent; }

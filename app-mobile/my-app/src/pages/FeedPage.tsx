@@ -227,6 +227,24 @@ const weatherIcon = (cond?: string | null) => {
   return null;
 };
 
+// Maps raw labels/keys to human-friendly phrases used in the NSFW popup
+  const formatNsfwLabel = (raw: string | undefined) => {
+    const key = (raw || "").toLowerCase();
+    const map: Record<string, string> = {
+      sexual: "sexual content",
+      insulting: "insulting language",
+      toxic: "toxic language",
+      discriminatory: "discriminatory language",
+      violent: "violent content",
+      hasprofanity: "profanity",
+      profanity: "profanity",
+      "profanity_text": "profanity",
+      nsfw: "inappropriate content",
+    };
+    return map[key] || key || "inappropriate content";
+  };
+
+
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [leftTab, setLeftTab] = useState<"notifications" | "inspo">("notifications");
@@ -250,16 +268,19 @@ const FeedPage: React.FC = () => {
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const location = useLocation();
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-
+  const [toast, setToast] = useState<{ msg: string } | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast({ msg });
+    window.setTimeout(() => setToast(null), 2200);
+  }, []);
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteSuccessPopup, setShowDeleteSuccessPopup] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [nsfwNotice, setNsfwNotice] = useState<{ displayLabel: string; score: number } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -280,11 +301,10 @@ const FeedPage: React.FC = () => {
 
   useEffect(() => {
     if (location.state?.postSuccess) {
-      setShowSuccessPopup(true);
-      const timer = setTimeout(() => setShowSuccessPopup(false), 3000);
-      return () => clearTimeout(timer);
+      showToast('Post created successfully!');
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
+
 
   useEffect(() => {
     const loadInspo = async () => {
@@ -448,10 +468,10 @@ const FeedPage: React.FC = () => {
     }
   };
 
-
   const addCommentHandler = async (postId: string) => {
     const content = (newComment[postId] || "").trim();
     if (!content) return;
+
     try {
       const { comment: c } = await addComment(postId, content);
       const newComm = {
@@ -466,7 +486,40 @@ const FeedPage: React.FC = () => {
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
     } catch (err: any) {
-      setError(err.message || "Failed to add comment");
+      // Handle NSFW filter responses
+      const data = err?.data;
+      if (data?.error === "NSFW_BLOCKED") {
+        // Clear the input for this post
+        setNewComment((prev) => ({ ...prev, [postId]: "" }));
+
+        // Determine the top scoring category (ignore profanityMatches)
+        const scores = (data?.scores ?? {}) as Record<string, number>;
+        const entries = Object.entries(scores).filter(([k]) => k !== "profanityMatches");
+
+        let rawLabel = data?.label || "nsfw";
+        let topScore = 0;
+
+        if (entries.length) {
+          const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
+          rawLabel = k;                 // use the top score's key (e.g., "toxic")
+          topScore = Number(v);
+        }
+
+        // If the API only reports profanityMatches, treat it as profanity with score 1.0
+        const fallbackScore =
+          typeof scores?.profanityMatches === "number" && scores.profanityMatches > 0 ? 1 : 0;
+        const finalScore = Math.max(topScore, fallbackScore);
+
+        setNsfwNotice({
+          displayLabel: formatNsfwLabel(rawLabel),  // human-friendly text
+          score: finalScore,
+        });
+        return;
+      }
+     
+
+      // Fallback error
+      setError(err?.message || "Failed to add comment");
     }
   };
 
@@ -524,6 +577,7 @@ const FeedPage: React.FC = () => {
       );
       setEditPostId(null);
       setEditContent("");
+      showToast('Caption updated successfully!');
     } catch (err: any) {
       setError(err.message || "Failed to edit post");
     } finally {
@@ -544,8 +598,7 @@ const FeedPage: React.FC = () => {
 
     try {
       await deletePost(deletePostId);
-      setShowDeleteSuccessPopup(true);
-      setTimeout(() => setShowDeleteSuccessPopup(false), 2500);
+      showToast('Post deleted successfully!');
       setMenuOpen(null);
       setDeletePostId(null);
     } catch (err: any) {
@@ -663,13 +716,6 @@ const FeedPage: React.FC = () => {
           .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         `}
       </style>
-
-      {showSuccessPopup && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 p-2 bg-green-500 text-white rounded-md text-sm z-50">
-          Post created successfully!
-        </div>
-      )}
-
 
       {/* Mobile header: centered search + bell */}
       <div className="lg:hidden sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b">
@@ -1255,12 +1301,11 @@ const FeedPage: React.FC = () => {
         </main>
       </div>
 
-      {/* ======= Overlays & Toasts (place before the final two closing divs) ======= */}
-
-      {/* Delete success toast */}
-      {showDeleteSuccessPopup && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-6 py-3 rounded-full shadow-lg z-50">
-          Post deleted successfully!
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[70]">
+          <div className="bg-[#3F978F] text-white text-sm px-4 py-2 rounded-full shadow">
+            {toast.msg}
+          </div>
         </div>
       )}
 
@@ -1300,30 +1345,67 @@ const FeedPage: React.FC = () => {
 
       {/* Delete confirm modal */}
       {deletePostId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 dark:text-gray-100">Delete Post</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative">
+            <h3 className="text-lg font-semibold">Delete this post?</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this post?
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setDeletePostId(null)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                className="px-4 py-2 rounded-full border border-black dark:border-white"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded disabled:opacity-50"
+                className="px-4 py-2 rounded-full bg-red-500 text-white disabled:opacity-50"
                 disabled={isDeleting}
               >
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : "Delete"}
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : 'Delete'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {nsfwNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            {/* Close (X) */}
+            <button
+              onClick={() => setNsfwNotice(null)}
+              className="absolute top-3 right-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Comment Blocked
+              </h3>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                Your comment was blocked due to{" "}
+                <span className="font-medium">{nsfwNotice.displayLabel}</span>
+                {" "}
+              </p>
+
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setNsfwNotice(null)}
+                  className="px-4 py-2 rounded-full bg-[#3F978F] text-white hover:opacity-95"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ======= /Overlays & Toasts ======= */}
     </div>
   );
