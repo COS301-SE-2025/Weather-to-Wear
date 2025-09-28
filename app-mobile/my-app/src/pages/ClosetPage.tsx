@@ -1157,7 +1157,6 @@ export default function ClosetPage() {
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
-                      // Default flow opens Virtual Try On (self)
                       openSelfTryOnOrPreview(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
                     }}
@@ -1227,7 +1226,7 @@ export default function ClosetPage() {
                       onClick={() => {
                         if (!tryOnOutfit) return;
                         setShowTryOnModal(false);
-                        openSelfTryOn(tryOnOutfit); // opens Virtual Try On with the same outfit
+                        openSelfTryOn(tryOnOutfit); 
                       }}
                     >
                       Virtual Try On
