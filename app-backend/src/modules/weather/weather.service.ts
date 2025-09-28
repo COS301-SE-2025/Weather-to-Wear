@@ -5,6 +5,8 @@ import logger from '../../utils/logger';
 
 const weatherCache = new Map<string, { data: WeatherDataWithSummary, time: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 min
+const HTTP_TIMEOUT_MS = 3000; // 3s outbound timeout to cap tail latency
+const http = axios.create({ timeout: HTTP_TIMEOUT_MS });
 
 export const __weatherCache = weatherCache;
 
@@ -20,7 +22,8 @@ interface IPApiResponse {
 // automatically detect user's location, otherwise fallback to pretoria 
 async function detectUserLocation(): Promise<string> {
   try {
-    const response = await axios.get<IPApiResponse>('http://ip-api.com/json');
+    // const response = await axios.get<IPApiResponse>('http://ip-api.com/json');
+    const response = await http.get<IPApiResponse>('http://ip-api.com/json');
     if (response.data && response.data.city) {
       return response.data.city;
     }
@@ -34,7 +37,8 @@ async function detectUserLocation(): Promise<string> {
 // If multiple cities are returned, avoid ambiguity by letting the user decide
 export async function searchCities(query: string): Promise<CityMatch[]> {
   try {
-    const geo = await axios.get('https://geocoding-api.open-meteo.com/v1/search', {
+    // const geo = await axios.get('https://geocoding-api.open-meteo.com/v1/search', {
+    const geo = await http.get('https://geocoding-api.open-meteo.com/v1/search', {
       params: {
         name: query,
         count: 10,
@@ -193,7 +197,8 @@ async function fetchFromOpenMeteo(location: string, hours: number | null, opts?:
     // 7-day default for planner; if hours is provided, we still request enough and slice.
     const days = opts?.days ?? 7;
 
-    const resp = await axios.get('https://api.open-meteo.com/v1/forecast', {
+    // const resp = await axios.get('https://api.open-meteo.com/v1/forecast', { // ! perf
+    const resp = await http.get('https://api.open-meteo.com/v1/forecast', {
       params: {
         latitude: lat,
         longitude: lon,
@@ -247,7 +252,8 @@ async function fetchFromOpenMeteoForDay(location: string, date: string): Promise
     const start = `${date}T00:00`;
     const end = `${date}T23:59`;
 
-    const resp = await axios.get('https://api.open-meteo.com/v1/forecast', {
+    // const resp = await axios.get('https://api.open-meteo.com/v1/forecast', { // ! perf
+    const resp = await http.get('https://api.open-meteo.com/v1/forecast', {
       params: {
         latitude: lat,
         longitude: lon,
@@ -290,7 +296,8 @@ async function fetchFromFreeWeatherAPI(location: string, hours: number): Promise
     const apiKey = process.env.FREE_WEATHER_API_KEY;
     const baseUrl = process.env.FREE_WEATHER_API_URL;
 
-    const response = await axios.get<any>(baseUrl!, {
+    // const response = await axios.get<any>(baseUrl!, { // ! perf
+    const response = await http.get<any>(baseUrl!, {
       params: {
         key: apiKey,
         q: location,
@@ -338,7 +345,8 @@ async function fetchFromFreeWeatherAPIForDay(location: string, date: string): Pr
     const apiKey = process.env.FREE_WEATHER_API_KEY;
     const baseUrl = process.env.FREE_WEATHER_API_URL;
 
-    const response = await axios.get<any>(baseUrl!, {
+    // const response = await axios.get<any>(baseUrl!, { // ! perf
+    const response = await http.get<any>(baseUrl!, {
       params: {
         key: apiKey,
         q: location,
@@ -377,7 +385,8 @@ async function fetchFromFreeWeatherAPIForDay(location: string, date: string): Pr
 // --- OpenWeatherMap (location) ---
 async function fetchFromOpenWeatherMap(location: string, hours: number): Promise<WeatherData | null> {
   try {
-    const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
+    // const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', { // ! perf
+    const geoRes = await http.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
       params: {
         q: location,
         appid: process.env.OPENWEATHER_API_KEY
@@ -387,7 +396,8 @@ async function fetchFromOpenWeatherMap(location: string, hours: number): Promise
     if (!geoRes.data.length) throw new Error('Geo lookup failed');
     const { lat, lon, name } = geoRes.data[0];
 
-    const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
+    // const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', { // ! perf
+    const forecastRes = await http.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
       params: {
         lat,
         lon,
@@ -430,7 +440,8 @@ async function fetchFromOpenWeatherMap(location: string, hours: number): Promise
 // --- OWM: Get 24 hours for specific date, with hourly interpolation ---
 async function fetchFromOpenWeatherMapForDay(location: string, date: string): Promise<WeatherData | null> {
   try {
-    const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
+    // const geoRes = await axios.get<any>('http://api.openweathermap.org/geo/1.0/direct', { // ! perf
+    const geoRes = await http.get<any>('http://api.openweathermap.org/geo/1.0/direct', {
       params: {
         q: location,
         appid: process.env.OPENWEATHER_API_KEY
@@ -440,7 +451,8 @@ async function fetchFromOpenWeatherMapForDay(location: string, date: string): Pr
     if (!geoRes.data.length) throw new Error('Geo lookup failed');
     const { lat, lon, name } = geoRes.data[0];
 
-    const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
+    // const forecastRes = await axios.get<any>('https://api.openweathermap.org/data/2.5/forecast', { // ! perf
+    const forecastRes = await http.get<any>('https://api.openweathermap.org/data/2.5/forecast', {
       params: {
         lat,
         lon,
@@ -570,6 +582,7 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
   const now = Date.now();
 
   const cached = weatherCache.get(cacheKey);
+  const staleCandidate = cached?.data; // ! perf
   if (cached && now - cached.time < CACHE_TTL) {
     return cached.data;
   }
@@ -601,6 +614,11 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
     return result;
   }
 
+  // throw new Error('Both weather services failed. Please try again later.'); // ! perf
+  if (staleCandidate) {
+    logger.warn(`Weather providers failed; serving stale cache for key=${cacheKey}`);
+    return staleCandidate;
+  }
   throw new Error('Both weather services failed. Please try again later.');
 }
 
@@ -611,6 +629,7 @@ export async function getWeatherWeek(location: string): Promise<WeatherDataWithS
   const now = Date.now();
 
   const cached = weatherCache.get(cacheKey);
+  const staleCandidate = cached?.data; // ! perf
   if (cached && now - cached.time < CACHE_TTL) {
     return cached.data;
   }
@@ -639,6 +658,11 @@ export async function getWeatherWeek(location: string): Promise<WeatherDataWithS
   }
 
   // Nothing viable
+  // throw new Error("Can't fetch the weather right now, check back later"); // ! perf
+  if (staleCandidate) {
+    logger.warn(`Weather week providers failed; serving stale cache for key=${cacheKey}`);
+    return staleCandidate;
+  }
   throw new Error("Can't fetch the weather right now, check back later");
 }
 
@@ -648,6 +672,7 @@ export async function getWeatherByDay(location: string, date: string): Promise<W
   const now = Date.now();
 
   const cached = weatherCache.get(cacheKey);
+  const staleCandidate = cached?.data; // ! perf
   if (cached && now - cached.time < CACHE_TTL) {
     return cached.data;
   }
@@ -678,5 +703,10 @@ export async function getWeatherByDay(location: string, date: string): Promise<W
     return result;
   }
 
+  // throw new Error('Both weather services failed. Please try again later.'); // ! perf
+  if (staleCandidate) {
+    logger.warn(`Weather day providers failed; serving stale cache for key=${cacheKey}`);
+    return staleCandidate;
+  }
   throw new Error('Both weather services failed. Please try again later.');
 }
