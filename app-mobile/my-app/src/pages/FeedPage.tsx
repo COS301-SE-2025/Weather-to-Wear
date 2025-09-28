@@ -227,7 +227,6 @@ const weatherIcon = (cond?: string | null) => {
 };
 
 
-// Maps raw labels/keys to human-friendly phrases used in the NSFW popup
 const formatNsfwLabel = (raw: string | undefined) => {
   const key = (raw || "").toLowerCase();
   const map: Record<string, string> = {
@@ -765,7 +764,7 @@ const FeedPage: React.FC = () => {
             onClick={() => {
               setShowNotifications((prev) => {
                 const next = !prev;
-                if (next) setShowSearchOverlay(false); // <— hide search popover
+                if (next) setShowSearchOverlay(false); 
                 if (next) fetchNotifications();
 
                 return next;
@@ -1232,23 +1231,21 @@ const FeedPage: React.FC = () => {
             </div>
 
             {leftTab === "inspo" ? (
-              <div className="flex justify-center">
+              <div className="px-2 pt-3">
                 <button
+                  type="button"
                   onClick={() => navigate("/inspo")}
-                  className="text-xs text-[#3F978F] hover:underline"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#3F978F] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#357f78] focus:outline-none focus:ring-2 focus:ring-[#3F978F]/40 active:scale-[.99]"
                   aria-label="See more inspo"
                 >
-                  See more inspo →
+                  <Sparkles className="h-4 w-4" />
+                  See more inspo
                 </button>
               </div>
             ) : (
               <div />
             )}
-
           </div>
-
-
-
         </aside>
 
 
