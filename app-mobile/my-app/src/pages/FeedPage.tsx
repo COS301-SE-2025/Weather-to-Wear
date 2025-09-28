@@ -37,7 +37,7 @@ interface Post {
   userId: string;
   username: string;
   profilePhoto?: string;
-  content: string; 
+  content: string; // caption
   likes: number;
   liked: boolean;
   date: string;
@@ -226,7 +226,7 @@ const weatherIcon = (cond?: string | null) => {
   return null;
 };
 
-
+// Maps raw labels/keys to human-friendly phrases used in the NSFW popup
 const formatNsfwLabel = (raw: string | undefined) => {
   const key = (raw || "").toLowerCase();
   const map: Record<string, string> = {
@@ -239,7 +239,6 @@ const formatNsfwLabel = (raw: string | undefined) => {
     profanity: "profanity",
     "profanity_text": "profanity",
     nsfw: "inappropriate content",
-
   };
   return map[key] || key || "inappropriate content";
 };
@@ -288,6 +287,7 @@ const FeedPage: React.FC = () => {
   const postsContainerRef = useRef<HTMLDivElement | null>(null);
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // inspo (sidebar) state
   type SidebarInspoOutfit = {
     id: string;
     overallStyle: string;
@@ -325,6 +325,7 @@ const FeedPage: React.FC = () => {
         if (!res.ok) throw new Error("Failed to fetch inspiration outfits");
         const data = await res.json();
 
+        // keep it lightweight for the sidebar: top 3 by whatever score server sends
         const top = (data ?? []).slice(0, 3);
         setInspoOutfits(top);
       } catch (e: any) {
@@ -443,6 +444,7 @@ const FeedPage: React.FC = () => {
     }
   }, [currentUserId]);
 
+  // Load notifications once (desktop) and when mobile popover opens
   useEffect(() => {
     if (!currentUserId) return;
     fetchNotifications();
@@ -451,8 +453,9 @@ const FeedPage: React.FC = () => {
   const [liking, setLiking] = useState<Record<string, boolean>>({});
 
   const toggleLike = async (id: string) => {
-    if (liking[id]) return; 
+    if (liking[id]) return; // prevent double taps
 
+    // read the current value once
     const current = posts.find((p) => p.id === id);
     if (!current) return;
 
@@ -460,6 +463,7 @@ const FeedPage: React.FC = () => {
 
     try {
       if (current.liked) {
+        // UNLIKE (same as your working path)
         await unlikePost(id);
         setPosts((prev) =>
           prev.map((p) =>
@@ -467,6 +471,7 @@ const FeedPage: React.FC = () => {
           )
         );
       } else {
+        // LIKE (mirror the unlike path)
         await likePost(id);
         setPosts((prev) =>
           prev.map((p) =>
@@ -502,10 +507,13 @@ const FeedPage: React.FC = () => {
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
     } catch (err: any) {
+      // Handle NSFW filter responses
       const data = err?.data;
       if (data?.error === "NSFW_BLOCKED") {
+        // Clear the input for this post
         setNewComment((prev) => ({ ...prev, [postId]: "" }));
 
+        // Determine the top scoring category (ignore profanityMatches)
         const scores = (data?.scores ?? {}) as Record<string, number>;
         const entries = Object.entries(scores).filter(([k]) => k !== "profanityMatches");
 
@@ -514,22 +522,24 @@ const FeedPage: React.FC = () => {
 
         if (entries.length) {
           const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
-          rawLabel = k;                 
+          rawLabel = k;                 // use the top score's key (e.g., "toxic")
           topScore = Number(v);
         }
 
+        // If the API only reports profanityMatches, treat it as profanity with score 1.0
         const fallbackScore =
           typeof scores?.profanityMatches === "number" && scores.profanityMatches > 0 ? 1 : 0;
         const finalScore = Math.max(topScore, fallbackScore);
 
         setNsfwNotice({
-          displayLabel: formatNsfwLabel(rawLabel),  
+          displayLabel: formatNsfwLabel(rawLabel),  // human-friendly text
           score: finalScore,
         });
         return;
       }
 
 
+      // Fallback error
       setError(err?.message || "Failed to add comment");
     }
   };
@@ -613,7 +623,7 @@ const FeedPage: React.FC = () => {
       setMenuOpen(null);
       setDeletePostId(null);
     } catch (err: any) {
-      setPosts(previous); 
+      setPosts(previous); // rollback
       setError(err.message || "Failed to delete post");
     } finally {
       setIsDeleting(false);
@@ -643,7 +653,7 @@ const FeedPage: React.FC = () => {
         if (first.isIntersecting) fetchNext();
       },
       {
-        root: rootEl ?? null,   
+        root: rootEl ?? null,   // <— use the actual scrolling container
         rootMargin: "600px",
         threshold: 0.01,
       }
@@ -698,6 +708,7 @@ const FeedPage: React.FC = () => {
     }
   };
 
+  // --- Auto-close the three-dot menu on outside click or Esc
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (menuOpen && !(e.target as HTMLElement).closest("[data-post-menu]")) {
@@ -714,17 +725,30 @@ const FeedPage: React.FC = () => {
       document.removeEventListener("keyup", handleEsc);
     };
   }, [menuOpen]);
+  // ---
 
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="h-screen lg:min-h-screen bg-white dark:bg-gray-900 overflow-hidden lg:overflow-visible overscroll-none">
+
       <style>
         {`
-          .scrollbar-hide::-webkit-scrollbar { display: none; }
-          .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        `}
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Lock body scroll on mobile, but let desktop behave normally */
+    @media (max-width: 1023.5px) {
+      html, body, #root {
+        height: 100%;
+        overflow: hidden;     /* <-- prevents the whole page from scrolling */
+        overscroll-behavior: none;
+        touch-action: manipulation;
+      }
+    }
+  `}
       </style>
+
 
       {/* Mobile header: centered search + bell */}
       <div className="lg:hidden sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b">
@@ -764,9 +788,8 @@ const FeedPage: React.FC = () => {
             onClick={() => {
               setShowNotifications((prev) => {
                 const next = !prev;
-                if (next) setShowSearchOverlay(false); 
+                if (next) setShowSearchOverlay(false); // <— hide search popover
                 if (next) fetchNotifications();
-
                 return next;
               });
             }}
@@ -1203,7 +1226,7 @@ const FeedPage: React.FC = () => {
                   {inspoOutfits.map((outfit) => {
                     const items = [...(outfit.inspoItems || [])]
                       .sort((a, b) => a.sortOrder - b.sortOrder)
-                      .slice(0, 4); 
+                      .slice(0, 4); // small preview
                     return (
                       <div
                         key={outfit.id}
@@ -1231,21 +1254,23 @@ const FeedPage: React.FC = () => {
             </div>
 
             {leftTab === "inspo" ? (
-              <div className="px-2 pt-3">
+              <div className="flex justify-center">
                 <button
-                  type="button"
                   onClick={() => navigate("/inspo")}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#3F978F] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#357f78] focus:outline-none focus:ring-2 focus:ring-[#3F978F]/40 active:scale-[.99]"
+                  className="text-xs text-[#3F978F] hover:underline"
                   aria-label="See more inspo"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  See more inspo
+                  See more inspo →
                 </button>
               </div>
             ) : (
               <div />
             )}
+
           </div>
+
+
+
         </aside>
 
 
@@ -1269,7 +1294,11 @@ const FeedPage: React.FC = () => {
           {/* Posts */}
           <div
             ref={postsContainerRef}
-            className="space-y-0 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide overscroll-contain"
+            className="space-y-0 overflow-y-auto scrollbar-hide overscroll-contain"
+            style={{
+              /* Mobile: lock to small viewport height; Desktop: Tailwind height below */
+              height: 'calc(100svh - 140px)'
+            }}
           >
             {posts.map((post) => (
               <div key={post.id} className="p-4 border  bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
