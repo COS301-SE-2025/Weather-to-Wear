@@ -14,8 +14,9 @@ router.post('/', authenticateToken, async (req, res, next) => {
    
 router.get('/:date', authenticateToken, async (req, res, next) => {
   try {
-    (req as any).query = { date: req.params.date };
-    await getOne(req, res);
+    // Create a new request object with the date parameter as query
+    const modifiedReq = { ...req, query: { ...req.query, date: req.params.date } };
+    await getOne(modifiedReq as any, res);
   } catch (err) { next(err); }
 });
 

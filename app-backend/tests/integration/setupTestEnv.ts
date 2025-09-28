@@ -26,6 +26,12 @@ afterEach(async () => {
   await prisma.packingOutfit.deleteMany(); // Packing outfit items
   await prisma.packingItem.deleteMany(); // Packing items
   await prisma.packingList.deleteMany(); // Packing list
+  await prisma.daySelection.deleteMany(); // Day selections (must come before users)
+  
+  // Inspo items (must come before closet items and inspo outfits)
+  await prisma.inspoItem.deleteMany();
+  await prisma.inspoOutfit.deleteMany();
+  
   await prisma.outfitItem.deleteMany();
   await prisma.outfit.deleteMany();
   await prisma.closetItem.deleteMany();
