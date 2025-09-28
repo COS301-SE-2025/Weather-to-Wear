@@ -1,4 +1,3 @@
-// src/pages/ClosetPage.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,12 +15,18 @@ import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
 
 import "../styles/ClosetPage.css";
+import Toast from "../components/Toast";
 
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
 }
 function isItem(obj: any): obj is Item {
   return obj && (!obj.tab || obj.tab === 'items');
+}
+
+function toSentenceCase(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
 const LAYER_OPTIONS = [
@@ -148,8 +153,6 @@ export default function ClosetPage() {
   const [showModal, setShowModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; tab: TabType; name: string } | null>(null);
 
-  const [showEditSuccess, setShowEditSuccess] = useState(false);
-
   const [showEditModal, setShowEditModal] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<Item & { tab: TabType } | null>(null);
   const [editedCategory, setEditedCategory] = useState('');
@@ -166,20 +169,16 @@ export default function ClosetPage() {
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
-  // Try-On (Mannequin)
-  const [showTryOnModal, setShowTryOnModal] = useState(false); // New state for separate try-on modal
+  const [showTryOnModal, setShowTryOnModal] = useState(false); 
   const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
 
-  // Try-On (Yourself) modal & state
   const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
   const [selfTryOnOutfit, setSelfTryOnOutfit] = useState<UIOutfit | null>(null);
 
-  // Stored / selected photo
   const [storedTryOnPhoto, setStoredTryOnPhoto] = useState<string | null>(null);
   const [selfPhotoPreview, setSelfPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  // Generation
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('Waiting…');
@@ -187,24 +186,19 @@ export default function ClosetPage() {
   const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
   const progressTimer = useRef<number | null>(null);
 
-  // show credits
   const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
 
   const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
   const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
   const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
 
-  // Global popup (Success/Error)
-  const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    variant: 'success',
-  });
+  const [toast, setToast] = useState<{ msg: string } | null>(null);
+  function showToast(message: string) {
+    setToast({ msg: message });
+    setTimeout(() => setToast(null), 2200);
+  }
 
-  const prettyDate = (s?: string) => (s ? new Date(s).toLocaleString() : "—");
-
-  const showPopup = (message: string, variant: 'success' | 'error' = 'success') =>
-    setPopup({ open: true, message, variant });
+  const prettyDate = (s?: string) => (s ? new Date(s).toLocaleString() : '—');
 
   useEffect(() => {
     const fetchItemsOnce = async () => {
@@ -231,14 +225,13 @@ export default function ClosetPage() {
         }
       } catch (error) {
         console.error('Error fetching items:', error);
-        showPopup('Failed to load items.', 'error');
+        showToast('Failed to load items.');
       }
     };
 
     fetchItemsOnce();
   }, [justFinished, queueLength]);
 
-  // Fetch saved outfits
   useEffect(() => {
     fetchAllOutfits()
       .then(raw => {
@@ -251,7 +244,7 @@ export default function ClosetPage() {
       })
       .catch(err => {
         console.error(err);
-        showPopup('Failed to load outfits.', 'error');
+        showToast('Failed to load outfits.');
       });
   }, []);
 
@@ -267,20 +260,29 @@ export default function ClosetPage() {
     if (originTab === 'items') {
       try {
         const res = await apiToggleFavourite(item.id);
+        const isFav = !!res.data.favourite;
         setItems(prev =>
-          prev.map(i => (i.id === item.id ? { ...i, favourite: res.data.favourite } : i))
+          prev.map(i => (i.id === item.id ? { ...i, favourite: isFav } : i))
         );
+        showToast(isFav ? 'Added to favourites.' : 'Removed from favourites.');
       } catch (err) {
         console.error('Server toggle failed', err);
+        showToast('Could not update favourite.');
       }
     } else {
+      const newFav = !item.favourite; 
       setOutfits(prev =>
-        prev.map(o => (o.id === item.id ? { ...o, favourite: !o.favourite } : o))
+        prev.map(o => (o.id === item.id ? { ...o, favourite: newFav } : o))
       );
+      showToast(newFav ? 'Added to favourites.' : 'Removed from favourites.');
       try {
         await toggleOutfitFavourite(item.id);
       } catch (err) {
         console.error('Server toggle failed', err);
+        setOutfits(prev =>
+          prev.map(o => (o.id === item.id ? { ...o, favourite: !newFav } : o))
+        );
+        showToast('Could not update favourite.');
       }
     }
   };
@@ -315,7 +317,7 @@ export default function ClosetPage() {
         throw new Error(errMsg);
       }
 
-      setShowEditSuccess(true);
+      showToast('Changes have been saved.');
 
       const updated = {
         ...itemToEdit,
@@ -348,7 +350,7 @@ export default function ClosetPage() {
       }
     } catch (err) {
       console.error('Save failed', err);
-      showPopup('Could not save changes.', 'error');
+      showToast('Could not save changes.');
     } finally {
       setShowEditModal(false);
       setItemToEdit(null);
@@ -394,18 +396,18 @@ export default function ClosetPage() {
       if (tab === 'outfits') {
         await deleteOutfit(id);
         setOutfits(prev => prev.filter(o => o.id !== id));
-        showPopup('Outfit deleted.', 'success');
+        showToast('Outfit successfully deleted.');
         return;
       }
 
       if (isItemInAnyOutfit(id)) {
-        showPopup('You can’t delete this item because it’s part of one or more outfits. Remove it from those outfits first.', 'error');
+        showToast('You can’t delete this item because it’s part of one or more outfits. Remove it from those outfits first.');
         return;
       }
 
       const packed = await isItemPackedAnywhere(id);
       if (packed) {
-        showPopup('You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.', 'error');
+        showToast('You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.');
         return;
       }
 
@@ -421,7 +423,7 @@ export default function ClosetPage() {
           .filter(o => (o.outfitItems?.length ?? 0) > 0)
       );
 
-      showPopup('Item deleted.', 'success');
+      showToast('Item deleted successfully.');
     } catch (err: any) {
       console.error('Delete failed:', err);
       const raw =
@@ -434,7 +436,7 @@ export default function ClosetPage() {
           : /pack/i.test(raw)
             ? 'You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.'
             : 'Delete failed. Try again.';
-      showPopup(friendly, 'error');
+      showToast(friendly);
     } finally {
       setShowModal(false);
       setItemToRemove(null);
@@ -526,7 +528,6 @@ export default function ClosetPage() {
       }
       if (creditRes.status === 'fulfilled') setCredits(creditRes.value);
     } catch {
-      // non-blocking
     } finally {
       setProgressLabel('Ready');
     }
@@ -551,8 +552,7 @@ export default function ClosetPage() {
   async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    // const b64 = await fileToBase64(f);
-    const b64 = await resizeToDataUrl(f, 1280, 1280); // smaller and faster than raw
+    const b64 = await resizeToDataUrl(f, 1280, 1280); 
     setSelfPhotoPreview(b64);
   }
 
@@ -563,10 +563,10 @@ export default function ClosetPage() {
       const res = await setTryOnPhotoBase64(selfPhotoPreview);
       setStoredTryOnPhoto(res.tryOnPhoto || null);
       setProgressLabel('Saved your try-on photo');
-      showPopup('Try-on photo saved.', 'success');
+      showToast('Try-on photo saved successfully!');
     } catch (err) {
       console.error(err);
-      showPopup('Failed to save try-on photo.', 'error');
+      showToast('Failed to save try-on photo.');
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -586,7 +586,7 @@ export default function ClosetPage() {
   async function startGeneration() {
     if (!selfTryOnOutfit) return;
     if (!storedTryOnPhoto) {
-      showPopup('Please upload and save a full-body photo first.', 'error');
+      showToast('Please upload and save a full-body photo first.');
       return;
     }
 
@@ -605,7 +605,6 @@ export default function ClosetPage() {
         returnBase64: false,
       });
 
-      // Stop fake progress, finish to 100 after a short delay
       if (progressTimer.current) {
         window.clearInterval(progressTimer.current);
         progressTimer.current = null;
@@ -620,7 +619,7 @@ export default function ClosetPage() {
       setProgressLabel('Done');
     } catch (err: any) {
       console.error(err);
-      showPopup(err?.message || 'Try-on failed.', 'error');
+      showToast(err?.message || 'Try-on failed.');
       setProgressLabel('Failed');
     } finally {
       setIsGenerating(false);
@@ -638,7 +637,6 @@ export default function ClosetPage() {
         return;
       }
     } catch {
-      // ignore and fall through
     }
     await openSelfTryOn(outfit);
   }
@@ -745,7 +743,7 @@ export default function ClosetPage() {
 
             {favView === 'items' ? (
               <div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {items.filter(i => i.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
                   ) : (
@@ -797,7 +795,7 @@ export default function ClosetPage() {
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
                   {outfits.filter(o => o.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
@@ -894,8 +892,7 @@ export default function ClosetPage() {
             )}
           </div>
         ) : (
-          // NORMAL GRID FOR ITEMS / OUTFITS TAB
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
                 return (
@@ -1054,7 +1051,7 @@ export default function ClosetPage() {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl min-w-0 p-8 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl p-8 relative flex flex-col gap-4 w-[92vw] sm:w-[540px] md:w-[640px] lg:w-[450px] max-w-[680px]"
               >
                 {/* Close Button */}
                 <button
@@ -1141,64 +1138,60 @@ export default function ClosetPage() {
                   {typeof activeDetailsOutfit.userRating === 'number' && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">Your Rating:</span>
-                      {Array(activeDetailsOutfit.userRating || 0)
-                        .fill(0)
-                        .map((_, i) => (
-                          <Star key={i} className="w-5 h-5 text-teal-500" />
+
+                      <div className="flex gap-1">
+                        {[0,1,2,3,4].map(i => (
+                          <Star
+                            key={i}
+                            className={`w-5 h-5 ${
+                              i < (activeDetailsOutfit.userRating || 0)
+                                ? 'text-teal-500'
+                                : 'text-gray-300'
+                            }`}
+                          />
                         ))}
+                      </div>
+
                       <span className="ml-1">{activeDetailsOutfit.userRating}/5</span>
                     </div>
                   )}
                 </div>
 
-                {/* Try On Avatar */}
-                <div className="flex justify-end gap-2 pt-6">
-                  <button
-                    onClick={() => {
-                      if (activeDetailsOutfit) {
-                        setTryOnOutfit(activeDetailsOutfit); 
-                        setShowTryOnModal(true);
-                        setActiveDetailsOutfit(null); 
-                      }
-                    }}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
-                  >
-                    Try On Avatar
-                  </button>
-
-                  {/*Try On Yourself */}
+                {/* Actions: single Try On (left) + Edit/Delete (right) */}
+                <div className="flex justify-between items-center pt-6">
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
-                      // openSelfTryOn(activeDetailsOutfit);
                       openSelfTryOnOrPreview(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
                     }}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                    className="px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
                   >
-                    Try On Yourself
+                    Try On
                   </button>
 
-                  <button
-                    onClick={() => {
-                      if (!activeDetailsOutfit) return;
-                      setEditingOutfit(activeDetailsOutfit);
-                      setActiveDetailsOutfit(null);
-                    }}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
-                      setShowModal(true);
-                      setActiveDetailsOutfit(null);
-                    }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!activeDetailsOutfit) return;
+                        setEditingOutfit(activeDetailsOutfit);
+                        setActiveDetailsOutfit(null);
+                      }}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
+                        setShowModal(true);
+                        setActiveDetailsOutfit(null);
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -1229,7 +1222,29 @@ export default function ClosetPage() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Close Button */}
+                {/* Header + Tabs */}
+                <div className="px-5 pt-5">
+                  <h2 className="text-xl font-semibold">Try On Avatar</h2>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      onClick={() => {
+                        if (!tryOnOutfit) return;
+                        setShowTryOnModal(false);
+                        openSelfTryOn(tryOnOutfit); 
+                      }}
+                    >
+                      Virtual Try On
+                    </button>
+                    <button
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      disabled
+                      aria-current="page"
+                    >
+                      Try On Avatar
+                    </button>
+                  </div>
+                </div>
                 <button
                   onClick={() => {
                     setShowTryOnModal(false);
@@ -1290,12 +1305,34 @@ export default function ClosetPage() {
                   <X className="w-5 h-5" />
                 </button>
 
-                {/* Header */}
+                {/* Header + Tabs */}
                 <div className="px-5 pt-5">
-                  <h2 className="text-xl font-semibold">Try On Yourself</h2>
+                  <h2 className="text-xl font-semibold">Virtual Try On</h2>
                   <p className="text-sm text-gray-500">
                     Use your stored full-body photo or upload a new one, then we’ll put this outfit on you.
                   </p>
+
+                  {/* Tabs */}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      disabled
+                      aria-current="page"
+                    >
+                      Virtual Try On
+                    </button>
+                    <button
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      onClick={() => {
+                        if (!selfTryOnOutfit) return;
+                        setShowSelfTryOnModal(false);
+                        setTryOnOutfit(selfTryOnOutfit);
+                        setShowTryOnModal(true);
+                      }}
+                    >
+                      Try On Avatar
+                    </button>
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -1543,9 +1580,8 @@ export default function ClosetPage() {
 
                 {/* info */}
                 <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
-                  <div><span className="font-semibold">Name:</span> {activeDetailsItem.name}</div>
+                  <div><span className="font-semibold">Name:</span> {toSentenceCase(activeDetailsItem.name)}</div>
                   <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
-                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category || '—'}</div>
                   <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
                   <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
                   <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
@@ -1621,37 +1657,46 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
-
-        {/* Remove Confirmation */}
-        <AnimatePresence>
-          {showModal && itemToRemove && (
-            <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
+          {/* Remove Confirmation (HomePage style) */}
+          <AnimatePresence>
+            {showModal && itemToRemove && (
               <motion.div
-                className="bg-white p-6 rounded-lg z-60 relative"
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.9 }}
+                className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
               >
-                <p className="mb-4">Remove “{itemToRemove.name}”?</p>
-                <div className="flex justify-end gap-2">
-                  <button onClick={cancelRemove} className="px-4 py-2 bg-gray-200 rounded-full">
-                    Cancel
-                  </button>
-                  <button onClick={confirmRemove} className="px-4 py-2 bg-red-500 text-white rounded-full">
-                    Remove
-                  </button>
-                </div>
+                <motion.div
+                  className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative"
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.95 }}
+                >
+                  <h3 className="text-lg font-semibold">Delete From Closet</h3>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    Are you sure you want to delete this?
+                  </p>
+
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      onClick={cancelRemove}
+                      className="px-4 py-2 rounded-full border border-black dark:border-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmRemove}
+                      className="px-4 py-2 rounded-full bg-red-500 text-white"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-
+        
         {/* Edit Modal */}
         <AnimatePresence>
           {showEditModal && itemToEdit && (
@@ -1689,17 +1734,17 @@ export default function ClosetPage() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Category</label>
                   <select
-                    value={editedCategory}
-                    onChange={e => setEditedCategory(e.target.value)}
-                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  >
-                    <option value="">Select Category</option>
-                    {itemToEdit.layerCategory &&
-                      (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))
-                    }
-                  </select>
+  value={editedCategory}
+  onChange={e => setEditedCategory(e.target.value)}
+  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+>
+  <option value="">Select Category</option>
+  {itemToEdit.layerCategory &&
+    (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
+      <option key={o.value} value={o.value}>{o.label}</option>
+    ))
+  }
+</select>
                 </div>
 
                 {/* Style & Material */}
@@ -1796,79 +1841,47 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
-        {showEditSuccess && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-              <h2 className="text-xl font-livvic mb-2 text-gray-900 dark:text-gray-100">
-                Saved Successfully!
-              </h2>
-              <p className="mb-6 text-gray-700 dark:text-gray-300">Changes have been saved.</p>
-              <button
-                onClick={() => setShowEditSuccess(false)}
-                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
-
         {editingOutfit && (
-          <EditOutfitModal
-            outfitId={editingOutfit.id}
-            initialStyle={editingOutfit.overallStyle}
-            initialRating={editingOutfit.userRating}
-            initialItems={editingOutfit.outfitItems.map(it => ({
-              closetItemId: it.closetItemId,
-              layerCategory: it.layerCategory,
-              imageUrl: it.imageUrl,
-              category: it.category,
-            }))}
-            onClose={() => setEditingOutfit(null)}
-            onSaved={(updated) => {
-              setOutfits(prev =>
-                prev.map(o =>
-                  o.id === updated.id
-                    ? {
-                      ...o,
-                      overallStyle: updated.overallStyle,
-                      userRating: updated.userRating ?? o.userRating,
-                      outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                        closetItemId: it.closetItemId,
-                        layerCategory: it.layerCategory,
-                        imageUrl:
-                          it.imageUrl && it.imageUrl.length > 0
-                            ? it.imageUrl
-                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), // ! bomboclaat
-                        category: it?.closetItem?.category ?? it.category,
-                      })),
-                    }
-                    : o
-                )
-              );
-              showPopup('Outfit updated.', 'success');
-            }}
-          />
-        )}
+  <EditOutfitModal
+    outfitId={editingOutfit.id}
+    initialStyle={editingOutfit.overallStyle}
+    initialRating={editingOutfit.userRating}
+    initialItems={editingOutfit.outfitItems.map(it => ({
+      closetItemId: it.closetItemId,
+      layerCategory: it.layerCategory,
+      imageUrl: it.imageUrl,
+      category: toSentenceCase(it.category),
+    }))}
+    onClose={() => setEditingOutfit(null)}
+    onSaved={(updated) => {
+      setOutfits(prev =>
+        prev.map(o =>
+          o.id === updated.id
+            ? {
+              ...o,
+              overallStyle: updated.overallStyle,
+              userRating: updated.userRating ?? o.userRating,
+              outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                closetItemId: it.closetItemId,
+                layerCategory: it.layerCategory,
+                imageUrl:
+                  it.imageUrl && it.imageUrl.length > 0
+                    ? it.imageUrl
+                    : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
+                category: it?.closetItem?.category ?? it.category,
+              })),
+            }
+            : o
+        )
+      );
+      showToast('Outfit updated successfully.');
+    }}
+  />
+)}
       </div>
 
-      {/* Global popup */}
-      {popup.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              {popup.variant === 'success' ? 'Success!' : 'Error'}
-            </h2>
-            <p className="mb-6 text-gray-700 dark:text-gray-300">{popup.message}</p>
-            <button
-              onClick={() => setPopup(p => ({ ...p, open: false }))}
-              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
+      {toast ? <Toast message={toast.msg} /> : null}
+
     </div>
   );
 }

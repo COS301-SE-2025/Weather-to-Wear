@@ -6,6 +6,12 @@ import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
 import Toast from "../components/Toast";
 
+// Add the sentence case helper function
+function toSentenceCase(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 export interface ClosetItem {
   id: string;
   name: string;
@@ -89,7 +95,6 @@ export default function CreateAnOutfit() {
           imageUrl: item.imageUrl
             ? item.imageUrl.startsWith("http")
               ? item.imageUrl
-              // : `${API_BASE}${item.imageUrl}`
               : absolutize(item.imageUrl, API_BASE)
             : undefined,
         }));
@@ -100,6 +105,14 @@ export default function CreateAnOutfit() {
     };
     getItems();
   }, []);
+
+  // Create a modified version of items with sentence case names for display
+  const getDisplayItems = (items: ClosetItem[]) => {
+    return items.map(item => ({
+      ...item,
+      displayName: toSentenceCase(item.name)
+    }));
+  };
 
   const selectedIds = [
     baseTop?.id,
@@ -144,14 +157,13 @@ export default function CreateAnOutfit() {
         })),
       ];
 
-      // Align with Home: include userRating when creating
       const body = {
         outfitItems,
         warmthRating: 5,
         waterproof: false,
         overallStyle: "Casual",
-        userRating: rating,          // ⭐ important
-        // (Home’s SaveOutfitPayload also has weatherSummary, but manual create
+        userRating: rating,          
+        // (Home's SaveOutfitPayload also has weatherSummary, but manual create
         // works without it; add if your backend marks it required)
         // weatherSummary: "",
       };
@@ -216,7 +228,7 @@ export default function CreateAnOutfit() {
               >
                 <div className="flex items-center justify-between">
                   <span className={baseTop ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
-                    {baseTop ? baseTop.name : "Pick a base top..."}
+                    {baseTop ? toSentenceCase(baseTop.name) : "Pick a base top..."}
                   </span>
                   <span className="text-gray-400 text-sm">{baseTop ? "Change" : "Pick"}</span>
                 </div>
@@ -235,7 +247,7 @@ export default function CreateAnOutfit() {
               >
                 <div className="flex items-center justify-between">
                   <span className={baseBottom ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
-                    {baseBottom ? baseBottom.name : "Pick a base bottom..."}
+                    {baseBottom ? toSentenceCase(baseBottom.name) : "Pick a base bottom..."}
                   </span>
                   <span className="text-gray-400 text-sm">{baseBottom ? "Change" : "Pick"}</span>
                 </div>
@@ -254,7 +266,7 @@ export default function CreateAnOutfit() {
               >
                 <div className="flex items-center justify-between">
                   <span className={footwear ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
-                    {footwear ? footwear.name : "Pick footwear..."}
+                    {footwear ? toSentenceCase(footwear.name) : "Pick footwear..."}
                   </span>
                   <span className="text-gray-400 text-sm">{footwear ? "Change" : "Pick"}</span>
                 </div>
@@ -267,14 +279,13 @@ export default function CreateAnOutfit() {
                 Additional Items
               </label>
 
-              {/* Chips */}
               <div className="flex flex-wrap gap-2 mb-2">
                 {additional.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center gap-2 bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 rounded-full px-3 py-1.5 shadow-sm"
                   >
-                    <span className="text-sm">{item.name}</span>
+                    <span className="text-sm">{toSentenceCase(item.name)}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveAdditional(item.id)}
@@ -298,10 +309,6 @@ export default function CreateAnOutfit() {
                   <span className="text-gray-400 text-sm">{additional.length ? "Add more" : "Pick"}</span>
                 </div>
               </button>
-
-
-              {/* Add select */}
-
             </div>
 
             {/* Rating (required, like Home) */}
@@ -333,11 +340,9 @@ export default function CreateAnOutfit() {
                 )}
               </div>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                We’ll save the outfit only after you rate it.
+                We'll save the outfit only after you rate it.
               </p>
             </div>
-
-
 
             {/* Alerts */}
             {error && (
@@ -371,12 +376,12 @@ export default function CreateAnOutfit() {
                   {baseTop.imageUrl ? (
                     <img
                       src={baseTop.imageUrl}
-                      alt=""
+                      alt={toSentenceCase(baseTop.name)}
                       className="w-28 h-28 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                     />
                   ) : (
                     <div className="w-28 h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
-                      Top
+                      {toSentenceCase(baseTop.name)}
                     </div>
                   )}
                 </div>
@@ -386,12 +391,12 @@ export default function CreateAnOutfit() {
                   {baseBottom.imageUrl ? (
                     <img
                       src={baseBottom.imageUrl}
-                      alt=""
+                      alt={toSentenceCase(baseBottom.name)}
                       className="w-28 h-28 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                     />
                   ) : (
                     <div className="w-28 h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
-                      Bottom
+                      {toSentenceCase(baseBottom.name)}
                     </div>
                   )}
                 </div>
@@ -401,12 +406,12 @@ export default function CreateAnOutfit() {
                   {footwear.imageUrl ? (
                     <img
                       src={footwear.imageUrl}
-                      alt=""
+                      alt={toSentenceCase(footwear.name)}
                       className="w-28 h-28 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                     />
                   ) : (
                     <div className="w-28 h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
-                      Shoes
+                      {toSentenceCase(footwear.name)}
                     </div>
                   )}
                 </div>
@@ -417,12 +422,12 @@ export default function CreateAnOutfit() {
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}
-                        alt=""
+                        alt={toSentenceCase(item.name)}
                         className="w-20 h-20 object-contain rounded-2xl border bg-white dark:bg-gray-700 mx-auto"
                       />
                     ) : (
                       <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
-                        +
+                        {toSentenceCase(item.name)}
                       </div>
                     )}
                   </div>
@@ -436,12 +441,11 @@ export default function CreateAnOutfit() {
             )}
           </div>
         </div>
-      </div >
+      </div>
 
       {/* MODALS */}
-      < ClosetPickerModal
-        visible={modal === "base_top"
-        }
+      <ClosetPickerModal
+        visible={modal === "base_top"}
         onClose={() => setModal(null)}
         items={
           allItems.filter(
@@ -449,7 +453,10 @@ export default function CreateAnOutfit() {
               i.layerCategory === "base_top" &&
               CATEGORY_BY_LAYER["base_top"].some((c) => c.value === i.category) &&
               (!selectedIds.includes(i.id) || baseTop?.id === i.id)
-          )
+          ).map(item => ({
+            ...item,
+            name: toSentenceCase(item.name) // Convert name to sentence case for display in modal
+          }))
         }
         onSelect={(item) => setBaseTop(item)}
         title="Pick a Base Top"
@@ -462,7 +469,10 @@ export default function CreateAnOutfit() {
             i.layerCategory === "base_bottom" &&
             CATEGORY_BY_LAYER["base_bottom"].some((c) => c.value === i.category) &&
             (!selectedIds.includes(i.id) || baseBottom?.id === i.id)
-        )}
+        ).map(item => ({
+          ...item,
+          name: toSentenceCase(item.name) // Convert name to sentence case for display in modal
+        }))}
         onSelect={(item) => setBaseBottom(item)}
         title="Pick a Base Bottom"
       />
@@ -474,7 +484,10 @@ export default function CreateAnOutfit() {
             i.layerCategory === "footwear" &&
             CATEGORY_BY_LAYER["footwear"].some((c) => c.value === i.category) &&
             (!selectedIds.includes(i.id) || footwear?.id === i.id)
-        )}
+        ).map(item => ({
+          ...item,
+          name: toSentenceCase(item.name) // Convert name to sentence case for display in modal
+        }))}
         onSelect={(item) => setFootwear(item)}
         title="Pick Footwear"
       />
@@ -486,13 +499,16 @@ export default function CreateAnOutfit() {
           (i) =>
             !["base_top", "base_bottom", "footwear"].includes(i.layerCategory) &&
             !selectedIds.includes(i.id)
-        )}
+        ).map(item => ({
+          ...item,
+          name: toSentenceCase(item.name) // Convert name to sentence case for display in modal
+        }))}
         onSelect={(item) => handleAddAdditional(item)}
         title="Add Additional Items"
         closeOnSelect={false}
       />
 
       {showToast && <Toast message="Outfit created successfully!" />}
-    </div >
+    </div>
   );
 }

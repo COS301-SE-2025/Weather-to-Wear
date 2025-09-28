@@ -1,4 +1,3 @@
-// src/services/eventsApi.ts
 import axios from 'axios';
 import exp from 'constants';
 import { API_BASE } from '../config';
@@ -7,10 +6,7 @@ const API_URL = `${API_BASE}/api/events`;
 
 type Style = 'Casual' | 'Formal' | 'Athletic' | 'Party' | 'Business' | 'Outdoor';
 
-// ! Merge Taylor
 export type EventDto = {
-// ! Merge Diya
-//export type Event = {
 
   id: string;
   name: string;
@@ -22,10 +18,7 @@ export type EventDto = {
   weather?: string | null;
 };
 
-// ! Merge Taylor
 export const fetchAllEvents = async (): Promise<EventDto[]> => {
-// ! Merge Diya
-//export const fetchAllEvents = async (): Promise<Event[]> => {
 
   try {
     const response = await axios.get(API_URL + '/getEvents', {
@@ -77,10 +70,7 @@ export const createEvent = async (eventData: {
   dateTo: string;
   style: string;
   isTrip?: boolean;
-// ! Merge Taylor
 }): Promise<EventDto> => {
-// ! Merge Diya
-//}): Promise<Event> => {
   const token = localStorage.getItem('token');
   const res = await axios.post(`${API_URL}/createEvent`, eventData, {
     headers: {

@@ -107,7 +107,6 @@ const COLOR_PALETTE = [
   { hex: "#FFFFFF", label: "White" },
   { hex: "#000000", label: "Black" },
   { hex: "#FFFDD0", label: "Cream" },
-  // more colours to be added
 ];
 
 const AddPage: React.FC = () => {
@@ -246,9 +245,9 @@ const AddPage: React.FC = () => {
   useEffect(() => {
     let dotCount = 0;
     const interval = setInterval(() => {
-      dotCount = (dotCount + 1) % 4; // 0, 1, 2, 3
+      dotCount = (dotCount + 1) % 4; 
       setEllipsis(".".repeat(dotCount));
-    }, 500); // every 0.5s
+    }, 500); 
 
     return () => clearInterval(interval);
   }, []);
@@ -273,19 +272,15 @@ const AddPage: React.FC = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // match canvas size to video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // flip horizontally:
     ctx.save();
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
 
-    // draw the (now un-mirrored) frame:
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // restore normal state
     ctx.restore();
 
     setCameraPreview(canvas.toDataURL());
@@ -825,7 +820,6 @@ const AddPage: React.FC = () => {
               <button
                 className="mt-2 px-6 py-3 rounded-full bg-black text-white font-semibold hover:bg-teal-600 transition-colors shadow-md"
                 onClick={async () => {
-                  // Add each batch item to the queue individually
                   for (const item of batchItems) {
                     if (!item.category || !item.layerCategory) {
                       alert(`Please complete all fields for item ${batchItems.indexOf(item) + 1}.`);
@@ -898,7 +892,7 @@ const AddPage: React.FC = () => {
                 strokeDasharray="100"
                 strokeDashoffset={`${100 - progressPercent}`}
                 className="text-teal-500 transition-all duration-700 ease-out"
-                transform="rotate(-90 18 18)"  // <- rotate to start from top
+                transform="rotate(-90 18 18)"  
               />
             </svg>
 
@@ -940,7 +934,6 @@ const AddPage: React.FC = () => {
               Items added successfully.
             </p>
             <button
-              // onClick={() => navigate("/closet")}
               onClick={() => { setShowSuccess(false) }}
               className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
             >

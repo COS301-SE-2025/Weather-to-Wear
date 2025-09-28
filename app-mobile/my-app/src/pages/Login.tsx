@@ -1,4 +1,3 @@
-// src/pages/Login.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TypingTitle from '../components/TypingTitle';

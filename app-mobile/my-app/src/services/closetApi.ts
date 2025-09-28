@@ -1,4 +1,3 @@
-// src/services/closetApi.ts
 import axios from 'axios';
 import { API_BASE } from '../config';
 import type { ClosetItemDTO } from './closetApiTypes';
@@ -38,8 +37,7 @@ export const uploadImage = (image: File, category: string, layerCategory: string
   });
 };
 
-// NOTE: your server's /upload/batch expects a JSON "items" manifest + files (see controller).
-// The simple version below is only for the old "images[]" shape. Keep if you still use it elsewhere.
+
 export const uploadBatch = (images: File[], category: string) => {
   const formData = new FormData();
   images.forEach((img) => formData.append('images', img));
