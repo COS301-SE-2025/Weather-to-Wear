@@ -1851,42 +1851,44 @@ export default function ClosetPage() {
         </AnimatePresence>
 
         {editingOutfit && (
-          <EditOutfitModal
-            outfitId={editingOutfit.id}
-            initialStyle={editingOutfit.overallStyle}
-            initialRating={editingOutfit.userRating}
-            initialItems={editingOutfit.outfitItems.map(it => ({
-              closetItemId: it.closetItemId,
-              layerCategory: it.layerCategory,
-              imageUrl: it.imageUrl,
-              category: it.category,
-            }))}
-            onClose={() => setEditingOutfit(null)}
-            onSaved={(updated) => {
-              setOutfits(prev =>
-                prev.map(o =>
-                  o.id === updated.id
-                    ? {
-                      ...o,
-                      overallStyle: updated.overallStyle,
-                      userRating: updated.userRating ?? o.userRating,
-                      outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                        closetItemId: it.closetItemId,
-                        layerCategory: it.layerCategory,
-                        imageUrl:
-                          it.imageUrl && it.imageUrl.length > 0
-                            ? it.imageUrl
-                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
-                        category: it?.closetItem?.category ?? it.category,
-                      })),
-                    }
-                    : o
-                )
-              );
-              showToast('Outfit updated successfully.');
-            }}
-          />
-        )}
+  <EditOutfitModal
+    outfitId={editingOutfit.id}
+    initialStyle={editingOutfit.overallStyle}
+    initialRating={editingOutfit.userRating}
+    initialItems={editingOutfit.outfitItems.map(it => ({
+      closetItemId: it.closetItemId,
+      layerCategory: it.layerCategory,
+      imageUrl: it.imageUrl,
+      category: it.category,
+      // Add a displayName field with sentence case
+      displayName: toSentenceCase(it.category),
+    }))}
+    onClose={() => setEditingOutfit(null)}
+    onSaved={(updated) => {
+      setOutfits(prev =>
+        prev.map(o =>
+          o.id === updated.id
+            ? {
+              ...o,
+              overallStyle: updated.overallStyle,
+              userRating: updated.userRating ?? o.userRating,
+              outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                closetItemId: it.closetItemId,
+                layerCategory: it.layerCategory,
+                imageUrl:
+                  it.imageUrl && it.imageUrl.length > 0
+                    ? it.imageUrl
+                    : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
+                category: it?.closetItem?.category ?? it.category,
+              })),
+            }
+            : o
+        )
+      );
+      showToast('Outfit updated successfully.');
+    }}
+  />
+)}
       </div>
 
       {toast ? <Toast message={toast.msg} /> : null}
