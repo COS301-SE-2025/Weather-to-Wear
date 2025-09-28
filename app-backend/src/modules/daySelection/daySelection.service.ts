@@ -13,6 +13,9 @@ export type DaySelCreate = {
 
 export async function upsertForDay(input: DaySelCreate) {
   const dateStart = new Date(input.dateISO + 'T00:00:00.000Z');
+  if (isNaN(dateStart.getTime())) {
+    throw new Error('Invalid date format');
+  }
   return prisma.daySelection.upsert({
     where: { userId_date: { userId: input.userId, date: dateStart } },
     update: {

@@ -7,7 +7,13 @@
     "build": "tsc",
     "test": "jest --coverage",
     "test:unit": "jest --coverage --config jest.config.js",
-    "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js --runInBand"
+    "test:integration": "dotenv -e .env.test -- jest --coverage --config jest.integration.config.js --runInBand",
+    "test:security": "dotenv -e .env.security -- jest --config jest.security.config.js --forceExit",
+    "test:security:jwt": "dotenv -e .env.security -- jest tests/security/jwt-protection.security.test.ts --config jest.security.config.js --forceExit",
+    "test:security:passwords": "dotenv -e .env.security -- jest tests/security/password-security.security.test.ts --config jest.security.config.js --forceExit",
+    "test:security:headers": "dotenv -e .env.security -- jest tests/security/security-headers.security.test.ts --config jest.security.config.js --forceExit",
+    "test:security:https": "dotenv -e .env.security -- jest tests/security/https-security.security.test.ts --config jest.security.config.js --forceExit",
+    "test:nonfunctional": "npm run test:security"
   },
   "keywords": [],
   "author": "",

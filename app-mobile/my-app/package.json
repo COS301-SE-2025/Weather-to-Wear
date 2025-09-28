@@ -54,12 +54,15 @@
     ]
   },
   "devDependencies": {
+    "@cypress/react": "^9.0.1",
+    "@cypress/webpack-dev-server": "^5.1.2",
     "@types/react": "^19.1.5",
     "@types/react-dom": "^19.1.5",
     "ajv": "^6.12.6",
     "ajv-keywords": "^3.5.2",
     "chalk": "^4.1.2",
     "cross-spawn": "^7.0.6",
+    "cypress": "^15.3.0",
     "has-flag": "^5.0.1",
     "shebang-command": "^2.0.0",
     "shebang-regex": "^4.0.0",

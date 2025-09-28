@@ -20,9 +20,22 @@ export function authenticateToken(
   next: NextFunction
 ): void {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!authHeader) {
+    res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
+    return;
+  }
 
-  if (!token) {
+  // Check if the header starts with "Bearer "
+  if (!authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
+    return;
+  }
+
+  // Extract the token (everything after "Bearer ")
+  const token = authHeader.substring(7); // "Bearer ".length = 7
+
+  if (!token || token.trim() === '') {
     res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
     return;
   }
