@@ -16,6 +16,31 @@ import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
 import PostClothingPicker from "../components/PostClothingPicker";
 
+// Human-friendly labels for NSFW categories (images & text)
+  const formatNsfwLabel = (raw?: string) => {
+    const key = (raw || "").toLowerCase();
+    const map: Record<string, string> = {
+      // image
+      explicit: "explicit content",
+      suggestive: "suggestive content",
+      "offensive_any": "offensive content",
+      "explicit_image": "explicit content",
+
+      // text (kept here in case the API ever flags captions, etc.)
+      sexual: "sexual content",
+      insulting: "insulting language",
+      toxic: "toxic language",
+      discriminatory: "discriminatory language",
+      violent: "violent content",
+      hasprofanity: "profanity",
+      profanity: "profanity",
+      "profanity_text": "profanity",
+
+      nsfw: "inappropriate content",
+    };
+    return map[key] || key || "inappropriate content";
+  };
+
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
   const [content, setContent] = useState("");
@@ -41,6 +66,11 @@ const PostToFeed = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const navigate = useNavigate();
+  const [nsfwPostNotice, setNsfwPostNotice] =
+    useState<{ displayLabel: string; score: number } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   // Camera stream lifecycle
   useEffect(() => {
@@ -119,6 +149,7 @@ const PostToFeed = () => {
     setLocation("");
     setWeather(null);
     setSelectedClothingItems([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -179,9 +210,37 @@ const PostToFeed = () => {
       navigate("/feed", { state: { postSuccess: true } });
 
     } catch (err: any) {
-      console.error("Failed to create post:", err);
-      setError(err.message || "Failed to share post.");
+    // Prefer structured payload from our fetch layer
+    const data = err?.data || err?.response?.data;
+
+    if (data?.error === "NSFW_BLOCKED") {
+      // Clear all form fields & inputs
+      handleReset();
+
+      // Choose the top numeric score from the server's scores object
+      const scores = (data?.scores ?? {}) as Record<string, number>;
+      const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
+
+      let rawLabel = data?.label || "nsfw";
+      let topScore = 0;
+
+      if (entries.length) {
+        const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
+        rawLabel = k;
+        topScore = Number(v);
+      }
+
+      setNsfwPostNotice({
+        displayLabel: formatNsfwLabel(rawLabel),
+        score: topScore,
+      });
+      return; // stop normal error flow
     }
+
+    console.error("Failed to create post:", err);
+    setError(err?.message || "Failed to share post.");
+  }
+
   };
 
   const weatherOptions = [
@@ -235,7 +294,7 @@ const PostToFeed = () => {
                 <div className="mt-3 flex flex-col items-center gap-3">
                   <div className="flex w-full justify-center gap-2">
                     <label className="cursor-pointer">
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                       <span className="inline-flex items-center px-4 py-2 rounded-full bg-black text-white hover:bg-[#2F6F6A] transition-colors font-livvic text-sm">
                         <Upload className="h-5 w-5 mr-2" />
                         Upload Photo
@@ -493,6 +552,40 @@ const PostToFeed = () => {
             })));
           }}
         />
+      )}
+      {nsfwPostNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            {/* Close (X) */}
+            <button
+              onClick={() => setNsfwPostNotice(null)}
+              className="absolute top-3 right-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Post Blocked
+              </h3>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                Your post was blocked due to{" "}
+                <span className="font-medium">{nsfwPostNotice.displayLabel}</span>
+                {" "}
+              </p>
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setNsfwPostNotice(null)}
+                  className="px-4 py-2 rounded-full bg-[#3F978F] text-white hover:opacity-95"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
