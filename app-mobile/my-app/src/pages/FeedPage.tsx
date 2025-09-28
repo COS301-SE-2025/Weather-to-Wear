@@ -190,11 +190,10 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
                   e.stopPropagation();
                   onToggleFollow(u.id, u);
                 }}
-                className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                  u.isFollowing || u.followRequested
+                className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
                     ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
                     : "bg-[#3F978F] text-white hover:bg-[#357f78]"
-                }`}
+                  }`}
               >
                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
               </button>
@@ -228,21 +227,21 @@ const weatherIcon = (cond?: string | null) => {
 };
 
 // Maps raw labels/keys to human-friendly phrases used in the NSFW popup
-  const formatNsfwLabel = (raw: string | undefined) => {
-    const key = (raw || "").toLowerCase();
-    const map: Record<string, string> = {
-      sexual: "sexual content",
-      insulting: "insulting language",
-      toxic: "toxic language",
-      discriminatory: "discriminatory language",
-      violent: "violent content",
-      hasprofanity: "profanity",
-      profanity: "profanity",
-      "profanity_text": "profanity",
-      nsfw: "inappropriate content",
-    };
-    return map[key] || key || "inappropriate content";
+const formatNsfwLabel = (raw: string | undefined) => {
+  const key = (raw || "").toLowerCase();
+  const map: Record<string, string> = {
+    sexual: "sexual content",
+    insulting: "insulting language",
+    toxic: "toxic language",
+    discriminatory: "discriminatory language",
+    violent: "violent content",
+    hasprofanity: "profanity",
+    profanity: "profanity",
+    "profanity_text": "profanity",
+    nsfw: "inappropriate content",
   };
+  return map[key] || key || "inappropriate content";
+};
 
 
 const FeedPage: React.FC = () => {
@@ -516,7 +515,7 @@ const FeedPage: React.FC = () => {
         });
         return;
       }
-     
+
 
       // Fallback error
       setError(err?.message || "Failed to add comment");
@@ -884,6 +883,86 @@ const FeedPage: React.FC = () => {
         )}
       </div>
 
+      {searchQuery.trim() && (
+        <div className="lg:hidden px-4 pb-2">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 max-h-80 overflow-y-auto scrollbar-hide overscroll-contain shadow-sm">
+            {/* Loading */}
+            {searchLoading && searchResults.length === 0 && (
+              <div className="flex justify-center py-2">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+              </div>
+            )}
+
+            {/* Error */}
+            {searchError && (
+              <div className="mt-1 text-xs text-red-500">{searchError}</div>
+            )}
+
+            {/* Empty */}
+            {!searchLoading && searchResults.length === 0 && (
+              <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+            )}
+
+            {/* Results */}
+            <div className="space-y-2">
+              {searchResults.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => navigate(`/user/${u.id}/posts`, { state: { user: u } })}
+                >
+                  <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+                    {u.profilePhoto ? (
+                      <img
+                        src={absolutize(u.profilePhoto, API_BASE)}
+                        alt={u.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+                        }}
+                      />
+                    ) : null}
+                    <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {u.location || "—"} • {u.followersCount} followers
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFollowFromSearch(u.id, u);
+                    }}
+                    className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
+                        ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                        : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                      }`}
+                  >
+                    {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Load more */}
+            {searchHasMore && (
+              <button
+                onClick={loadMoreSearch}
+                className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70 hover:bg-[#357f78]"
+                disabled={searchLoading}
+              >
+                {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Desktop layout grid */}
       <div
         className="    max-w-8xl mx-auto
@@ -1146,7 +1225,7 @@ const FeedPage: React.FC = () => {
               searchHasMore={searchHasMore}
               onLoadMore={loadMoreSearch}
               onToggleFollow={toggleFollowFromSearch}
-              
+
             />
           </div>
 
