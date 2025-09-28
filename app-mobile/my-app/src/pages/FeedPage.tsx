@@ -191,8 +191,8 @@ const SearchUsersCard: React.FC<SearchUsersCardProps> = React.memo(
                   onToggleFollow(u.id, u);
                 }}
                 className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
-                    ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
-                    : "bg-[#3F978F] text-white hover:bg-[#357f78]"
+                  ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+                  : "bg-[#3F978F] text-white hover:bg-[#357f78]"
                   }`}
               >
                 {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
@@ -252,7 +252,7 @@ const FeedPage: React.FC = () => {
   const [following, setFollowing] = useState<Account[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-
+  const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -337,6 +337,28 @@ const FeedPage: React.FC = () => {
 
     if (leftTab === "inspo") loadInspo();
   }, [leftTab]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        showSearchOverlay &&
+        !(e.target as HTMLElement).closest("#mobile-search-overlay") &&
+        !(e.target as HTMLElement).closest("input[placeholder='Search...']")
+      ) {
+        setShowSearchOverlay(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowSearchOverlay(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keyup", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keyup", handleEsc);
+    };
+  }, [showSearchOverlay]);
+
 
 
   useEffect(() => {
@@ -726,7 +748,11 @@ const FeedPage: React.FC = () => {
                 type="text"
                 placeholder="Search..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (!showSearchOverlay) setShowSearchOverlay(true);
+                }}
+                onFocus={() => setShowSearchOverlay(true)}
                 className="w-full pl-8 pr-3 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm outline-none"
               />
             </div>
@@ -750,10 +776,12 @@ const FeedPage: React.FC = () => {
             onClick={() => {
               setShowNotifications((prev) => {
                 const next = !prev;
-                if (next) fetchNotifications(); // refresh when opening
+                if (next) setShowSearchOverlay(false); // <— hide search popover
+                if (next) fetchNotifications();
                 return next;
               });
             }}
+
           >
             <Bell className="h-5 w-5" />
           </button>
@@ -881,87 +909,109 @@ const FeedPage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
 
-      {searchQuery.trim() && (
-        <div className="lg:hidden px-4 pb-2">
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 max-h-80 overflow-y-auto scrollbar-hide overscroll-contain shadow-sm">
-            {/* Loading */}
-            {searchLoading && searchResults.length === 0 && (
-              <div className="flex justify-center py-2">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-              </div>
-            )}
-
-            {/* Error */}
-            {searchError && (
-              <div className="mt-1 text-xs text-red-500">{searchError}</div>
-            )}
-
-            {/* Empty */}
-            {!searchLoading && searchResults.length === 0 && (
-              <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
-            )}
-
-            {/* Results */}
-            <div className="space-y-2">
-              {searchResults.map((u) => (
-                <div
-                  key={u.id}
-                  className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                  onClick={() => navigate(`/user/${u.id}/posts`, { state: { user: u } })}
+        {/* Mobile search overlay (like notifications) */}
+        {!showNotifications && showSearchOverlay && searchQuery.trim() && (
+          <div className="relative">
+            <div
+              id="mobile-search-overlay"
+              className="absolute right-2 left-2 top-0 translate-y-2 rounded-xl shadow-lg bg-white dark:bg-gray-800 p-3 max-h-[60vh] overflow-y-auto overscroll-contain z-40 border border-gray-200 dark:border-gray-700"
+            >
+              {/* header row with close */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium">Search results</div>
+                <button
+                  onClick={() => setShowSearchOverlay(false)}
+                  className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700"
+                  aria-label="Close search results"
                 >
-                  <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
-                    {u.profilePhoto ? (
-                      <img
-                        src={absolutize(u.profilePhoto, API_BASE)}
-                        alt={u.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
-                        }}
-                      />
-                    ) : null}
-                    <span className="absolute hidden">{u.name?.[0] || "U"}</span>
-                  </div>
+                  Close
+                </button>
+              </div>
 
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {u.location || "—"} • {u.followersCount} followers
-                    </span>
-                  </div>
+              {/* Loading */}
+              {searchLoading && searchResults.length === 0 && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="animate-spin w-6 h-6 text-[#3F978F]" />
+                </div>
+              )}
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFollowFromSearch(u.id, u);
+              {/* Error */}
+              {searchError && (
+                <div className="mt-1 text-xs text-red-500">{searchError}</div>
+              )}
+
+              {/* Empty */}
+              {!searchLoading && searchResults.length === 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">No users found.</div>
+              )}
+
+              {/* Results */}
+              <div className="space-y-2">
+                {searchResults.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setShowSearchOverlay(false);
+                      navigate(`/user/${u.id}/posts`, { state: { user: u } });
                     }}
-                    className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
+                  >
+                    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
+                      {u.profilePhoto ? (
+                        <img
+                          src={absolutize(u.profilePhoto, API_BASE)}
+                          alt={u.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            (e.currentTarget.nextSibling as HTMLElement).style.display = "block";
+                          }}
+                        />
+                      ) : null}
+                      <span className="absolute hidden">{u.name?.[0] || "U"}</span>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium dark:text-gray-100">@{u.name}</span>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {u.location || "—"} • {u.followersCount} followers
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFollowFromSearch(u.id, u);
+                      }}
+                      className={`ml-auto text-xs px-3 py-1 rounded-full ${u.isFollowing || u.followRequested
                         ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
                         : "bg-[#3F978F] text-white hover:bg-[#357f78]"
-                      }`}
-                  >
-                    {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
-                  </button>
-                </div>
-              ))}
-            </div>
+                        }`}
+                    >
+                      {u.isFollowing ? "Following" : u.followRequested ? "Requested" : "Follow"}
+                    </button>
+                  </div>
+                ))}
+              </div>
 
-            {/* Load more */}
-            {searchHasMore && (
-              <button
-                onClick={loadMoreSearch}
-                className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70 hover:bg-[#357f78]"
-                disabled={searchLoading}
-              >
-                {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
-              </button>
-            )}
+              {/* Load more */}
+              {searchHasMore && (
+                <button
+                  onClick={loadMoreSearch}
+                  className="w-full mt-2 bg-[#3F978F] text-white px-3 py-2 rounded-full text-xs disabled:opacity-70 hover:bg-[#357f78]"
+                  disabled={searchLoading}
+                >
+                  {searchLoading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : "Load more"}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+
+      </div>
+
 
       {/* Desktop layout grid */}
       <div
