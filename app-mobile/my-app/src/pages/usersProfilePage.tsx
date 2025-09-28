@@ -1,3 +1,4 @@
+
 // src/pages/usersPostsPage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MoreHorizontal, X, Heart } from "lucide-react";
@@ -10,7 +11,7 @@ import {
   unfollowUser,
   getFollowers,
   getFollowing,
-  searchUsers, // Added import
+  searchUsers,
 } from "../services/socialApi";
 import { API_BASE } from "../config";
 import { getMe } from "../services/usersApi";
@@ -125,7 +126,7 @@ const UsersPostsPage: React.FC = () => {
   const [followersCount, setFollowersCount] = useState<number | null>(initialUser?.followersCount ?? null);
   const [followingCount, setFollowingCount] = useState<number | null>(initialUser?.followingCount ?? null);
   const [isFollowing, setIsFollowing] = useState(initialUser?.isFollowing ?? false);
-  const [followRequested, setFollowRequested] = useState<boolean>(initialUser?.followRequested ?? false); // Fixed: default to false
+  const [followRequested, setFollowRequested] = useState<boolean>(initialUser?.followRequested ?? false);
   const [isPrivate, setIsPrivate] = useState(initialUser?.isPrivate ?? false);
   const [error, setError] = useState<string | null>(null);
 
@@ -172,7 +173,7 @@ const UsersPostsPage: React.FC = () => {
       setFollowersCount(initialUser.followersCount);
       setFollowingCount(initialUser.followingCount);
       setIsFollowing(initialUser.isFollowing);
-      setFollowRequested(initialUser.followRequested ?? false); // Fixed: default to false
+      setFollowRequested(initialUser.followRequested ?? false);
       setIsPrivate(initialUser.isPrivate);
     } else {
       // Fallback if no state
@@ -184,7 +185,7 @@ const UsersPostsPage: React.FC = () => {
             setFollowersCount(user.followersCount);
             setFollowingCount(user.followingCount);
             setIsFollowing(user.isFollowing);
-            setFollowRequested(user.followRequested ?? false); // Fixed: default to false
+            setFollowRequested(user.followRequested ?? false);
             setIsPrivate(user.isPrivate);
           } else {
             setError("User not found");
@@ -221,20 +222,30 @@ const UsersPostsPage: React.FC = () => {
     setLoadingMore(true);
 
     try {
+      console.log(`Fetching posts for userId: ${userId}`); // Debug log
       const resp = await getPosts(pageSize, offset, ["user", "comments", "comments.user", "likes"], userId);
       const batch: Post[] = (resp.posts ?? []) as Post[];
 
+      // Verify posts belong to the correct user
+      const filteredBatch = batch.filter((post) => post.userId === userId);
+      if (batch.length > 0 && filteredBatch.length === 0) {
+        console.warn(`Backend returned posts for wrong user. Expected userId: ${userId}`);
+        setError("No posts found for this user");
+        setHasMore(false);
+        return;
+      }
+
       setPosts((prev) => {
         const seen = new Set(prev.map((p) => p.id));
-        const add = batch.filter((p) => !seen.has(p.id));
+        const add = filteredBatch.filter((p) => !seen.has(p.id));
         return [...prev, ...add];
       });
 
       setOffset((prev) => prev + pageSize);
-      setHasMore(batch.length === pageSize);
-    } catch {
+      setHasMore(filteredBatch.length === pageSize);
+    } catch (err: any) {
       setHasMore(false);
-      setError("Failed to load posts");
+      setError(err.message || "Failed to load posts");
     } finally {
       setLoadingMore(false);
       inFlightRef.current = false;
@@ -244,9 +255,11 @@ const UsersPostsPage: React.FC = () => {
   // reset when user changes
   useEffect(() => {
     if (!userId) return;
-    setPosts([]);
+    console.log(`Resetting posts for userId: ${userId}`); // Debug log
+    setPosts([]); // Clear posts
     setOffset(0);
     setHasMore(true);
+    setError(null);
   }, [userId]);
 
   // kick off first page
