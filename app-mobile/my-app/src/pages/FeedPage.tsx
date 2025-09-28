@@ -245,6 +245,7 @@ const FeedPage: React.FC = () => {
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [nsfwNotice, setNsfwNotice] = useState<{ label: string; score: number } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -434,10 +435,10 @@ const FeedPage: React.FC = () => {
     }
   };
 
-
   const addCommentHandler = async (postId: string) => {
     const content = (newComment[postId] || "").trim();
     if (!content) return;
+
     try {
       const { comment: c } = await addComment(postId, content);
       const newComm = {
@@ -452,7 +453,31 @@ const FeedPage: React.FC = () => {
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
     } catch (err: any) {
-      setError(err.message || "Failed to add comment");
+      // Handle NSFW filter responses
+      const data = err?.response?.data;
+      if (data?.error === "NSFW_BLOCKED") {
+        // Clear the input for this post
+        setNewComment((prev) => ({ ...prev, [postId]: "" }));
+
+        // Find the highest-scoring category (ignore profanityMatches)
+        const scores = (data?.scores ?? {}) as Record<string, number>;
+        const entries = Object.entries(scores).filter(([k]) => k !== "profanityMatches");
+        let topLabel = data?.label || "NSFW";
+        let topScore = 0;
+
+        if (entries.length) {
+          const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
+          topLabel = k;
+          topScore = Number(v);
+        }
+
+        // Open the modal with label + score
+        setNsfwNotice({ label: topLabel, score: topScore });
+        return;
+      }
+
+      // Fallback error
+      setError(err?.message || "Failed to add comment");
     }
   };
 
@@ -1297,6 +1322,43 @@ const FeedPage: React.FC = () => {
               >
                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : 'Delete'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {nsfwNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            {/* Close (X) */}
+            <button
+              onClick={() => setNsfwNotice(null)}
+              className="absolute top-3 right-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Comment Blocked
+              </h3>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                Comment blocked due to{" "}
+                <span className="font-medium">{nsfwNotice.label.toLowerCase()}</span>
+                {" "}–{" "}
+                <span className="tabular-nums">{nsfwNotice.score.toFixed(2)}</span>
+                {" "}content.
+              </p>
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setNsfwNotice(null)}
+                  className="px-4 py-2 rounded-full bg-[#3F978F] text-white hover:opacity-95"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
         </div>
