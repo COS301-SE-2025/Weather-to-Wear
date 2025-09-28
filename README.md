@@ -65,6 +65,7 @@ while expressing their unique fashion sense.
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
+| [E2E Testing](https://drive.google.com/drive/folders/1BlKT7uJLDbouhGfVRa9eTWFZF3Bh__BL)     | End-to-end Testing  |
 
 
 <h1 align="center"> Demo Resources </h1>
