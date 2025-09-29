@@ -19,9 +19,9 @@ describe('Authentication Flow', () => {
     
     // Fill out signup form based on actual Signup.tsx structure
     cy.get('input[name="username"]').clear().type('user');
-    cy.get('input[name="email"]').clear().type('user5@example.com');
-    cy.get('input[name="password"]').clear().type('User5@123');
-    cy.get('input[name="confirmPassword"]').clear().type('User5@123');
+    cy.get('input[name="email"]').clear().type('user9@example.com');
+    cy.get('input[name="password"]').clear().type('User7@123');
+    cy.get('input[name="confirmPassword"]').clear().type('User7@123');
     
     // Submit signup form
     cy.get('button[type="submit"]').click();
@@ -32,7 +32,7 @@ describe('Authentication Flow', () => {
     cy.get('h2').contains('Login').should('be.visible');
     
     // Now login with the credentials we just created
-    cy.login('user5@example.com', 'User5@123');
+    cy.login('user9@example.com', 'User7@123');
     
     // Verify successful login - should redirect to dashboard
     cy.url().should('contain', '/dashboard');
@@ -48,7 +48,7 @@ describe('Authentication Flow', () => {
     cy.get('h2').contains('Login').should('be.visible');
     
     // Use the custom login command with the actual form structure
-    cy.login('user5@example.com', 'User5@123');
+    cy.login('user9@example.com', 'User7@123');
     
     // Verify successful login - should redirect to dashboard
     cy.url().should('contain', '/dashboard');

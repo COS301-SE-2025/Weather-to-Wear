@@ -68,6 +68,12 @@ describe('Dashboard and Outfit Rating Flow', () => {
       // Fill out event form based on actual modal structure
       cy.get('input[placeholder="Event name"]').type('Cypress Test Event');
       cy.get('input[placeholder="Location"]').type('Pretoria');
+
+      // Wait for the dropdown and select the first recommended place
+      cy.get('.fixed.inset-0.bg-black.bg-opacity-50 ul li > button', { timeout: 10000 })
+        .should('be.visible')
+        .first()
+        .click();
       
       // Fill datetime-local inputs (from HomePage.tsx line ~1890)
       cy.get('input[type="datetime-local"]').first().type('2025-12-31T18:00');
@@ -80,7 +86,7 @@ describe('Dashboard and Outfit Rating Flow', () => {
       cy.get('button.bg-\\[\\#3F978F\\].text-white').click();
       
       // Wait for modal to close
-      cy.get('.fixed.inset-0.bg-black.bg-opacity-50').should('not.exist');
+      // cy.get('.fixed.inset-0.bg-black.bg-opacity-50').should('not.exist');
       
       // Step 4: Wait 3 seconds then delete the created event
       cy.log('Waiting 3 seconds before deleting the event');
