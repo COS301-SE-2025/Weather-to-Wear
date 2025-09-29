@@ -5,23 +5,25 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: scalability-k6-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   k6-scalability:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      # k6 scripts read these via process env
-      BASE_URL: ${{ secrets.PERF_BASE_URL }}           # e.g. https://gi2cijr3xa.eu-west-1.awsapprunner.com
-      TEST_USER_EMAIL: ${{ secrets.PERF_USER_EMAIL }}  # perf@test.com
+      BASE_URL: ${{ secrets.PERF_BASE_URL }}
+      TEST_USER_EMAIL: ${{ secrets.PERF_USER_EMAIL }}
       TEST_USER_PASSWORD: ${{ secrets.PERF_USER_PASSWORD }}
-      CITY: ${{ secrets.PERF_CITY }}                   # e.g. Pretoria
+      CITY: ${{ secrets.PERF_CITY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Prepare artifact dir
-        run: |
-          mkdir -p app-backend/tests/nonfunctional/perf/artifacts
+        run: mkdir -p app-backend/tests/nonfunctional/perf/artifacts
 
       - name: Scale Read (5 minutes @ ~5 rps)
         run: |
