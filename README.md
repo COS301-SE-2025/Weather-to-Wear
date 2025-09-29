@@ -55,19 +55,19 @@ while expressing their unique fashion sense.
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | [SRS - Architectural Requirements Document]()             | System design overview                     |
 | [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
-| [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
-| [User Manual](https://drive.google.com/file/d/1cNthfpx0T-8xEaA-NzAYWVo78XtEZIwc/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
-| [Service Contracts](https://drive.google.com/file/d/1KG_b2IHcPWZOfn3m-_Taj5A1m9nEpQVo/view?usp=drive_link)           |  Service contracts for Weather to Wear     |
-| [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
-| [Deployment Model](https://drive.google.com/file/d/1eiw_zUMCsmGaZwp1r7FcGcFyeVBZ4Pp4/view?usp=drive_link)                   | Description of Deployment Model                |
+| [Coding Standards Document]()           |  Guidelines for writing code      |
+| [Testing Policy]()           |  Guidelines for Testing     |
+| [E2E Testing](https://drive.google.com/drive/folders/1BlKT7uJLDbouhGfVRa9eTWFZF3Bh__BL)     | End-to-end Testing  |
+| [User Manual]()           |  Guidelines for using Weather To Wear      |
+| [Technical Installation]()                        | Guidelines for installing Weather To Wear              |
+| [Deployment Model]()                   | Description of Deployment Model                |
 | [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
-| [Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
-| [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
+| [Use-Case Diagrams]()                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
+| [Service Contracts]()           |  Service contracts for Weather to Wear     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
-| [E2E Testing](https://drive.google.com/drive/folders/1BlKT7uJLDbouhGfVRa9eTWFZF3Bh__BL)     | End-to-end Testing  |
 
 
 <h1 align="center"> Demo Resources </h1>
