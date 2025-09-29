@@ -38,12 +38,14 @@ while expressing their unique fashion sense.
 
 </p>
 
-[Our Team Website](https://gitgood.netlify.app/) 
+[Visit our site](https://weather-to-wear.com/) 
+
 <p></p>
 
 
 
   <h1 align="center"> Documentation and Resources </h1>
+  
 
 <div align="center" >
 
@@ -51,7 +53,7 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [SRS - Architectural Requirements Document](https://drive.google.com/file/d/1Ks9EmRCO2uaso_XHqwyW_eL1V2MCNxPK/view?usp=sharing)             | System design overview                     |
+| [SRS - Architectural Requirements Document]()             | System design overview                     |
 | [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
 | [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
 | [User Manual](https://drive.google.com/file/d/1cNthfpx0T-8xEaA-NzAYWVo78XtEZIwc/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
@@ -102,6 +104,11 @@ while expressing their unique fashion sense.
 <br>
 
 <h1 align="center">Meet The Team</h1>
+<p></p>
+
+[Our Team Website](https://gitgood.netlify.app/) 
+
+<p></p>
 <p align="center">
   <img src="docs/assets/team/Team.jpeg" width="600" height="auto" style="display: block; margin: 0 auto;">
 </p><table style="border-width: 1px; width: 100%; font-family: Arial, sans-serif; border-collapse: collapse;">
