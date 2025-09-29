@@ -64,8 +64,8 @@ while expressing their unique fashion sense.
 | [User Manual](docs/demo4/User%20Manual.pdf)           |  Guidelines for using Weather To Wear      |
 | [Technical Installation](docs/demo4/Technical%20Installation.pdf)                        | Guidelines for installing Weather To Wear              |
 | [Deployment Model](docs/demo4/Deployment%20Diagram%20Description%20(1).pdf)                   | Description of Deployment Model                |
-| [Deployment Diagram]()                   | Plan for project deployment                |
-| [Use-Case Diagrams]()                   | Use Case Diagrams               |
+| [Deployment Diagram](docs/demo4/Deployment%20Diagram.pdf)                   | Plan for project deployment                |
+| [Use-Case Diagrams](docs/demo4/Use%20Case%20Diagrams.pdf)                   | Use Case Diagrams               |
 | [Class Diagram](docs/demo4/Class%20Diagram.pdf)                        | Visual representation of Weather To Wear structure     |
 | [Service Contracts](docs/demo4/Service%20Contract%20(4).pdf)           |  Service contracts for Weather to Wear     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
