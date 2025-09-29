@@ -3,4 +3,6 @@ dist/
 uploads/
 .env
 .env.studio
+.env.security
 *.db
+.env.test

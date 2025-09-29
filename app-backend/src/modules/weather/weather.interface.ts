@@ -15,10 +15,23 @@ export interface HourlyForecast {
   temperature: number;
   description: string;
   icon?: string;
+
+  // numeric precipitation signals 
+  precipitationMm?: number;
+  precipitationProbability?: number; // 0..100 (%)
 }
 
 export interface WeatherData {
   location: string;
-  source: 'FreeWeatherAPI' | 'OpenWeatherMap';
+  source: 'openMeteo' | 'FreeWeatherAPI' | 'OpenWeatherMap';
   forecast: HourlyForecast[];
+}
+
+export interface CityMatch {
+  name: string;
+  country?: string;
+  admin1?: string;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
 }

@@ -20,11 +20,13 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
     { value: 'TSHIRT', label: 'T-shirt' },
     { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+    { value: 'SLEEVELESS', label: 'Sleeveless' },
   ],
   base_bottom: [
     { value: 'PANTS', label: 'Pants' },
     { value: 'JEANS', label: 'Jeans' },
     { value: 'SHORTS', label: 'Shorts' },
+    { value: 'SKIRT', label: 'Skirt' },
   ],
   mid_top: [
     { value: 'SWEATER', label: 'Sweater' },
@@ -35,10 +37,14 @@ const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
     { value: 'BLAZER', label: 'Blazer' },
     { value: 'JACKET', label: 'Jacket' },
     { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'COAT', label: 'Coat' },
   ],
   footwear: [
     { value: 'SHOES', label: 'Shoes' },
     { value: 'BOOTS', label: 'Boots' },
+    { value: 'SANDALS', label: 'Sandals' },
+    { value: 'HEELS', label: 'Heels' },
   ],
   headwear: [
     { value: 'BEANIE', label: 'Beanie' },

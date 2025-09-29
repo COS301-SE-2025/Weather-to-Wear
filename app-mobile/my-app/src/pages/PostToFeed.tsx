@@ -10,9 +10,33 @@ import {
   CloudSnow,
   Wind,
   ChevronDown,
+  Shirt,
 } from "lucide-react";
 import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
+import PostClothingPicker from "../components/PostClothingPicker";
+
+  const formatNsfwLabel = (raw?: string) => {
+    const key = (raw || "").toLowerCase();
+    const map: Record<string, string> = {
+      explicit: "explicit content",
+      suggestive: "suggestive content",
+      "offensive_any": "offensive content",
+      "explicit_image": "explicit content",
+
+      sexual: "sexual content",
+      insulting: "insulting language",
+      toxic: "toxic language",
+      discriminatory: "discriminatory language",
+      violent: "violent content",
+      hasprofanity: "profanity",
+      profanity: "profanity",
+      "profanity_text": "profanity",
+
+      nsfw: "inappropriate content",
+    };
+    return map[key] || key || "inappropriate content";
+  };
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
@@ -27,11 +51,24 @@ const PostToFeed = () => {
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
   const [showCameraPopup, setShowCameraPopup] = useState(false);
 
+  const [showClothingPicker, setShowClothingPicker] = useState(false);
+  const [selectedClothingItems, setSelectedClothingItems] = useState<{
+    id: string;
+    name: string;
+    category: string;
+    layerCategory: string;
+    imageUrl?: string;
+  }[]>([]);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const navigate = useNavigate();
+  const [nsfwPostNotice, setNsfwPostNotice] =
+    useState<{ displayLabel: string; score: number } | null>(null);
 
-  // Camera stream lifecycle
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
       const video = videoRef.current;
@@ -107,6 +144,8 @@ const PostToFeed = () => {
     setImage(null);
     setLocation("");
     setWeather(null);
+    setSelectedClothingItems([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -158,13 +197,42 @@ const PostToFeed = () => {
         location: location || undefined,
         image: imageFile,
         weather: weather || undefined,
+        closetItemIds: selectedClothingItems.length > 0
+          ? selectedClothingItems.map(item => item.id)
+          : undefined,
       });
 
-      navigate("/feed");
+      navigate("/feed", { state: { postSuccess: true } });
+
     } catch (err: any) {
-      console.error("Failed to create post:", err);
-      setError(err.message || "Failed to share post.");
+    const data = err?.data || err?.response?.data;
+
+    if (data?.error === "NSFW_BLOCKED") {
+      handleReset();
+
+      const scores = (data?.scores ?? {}) as Record<string, number>;
+      const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
+
+      let rawLabel = data?.label || "nsfw";
+      let topScore = 0;
+
+      if (entries.length) {
+        const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
+        rawLabel = k;
+        topScore = Number(v);
+      }
+
+      setNsfwPostNotice({
+        displayLabel: formatNsfwLabel(rawLabel),
+        score: topScore,
+      });
+      return; 
     }
+
+    console.error("Failed to create post:", err);
+    setError(err?.message || "Failed to share post.");
+  }
+
   };
 
   const weatherOptions = [
@@ -180,32 +248,44 @@ const PostToFeed = () => {
     setShowWeatherDropdown(false);
   };
 
-  // Allow caption-only OR photo-only
   const canSubmit = Boolean(
     (content && content.trim().length > 0) || uploadedImage || image
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 -mt-12 md:mt-0">
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
+      {/* Header Image Section */}
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/postheader1.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              MAKE A POST
+            </h1>
+          </div>
+        </div>
+      </div>
       <div className="px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom)+90px)] md:pb-10 max-w-2xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md">
-          <div className="flex justify-center pt-6">
-            <h2 className="text-lg md:text-xl font-livvic border-2 border-black dark:border-gray-100 px-4 py-1 text-black dark:text-gray-100">
-              Share Your Outfit
-            </h2>
-          </div>
+
 
           <div className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <p className="text-center font-livvic text-gray-700 dark:text-gray-200 text-base">
-                  Add Photo
-                </p>
+                
 
                 <div className="mt-3 flex flex-col items-center gap-3">
                   <div className="flex w-full justify-center gap-2">
                     <label className="cursor-pointer">
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                       <span className="inline-flex items-center px-4 py-2 rounded-full bg-black text-white hover:bg-[#2F6F6A] transition-colors font-livvic text-sm">
                         <Upload className="h-5 w-5 mr-2" />
                         Upload Photo
@@ -312,6 +392,57 @@ const PostToFeed = () => {
                 />
               </div>
 
+              {/* Clothing Items Section */}
+              <div>
+                <label className="block text-center font-livvic text-sm text-gray-700 dark:text-gray-200 mb-3">
+                  Tag Clothing Items
+                </label>
+
+                {selectedClothingItems.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex flex-wrap gap-3 justify-center items-center">
+                      {selectedClothingItems.map((item) => (
+                        item.imageUrl ? (
+                          <img
+                            key={item.id}
+                            src={item.imageUrl}
+                            alt={item.name}
+                            title={`${item.layerCategory.replace('_', ' ')}: ${item.name}`}
+                            className="w-16 h-16 object-contain rounded-md border border-gray-200 dark:border-gray-700 bg-white"
+                          />
+                        ) : (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center px-3 py-1.5 rounded-full bg-[#e5f6f4] dark:bg-teal-900/30 text-teal-900 dark:text-teal-200 text-sm font-medium shadow-sm"
+                            title={`${item.layerCategory}: ${item.name}`}
+                          >
+                            {item.name}
+                            <span className="ml-1 text-xs opacity-75">({item.layerCategory.replace('_', ' ')})</span>
+                          </span>
+                        )
+                      ))}
+                    </div>
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+                      Selected from {selectedClothingItems.length > 1 ? 'multiple layers' : selectedClothingItems[0]?.layerCategory.replace('_', ' ')}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowClothingPicker(true)}
+                    className="inline-flex items-center px-4 py-2 rounded-full bg-white dark:bg-gray-700 border-2 border-[#3F978F] text-[#3F978F] hover:bg-[#3F978F] hover:text-white transition-colors font-livvic text-sm"
+                  >
+                    <Shirt className="h-5 w-5 mr-2" />
+                    {selectedClothingItems.length > 0
+                      ? `Edit Tagged Items (${selectedClothingItems.length})`
+                      : "Tag Clothing Items"
+                    }
+                  </button>
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -402,6 +533,58 @@ const PostToFeed = () => {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clothing picker modal */}
+      {showClothingPicker && (
+        <PostClothingPicker
+          visible={showClothingPicker}
+          selectedItemIds={selectedClothingItems.map(item => item.id)}
+          onClose={() => setShowClothingPicker(false)}
+          onConfirm={(items) => {
+            setSelectedClothingItems(items.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              layerCategory: item.layerCategory,
+              imageUrl: (item?.imageUrl ?? item?.image ?? item?.thumbnailUrl) as string | undefined,
+            })));
+          }}
+        />
+      )}
+      {nsfwPostNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            {/* Close (X) */}
+            <button
+              onClick={() => setNsfwPostNotice(null)}
+              className="absolute top-3 right-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Post Blocked
+              </h3>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                Your post was blocked due to{" "}
+                <span className="font-medium">{nsfwPostNotice.displayLabel}</span>
+                {" "}
+              </p>
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setNsfwPostNotice(null)}
+                  className="px-4 py-2 rounded-full bg-[#3F978F] text-white hover:opacity-95"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
         </div>

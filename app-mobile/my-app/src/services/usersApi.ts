@@ -9,7 +9,7 @@ export async function getMe() {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || "Failed to load user");
   }
-  return res.json(); // { user: { id, name, email, profilePhoto, ... } }
+  return res.json(); 
 }
 
 export async function uploadProfilePhoto(file: File) {
@@ -26,5 +26,20 @@ export async function uploadProfilePhoto(file: File) {
     throw new Error(err.message || "Failed to update profile photo");
   }
 
-  return res.json(); // { user: {...} }
+  return res.json(); 
+}
+
+export async function updatePrivacy(isPrivate: boolean) {
+  const res = await fetchWithAuth(`${API_URL}/me/privacy`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isPrivate }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to update privacy settings");
+  }
+
+  return res.json(); 
 }

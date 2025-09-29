@@ -1,6 +1,6 @@
 // src/modules/users/users.routes.ts
 import { Router, type RequestHandler } from "express";
-import { updateProfilePhoto, getMe } from "./users.controller";
+import { updateProfilePhoto, getMe, updatePrivacy  } from "./users.controller";
 import { authenticateToken } from "../auth/auth.middleware";
 import { upload } from '../../middleware/upload.middleware'; 
 
@@ -13,6 +13,13 @@ router.patch(
   authenticateToken as RequestHandler,
   upload.single('image'),
   updateProfilePhoto as unknown as RequestHandler
+);
+
+// Update privacy (public/private)
+router.patch(
+  "/me/privacy",
+  authenticateToken as RequestHandler,
+  updatePrivacy as unknown as RequestHandler
 );
 
 export default router;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { API_BASE } from '../config';
+import Toast from '../components/Toast';
 
 interface UserPreference {
   style: "Formal" | "Casual" | "Athletic" | "Party" | "Business" | "Outdoor";
@@ -33,14 +34,14 @@ const Appearance: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // apply theme to <html>
+  const [showToast, setShowToast] = useState(false);
+
   useEffect(() => {
     document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // fetch saved prefs
   useEffect(() => {
     const fetchPreferences = async () => {
       setIsLoading(true);
@@ -124,7 +125,7 @@ const Appearance: React.FC = () => {
       }
 
       setPreferences(updatedPrefs);
-      setSuccess("Preferences updated successfully!");
+      setShowToast(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not update preferences.");
     } finally {
@@ -325,6 +326,7 @@ const Appearance: React.FC = () => {
         </div>
 
       </div>
+      {showToast && <Toast message="Preferences updated successfully!" />}
     </div>
   );
 };

@@ -13,7 +13,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
-import { uploadBufferToS3 } from '../../utils/s3';
+import { uploadBufferToS3, putBufferSmart  } from '../../utils/s3';
 
 export type ClosetItem = PrismaClosetItem;
 
@@ -60,71 +60,75 @@ class ClosetService {
     category: Category,
     layerCategory: LayerCategory,
     userId: string,
-    extras?: Extras
+    extras?: Extras,
+    keyPrefix?: string
   ): Promise<ClosetItem> {
-    if (!process.env.BG_REMOVAL_URL || !process.env.COLOR_EXTRACT_URL) {
-      throw new Error('BG_REMOVAL_URL or COLOR_EXTRACT_URL not configured');
-    }
-    if (!process.env.S3_BUCKET_NAME || !process.env.S3_REGION) {
-      throw new Error('S3_BUCKET_NAME or S3_REGION not configured');
-    }
+    const skipPipeline = process.env.SKIP_IMAGE_PIPELINE === 'true';
 
-    // 1) Send original to bg-removal microservice
+    // Prepare input stream/buffer
     const { stream, filename, contentType } = streamFromFileOrBuffer(file);
-    const form = new FormData();
-    form.append('file', stream as any, { filename, contentType });
 
+    // 1) Background removal (optional in dev)
     let noBgBuffer: Buffer;
-    try {
-      const resp = await axios.post(process.env.BG_REMOVAL_URL, form, {
-        headers: form.getHeaders(),
-        responseType: 'arraybuffer',
-      });
-      noBgBuffer = Buffer.from(resp.data);
-    } catch (err) {
-      console.error('Background removal error:', err);
-      throw new Error('Failed to remove background from image');
-    } finally {
-      // clean up disk file if used
-      if (file.path) {
-        try {
-          fs.unlinkSync(file.path);
-        } catch {}
+    if (skipPipeline) {
+      // just use the original bytes
+      noBgBuffer = file.buffer && file.buffer.length
+        ? Buffer.from(file.buffer)
+        : await fs.promises.readFile(file.path!);
+    } else {
+      if (!process.env.BG_REMOVAL_URL) throw new Error('BG_REMOVAL_URL not configured');
+      const form = new FormData();
+      form.append('file', stream as any, { filename, contentType });
+
+      try {
+        const resp = await axios.post(process.env.BG_REMOVAL_URL, form, {
+          headers: form.getHeaders(),
+          responseType: 'arraybuffer',
+        });
+        noBgBuffer = Buffer.from(resp.data);
+      } catch (err) {
+        console.error('Background removal error:', err);
+        throw new Error('Failed to remove background from image');
+      } finally {
+        if (file.path) { try { fs.unlinkSync(file.path); } catch {} }
       }
     }
 
-    // 2) Color extraction on the processed buffer
+    // 2) Color extraction (optional in dev)
     let dominantColors: string[] = [];
-    try {
-      const colorForm = new FormData();
-      colorForm.append('file', Readable.from(noBgBuffer) as any, {
-        filename: 'image.png',
-        contentType: 'image/png',
-      });
-      const colorRes = await axios.post(process.env.COLOR_EXTRACT_URL, colorForm, {
-        headers: colorForm.getHeaders(),
-      });
-      const maybe = colorRes.data?.colors;
-      dominantColors = Array.isArray(maybe) ? maybe : [];
-    } catch (err) {
-      console.error('Color extraction error:', err);
-      dominantColors = [];
+    if (!skipPipeline && process.env.COLOR_EXTRACT_URL) {
+      try {
+        const colorForm = new FormData();
+        colorForm.append('file', Readable.from(noBgBuffer) as any, {
+          filename: 'image.png',
+          contentType: 'image/png',
+        });
+        const colorRes = await axios.post(process.env.COLOR_EXTRACT_URL, colorForm, {
+          headers: colorForm.getHeaders(),
+        });
+        const maybe = colorRes.data?.colors;
+        dominantColors = Array.isArray(maybe) ? maybe : [];
+      } catch (err) {
+        console.error('Color extraction error:', err);
+        dominantColors = [];
+      }
     }
 
-    // 3) Upload final PNG (no-bg) to S3
-    const key = `users/${userId}/closet/${Date.now()}-${randomUUID()}.png`;
-    await uploadBufferToS3({
-      bucket: process.env.S3_BUCKET_NAME!,
+    // 3) Store (S3 if configured, else /uploads)
+    // const key = `users/${userId}/closet/${Date.now()}-${randomUUID()}.png`;
+    const base = (keyPrefix && keyPrefix.trim()) ? keyPrefix : `users/${userId}/`; // ! perf
+    const key = `${base}closet/${Date.now()}-${randomUUID()}.png`;
+    const { key: storedKey } = await putBufferSmart({
       key,
       contentType: 'image/png',
       body: noBgBuffer,
       cacheControl: 'public, max-age=31536000, immutable',
     });
 
-    // 4) Persist record (store S3 key in "filename")
+    // 4) Persist
     return this.prisma.closetItem.create({
       data: {
-        filename: key,
+        filename: storedKey,
         category,
         layerCategory,
         ownerId: userId,
@@ -171,8 +175,7 @@ class ClosetService {
 
     await this.prisma.closetItem.delete({ where: { id } });
 
-    // Optional: if you later store S3 keys in `filename`, you might also delete from S3 here.
-    // For now, we leave S3 garbage-collection as a future enhancement.
+    // For now, we leave S3 garbage-collection and maybe enhance in future
     const uploadDir = path.join(__dirname, '../../uploads');
     const filePath = path.join(uploadDir, item.filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

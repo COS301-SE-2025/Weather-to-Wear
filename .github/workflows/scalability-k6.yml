@@ -1,0 +1,58 @@
+name: Scalability (k6)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  k6-scalability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # k6 scripts read these via process env
+      BASE_URL: ${{ secrets.PERF_BASE_URL }}           # e.g. https://gi2cijr3xa.eu-west-1.awsapprunner.com
+      TEST_USER_EMAIL: ${{ secrets.PERF_USER_EMAIL }}  # perf@test.com
+      TEST_USER_PASSWORD: ${{ secrets.PERF_USER_PASSWORD }}
+      CITY: ${{ secrets.PERF_CITY }}                   # e.g. Pretoria
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare artifact dir
+        run: |
+          mkdir -p app-backend/tests/nonfunctional/perf/artifacts
+
+      - name: Scale Read (5 minutes @ ~5 rps)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/app-backend/tests/nonfunctional/perf:/work" \
+            -w /work \
+            -e BASE_URL -e TEST_USER_EMAIL -e TEST_USER_PASSWORD -e CITY \
+            grafana/k6:latest run \
+            --summary-export /work/artifacts/scale-read-summary.json \
+            scale-read.k6.js
+
+      - name: Upload scale-read summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-scale-read-summary
+          path: app-backend/tests/nonfunctional/perf/artifacts/scale-read-summary.json
+          if-no-files-found: error
+
+      - name: Burst Uploads (6/min for 5 minutes)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/app-backend/tests/nonfunctional/perf:/work" \
+            -w /work \
+            -e BASE_URL -e TEST_USER_EMAIL -e TEST_USER_PASSWORD -e CITY \
+            grafana/k6:latest run \
+            --summary-export /work/artifacts/burst-uploads-summary.json \
+            burst-uploads.k6.js
+
+      - name: Upload burst-uploads summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-burst-uploads-summary
+          path: app-backend/tests/nonfunctional/perf/artifacts/burst-uploads-summary.json
+          if-no-files-found: error

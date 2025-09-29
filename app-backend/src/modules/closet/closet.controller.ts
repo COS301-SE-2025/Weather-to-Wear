@@ -33,7 +33,10 @@ class ClosetController {
 
       const layerCategory = req.body.layerCategory as LayerCategory;
 
-      const item = await ClosetService.saveImage(file, category, layerCategory, user.id, extras);
+      const keyPrefix = (req as any).perfPrefix; // ! perf
+
+      // const item = await ClosetService.saveImage(file, category, layerCategory, user.id, extras);
+      const item = await ClosetService.saveImage(file, category, layerCategory, user.id, extras, keyPrefix); // ! perf
 
       res.status(201).json({
         id: item.id,
@@ -105,6 +108,8 @@ class ClosetController {
 
       const results: Array<any> = [];
 
+      const keyPrefix = (req as any).perfPrefix; // ! perf
+
       for (const item of parsed) {
         const {
           category,
@@ -136,7 +141,8 @@ class ClosetController {
               : undefined,
             style,
             material
-          }
+          }, 
+          keyPrefix
         );
 
         results.push({
