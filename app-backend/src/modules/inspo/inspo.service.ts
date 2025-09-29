@@ -177,14 +177,12 @@ export async function storeLikedItem(userId: string, closetItemId: string): Prom
       }
     });
     
-    console.log(`Successfully liked item ${closetItemId} for user ${userId}`);
   } catch (error) {
     console.error(`Error liking item ${closetItemId}:`, error);
-    throw error; // Re-throw for the controller to handle
+    throw error; 
   }
 }
 
-// Calculate weather recommendations based on outfit warmth
 function calculateWeatherRecommendations(warmthRating: number, waterproof: boolean): WeatherCondition {
   let minTemp: number;
   let maxTemp: number;
@@ -193,19 +191,19 @@ function calculateWeatherRecommendations(warmthRating: number, waterproof: boole
   // Temperature recommendations based on warmth rating
   if (warmthRating >= 20) {
     minTemp = -10;
-    maxTemp = 5; // Reduced max temp for very warm items
+    maxTemp = 5; 
     conditions.push('cold', 'freezing');
   } else if (warmthRating >= 15) {
     minTemp = -5;
-    maxTemp = 10; // Reduced max temp for warm items
+    maxTemp = 10; 
     conditions.push('cool', 'cold');
   } else if (warmthRating >= 10) {
     minTemp = 5;
-    maxTemp = 15; // Reduced max temp for medium warmth items
+    maxTemp = 15; 
     conditions.push('mild', 'cool');
   } else if (warmthRating >= 5) {
     minTemp = 15;
-    maxTemp = 25; // More reasonable max temp for light items
+    maxTemp = 25; 
     conditions.push('warm', 'mild');
   } else {
     minTemp = 20;
@@ -222,14 +220,11 @@ function calculateWeatherRecommendations(warmthRating: number, waterproof: boole
   return { minTemp, maxTemp, conditions };
 }
 
-// Generate temporary inspiration outfit recommendations based on liked items
-// NOTE: These are NOT stored in the database - they are temporary recommendations that replace previous ones
 export async function generateInspoOutfits(
   userId: string, 
   request: GenerateInspoRequest
 ): Promise<InspoOutfitRecommendation[]> {
   
-  // Get user's liked items (stored as inspo outfits)
   const likedItems = await prisma.inspoOutfit.findMany({
     where: { userId },
     include: {
@@ -240,18 +235,11 @@ export async function generateInspoOutfits(
       }
     }
   });
-  
-  // CRITICAL FIX: Inspo recommendations should ONLY use explicitly liked items from social posts
-  // NO relation to user's personal closet or outfits whatsoever!
-  
-  console.log(`Found ${likedItems.length} total liked inspo outfits for user ${userId}`);
+    
   
   if (likedItems.length === 0) {
-    // No liked items from social posts - return empty with clear message
-    console.log('No liked items available for inspo generation - user needs to like items from social feed');
     return [];
   }
-
 
   
   // Extract all tags from liked items
@@ -261,68 +249,48 @@ export async function generateInspoOutfits(
     return acc;
   }, {});
   
-  // Get most common tags (user preferences)
   const topTags = Object.entries(tagFrequency)
     .sort(([,a], [,b]) => (b as number) - (a as number))
     .slice(0, 10)
     .map(([tag]) => tag);
   
-  // Use existing recommendation logic but filter based on liked tags
   const userPref = await prisma.userPreference.findUnique({ where: { userId } });
   const preferredStyle = request.styleFilter ? 
     (request.styleFilter as Style) : 
     (userPref?.style || Style.Casual);
   
-  // Determine if we should use legacy outfit generation or our new recommendation system
   let recommendations: InspoOutfitRecommendation[] = [];
   
-  // First try with the new inspoRecommender service for more personalized results
   try {
-    // Extract the closet items from the liked outfits
     let likedClosetItems = likedItems.flatMap(outfit => 
       outfit.inspoItems.map(item => item.closetItem)
     );
     
-    // CRITICAL FIX: Remove items that belong to the current user
-    // Inspo should ONLY use items from OTHER users' posts, never your own closet items
     const beforeOwnFilter = likedClosetItems.length;
     likedClosetItems = likedClosetItems.filter(item => 
       item && item.ownerId !== userId
     );
-    console.log(`Filtered out ${beforeOwnFilter - likedClosetItems.length} own items, ${likedClosetItems.length} items from others remaining`);
     
-    // Remove duplicates to prevent bias toward frequently liked items
     likedClosetItems = likedClosetItems.filter((item, index, self) =>
       index === self.findIndex((i) => i.id === item.id)
     );
     
-    // CRITICAL: Remove any null/undefined items
     likedClosetItems = likedClosetItems.filter(item => !!item);
     
-    // Randomize the order to ensure different combinations on each generation
     likedClosetItems = likedClosetItems.sort(() => Math.random() - 0.5);
     
     if (likedClosetItems.length > 0) {
-      console.log(`Generating outfits based on ${likedClosetItems.length} liked items from OTHER users (excluding own items)`);
       
-      // Extract weather information from request
-      // Handle temperature from new temperatureRanges or legacy minTemp/maxTemp
       let avgTemp: number | undefined;
       if (request.weatherFilter?.temperatureRanges && request.weatherFilter.temperatureRanges.length > 0) {
-        // Calculate average temperature across all selected ranges
         const totalMin = request.weatherFilter.temperatureRanges.reduce((sum, range) => sum + range.minTemp, 0);
         const totalMax = request.weatherFilter.temperatureRanges.reduce((sum, range) => sum + range.maxTemp, 0);
         avgTemp = (totalMin + totalMax) / (request.weatherFilter.temperatureRanges.length * 2);
-        console.log(`Using multiple temperature ranges, calculated avgTemp: ${avgTemp}°C`);
       } else if (request.weatherFilter?.minTemp && request.weatherFilter?.maxTemp) {
-        // Legacy single range calculation
         avgTemp = (request.weatherFilter.minTemp + request.weatherFilter.maxTemp) / 2;
-        console.log(`Using legacy temperature range, calculated avgTemp: ${avgTemp}°C`);
       }
       const conditions = request.weatherFilter?.conditions || [];
       
-      // CRITICAL FIX: ONLY use liked items from OTHER users, NOT the user's personal closet
-      // Generate outfits directly from these external liked items
       recommendations = generateOutfitsFromLikedItemsOnly(
         likedClosetItems,
         topTags,
@@ -332,38 +300,23 @@ export async function generateInspoOutfits(
         conditions
       );
     } else {
-      // If no liked items from other users, display a clear message
-      console.log('No liked items from other users available for inspo generation - user needs to like items from other users posts');
-      return []; // Return empty array, front-end will show the prompt to like items from others
+      return []; 
     }
   } catch (err) {
     console.error('Error generating outfits with inspoRecommender:', err);
-    // Fall back to legacy outfit generation if the new method fails
   }
   
-  // If we couldn't generate any recommendations with the new method, 
-  // we should not fall back to using the user's personal closet items
   if (recommendations.length === 0) {
-    console.log('No recommendations could be generated from liked items from other users');
-    // Return empty array - inspo should never use personal closet items
     return [];
     }
   
-  // Before filtering, make sure we have recommendations
   if (recommendations.length === 0) {
-    // No recommendations could be generated, return empty array with a message for frontend
-    console.log('No inspiration outfits could be generated. The user should like more items.');
     return [];
   }
   
-  // Apply weather filtering with debugging
-  console.log(`Generated ${recommendations.length} recommendations before weather filtering`);
   const filteredRecommendations = applyWeatherFilter(recommendations, request);
-  console.log(`${filteredRecommendations.length} recommendations after weather filtering`);
   
   if (filteredRecommendations.length === 0 && recommendations.length > 0) {
-    console.log('Weather filtering removed all recommendations. Filter criteria:', JSON.stringify(request.weatherFilter));
-    // Log the first few recommendations that were filtered out for debugging
     recommendations.slice(0, 2).forEach((rec, index) => {
       console.log(`Filtered out recommendation ${index + 1}:`, {
         id: rec.id,
@@ -386,23 +339,19 @@ function applyWeatherFilter(
   recommendations: InspoOutfitRecommendation[], 
   request: GenerateInspoRequest
 ): InspoOutfitRecommendation[] {
-  // Apply weather filtering if requested
   if (request.weatherFilter) {
     const { weatherFilter } = request;
     const filtered = recommendations.filter(rec => {
       const { recommendedWeather } = rec;
       
-      // Handle new temperatureRanges array (multiple temperature ranges)
       if (weatherFilter.temperatureRanges && weatherFilter.temperatureRanges.length > 0) {
         const matchesAnyRange = weatherFilter.temperatureRanges.some(range => {
-          // Check if outfit's temperature range overlaps with any selected range (with tolerance)
-          const tolerance = 5; // ±5°C tolerance for more lenient filtering
+          const tolerance = 5; 
           return !(recommendedWeather.maxTemp < (range.minTemp - tolerance) || 
                    recommendedWeather.minTemp > (range.maxTemp + tolerance));
         });
         if (!matchesAnyRange) return false;
       } else {
-        // Fallback to legacy minTemp/maxTemp logic for backward compatibility
         if (weatherFilter.minTemp !== undefined && recommendedWeather.maxTemp < (weatherFilter.minTemp - 5)) {
           return false;
         }
@@ -411,12 +360,10 @@ function applyWeatherFilter(
         }
       }
       
-      // Make condition filtering more lenient - if no conditions specified, allow all
       if (weatherFilter.conditions && weatherFilter.conditions.length > 0) {
         const hasMatchingCondition = weatherFilter.conditions.some(condition => 
           recommendedWeather.conditions.includes(condition)
         );
-        // Also allow generic conditions like 'sunny' and 'cloudy' as fallbacks
         const hasGenericMatch = recommendedWeather.conditions.some(condition => 
           ['sunny', 'cloudy'].includes(condition)
         );
@@ -426,22 +373,17 @@ function applyWeatherFilter(
       return true;
     });
     
-    console.log(`Weather filtering: ${recommendations.length} recommendations -> ${filtered.length} after filtering`);
     if (weatherFilter.temperatureRanges) {
-      console.log(`Applied temperature ranges: ${JSON.stringify(weatherFilter.temperatureRanges)}`);
     }
     if (weatherFilter.conditions) {
-      console.log(`Applied weather conditions: ${JSON.stringify(weatherFilter.conditions)}`);
     }
     
     return filtered.slice(0, request.limit || 5);
   }
   
-  // Return exactly the requested number of recommendations (max 5)
   return recommendations.slice(0, request.limit || 5);
 }
 
-// Get all stored inspo outfits for a user
 export async function getUserInspoOutfits(userId: string): Promise<InspoOutfitRecommendation[]> {
   const inspoOutfits = await prisma.inspoOutfit.findMany({
     where: { userId },
@@ -457,7 +399,7 @@ export async function getUserInspoOutfits(userId: string): Promise<InspoOutfitRe
   });
   
   if (!inspoOutfits || inspoOutfits.length === 0) {
-    return []; // Return empty array instead of throwing error
+    return []; 
   }
   
   return inspoOutfits.map((outfit: any) => ({
@@ -471,12 +413,11 @@ export async function getUserInspoOutfits(userId: string): Promise<InspoOutfitRe
       maxTemp: outfit.recommendedWeatherMax || 25,
       conditions: outfit.recommendedConditions || []
     },
-    score: 0, // Not applicable for stored outfits
+    score: 0, 
     inspoItems: outfit.inspoItems
-      .filter((item: any) => item.closetItem) // Filter out items where closetItem is null
+      .filter((item: any) => item.closetItem) 
       .map((item: any) => ({
         closetItemId: item.closetItemId,
-        // imageUrl: item.closetItem.filename ? `/api/uploads/${item.closetItem.filename}` : '', // ! bomboclaat
         imageUrl: item.closetItem?.filename ? cdnUrlFor(item.closetItem.filename) : '', 
         layerCategory: item.layerCategory,
         category: item.closetItem.category || '',
@@ -492,7 +433,6 @@ export async function getUserInspoOutfits(userId: string): Promise<InspoOutfitRe
   }));
 }
 
-// Delete an inspo outfit
 export async function deleteInspoOutfit(userId: string, inspoOutfitId: string): Promise<void> {
   const outfit = await prisma.inspoOutfit.findUnique({
     where: { id: inspoOutfitId }
