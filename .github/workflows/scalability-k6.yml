@@ -30,6 +30,7 @@ jobs:
         working-directory: app-backend/tests/nonfunctional/perf
         run: mkdir -p artifacts
 
+
       - name: Scale Read (5 minutes @ ~5 rps)
         working-directory: app-backend/tests/nonfunctional/perf
         run: |

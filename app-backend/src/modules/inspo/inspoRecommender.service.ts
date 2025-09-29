@@ -652,7 +652,6 @@ function isOutfitSuitableForWeather(
     });
     
     if (hasInappropriateItems) {
-      console.log('Outfit blocked due to inappropriate warm-weather items');
       return false;
     }
   }

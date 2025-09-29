@@ -21,7 +21,6 @@ export async function backfillWeatherForUpcomingEvents() {
   const threeDays = new Date(now);
   threeDays.setDate(now.getDate() + 3);
 
-  // Find events that start within next 3 days and have no weather yet
   const events = await prisma.event.findMany({
     where: {
       dateFrom: { gte: now, lte: threeDays },

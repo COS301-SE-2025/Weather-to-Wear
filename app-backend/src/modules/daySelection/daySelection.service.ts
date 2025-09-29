@@ -53,7 +53,6 @@ export async function getForDay(userId: string, dateISO: string) {
 }
 
 export async function patchById(userId: string, id: string, patch: any) {
-  // ensure ownership
   const existing = await prisma.daySelection.findUnique({ where: { id } });
   if (!existing || existing.userId !== userId) throw new Error('Not found');
   return prisma.daySelection.update({
@@ -64,7 +63,6 @@ export async function patchById(userId: string, id: string, patch: any) {
 
 export async function deleteByDate(userId: string, dateISO: string) {
   const dateStart = new Date(dateISO + 'T00:00:00.000Z');
-  // There's a composite unique on (userId, date); if not found, no-op is fine
   await prisma.daySelection.delete({
     where: { userId_date: { userId, date: dateStart } },
   }).catch(() => {});

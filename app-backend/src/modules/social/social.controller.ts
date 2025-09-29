@@ -146,23 +146,19 @@ class SocialController {
       console.log(`Delete post request received for post: ${req.params.id}`);
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
-        console.log('Unauthorized delete post attempt - no user ID');
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
 
       const { id } = req.params;
       if (!id) {
-        console.log('Invalid post ID provided');
         res.status(400).json({ message: 'Invalid post ID' });
         return;
       }
       
-      console.log(`Processing delete request for post ${id} by user ${user.id}`);
 
       try {
         await socialService.deletePost(id, user.id);
-        console.log(`Post ${id} successfully deleted`);
         res.status(200).json({ message: 'Post deleted successfully' });
       } catch (serviceErr: any) {
         console.error(`Error in social service deletePost:`, serviceErr);
@@ -198,19 +194,15 @@ class SocialController {
       const { content } = req.body;
 
       if (!user?.id) {
-        console.log("Unauthorized: No user ID in request");
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
       if (!content) {
-        console.log("Bad request: No content provided");
         res.status(400).json({ message: 'Content is required' });
         return;
       }
 
-      console.log("Calling social service addComment...");
       const comment = await socialService.addComment(postId, user.id, content);
-      console.log("Comment created successfully:", comment.id);
       res.status(201).json({ message: 'Comment added successfully', comment });
     } catch (err: any) {
       console.error("Error in addComment controller:", err);

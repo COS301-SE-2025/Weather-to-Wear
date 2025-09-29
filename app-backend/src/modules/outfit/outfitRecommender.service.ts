@@ -86,7 +86,6 @@ function computeColorHarmony(hexes: string[]): number {
 //       Weighted warmth model + helpers
 // ---------------------------------------------
 
-// Layer warmth weights
 const LAYER_WARMTH_WEIGHT: Record<string, number> = {
   base_top: 1.0,
   base_bottom: 1.0,
@@ -109,12 +108,9 @@ function weightedOutfitWarmth(items: ClosetItem[]): number {
   return items.reduce((s, it) => s + weightedItemWarmth(it), 0);
 }
 
-// Temperature -> target weighted warmth (piecewise linear curve)
 function targetWeightedWarmth(minTemp: number, avgTemp: number): number {
-  // Use avg primarily; min gives a small safety bias
   const t = Math.min(avgTemp, (avgTemp + minTemp) / 2 + 2);
 
-  // (temp (celsius), target weighted warmth)
   const points: Array<[number, number]> = [
     [30, 5],
     [25, 7],
@@ -138,7 +134,6 @@ function targetWeightedWarmth(minTemp: number, avgTemp: number): number {
   return points[points.length - 1][1];
 }
 
-// Tolerance widens in warm weather to encourage variety
 function warmthTolerance(minTemp: number, avgTemp: number): number {
   const t = Math.min(avgTemp, minTemp + 4);
   if (t >= 28) return 6;
@@ -170,18 +165,15 @@ function scoreOutfit(
     return l > 0.95 && s < 0.1;
   }) ? -2 : 0;
 
-  // Weighted warmth deviation from target window
   const wWarmth = weightedOutfitWarmth(outfit);
   const target = targetWeightedWarmth(weather.minTemp, weather.avgTemp);
   const tol = warmthTolerance(weather.minTemp, weather.avgTemp);
   const delta = Math.abs(wWarmth - target);
 
-  // Inside tolerance → small boost; outside → smooth penalty
   const warmthTerm = delta <= tol
     ? 1.25
     : Math.exp(-((delta - tol) * (delta - tol)) / 50);
 
-  // Stronger rain preference for waterproof outfits
   const rainBonus = weather.willRain && outfit.some(i => i.waterproof) ? 2.0 : 0;
 
   return (1.0 * harmony + 2.0 * prefHits + 3.0 * warmthTerm + rainBonus + whitePenalty);
@@ -199,12 +191,10 @@ function partitionClosetByLayer(closetItems: ClosetItem[]): PartitionedCloset {
   }, {} as PartitionedCloset);
 }
 
-// Core layers always required
 function getRequiredLayers(weather: { avgTemp: number; minTemp: number }): string[] {
   return ['base_top', 'base_bottom', 'footwear'];
 }
 
-// Build multiple layer plans so outerwear and mid_top are independent
 function getLayerPlans(weather: { avgTemp: number; minTemp: number; willRain: boolean }): string[][] {
   const core = getRequiredLayers(weather);
   const plans: string[][] = [];
@@ -212,19 +202,14 @@ function getLayerPlans(weather: { avgTemp: number; minTemp: number; willRain: bo
   const isCool = weather.avgTemp < 18 || weather.minTemp < 13;
   const isCold = weather.avgTemp < 12 || weather.minTemp < 10;
 
-  // Core
   plans.push(core);
 
-  // Cool -> add mid_top
   if (isCool) plans.push([...core, 'mid_top']);
 
-  // Raining or Cold -> allow outerwear without mid_top
   if (weather.willRain || isCold) plans.push([...core, 'outerwear']);
 
-  // Cold -> both mid_top + outerwear
   if (isCold) plans.push([...core, 'mid_top', 'outerwear']);
 
-  // De-dup
   const key = (p: string[]) => p.slice().sort().join('|');
   const seen = new Set<string>();
   return plans.filter(p => {
@@ -235,7 +220,6 @@ function getLayerPlans(weather: { avgTemp: number; minTemp: number; willRain: bo
   });
 }
 
-// Per-layer minimum warmth gates (kept simple)
 function getMinWarmthForLayer(layer: string, minTemp: number): number {
   if (minTemp < 10) {
     switch (layer) {
@@ -256,18 +240,16 @@ function getMinWarmthForLayer(layer: string, minTemp: number): number {
       default: return 1;
     }
   } else {
-    return 1; // warm weather: be permissive; windowing will handle variety
+    return 1; 
   }
 }
 
-// Generate candidates for a given plan, using weighted warmth window
 function getCandidateOutfits(
   partitioned: PartitionedCloset,
   requiredLayers: string[],
   style: Style,
   weather: { minTemp: number; avgTemp: number }
 ): ClosetItem[][] {
-  // Limit items per layer to 5
   const choices = requiredLayers.map(layer => {
     const minWarmth = getMinWarmthForLayer(layer, weather.minTemp);
     const layerItems = (partitioned[layer] || []).filter(item =>
@@ -291,7 +273,6 @@ function getCandidateOutfits(
     }
   }
 
-  // Filter by weighted warmth window (slightly wide to allow variety)
   const target = targetWeightedWarmth(weather.minTemp, weather.avgTemp);
   const tol = warmthTolerance(weather.minTemp, weather.avgTemp);
 
@@ -315,14 +296,11 @@ function attachLightRainOuterwear(
   const outer = (partitioned['outerwear'] || []).filter(o => o.waterproof);
   if (!outer.length) return outfit;
 
-  // Pick the lightest waterproof outerwear by weighted warmth
   const sorted = outer.slice().sort((a, b) => weightedItemWarmth(a) - weightedItemWarmth(b));
   const chosen = sorted[0];
 
-  // Already present?
   if (outfit.some(i => i.id === chosen.id)) return outfit;
 
-  // In warm rain, add but cap its effective warmth
   const warm = weather.avgTemp >= 20;
   if (warm) (chosen as any).__softOuterwear = true;
 
@@ -338,12 +316,6 @@ function isSunny(main: string | undefined): boolean {
   return m.includes('clear') || m.includes('sun');
 }
 
-/**
- * Choose a headwear item based on weather:
- * - Very cold (minTemp <= 5): pick a BEANIE (warmest first)
- * - Sunny & dry & warmish: pick a HAT (lightest first)
- * Style must match; if none, fallback to any style.
- */
 function pickHeadwear(
   partitioned: PartitionedCloset,
   style: Style,
@@ -496,8 +468,7 @@ export async function recommendOutfits(
     return { ...rec, finalScore: alpha * rec.score + (1 - alpha) * knn };
   });
 
-  // ===== Collaborative Filtering (user-user over vectors) =====
-  // Pull a capped pool of rated outfits across users to keep runtime fast.
+
   const rated = (await prisma.outfit.findMany({
     where: { userRating: { not: null } },
     include: { outfitItems: { include: { closetItem: true } } },

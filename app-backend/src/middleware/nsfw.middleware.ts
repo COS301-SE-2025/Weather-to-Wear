@@ -38,7 +38,6 @@ function decideImage(se: any) {
 }
 
 function decideText(se: any) {
-  // --- ML scores (Sightengine text) ---
   const ml = se?.moderation_classes ?? {};
   const sexual         = Number(ml.sexual ?? 0);
   const discriminatory = Number(ml.discriminatory ?? ml.hate ?? 0);
@@ -46,17 +45,12 @@ function decideText(se: any) {
   const violent        = Number(ml.violent ?? 0);
   const toxic          = Number(ml.toxic ?? 0);
 
-  // --- Rules / matches (section-specific) ---
-  // Profanity: se.profanity.matches = [{ type: 'inappropriate', intensity: 'high', match: '...' }]
   const profanityMatches = Array.isArray(se?.profanity?.matches) ? se.profanity.matches : [];
   const hasProfanity = profanityMatches.length > 0;
 
-  // Sexual rules: some accounts expose section names like "sexual" or "sexual_minors"
-  // If your account returns them elsewhere, add here similarly.
   const sexualSectionMatches = Array.isArray(se?.sexual?.matches) ? se.sexual.matches : [];
   const sexualMinorsMatches  = Array.isArray(se?.sexual_minors?.matches) ? se.sexual_minors.matches : [];
 
-  // Zero tolerance for sexual content involving minors
   if (sexualMinorsMatches.length > 0) {
     return {
       action: "BLOCK" as Action,
@@ -65,7 +59,6 @@ function decideText(se: any) {
     };
   }
 
-  // Strong ML signals → BLOCK
   if (
     sexual >= T_BLOCK ||
     insulting >= T_BLOCK ||
@@ -82,7 +75,7 @@ function decideText(se: any) {
   // Policy for profanity: block instead of just reviewing
   if (hasProfanity) {
     return {
-      action: "BLOCK" as Action,         // Changed from REVIEW to BLOCK
+      action: "BLOCK" as Action,     
       label: "PROFANITY_TEXT",
       scores: { sexual, insulting, toxic, discriminatory, violent, profanityMatches: profanityMatches.length }
     };
@@ -130,7 +123,6 @@ export function nsfwText(field = "text"): RequestHandler {
             // Check if Sightengine credentials are configured
             if (!process.env.SIGHTENGINE_API_USER || !process.env.SIGHTENGINE_API_SECRET) {
                 console.warn('NSFW middleware: Sightengine API credentials not configured, using basic filtering only');
-                // Continue with just the basic profanity check we already did
                 next();
                 return;
             }
@@ -141,10 +133,8 @@ export function nsfwText(field = "text"): RequestHandler {
                 if (respond(res, decision)) return;
                 (req as any).moderation = { ...(req as any).moderation, [field]: decision };
             } catch (seError: any) {
-                // Log the error but allow the request to proceed since we already did basic filtering
                 console.error('NSFW text check failed:', seError?.message || seError);
                 console.warn('NSFW middleware: Using only basic profanity filtering due to API error');
-                // We already checked for basic profanity, so we can proceed
                 next();
                 return;
             }
@@ -152,7 +142,6 @@ export function nsfwText(field = "text"): RequestHandler {
             next();
         } catch (e: any) {
             console.error('Unexpected error in nsfwText middleware:', e);
-            // Allow the request to proceed rather than blocking everything
             console.warn('NSFW middleware: Allowing request despite error in text filtering');
             next();
         }
@@ -162,7 +151,6 @@ export function nsfwText(field = "text"): RequestHandler {
 export function nsfwImageFromReq(fileField = "image", urlField = "imageUrl"): RequestHandler {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            // If there's no image to check, proceed
             const file: any = (req as any).file;
             if (!file?.buffer && !file?.path && !req.body?.[urlField]) {
                 next();
@@ -172,7 +160,6 @@ export function nsfwImageFromReq(fileField = "image", urlField = "imageUrl"): Re
             // Check if Sightengine credentials are configured
             if (!process.env.SIGHTENGINE_API_USER || !process.env.SIGHTENGINE_API_SECRET) {
                 console.warn('NSFW middleware: Sightengine API credentials not configured, skipping image moderation');
-                // We can't moderate without credentials, so we'll just let it through
                 next();
                 return;
             }
@@ -189,13 +176,11 @@ export function nsfwImageFromReq(fileField = "image", urlField = "imageUrl"): Re
                 }
                 
                 const decision = decideImage(se);
-                if (respond(res, decision)) return; // stop if we sent a response
+                if (respond(res, decision)) return; 
                 (req as any).moderation = { ...(req as any).moderation, [fileField]: decision };
             } catch (seError: any) {
-                // Log the error but allow the request to proceed
                 console.error('NSFW image check failed:', seError?.message || seError);
                 console.warn('NSFW middleware: Allowing image without moderation due to API error');
-                // Allow the request to proceed since moderation is failing
                 next();
                 return;
             }
@@ -203,7 +188,6 @@ export function nsfwImageFromReq(fileField = "image", urlField = "imageUrl"): Re
             next();
         } catch (e: any) {
             console.error('Unexpected error in nsfwImageFromReq middleware:', e);
-            // Allow the request to proceed rather than blocking everything
             console.warn('NSFW middleware: Allowing image despite error in filtering');
             next();
         }

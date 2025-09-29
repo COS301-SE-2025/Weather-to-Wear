@@ -142,21 +142,8 @@ class OutfitController {
   // -----------------------------
   //        Outfit Item 
   // -----------------------------
-  // Get items for an outfit
-  // GET /api/outfits/:id/items
+
   getItems = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // try {
-    //   const { user } = req as AuthenticatedRequest;
-    //   const { id } = req.params;
-    //   if (!user || !user.id) {
-    //     res.status(401).json({ error: 'Unauthorized' });
-    //     return;
-    //   }
-    //   const items = await getItemsForOutfit(id, user.id);
-    //   res.status(200).json(items);
-    // } catch (err: any) {
-    //   res.status(404).json({ error: err.message });
-    // }
     try {
       const { user } = req as AuthenticatedRequest;
       const { id } = req.params;
@@ -210,7 +197,6 @@ class OutfitController {
   };
 
   // Remove item from an outfit
-  // DELETE /api/outfits/:id/items/:itemId
   removeItem = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { user } = req as AuthenticatedRequest;
