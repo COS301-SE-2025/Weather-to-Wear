@@ -18,7 +18,10 @@ Epi-Use Africa     </a>
 [![Build Status](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml/badge.svg)](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml)
 ![Dockerized](https://img.shields.io/badge/docker-ready-blue)
 
+<p></p>
 
+
+<p></p>
 
 
 
@@ -53,18 +56,18 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [SRS - Architectural Requirements Document]()             | System design overview                     |
-| [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
-| [Coding Standards Document]()           |  Guidelines for writing code      |
-| [Testing Policy]()           |  Guidelines for Testing     |
+| [SRS - Architectural Requirements Document](docs/demo4/SRS%-%Architectural%Diagram.pdf)             | System design overview                     |
+| [Architectural Diagram](docs/demo4/SRS%-%Architectural%Diagram.pdf)             | Architectural diagram overview                    |
+| [Coding Standards Document](docs/demo4/Coding%Standards.pdf)           |  Guidelines for writing code      |
+| [Testing Policy](docs/demo4/Testing%Policy.pdf)           |  Guidelines for Testing     |
 | [E2E Testing](https://drive.google.com/drive/folders/1BlKT7uJLDbouhGfVRa9eTWFZF3Bh__BL)     | End-to-end Testing  |
-| [User Manual]()           |  Guidelines for using Weather To Wear      |
-| [Technical Installation]()                        | Guidelines for installing Weather To Wear              |
-| [Deployment Model]()                   | Description of Deployment Model                |
-| [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
-| [Use-Case Diagrams]()                   | Use Case Diagrams               |
-| [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
-| [Service Contracts]()           |  Service contracts for Weather to Wear     |
+| [User Manual](docs/demo4/User%Manual.pdf)           |  Guidelines for using Weather To Wear      |
+| [Technical Installation](docs/demo4/Technical%Installation.pdf)                        | Guidelines for installing Weather To Wear              |
+| [Deployment Model](docs/demo4/Deployment%Diagram%Description%(1).pdf)                   | Description of Deployment Model                |
+| [Deployment Diagram]()                   | Plan for project deployment                |
+| [Use-Case Diagrams](docs/demo4/User%Manual.pdf)                   | Use Case Diagrams               |
+| [Class Diagram](docs/demo4/Class%Diagram.pdf)                        | Visual representation of Weather To Wear structure     |
+| [Service Contracts](docs/demo4/Service%Contract%(4).pdf)           |  Service contracts for Weather to Wear     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
@@ -79,7 +82,7 @@ while expressing their unique fashion sense.
 | Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 2 | [Demo 2 Video](https://drive.google.com/file/d/1KGmEKBSlrwvg-jyh0UD6E8v92oZqQfoY/view?usp=sharing) | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 3 | [Demo 3 Video](https://drive.google.com/file/d/1l9zM6gVoOu1_PHj3VN0-MpvKMGhCRAob/view?usp=sharing) | [Demo 3 Slides](https://drive.google.com/file/d/1fxbzPkf-n0Bbjb-JeXmzErP_y-l3ikdM/view?usp=drive_link) |
-
+| Demo 4 | [Demo 4 Video]() | [Demo 4 Slides]() |
 
 </div>
 
