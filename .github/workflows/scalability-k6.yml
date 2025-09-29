@@ -18,21 +18,24 @@ jobs:
       TEST_USER_EMAIL: ${{ secrets.PERF_USER_EMAIL }}
       TEST_USER_PASSWORD: ${{ secrets.PERF_USER_PASSWORD }}
       CITY: ${{ secrets.PERF_CITY }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
       - name: Prepare artifact dir
-        run: mkdir -p app-backend/tests/nonfunctional/perf/artifacts
+        working-directory: app-backend/tests/nonfunctional/perf
+        run: mkdir -p artifacts
+
 
       - name: Scale Read (5 minutes @ ~5 rps)
+        working-directory: app-backend/tests/nonfunctional/perf
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/app-backend/tests/nonfunctional/perf:/work" \
-            -w /work \
-            -e BASE_URL -e TEST_USER_EMAIL -e TEST_USER_PASSWORD -e CITY \
-            grafana/k6:latest run \
-            --summary-export /work/artifacts/scale-read-summary.json \
+          k6 run \
+            --summary-export artifacts/scale-read-summary.json \
             scale-read.k6.js
 
       - name: Upload scale-read summary
@@ -43,13 +46,10 @@ jobs:
           if-no-files-found: error
 
       - name: Burst Uploads (6/min for 5 minutes)
+        working-directory: app-backend/tests/nonfunctional/perf
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/app-backend/tests/nonfunctional/perf:/work" \
-            -w /work \
-            -e BASE_URL -e TEST_USER_EMAIL -e TEST_USER_PASSWORD -e CITY \
-            grafana/k6:latest run \
-            --summary-export /work/artifacts/burst-uploads-summary.json \
+          k6 run \
+            --summary-export artifacts/burst-uploads-summary.json \
             burst-uploads.k6.js
 
       - name: Upload burst-uploads summary
