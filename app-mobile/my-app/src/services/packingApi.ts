@@ -1,4 +1,3 @@
-// src/services/packingApi.ts
 import axios from 'axios';
 import { API_BASE } from '../config';
 
@@ -24,9 +23,9 @@ export type PackingListDto = {
 
 export type PackingCreateInput = {
   tripId: string;
-  items: string[];   // closetItemIds
-  outfits: string[]; // outfitIds
-  others: string[];  // free-text labels
+  items: string[];   
+  outfits: string[]; 
+  others: string[];  
 };
 
 export type PackingUpdateInput = {

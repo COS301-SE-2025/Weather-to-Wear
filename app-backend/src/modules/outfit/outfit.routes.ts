@@ -22,3 +22,4 @@ router.post('/recommend', authenticateToken, outfitController.recommend);
 router.patch('/:id/favourite', authenticateToken,outfitController.toggleFavourite);
 
 export default router;
+ 

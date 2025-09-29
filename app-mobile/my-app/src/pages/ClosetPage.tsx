@@ -1,23 +1,21 @@
-// src/pages/ClosetPage.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Heart, Search, X, Pen, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite, toggleFavourite } from '../services/closetApi';
-import { fetchAllOutfits, RecommendedOutfit, deleteOutfit } from '../services/outfitApi';
+import { fetchAllItems, deleteItem, toggleFavourite as apiToggleFavourite } from '../services/closetApi';
+import { fetchAllOutfits, RecommendedOutfit, deleteOutfit, toggleOutfitFavourite } from '../services/outfitApi';
 import { fetchWithAuth } from "../services/fetchWithAuth";
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { fetchAllEvents } from '../services/eventsApi';
-import { getPackingList, createPackingList, deletePackingList } from '../services/packingApi';
-
-import StarRating from '../components/StarRating';
-
-import { toggleOutfitFavourite } from '../services/outfitApi';
+import { getPackingList } from '../services/packingApi';
+import TryOnViewer from "../components/tryon/TryOnViewer";
+import { getTryOnPhoto, setTryOnPhotoBase64, runTryOnSelf, getTryOnCredits, getTryOnResult } from '../services/tryonApi';
 
 import EditOutfitModal from "../components/EditOutfitModal";
-
-
 import { API_BASE } from '../config';
 import { absolutize } from '../utils/url';
+
+import "../styles/ClosetPage.css";
+import Toast from "../components/Toast";
 
 function isUIOutfit(obj: any): obj is UIOutfit {
   return obj && obj.tab === 'outfits' && 'outfitItems' in obj;
@@ -25,12 +23,11 @@ function isUIOutfit(obj: any): obj is UIOutfit {
 function isItem(obj: any): obj is Item {
   return obj && (!obj.tab || obj.tab === 'items');
 }
-function getSortedOutfits(list: UIOutfit[]) {
-  return [...list].sort(
-    (a, b) => (b.userRating || 0) - (a.userRating || 0)
-  );
-}
 
+function toSentenceCase(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
 
 const LAYER_OPTIONS = [
   { value: "", label: "Select Layer" },
@@ -40,38 +37,42 @@ const LAYER_OPTIONS = [
   { value: "outerwear", label: "Outerwear" },
   { value: "footwear", label: "Footwear" },
   { value: "headwear", label: "Headwear" },
-  { value: 'mid_bottom', label: 'Mid Bottom' },
+  { value: "mid_bottom", label: "Mid Bottom" },
 ];
 
 const CATEGORY_BY_LAYER: Record<string, { value: string; label: string }[]> = {
   base_top: [
     { value: 'TSHIRT', label: 'T-shirt' },
     { value: 'LONGSLEEVE', label: 'Long Sleeve' },
+    { value: 'SLEEVELESS', label: 'Sleeveless' },
   ],
   base_bottom: [
     { value: 'PANTS', label: 'Pants' },
     { value: 'JEANS', label: 'Jeans' },
     { value: 'SHORTS', label: 'Shorts' },
+    { value: 'SKIRT', label: 'Skirt' },
   ],
   mid_top: [
     { value: 'SWEATER', label: 'Sweater' },
     { value: 'HOODIE', label: 'Hoodie' },
   ],
   outerwear: [
+    { value: 'COAT', label: 'Coat' },
+    { value: 'BLAZER', label: 'Blazer' },
     { value: 'JACKET', label: 'Jacket' },
     { value: 'RAINCOAT', label: 'Raincoat' },
+    { value: 'BLAZER', label: 'Blazer' },
+    { value: 'COAT', label: 'Coat' },
   ],
   footwear: [
     { value: 'SHOES', label: 'Shoes' },
     { value: 'BOOTS', label: 'Boots' },
+    { value: 'SANDALS', label: 'Sandals' },
+    { value: 'HEELS', label: 'Heels' },
   ],
   headwear: [
     { value: 'BEANIE', label: 'Beanie' },
     { value: 'HAT', label: 'Hat' },
-  ],
-  accessory: [
-    { value: 'SCARF', label: 'Scarf' },
-    { value: 'GLOVES', label: 'Gloves' },
   ],
 };
 
@@ -93,6 +94,11 @@ const MATERIAL_OPTIONS = [
   { value: "Leather", label: "Leather" },
   { value: "Nylon", label: "Nylon" },
   { value: "Fleece", label: "Fleece" },
+  { value: "Denim", label: "Denim" },
+  { value: "Linen", label: "Linen" },
+  { value: "Silk", label: "Silk" },
+  { value: "Suede", label: "Suede" },
+  { value: "Fabric", label: "Fabric" },
 ];
 
 const COLOR_PALETTE = [
@@ -110,12 +116,7 @@ const COLOR_PALETTE = [
   { hex: "#FFFDD0", label: "Cream" },
 ];
 
-interface ClosetApiItem {
-  id: string;
-  category: string;
-  layerCategory: string;
-  imageUrl: string;
-}
+
 
 type Item = {
   id: string;
@@ -134,7 +135,6 @@ type Item = {
   tab?: 'items' | 'outfits' | 'favourites';
 };
 
-
 type TabType = 'items' | 'outfits' | 'favourites';
 
 type UIOutfit = RecommendedOutfit & {
@@ -146,16 +146,12 @@ export default function ClosetPage() {
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
-  const [favourites, setFavourites] = useState<(Item | UIOutfit)[]>([]);
 
   const [layerFilter, setLayerFilter] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; tab: TabType; name: string } | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  const [showEditSuccess, setShowEditSuccess] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<Item & { tab: TabType } | null>(null);
@@ -165,22 +161,44 @@ export default function ClosetPage() {
   const [editedWaterproof, setEditedWaterproof] = useState(false);
   const [editedStyle, setEditedStyle] = useState('');
   const [editedMaterial, setEditedMaterial] = useState('');
-  const { queueLength, justFinished, resetJustFinished } = useUploadQueue();
+  const { queueLength, justFinished } = useUploadQueue();
 
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [favView, setFavView] = useState<'items' | 'outfits'>('items');
   const [activeDetailsItem, setActiveDetailsItem] = useState<Item | null>(null);
   const [activeDetailsOutfit, setActiveDetailsOutfit] = useState<UIOutfit | null>(null);
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
-    
-  // Global popup (Success/Error)
-  // ! Merge TAYLOR
-  const [popup, setPopup] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    variant: 'success',
-  });
+
+  const [showTryOnModal, setShowTryOnModal] = useState(false); 
+  const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
+
+  const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
+  const [selfTryOnOutfit, setSelfTryOnOutfit] = useState<UIOutfit | null>(null);
+
+  const [storedTryOnPhoto, setStoredTryOnPhoto] = useState<string | null>(null);
+  const [selfPhotoPreview, setSelfPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState('Waiting…');
+  const [stepImages, setStepImages] = useState<string[]>([]);
+  const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  const progressTimer = useRef<number | null>(null);
+
+  const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
+
+  const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
+  const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
+  const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
+
+  const [toast, setToast] = useState<{ msg: string } | null>(null);
+  function showToast(message: string) {
+    setToast({ msg: message });
+    setTimeout(() => setToast(null), 2200);
+  }
+
+  const prettyDate = (s?: string) => (s ? new Date(s).toLocaleString() : '—');
 
   useEffect(() => {
     const fetchItemsOnce = async () => {
@@ -189,7 +207,6 @@ export default function ClosetPage() {
         const formattedItems: Item[] = res.data.map((item: any) => ({
           id: item.id,
           name: item.category,
-          // image: `${API_BASE}${item.imageUrl}`,
           image: absolutize(item.imageUrl, API_BASE),
           favourite: !!item.favourite,
           category: item.category,
@@ -208,18 +225,13 @@ export default function ClosetPage() {
         }
       } catch (error) {
         console.error('Error fetching items:', error);
-        setPopup({ open: true, message: 'Failed to load items.', variant: 'error' });
+        showToast('Failed to load items.');
       }
     };
 
     fetchItemsOnce();
-  }, [justFinished]);  // Refresh after upload finishes
+  }, [justFinished, queueLength]);
 
-  // helper to prefix local uploads
-  const prefixed = (url: string) =>
-    url.startsWith('http') ? url : `${API_BASE}${url}`;
-
-  // Fetch saved outfits
   useEffect(() => {
     fetchAllOutfits()
       .then(raw => {
@@ -232,66 +244,45 @@ export default function ClosetPage() {
       })
       .catch(err => {
         console.error(err);
-        setPopup({ open: true, message: 'Failed to load outfits.', variant: 'error' });
+        showToast('Failed to load outfits.');
       });
   }, []);
 
-  // Restore favourites from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    const stored = localStorage.getItem(`closet-favs-${token}`);
-    if (!stored) return;
-    const parsedFavs: Item[] = JSON.parse(stored);
-    setFavourites(parsedFavs);
-
-    setItems(prev =>
-      prev.map(x => ({
-        ...x,
-        favorite: parsedFavs.some(f => f.id === x.id && f.tab === x.tab),
-      }))
-    );
-
-    setOutfits(prev =>
-      prev.map(o => ({
-        ...o,
-        favorite: parsedFavs.some(f => f.id === o.id && f.tab === 'outfits'),
-      }))
-    );
-  }, []);
-
-  useEffect(() => {
-    if (showModal || showEditModal || previewImage) {
+    if (showModal || showEditModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-  }, [showModal, showEditModal, previewImage]);
+  }, [showModal, showEditModal]);
 
-  const toggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
+  const onToggleFavourite = async (item: Item | UIOutfit, originTab: 'items' | 'outfits') => {
     if (originTab === 'items') {
       try {
-        // Await the server and get new fav value
         const res = await apiToggleFavourite(item.id);
+        const isFav = !!res.data.favourite;
         setItems(prev =>
-          prev.map(i =>
-            i.id === item.id ? { ...i, favourite: res.data.favourite } : i
-          )
+          prev.map(i => (i.id === item.id ? { ...i, favourite: isFav } : i))
         );
+        showToast(isFav ? 'Added to favourites.' : 'Removed from favourites.');
       } catch (err) {
         console.error('Server toggle failed', err);
-        // Optionally revert local state or show an error
+        showToast('Could not update favourite.');
       }
-    } else if (originTab === 'outfits') {
+    } else {
+      const newFav = !item.favourite; 
       setOutfits(prev =>
-        prev.map(o =>
-          o.id === item.id ? { ...o, favourite: !o.favourite } : o
-        )
+        prev.map(o => (o.id === item.id ? { ...o, favourite: newFav } : o))
       );
+      showToast(newFav ? 'Added to favourites.' : 'Removed from favourites.');
       try {
         await toggleOutfitFavourite(item.id);
       } catch (err) {
         console.error('Server toggle failed', err);
+        setOutfits(prev =>
+          prev.map(o => (o.id === item.id ? { ...o, favourite: !newFav } : o))
+        );
+        showToast('Could not update favourite.');
       }
     }
   };
@@ -300,36 +291,33 @@ export default function ClosetPage() {
     if (!itemToEdit) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE}/api/closet/${itemToEdit.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            layerCategory: itemToEdit.layerCategory,
-            category: editedCategory,
-            colorHex: editedColorHex,
-            warmthFactor: editedWarmthFactor,
-            waterproof: editedWaterproof,
-            style: editedStyle,
-            material: editedMaterial,
-          }),
-        }
-      );
+      const res = await fetchWithAuth(`${API_BASE}/api/closet/${itemToEdit.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          layerCategory: itemToEdit.layerCategory,
+          category: editedCategory,
+          colorHex: editedColorHex,
+          warmthFactor: editedWarmthFactor,
+          waterproof: editedWaterproof,
+          style: editedStyle,
+          material: editedMaterial,
+        }),
+      });
 
-      if (!res.ok) {
-        let errMsg = `Status ${res.status}`;
+      if (!('ok' in res) || !res.ok) {
+        let errMsg = `Status ${(res as any)?.status ?? '??'}`;
         try {
-          const body = await res.json();
+          const body = await (res as any).json?.();
           errMsg += ` — ${JSON.stringify(body)}`;
-        } catch {}
+        } catch { }
         throw new Error(errMsg);
       }
 
-      setShowEditSuccess(true);
+      showToast('Changes have been saved.');
 
       const updated = {
         ...itemToEdit,
@@ -341,40 +329,28 @@ export default function ClosetPage() {
         style: editedStyle,
         material: editedMaterial,
       };
-      // for items & favourites
-      const itemUpdater = (arr: (Item | UIOutfit)[]) =>
-        arr.map(i => isItem(i) && i.id === updated.id ? { ...i, ...updated } : i);
-
-      // for outfits
-      const outfitUpdater = (arr: (UIOutfit | Item)[]) =>
-        arr.map(o =>
-          isUIOutfit(o) && o.id === updated.id
-            ? {
-              ...o,
-              category: updated.category,
-              colorHex: updated.colorHex,
-              warmthRating: updated.warmthFactor,
-              waterproof: updated.waterproof,
-              overallStyle: updated.style,
-            }
-            : o
-        );
 
       if (itemToEdit.tab === 'items') {
-        setItems(
-          itemUpdater(items).filter(isItem)
-        );
-
+        setItems(prev => prev.map(i => (i.id === updated.id ? { ...i, ...updated } : i)));
       } else if (itemToEdit.tab === 'outfits') {
-        setOutfits(
-          outfitUpdater(outfits).filter(isUIOutfit)
+        setOutfits(prev =>
+          prev.map(o =>
+            o.id === updated.id
+              ? {
+                ...o,
+                category: updated.category,
+                colorHex: updated.colorHex,
+                warmthRating: updated.warmthFactor,
+                waterproof: updated.waterproof,
+                overallStyle: updated.style,
+              }
+              : o
+          )
         );
-      } else {
-        //setFavourites(itemUpdater(favourites)); // now safe
       }
     } catch (err) {
       console.error('Save failed', err);
-      setPopup({ open: true, message: 'Could not save changes.', variant: 'error' });
+      showToast('Could not save changes.');
     } finally {
       setShowEditModal(false);
       setItemToEdit(null);
@@ -386,263 +362,86 @@ export default function ClosetPage() {
     setShowModal(true);
   };
 
-    // --- Axios-safe request helper (works with either axios or fetch responses) ---
-  type HttpResult<T = any> = { ok: boolean; status: number; data?: T };
+  const isItemInAnyOutfit = (closetItemId: string) =>
+    outfits.some(o => o.outfitItems?.some(it => String(it.closetItemId) === String(closetItemId)));
 
-  const request = async (url: string, init?: RequestInit): Promise<HttpResult> => {
+  const isItemPackedAnywhere = async (closetItemId: string): Promise<boolean> => {
     try {
-      const res: any = await fetchWithAuth(url, init);
-
-      // If it's a Fetch Response
-      if (res && typeof res === 'object' && 'ok' in res && 'status' in res) {
-        let data: any = undefined;
+      const events = await fetchAllEvents();
+      const subset = events.slice(0, 12); 
+      const checks = subset.map(async ev => {
         try {
-          data = typeof res.json === 'function' ? await res.json() : undefined;
-        } catch {}
-        return { ok: !!res.ok, status: Number(res.status) || 0, data };
-      }
-
-      // If it's an AxiosResponse
-      const status = Number(res?.status) || 0;
-      return { ok: status >= 200 && status < 300, status, data: res?.data };
-    } catch (err: any) {
-      const status = Number(err?.response?.status) || 0;
-      return { ok: false, status, data: err?.response?.data };
+          const list = await getPackingList(ev.id).catch(() => null);
+          const inItems =
+            !!list &&
+            Array.isArray((list as any).items) &&
+            (list as any).items.some((r: any) => String(r.closetItemId) === String(closetItemId));
+          return !!inItems;
+        } catch {
+          return false;
+        }
+      });
+      const results = await Promise.allSettled(checks);
+      return results.some(r => r.status === 'fulfilled' && r.value === true);
+    } catch {
+      return false;
     }
   };
 
-  
-  // --- Helpers to strip from outfits & packing lists before deletion ---
-
-  
-  // Try to fetch all saved outfits from a few likely endpoints (some apps pluralize, some don't)
-const fetchSavedOutfits = async (): Promise<any[]> => {
-  const urls = [
-    `${API_BASE}/api/outfits`,
-    `${API_BASE}/api/outfit`,
-    `${API_BASE}/api/outfit/saved`,
-    `${API_BASE}/api/outfits/saved`,
-  ];
-  for (const u of urls) {
-    const r = await request(u, { method: 'GET' } as any);
-    if (r.ok && Array.isArray(r.data)) return r.data;
-    if (r.ok && Array.isArray((r.data as any)?.data)) return (r.data as any).data;
-  }
-  return [];
-};
-
-    // --- Helpers to strip from outfits & packing lists before deletion ---
-    const stripItemFromAllOutfits = async (closetItemId: string) => {
-      // get a fresh list from the server (covers any local drift)
-      const outfits = await fetchSavedOutfits();
-      if (!outfits.length) return;
-
-      const usesItem = (o: any) =>
-        Array.isArray(o?.outfitItems) &&
-        o.outfitItems.some((it: any) => String(it.closetItemId) === String(closetItemId));
-
-      const patchUrls = (id: string) => [
-        `${API_BASE}/api/outfits/${id}`,
-        `${API_BASE}/api/outfit/${id}`,
-      ];
-      const deleteUrls = patchUrls;
-
-      // Track what changed so we can reflect it in local state immediately
-      const removedIds: string[] = [];
-      const updatedOutfitItems: Record<
-        string,
-        { closetItemId: string; layerCategory: string; imageUrl: string | null }[]
-      > = {};
-
-      for (const o of outfits) {
-        if (!usesItem(o)) continue;
-
-        const kept = (o.outfitItems || []).filter(
-          (it: any) => String(it.closetItemId) !== String(closetItemId)
-        );
-
-        // If nothing left -> delete the whole outfit
-        if (kept.length === 0) {
-          for (const u of deleteUrls(o.id)) {
-            const r = await request(u, { method: 'DELETE' } as any);
-            if (r.ok || r.status === 404) break;
-          }
-          removedIds.push(String(o.id));
-          continue;
-        }
-
-        // Try PATCH #1: array of IDs
-        let patched = false;
-        for (const u of patchUrls(o.id)) {
-          const r = await request(u, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' } as any,
-            body: JSON.stringify({ outfitItems: kept.map((it: any) => it.closetItemId) }),
-          } as any);
-          if (r.ok) { patched = true; break; }
-        }
-
-        // Try PATCH #2: array of objects
-        if (!patched) {
-          for (const u of patchUrls(o.id)) {
-            const r = await request(u, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' } as any,
-              body: JSON.stringify({ outfitItems: kept.map((it: any) => ({ closetItemId: it.closetItemId })) }),
-            } as any);
-            if (r.ok) { patched = true; break; }
-          }
-        }
-
-        if (patched) {
-          updatedOutfitItems[String(o.id)] = kept.map((it: any) => ({
-            closetItemId: String(it.closetItemId),
-            layerCategory: String(it.layerCategory),
-            imageUrl: it.imageUrl ?? null,
-          }));
-        } else {
-          // Last resort: delete outfit
-          for (const u of deleteUrls(o.id)) {
-            const r = await request(u, { method: 'DELETE' } as any);
-            if (r.ok || r.status === 404) break;
-          }
-          removedIds.push(String(o.id));
-        }
-      }
-
-      // Local state: drop deleted outfits & update patched ones (prevents blank cards)
-      setOutfits(prev =>
-        prev
-          .filter(o => !removedIds.includes(String(o.id)))
-          .map(o => (updatedOutfitItems[o.id] ? { ...o, outfitItems: updatedOutfitItems[o.id] as any } : o))
-          .filter(o => (o.outfitItems?.length ?? 0) > 0) // guard against any empties that slipped through
-      );
-
-      // Extra nuke: try join-row deletes by closetItem if the API supports them
-      const joinDeleteCandidates = [
-        `${API_BASE}/api/outfit-items/by-closet/${closetItemId}`,
-        `${API_BASE}/api/outfitItems/by-closet/${closetItemId}`,
-        `${API_BASE}/api/outfitItem/by-closet/${closetItemId}`,
-      ];
-      for (const u of joinDeleteCandidates) {
-        const r = await request(u, { method: 'DELETE' } as any);
-        if (r.ok) break;
-      }
-    };
-
-
-
-    const stripItemFromAllPackingLists = async (closetItemId: string) => {
-      try {
-        const evts = await fetchAllEvents();
-        for (const ev of evts) {
-          try {
-            const list = await getPackingList(ev.id).catch(() => null);
-            if (!list?.id) continue;
-
-            const hasItem =
-              Array.isArray(list.items) &&
-              list.items.some((r: any) => String(r.closetItemId) === String(closetItemId));
-            if (!hasItem) continue;
-
-            const items   = (list.items   || []).filter((r: any) => String(r.closetItemId) !== String(closetItemId)).map((r: any) => String(r.closetItemId));
-            const outfits = (list.outfits || []).map((r: any) => String(r.outfitId));
-            const others  = (list.others  || []).map((r: any) => String(r.label));
-
-            await deletePackingList(list.id).catch(() => {});
-            await createPackingList({ tripId: ev.id, items, outfits, others }).catch(() => {});
-          } catch {
-            // ignore & continue
-          }
-        }
-      } catch (err) {
-        console.error('stripItemFromAllPackingLists failed', err);
-      }
-    };
-
-
-
   const confirmRemove = async () => {
     if (!itemToRemove) return;
-    const { id } = itemToRemove;
+    const { id, tab } = itemToRemove;
 
     try {
-      // Step 1: remove item from all outfits (multi-endpoint + local state sync)
-      await stripItemFromAllOutfits(id);
+      if (tab === 'outfits') {
+        await deleteOutfit(id);
+        setOutfits(prev => prev.filter(o => o.id !== id));
+        showToast('Outfit successfully deleted.');
+        return;
+      }
 
-      // Step 2: remove from all packing lists
-      await stripItemFromAllPackingLists(id);
+      if (isItemInAnyOutfit(id)) {
+        showToast('You can’t delete this item because it’s part of one or more outfits. Remove it from those outfits first.');
+        return;
+      }
 
-      // Step 3: delete the closet item
+      const packed = await isItemPackedAnywhere(id);
+      if (packed) {
+        showToast('You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.');
+        return;
+      }
+
       await deleteItem(id);
 
-      // Step 4: update local state & prune empty outfits (prevents ghost cards)
       setItems(prev => prev.filter(i => i.id !== id));
-      setFavourites(prev => prev.filter(f => f.id !== id));
       setOutfits(prev =>
         prev
-          .map(o => ({ ...o, outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)) }))
+          .map(o => ({
+            ...o,
+            outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)),
+          }))
           .filter(o => (o.outfitItems?.length ?? 0) > 0)
       );
 
-      setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
-    } catch (err) {
-      console.error('Failed to delete item (first attempt):', err);
-
-      // Hard fallback: try direct join-row nukes in case some ref slipped through
-      const nukes = [
-        `${API_BASE}/api/outfit-items/by-closet/${id}`,
-        `${API_BASE}/api/outfitItems/by-closet/${id}`,
-        `${API_BASE}/api/outfitItem/by-closet/${id}`,
-      ];
-      for (const u of nukes) {
-        await request(u, { method: 'DELETE' } as any);
-      }
-
-      // Retry the closet delete once
-      try {
-        await deleteItem(id);
-
-        setItems(prev => prev.filter(i => i.id !== id));
-        setFavourites(prev => prev.filter(f => f.id !== id));
-        setOutfits(prev =>
-          prev
-            .map(o => ({ ...o, outfitItems: o.outfitItems.filter(it => String(it.closetItemId) !== String(id)) }))
-            .filter(o => (o.outfitItems?.length ?? 0) > 0)
-        );
-
-        setPopup({ open: true, message: 'Item deleted.', variant: 'success' });
-      } catch (err2) {
-        console.error('Failed after final purge:', err2);
-        setPopup({ open: true, message: 'Delete failed. Try again.', variant: 'error' });
-      }
-
-// ! Merge Diya Code
-//      if (tab === 'outfits') {
-//        await deleteOutfit(id);
-//        setOutfits(prev => prev.filter(o => o.id !== id));
-//      } else {
-//        await deleteItem(id);
-//        setItems(prev => prev.filter(i => i.id !== id));
-//      }
-//    } catch (err: any) {
-//      console.error('Failed to delete item:', err);
-//      if (
-//        err.response?.status === 400 ||
-//        (err.response?.data?.message && err.response.data.message.includes("part of an outfit")) ||
-//        (err.message && err.message.includes("part of an outfit"))
-//      ) {
-//        setDeleteError("You can't delete this item because it's part of an outfit. Remove it from all outfits first!");
-//      } else {
-//        setDeleteError(err.response?.data?.message || 'Delete failed. Try again.');
-//      }
+      showToast('Item deleted successfully.');
+    } catch (err: any) {
+      console.error('Delete failed:', err);
+      const raw =
+        err?.response?.data?.message ||
+        err?.message ||
+        '';
+      const friendly =
+        /outfit/i.test(raw)
+          ? 'You can’t delete this item because it’s part of an outfit. Remove it from the outfit first.'
+          : /pack/i.test(raw)
+            ? 'You can’t delete this item because it’s packed for a trip. Remove it from the packing list first.'
+            : 'Delete failed. Try again.';
+      showToast(friendly);
     } finally {
       setShowModal(false);
       setItemToRemove(null);
     }
   };
-
-
 
   const cancelRemove = () => {
     setShowModal(false);
@@ -664,50 +463,207 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
       data = data.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
-    // Sort favourites to the top for "items" and "favourites" tabs
     if (activeTab === 'items' || activeTab === 'favourites') {
       data = data.sort((a, b) => Number(b.favourite) - Number(a.favourite));
     }
     return data;
   }
 
-  // Build list of categories for the active layer
-  const categoryOptions = layerFilter
-    ? CATEGORY_BY_LAYER[layerFilter] || []
-    : [];
 
-  // Tab bar categories lowercased except first letter
-  const titleCase = (s: string) =>
-    s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
+  // -------------------------- 
+  //  Virtual Try on Yourself 
+  // --------------------------
+
+  function resolveImgSrc(u?: string): string {
+    if (!u) return '';
+    if (u.startsWith('data:') || u.startsWith('http://') || u.startsWith('https://')) return u;
+    return absolutize(u, API_BASE);
+  }
+
+  async function resizeToDataUrl(file: File, maxW = 1280, maxH = 1280): Promise<string> {
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(file);
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = rej;
+      img.src = url;
+    });
+
+    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    URL.revokeObjectURL(url);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function openSelfTryOn(outfit: UIOutfit) {
+    setSelfTryOnOutfit(outfit);
+    setShowSelfTryOnModal(true);
+    setFinalImageUrl(null);
+    setStepImages([]);
+    setProgress(0);
+    setProgressLabel('Checking your try-on photo…');
+
+    try {
+      const [photoRes, creditRes] = await Promise.allSettled([getTryOnPhoto(), getTryOnCredits()]);
+      if (photoRes.status === 'fulfilled') {
+        setStoredTryOnPhoto(photoRes.value?.tryOnPhoto ?? null);
+        setSelfPhotoPreview(photoRes.value?.tryOnPhoto ?? null);
+      }
+      if (creditRes.status === 'fulfilled') setCredits(creditRes.value);
+    } catch {
+    } finally {
+      setProgressLabel('Ready');
+    }
+  }
+
+  function closeSelfTryOn() {
+    setShowSelfTryOnModal(false);
+    setSelfTryOnOutfit(null);
+    setSelfPhotoPreview(null);
+    setIsUploadingPhoto(false);
+    setIsGenerating(false);
+    setProgress(0);
+    setProgressLabel('Waiting…');
+    setFinalImageUrl(null);
+    setStepImages([]);
+    if (progressTimer.current) {
+      window.clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+  }
+
+  async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const b64 = await resizeToDataUrl(f, 1280, 1280); 
+    setSelfPhotoPreview(b64);
+  }
+
+  async function saveTryOnPhoto() {
+    if (!selfPhotoPreview) return;
+    setIsUploadingPhoto(true);
+    try {
+      const res = await setTryOnPhotoBase64(selfPhotoPreview);
+      setStoredTryOnPhoto(res.tryOnPhoto || null);
+      setProgressLabel('Saved your try-on photo');
+      showToast('Try-on photo saved successfully!');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save try-on photo.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  function startFakeProgress(maxBeforeFinish = 85) {
+    if (progressTimer.current) window.clearInterval(progressTimer.current);
+    setProgress(5);
+    progressTimer.current = window.setInterval(() => {
+      setProgress(p => {
+        const next = p + Math.random() * 4 + 1;
+        return next >= maxBeforeFinish ? maxBeforeFinish : next;
+      });
+    }, 500) as unknown as number;
+  }
+
+  async function startGeneration() {
+    if (!selfTryOnOutfit) return;
+    if (!storedTryOnPhoto) {
+      showToast('Please upload and save a full-body photo first.');
+      return;
+    }
+
+    const closetItemIds = selfTryOnOutfit.outfitItems.map(it => it.closetItemId);
+
+    setIsGenerating(true);
+    setProgressLabel('Generating outfit…');
+    startFakeProgress(88);
+
+    try {
+      const res = await runTryOnSelf({
+        outfitId: selfTryOnOutfit?.id,
+        useTryOnPhoto: true,
+        closetItemIds,
+        mode: 'balanced',
+        returnBase64: false,
+      });
+
+      if (progressTimer.current) {
+        window.clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+      setStepImages(res.stepOutputs || []);
+      setProgressLabel('Finalizing…');
+      setProgress(97);
+
+      const url = res.finalUrl || (res.finalBase64 ? res.finalBase64 : null);
+      setFinalImageUrl(url);
+      setTimeout(() => setProgress(100), 400);
+      setProgressLabel('Done');
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || 'Try-on failed.');
+      setProgressLabel('Failed');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function openSelfTryOnOrPreview(outfit: UIOutfit) {
+    try {
+      const hit = await getTryOnResult(outfit.id);
+      if (hit?.finalImageUrl) {
+        setSelfPreviewUrl(hit.finalImageUrl);
+        setSelfPreviewDate(new Date(hit.createdAt).toLocaleString());
+        setSelfTryOnOutfit(outfit);
+        setShowSelfPreviewModal(true);
+        return;
+      }
+    } catch {
+    }
+    await openSelfTryOn(outfit);
+  }
 
   return (
-    <div className="w-full max-w-screen-sm mx-auto px-2 sm:px-4 -mt-16">
+    <div
+      className="ml-[calc(-50vw+50%)] flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden !pt-0"
+      style={{ paddingTop: 0 }}
+    >
       {/* Header Image Section */}
-      <div
-        className="w-screen -mx-4 sm:-mx-6 relative flex items-center justify-center h-48 -mt-2 mb-6"
-        style={{
-          backgroundImage: `url(/header.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-          marginLeft: 'calc(-50vw + 50%)',
-          width: '100vw',
-          marginTop: '-1rem'
-        }}
-      >
-        <div className="px-6 py-2 border-2 border-white z-10">
-          <h1
-            className="text-2xl font-bodoni font-light text-center text-white"
-            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
-          >
-            MY CLOSET
-          </h1>
+      <div className="relative w-full h-32 sm:h-56 md:h-64 lg:h-48 mb-6 mt-0 !mt-0">
+        <div
+          className="absolute inset-0 bg-cover bg-top md:bg-center"
+          style={{ backgroundImage: `url(/header.jpg)` }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center px-0">
+
+          <div className="px-6 py-2 border-2 border-white">
+            <h1 className="text-2xl font-bodoni font-light text-center text-white">
+              MY CLOSET
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
 
-      <div className="max-w-screen-sm mx-auto px-4 pb-12">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl pb-12">
         {/* Filters & Search */}
         <div className="flex flex-wrap justify-center gap-4 my-4">
           <select
@@ -732,7 +688,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
             className="px-4 py-2 border border-black text-black rounded-full disabled:opacity-50"
           >
             <option value="">All Categories</option>
-            {categoryOptions.map(opt => (
+            {(CATEGORY_BY_LAYER[layerFilter] || []).map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -784,12 +740,10 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                 Outfits
               </button>
             </div>
-            {/* --- END TOGGLE BUTTONS --- */}
 
             {favView === 'items' ? (
               <div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
                   {items.filter(i => i.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite items yet.</p>
                   ) : (
@@ -802,6 +756,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                               alt={entry.name}
                               onClick={() => setActiveDetailsItem(entry)}
                               className="absolute inset-0 w-full h-full object-contain cursor-pointer bg-white"
+
                             />
                             <button
                               onClick={() => {
@@ -826,10 +781,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                             </button>
                           </div>
                           <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
-                            <button
-
-                              onClick={() => toggleFavourite(entry, 'items')}
-                            >
+                            <button onClick={() => onToggleFavourite(entry, 'items')}>
                               <Heart
                                 className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
                               />
@@ -843,38 +795,39 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
               </div>
             ) : (
               <div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
                   {outfits.filter(o => o.favourite).length === 0 ? (
                     <p className="col-span-full text-gray-400 italic text-center">No favourite outfits yet.</p>
                   ) : (
                     outfits.filter(o => o.favourite).map(entry => (
                       <div
                         key={entry.id}
-                        className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                        className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                         onClick={() => setActiveDetailsOutfit(entry)}
-                      >                        <button
-                        onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
-                        className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
                       >
+                        <button
+                          onClick={() => handleRemoveClick(entry.id, 'outfits', 'Outfit')}
+                          className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white rounded-full p-1 shadow z-10"
+                        >
                           <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
                         <div className="space-y-1">
                           {/* headwear + accessory */}
-                          <div
-                            className={`flex justify-center space-x-1 ${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                              ? ''
-                              : 'hidden'
-                              }`}
-                          >
+                          <div className={`${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
                             {entry.outfitItems
                               .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  // src={prefixed(it.imageUrl)}
                                   src={absolutize(it.imageUrl, API_BASE)}
-                                  className="w-16 h-16 object-contain rounded"
+                                  alt=""
+                                  className="w-8 h-8 object-contain rounded"
                                 />
                               ))}
                           </div>
@@ -885,8 +838,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  // src={prefixed(it.imageUrl)}
                                   src={absolutize(it.imageUrl, API_BASE)}
+                                  alt=""
                                   className="w-16 h-16 object-contain rounded"
                                 />
                               ))}
@@ -898,8 +851,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  // src={prefixed(it.imageUrl)}
                                   src={absolutize(it.imageUrl, API_BASE)}
+                                  alt=""
                                   className="w-16 h-16 object-contain rounded"
                                 />
                               ))}
@@ -911,8 +864,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                               .map(it => (
                                 <img
                                   key={it.closetItemId}
-                                  // src={prefixed(it.imageUrl)}
                                   src={absolutize(it.imageUrl, API_BASE)}
+                                  alt=""
                                   className="w-14 h-14 object-contain rounded"
                                 />
                               ))}
@@ -922,14 +875,13 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleFavourite(entry, 'outfits');
+                            onToggleFavourite(entry, 'outfits');
                           }}
                           aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
                           className="absolute bottom-2 left-2 z-10"
                         >
                           <Heart
-                            className={`h-4 w-4 sm:h-5 sm:w-5 transition 
-                  ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                            className={`h-4 w-4 sm:h-5 sm:w-5 transition ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
                           />
                         </button>
                       </div>
@@ -940,13 +892,12 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
             )}
           </div>
         ) : (
-          // NORMAL GRID FOR ITEMS / OUTFITS TAB
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
             {getCurrentData().map(entry => {
               if (isItem(entry)) {
                 return (
                   <div key={entry.id} className="relative h-[200px] sm:h-[250px] md:h-[280px]">
-                    <div className="bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
+                    <div className="hover:shadow-2xl hover:shadow-black/20 bg-transparent w-full h-full rounded-xl overflow-hidden flex flex-col text-xs sm:text-sm shadow-md shadow-gray-300 hover:shadow-lg transition">
                       <div className="flex-grow relative">
                         <img
                           src={entry.image}
@@ -978,12 +929,9 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                         >
                           <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                         </button>
-
                       </div>
                       <div className="flex items-center justify-between px-2 py-1 sm:p-2 bg-white">
-                        <button
-                          onClick={() => toggleFavourite(entry, entry.tab === 'outfits' ? 'outfits' : 'items')}
-                        >
+                        <button onClick={() => onToggleFavourite(entry, 'items')}>
                           <Heart
                             className={`h-4 w-4 sm:h-5 sm:w-5 ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
                           />
@@ -996,7 +944,13 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                 return (
                   <div
                     key={entry.id}
-                    className="relative bg-white border rounded-xl p-2 w-full cursor-pointer"
+                    className="
+    relative bg-white border rounded-xl p-2 w-full cursor-pointer
+    shadow-lg shadow-black/10 dark:shadow-black/40
+    hover:shadow-2xl hover:shadow-black/20
+    transition-transform transition-shadow duration-200
+    
+  "
                     onClick={() => setActiveDetailsOutfit(entry)}
                   >
                     <button
@@ -1011,20 +965,15 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
 
                     <div className="space-y-1">
                       {/* headwear + accessory */}
-                      <div
-                        className={`flex justify-center space-x-1 ${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory))
-                          ? ''
-                          : 'hidden'
-                          }`}
-                      >
+                      <div className={`${entry.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
                         {entry.outfitItems
                           .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              // src={prefixed(it.imageUrl)}
                               src={absolutize(it.imageUrl, API_BASE)}
-                              className="w-16 h-16 object-contain rounded"
+                              alt=""
+                              className="w-8 h-8 object-contain rounded"
                             />
                           ))}
                       </div>
@@ -1035,8 +984,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              // src={prefixed(it.imageUrl)}
                               src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
                               className="w-16 h-16 object-contain rounded"
                             />
                           ))}
@@ -1044,12 +993,12 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                       {/* bottoms */}
                       <div className="flex justify-center space-x-1">
                         {entry.outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
+                          .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              // src={prefixed(it.imageUrl)}
                               src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
                               className="w-16 h-16 object-contain rounded"
                             />
                           ))}
@@ -1061,26 +1010,24 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                           .map(it => (
                             <img
                               key={it.closetItemId}
-                              // src={prefixed(it.imageUrl)}
                               src={absolutize(it.imageUrl, API_BASE)}
+                              alt=""
                               className="w-14 h-14 object-contain rounded"
                             />
                           ))}
                       </div>
                     </div>
 
-
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleFavourite(entry, 'outfits');
+                        onToggleFavourite(entry, 'outfits');
                       }}
                       aria-label={entry.favourite ? 'Unfavourite outfit' : 'Favourite outfit'}
                       className="absolute bottom-2 left-2 z-10"
                     >
                       <Heart
-                        className={`h-4 w-4 sm:h-5 sm:w-5 transition 
-                  ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                        className={`h-4 w-4 sm:h-5 sm:w-5 transition ${entry.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
                       />
                     </button>
                   </div>
@@ -1091,6 +1038,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
           </div>
         )}
 
+        {/* Outfit Details Modal (always shows thumbnails, no try-on toggle) */}
         <AnimatePresence>
           {activeDetailsOutfit && (
             <motion.div
@@ -1103,19 +1051,19 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6 relative flex flex-col gap-4"
+                className="bg-white rounded-2xl shadow-xl p-8 relative flex flex-col gap-4 w-[92vw] sm:w-[540px] md:w-[640px] lg:w-[450px] max-w-[680px]"
               >
                 {/* Close Button */}
                 <button
                   onClick={() => setActiveDetailsOutfit(null)}
-                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-30"
                 >
                   <X className="w-5 h-5" />
                 </button>
 
-                {/* Favourite Heart (Top Left, smaller, no bg) */}
+                {/* Favourite Heart (Top Left) */}
                 <button
-                  onClick={() => toggleFavourite(activeDetailsOutfit, 'outfits')}
+                  onClick={() => activeDetailsOutfit && onToggleFavourite(activeDetailsOutfit, 'outfits')}
                   className="absolute top-3 left-3 z-20"
                 >
                   <Heart
@@ -1124,19 +1072,19 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                   />
                 </button>
 
-                {/* Outfit Images */}
+                {/* Static thumbnails */}
                 <div className="flex justify-center mb-2">
                   <div className="space-y-1">
                     {/* headwear + accessory */}
-                    <div className={`flex justify-center space-x-1 ${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? '' : 'hidden'}`}>
+                    <div className={`${activeDetailsOutfit.outfitItems.some(it => ['headwear', 'accessory'].includes(it.layerCategory)) ? 'flex' : 'hidden'} justify-center space-x-1`}>
                       {activeDetailsOutfit.outfitItems
                         .filter(it => ['headwear', 'accessory'].includes(it.layerCategory))
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            // src={prefixed(it.imageUrl)}
                             src={absolutize(it.imageUrl, API_BASE)}
-                            className="w-16 h-16 object-contain rounded"
+                            alt=""
+                            className="w-8 h-8 object-contain rounded"
                           />
                         ))}
                     </div>
@@ -1147,8 +1095,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            // src={prefixed(it.imageUrl)}
                             src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
                             className="w-16 h-16 object-contain rounded"
                           />
                         ))}
@@ -1156,12 +1104,12 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                     {/* bottoms */}
                     <div className="flex justify-center space-x-1">
                       {activeDetailsOutfit.outfitItems
-                        .filter(it => it.layerCategory === 'base_bottom')
+                        .filter(it => it.layerCategory === 'base_bottom' || it.layerCategory === 'mid_bottom')
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            // src={prefixed(it.imageUrl)}
                             src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
                             className="w-16 h-16 object-contain rounded"
                           />
                         ))}
@@ -1173,8 +1121,8 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                         .map(it => (
                           <img
                             key={it.closetItemId}
-                            // src={prefixed(it.imageUrl)}
                             src={absolutize(it.imageUrl, API_BASE)}
+                            alt=""
                             className="w-14 h-14 object-contain rounded"
                           />
                         ))}
@@ -1184,47 +1132,510 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
 
                 {/* Outfit Info */}
                 <div className="space-y-2 text-gray-700 text-base mt-2">
-                  <div>
-                    <span className="font-semibold">Warmth Rating:</span>{' '}
-                    {activeDetailsOutfit.warmthRating}
-                  </div>
-                  <div>
-                    <span className="font-semibold">Waterproof:</span>{' '}
-                    {activeDetailsOutfit.waterproof ? "Yes" : "No"}
-                  </div>
-                  <div>
-                    <span className="font-semibold">Overall Style:</span>{' '}
-                    {activeDetailsOutfit.overallStyle}
-                  </div>
+                  <div><span className="font-semibold">Warmth Rating:</span> {activeDetailsOutfit.warmthRating}</div>
+                  <div><span className="font-semibold">Waterproof:</span> {activeDetailsOutfit.waterproof ? "Yes" : "No"}</div>
+                  <div><span className="font-semibold">Overall Style:</span> {activeDetailsOutfit.overallStyle}</div>
                   {typeof activeDetailsOutfit.userRating === 'number' && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">Your Rating:</span>
-                      {Array(activeDetailsOutfit.userRating || 0)
-                        .fill(0)
-                        .map((_, i) => (
+
+                      <div className="flex gap-1">
+                        {[0,1,2,3,4].map(i => (
                           <Star
                             key={i}
-                            className="w-5 h-5 text-teal-500"
-                            style={{
-                              stroke: '#14b8a6', // Tailwind teal-500
-                              fill: '#14b8a6',
-                              strokeWidth: 1.5,
-                            }}
+                            className={`w-5 h-5 ${
+                              i < (activeDetailsOutfit.userRating || 0)
+                                ? 'text-teal-500'
+                                : 'text-gray-300'
+                            }`}
                           />
                         ))}
+                      </div>
+
                       <span className="ml-1">{activeDetailsOutfit.userRating}/5</span>
                     </div>
                   )}
-
                 </div>
 
-                {/* Delete button */}
-                <div className="flex justify-end gap-2 pt-6">
+                {/* Actions: single Try On (left) + Edit/Delete (right) */}
+                <div className="flex justify-between items-center pt-6">
                   <button
                     onClick={() => {
                       if (!activeDetailsOutfit) return;
-                      setEditingOutfit(activeDetailsOutfit);
+                      openSelfTryOnOrPreview(activeDetailsOutfit);
                       setActiveDetailsOutfit(null);
+                    }}
+                    className="px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
+                  >
+                    Try On
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!activeDetailsOutfit) return;
+                        setEditingOutfit(activeDetailsOutfit);
+                        setActiveDetailsOutfit(null);
+                      }}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
+                        setShowModal(true);
+                        setActiveDetailsOutfit(null);
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Try On Mannequin Modal */}
+        <AnimatePresence>
+          {showTryOnModal && tryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowTryOnModal(false);
+                setTryOnOutfit(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col"
+                style={{
+                  width: 'min(95vw, 1200px)',
+                  height: 'min(95vh, 800px)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header + Tabs */}
+                <div className="px-5 pt-5">
+                  <h2 className="text-xl font-semibold">Try On Avatar</h2>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      onClick={() => {
+                        if (!tryOnOutfit) return;
+                        setShowTryOnModal(false);
+                        openSelfTryOn(tryOnOutfit); 
+                      }}
+                    >
+                      Virtual Try On
+                    </button>
+                    <button
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      disabled
+                      aria-current="page"
+                    >
+                      Try On Avatar
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTryOnModal(false);
+                    setTryOnOutfit(null);
+                  }}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[101]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Try-On Viewer - SIMPLIFIED CONTAINER */}
+                <div
+                  className="flex-1 relative"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px'
+                  }}
+                >
+                  <TryOnViewer
+                    mannequinUrl="/mannequins/front_v1.png"
+                    poseId="front_v1"
+                    outfitItems={tryOnOutfit.outfitItems.map(it => ({
+                      closetItemId: it.closetItemId,
+                      imageUrl: it.imageUrl,
+                      layerCategory: it.layerCategory as any,
+                    }))}
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Try-On Yourself Modal */}
+        <AnimatePresence>
+          {showSelfTryOnModal && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeSelfTryOn}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl relative flex flex-col w-[min(95vw,1100px)] h-[min(95vh,820px)]"
+              >
+                {/* Close */}
+                <button
+                  onClick={closeSelfTryOn}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[111]"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header + Tabs */}
+                <div className="px-5 pt-5">
+                  <h2 className="text-xl font-semibold">Virtual Try On</h2>
+                  <p className="text-sm text-gray-500">
+                    Use your stored full-body photo or upload a new one, then we’ll put this outfit on you.
+                  </p>
+
+                  {/* Tabs */}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-full text-sm bg-black text-white"
+                      disabled
+                      aria-current="page"
+                    >
+                      Virtual Try On
+                    </button>
+                    <button
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full text-sm border hover:bg-gray-50"
+                      onClick={() => {
+                        if (!selfTryOnOutfit) return;
+                        setShowSelfTryOnModal(false);
+                        setTryOnOutfit(selfTryOnOutfit);
+                        setShowTryOnModal(true);
+                      }}
+                    >
+                      Try On Avatar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-5 overflow-hidden">
+                  {/* Left: Photo selection */}
+                  <div className="border rounded-xl p-4 overflow-auto">
+                    <h3 className="font-medium mb-2">1) Your full-body photo</h3>
+
+                    {selfPhotoPreview ? (
+                      <div className="relative">
+                        <img
+                          src={resolveImgSrc(selfPhotoPreview || '')}
+                          alt="Your try-on photo"
+                          className="w-full max-h-80 object-contain rounded-lg border"
+                        />
+                        <div className="flex gap-2 mt-3">
+                          <label className="px-3 py-1.5 border rounded-full cursor-pointer hover:bg-gray-50">
+                            Replace Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={handlePickPhoto}
+                            />
+                          </label>
+                          <button
+                            disabled={isUploadingPhoto}
+                            onClick={saveTryOnPhoto}
+                            className="px-3 py-1.5 rounded-full bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60"
+                          >
+                            {isUploadingPhoto ? 'Saving…' : 'Save as My Try-On Photo'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-dashed rounded-lg p-6 text-center">
+                        <p className="text-gray-600 mb-3">No photo yet. Upload or take one:</p>
+                        <label className="inline-block px-4 py-2 border rounded-full cursor-pointer hover:bg-gray-50">
+                          Choose Photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handlePickPhoto}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-xs text-gray-500">
+                      Tip: Stand straight, good lighting, no occlusions. Face & shoes visible if possible.
+                    </div>
+
+                    {credits && (
+                      <div className="mt-4 text-sm text-gray-600">
+                        <span className="font-medium">Credits:</span> {credits.total} total
+                        <span className="mx-2">•</span> sub: {credits.subscription}
+                        <span className="mx-2">•</span> on-demand: {credits.on_demand}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Generate & result */}
+                  <div className="border rounded-xl p-4 overflow-auto">
+                    <h3 className="font-medium mb-2">2) Generate</h3>
+
+                    {/* Progress */}
+                    <div className="mb-3">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-600 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{progressLabel}</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={startGeneration}
+                        disabled={!storedTryOnPhoto || isGenerating}
+                        className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 disabled:opacity-60"
+                      >
+                        {isGenerating ? 'Generating…' : 'Try On Outfit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFinalImageUrl(null);
+                          setStepImages([]);
+                          setProgress(0);
+                          setProgressLabel('Ready');
+                        }}
+                        className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+
+                    {/* Result */}
+                    {finalImageUrl ? (
+                      <div className="space-y-3">
+                        <img
+                          src={resolveImgSrc(finalImageUrl)}
+                          alt="Final try-on"
+                          className="w-full max-h-[520px] object-contain rounded-lg border"
+                        />
+                        {stepImages?.length > 1 && (
+                          <div>
+                            <div className="text-sm text-gray-600 mb-1">Construction (step-by-step)</div>
+                            <div className="flex flex-wrap gap-2">
+                              {stepImages.map((s, idx) => (
+                                <img
+                                  key={idx}
+                                  src={resolveImgSrc(s)}
+                                  alt={`Step ${idx + 1}`}
+                                  className="w-24 h-24 object-contain rounded border"
+                                  title={`Step ${idx + 1}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click <span className="font-medium">Try On Outfit</span> to generate your image. We’ll apply the outfit piece by piece and return the final composite.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Last Try-On */}
+        <AnimatePresence>
+          {showSelfPreviewModal && selfPreviewUrl && selfTryOnOutfit && (
+            <motion.div
+              className="fixed inset-0 z-[115] flex items-center justify-center bg-black/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSelfPreviewModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-xl p-4 w-[min(95vw,900px)]"
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Last Try-On</h3>
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {selfPreviewDate && (
+                  <div className="text-xs text-gray-500 mb-2">Generated: {selfPreviewDate}</div>
+                )}
+
+                <img
+                  src={resolveImgSrc(selfPreviewUrl)}
+                  alt="Cached try-on"
+                  className="w-full max-h-[70vh] object-contain rounded border"
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => setShowSelfPreviewModal(false)}
+                    className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSelfPreviewModal(false);
+                      openSelfTryOn(selfTryOnOutfit); 
+                    }}
+                    className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
+                  >
+                    Generate Again
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Item Details Modal */}
+        <AnimatePresence>
+          {activeDetailsItem && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl
+            w-[85vw] sm:w-[70vw] max-w-sm p-4 sm:p-5"
+              >
+                {/* close */}
+                <button
+                  onClick={() => setActiveDetailsItem(null)}
+                  className="absolute top-3 right-3 text-gray-700 dark:text-gray-200 hover:text-black bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 rounded-full p-2 z-20"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* favourite (top-left) */}
+                <button
+                  onClick={() => onToggleFavourite(activeDetailsItem, 'items')}
+                  className="absolute top-3 left-3 z-20"
+                  aria-label={activeDetailsItem.favourite ? 'Unfavourite item' : 'Favourite item'}
+                >
+                  <Heart
+                    className={`w-5 h-5 sm:w-6 sm:h-6 transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-300'
+                      }`}
+                  />
+                </button>
+
+                {/* image */}
+                <div className="flex justify-center mb-3">
+                  <img
+                    src={activeDetailsItem.image}
+                    alt={activeDetailsItem.name}
+                    className="max-h-56 sm:max-h-64 object-contain rounded-lg bg-white"
+                  />
+                </div>
+
+                {/* info */}
+                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                  <div><span className="font-semibold">Name:</span> {toSentenceCase(activeDetailsItem.name)}</div>
+                  <div><span className="font-semibold">Layer:</span> {activeDetailsItem.layerCategory || '—'}</div>
+                  <div><span className="font-semibold">Style:</span> {activeDetailsItem.style || '—'}</div>
+                  <div><span className="font-semibold">Material:</span> {activeDetailsItem.material || '—'}</div>
+                  <div><span className="font-semibold">Warmth:</span> {typeof activeDetailsItem.warmthFactor === 'number' ? activeDetailsItem.warmthFactor : '—'}</div>
+                  <div><span className="font-semibold">Waterproof:</span> {activeDetailsItem.waterproof ? 'Yes' : 'No'}</div>
+                  <div><span className="font-semibold">Added:</span> {prettyDate(activeDetailsItem.createdAt)}</div>
+
+                  {/* colors */}
+                  <div className="pt-1">
+                    <div className="font-semibold mb-1">Colors</div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {/* primary color */}
+                      {activeDetailsItem.colorHex && (
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: activeDetailsItem.colorHex }}
+                            title={activeDetailsItem.colorHex}
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-300">{activeDetailsItem.colorHex}</span>
+                        </div>
+                      )}
+
+                      {/* extracted dominant colors */}
+                      {(activeDetailsItem.dominantColors || []).slice(0, 12).map((hex) => (
+                        <div key={hex} className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: hex }}
+                            title={hex}
+                          />
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">{hex}</span>
+                        </div>
+                      ))}
+
+                      {!activeDetailsItem.colorHex && (!activeDetailsItem.dominantColors || activeDetailsItem.dominantColors.length === 0) && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">No colors detected</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* actions */}
+                <div className="flex justify-end gap-2 pt-5">
+                  <button
+                    onClick={() => {
+                      setItemToEdit({ ...activeDetailsItem, tab: 'items' });
+                      setEditedCategory(activeDetailsItem.category);
+                      setEditedColorHex(activeDetailsItem.colorHex || '');
+                      setEditedWarmthFactor(activeDetailsItem.warmthFactor || 0);
+                      setEditedWaterproof(!!activeDetailsItem.waterproof);
+                      setEditedStyle(activeDetailsItem.style || '');
+                      setEditedMaterial(activeDetailsItem.material || '');
+                      setShowEditModal(true);
+                      setActiveDetailsItem(null);
                     }}
                     className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
                   >
@@ -1232,11 +1643,11 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                   </button>
                   <button
                     onClick={() => {
-                      setItemToRemove({ id: activeDetailsOutfit!.id, tab: 'outfits', name: 'Outfit' });
+                      setItemToRemove({ id: activeDetailsItem.id, tab: 'items', name: activeDetailsItem.name });
                       setShowModal(true);
-                      setActiveDetailsOutfit(null);
+                      setActiveDetailsItem(null);
                     }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
+                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600"
                   >
                     Delete
                   </button>
@@ -1245,50 +1656,47 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
             </motion.div>
           )}
         </AnimatePresence>
-        {/* Remove Confirmation */}
-        <AnimatePresence>
-          {showModal && itemToRemove && (
-            <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
+
+          {/* Remove Confirmation (HomePage style) */}
+          <AnimatePresence>
+            {showModal && itemToRemove && (
               <motion.div
-                className="bg-white p-6 rounded-lg z-60 relative"
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.9 }}
+                className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
               >
-                <p className="mb-4">Remove “{itemToRemove.name}”?</p>
-                <div className="flex justify-end gap-2">
-                  <button onClick={cancelRemove} className="px-4 py-2 bg-gray-200 rounded-full">
-                    Cancel
-                  </button>
-                  <button onClick={confirmRemove} className="px-4 py-2 bg-red-500 text-white rounded-full">
-                    Remove
-                  </button>
-                </div>
+                <motion.div
+                  className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative"
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.95 }}
+                >
+                  <h3 className="text-lg font-semibold">Delete From Closet</h3>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    Are you sure you want to delete this?
+                  </p>
+
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      onClick={cancelRemove}
+                      className="px-4 py-2 rounded-full border border-black dark:border-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmRemove}
+                      className="px-4 py-2 rounded-full bg-red-500 text-white"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-        {/* Preview Overlay */}
-        <AnimatePresence>
-          {previewImage && (
-            <motion.div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
-              <motion.img src={previewImage} alt="" className="max-w-3/4 max-h-3/4 object-contain" />
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="absolute top-4 right-4 text-white bg-gray-800 p-2 rounded-full"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+        
         {/* Edit Modal */}
         <AnimatePresence>
           {showEditModal && itemToEdit && (
@@ -1313,9 +1721,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                   <label className="text-sm font-medium">Layer</label>
                   <select
                     value={itemToEdit.layerCategory || ""}
-                    onChange={e =>
-                      setItemToEdit(prev => prev && { ...prev, layerCategory: e.target.value })
-                    }
+                    onChange={e => setItemToEdit(prev => prev && { ...prev, layerCategory: e.target.value })}
                     className="w-full border-black rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
                   >
                     {LAYER_OPTIONS.map(o => (
@@ -1328,17 +1734,17 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Category</label>
                   <select
-                    value={editedCategory}
-                    onChange={e => setEditedCategory(e.target.value)}
-                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  >
-                    <option value="">Select Category</option>
-                    {itemToEdit.layerCategory &&
-                      CATEGORY_BY_LAYER[itemToEdit.layerCategory].map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))
-                    }
-                  </select>
+  value={editedCategory}
+  onChange={e => setEditedCategory(e.target.value)}
+  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+>
+  <option value="">Select Category</option>
+  {itemToEdit.layerCategory &&
+    (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
+      <option key={o.value} value={o.value}>{o.label}</option>
+    ))
+  }
+</select>
                 </div>
 
                 {/* Style & Material */}
@@ -1405,8 +1811,7 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
                         title={c.label}
                         type="button"
                         onClick={() => setEditedColorHex(c.hex)}
-                        className={`w-7 h-7 rounded-full border-2 transition 
-                  ${editedColorHex === c.hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}`}
+                        className={`w-7 h-7 rounded-full border-2 transition ${editedColorHex === c.hex ? "border-teal-500 scale-110 shadow-lg" : "border-gray-300"}`}
                         style={{ backgroundColor: c.hex }}
                       />
                     ))}
@@ -1436,197 +1841,47 @@ const fetchSavedOutfits = async (): Promise<any[]> => {
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {deleteError && (
-            <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <motion.div
-                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-80 text-center"
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.9 }}
-              >
-                <h2 className="text-lg font-livvic text-red-600 mb-3"> Item is apart of an existing outfit!</h2>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{deleteError}</p>
-                <button
-                  onClick={() => setDeleteError(null)}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full"
-                >
-                  OK
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {activeDetailsItem && (
-            <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <motion.div
-                initial={{ scale: 0.95 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-sm md:max-w-md p-6 relative flex flex-col gap-4"
-              >
-                {/* Close button */}
-                <button
-                  onClick={() => setActiveDetailsItem(null)}
-                  className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-20"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-                {/* Favourite */}
-                <Heart
-                  className={`absolute top-3 left-3 w-6 h-6 cursor-pointer transition ${activeDetailsItem.favourite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                  onClick={() => toggleFavourite(activeDetailsItem, 'items')}
-                />
-                {/* Image */}
-                <div className="w-full flex justify-center">
-                  <img
-                    src={activeDetailsItem.image}
-                    alt={activeDetailsItem.name}
-                    className="w-40 h-40 object-contain rounded-lg shadow"
-                  />
-                </div>
-
-                {/* Item details */}
-                <div className="space-y-2 text-gray-700 text-base">
-                  <div><span className="font-semibold">Category:</span> {activeDetailsItem.category}</div>
-                  <div><span className="font-semibold">Style:</span> {activeDetailsItem.style}</div>
-                  <div><span className="font-semibold">Material:</span> {activeDetailsItem.material}</div>
-
-                  <div>
-                    <span className="font-semibold">Dominant Colors:</span>
-                    {activeDetailsItem.dominantColors?.length
-                      ? activeDetailsItem.dominantColors.map((c, i) => (
-                        <span key={i}
-                          className="inline-block w-4 h-4 rounded-full mx-1 border"
-                          style={{ background: c }} />
-                      ))
-                      : "—"}
-                  </div>
-                  <div><span className="font-semibold">Warmth Factor:</span> {activeDetailsItem.warmthFactor}/10</div>
-                  <div><span className="font-semibold">Waterproof:</span> {activeDetailsItem.waterproof ? "Yes" : "No"}</div>
-                  {/* <pre>{JSON.stringify(activeDetailsItem, null, 2)}</pre> */}
-                </div>
-
-                {/* Edit/Delete actions */}
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => {
-                      setItemToEdit({ ...activeDetailsItem, tab: 'items' });
-                      setEditedCategory(activeDetailsItem.category);
-                      setEditedColorHex(activeDetailsItem.colorHex || '');
-                      setEditedWarmthFactor(activeDetailsItem.warmthFactor || 0);
-                      setEditedWaterproof(activeDetailsItem.waterproof || false);
-                      setEditedStyle(activeDetailsItem.style || '');
-                      setEditedMaterial(activeDetailsItem.material || '');
-                      setShowEditModal(true);
-                      setActiveDetailsItem(null); // Close details modal
-                    }}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setItemToRemove({ id: activeDetailsItem.id, tab: 'items', name: activeDetailsItem.name });
-                      setShowModal(true);
-                      setActiveDetailsItem(null);
-                    }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {showEditSuccess && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-              <h2 className="text-xl font-livvic mb-2 text-gray-900 dark:text-gray-100">
-                Saved Successfully!
-              </h2>
-              <p className="mb-6 text-gray-700 dark:text-gray-300">
-                Changes have been saved.
-              </p>
-              <button
-                onClick={() => setShowEditSuccess(false)}
-                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
-        
         {editingOutfit && (
-          <EditOutfitModal
-            outfitId={editingOutfit.id}
-            initialStyle={editingOutfit.overallStyle}
-            initialRating={editingOutfit.userRating}
-            initialItems={editingOutfit.outfitItems.map(it => ({
-              closetItemId: it.closetItemId,
-              layerCategory: it.layerCategory,
-              imageUrl: it.imageUrl,
-              category: it.category,
-            }))}
-            onClose={() => setEditingOutfit(null)}
-            onSaved={(updated) => {
-              // Merge server response back into local state
-              setOutfits(prev =>
-                prev.map(o => (o.id === updated.id
-                  ? {
-                    ...o,
-                    overallStyle: updated.overallStyle,
-                    userRating: updated.userRating ?? o.userRating,
-                    // normalize imageUrl (same as fetchAllOutfits normalization)
-                    outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                      closetItemId: it.closetItemId,
-                      layerCategory: it.layerCategory,
-                      imageUrl: it.imageUrl && it.imageUrl.length > 0
-                          ? it.imageUrl
-                          : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
-                      category: it?.closetItem?.category ?? it.category,
-                    })),
-                  }
-                  : o))
-              );
-            }}
-          />
-        )}
-
+  <EditOutfitModal
+    outfitId={editingOutfit.id}
+    initialStyle={editingOutfit.overallStyle}
+    initialRating={editingOutfit.userRating}
+    initialItems={editingOutfit.outfitItems.map(it => ({
+      closetItemId: it.closetItemId,
+      layerCategory: it.layerCategory,
+      imageUrl: it.imageUrl,
+      category: toSentenceCase(it.category),
+    }))}
+    onClose={() => setEditingOutfit(null)}
+    onSaved={(updated) => {
+      setOutfits(prev =>
+        prev.map(o =>
+          o.id === updated.id
+            ? {
+              ...o,
+              overallStyle: updated.overallStyle,
+              userRating: updated.userRating ?? o.userRating,
+              outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                closetItemId: it.closetItemId,
+                layerCategory: it.layerCategory,
+                imageUrl:
+                  it.imageUrl && it.imageUrl.length > 0
+                    ? it.imageUrl
+                    : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
+                category: it?.closetItem?.category ?? it.category,
+              })),
+            }
+            : o
+        )
+      );
+      showToast('Outfit updated successfully.');
+    }}
+  />
+)}
       </div>
 
-      {/* Global popup (same look & feel as Add/Calendar pages) */}
-      {popup.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-lg">
-            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              {popup.variant === 'success' ? '🎉 Success! 🎉' : '⚠️ Error'}
-            </h2>
-            <p className="mb-6 text-gray-700 dark:text-gray-300">{popup.message}</p>
-            <button
-              onClick={() => setPopup(p => ({ ...p, open: false }))}
-              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-semibold transition"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
+      {toast ? <Toast message={toast.msg} /> : null}
+
     </div>
   );
 }

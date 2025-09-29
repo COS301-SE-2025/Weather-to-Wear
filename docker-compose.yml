@@ -1,4 +1,3 @@
-version: "3.8"
 
 services:
   backend:
@@ -11,7 +10,6 @@ services:
       POSTGRES_USER: weatheruser
       POSTGRES_PASSWORD: weatherpass
       POSTGRES_DB: weatherdb
-      BG_REMOVAL_URL: http://bg-removal:8000/remove-bg
       COLOR_EXTRACT_URL: http://color-picker:8002/extract-colors   
     env_file:
       - ./app-backend/.env

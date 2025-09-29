@@ -1,3 +1,4 @@
+// src/modules/auth/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import { validatePassword } from './auth.utils';
 import jwt from 'jsonwebtoken';
@@ -13,23 +14,48 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
 
-
-export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function authenticateToken(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Expecting: Bearer <token>
+  
+  if (!authHeader) {
+    res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
+    return;
+  }
 
-  if (!token) {
-    res.status(401).json({ error: 'Missing token' });
+  // Check if the header starts with "Bearer "
+  if (!authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
+    return;
+  }
+
+  // Extract the token (everything after "Bearer ")
+  const token = authHeader.substring(7); // "Bearer ".length = 7
+
+  if (!token || token.trim() === '') {
+    res.status(401).json({ code: 'NO_TOKEN', error: 'Missing token' });
     return;
   }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      res.status(403).json({ error: 'Invalid token' });
+      if ((err as any)?.name === 'TokenExpiredError') {
+        res.setHeader('X-Session-Expired', 'true');
+        res.status(401).json({
+          code: 'SESSION_EXPIRED',
+          error: 'Your session has expired. Please sign in again.',
+        });
+        return;
+      }
+
+      res.status(401).json({ code: 'INVALID_TOKEN', error: 'Invalid token' });
       return;
     }
 
-    req.user = decoded as AuthUser; 
+    req.user = decoded as AuthUser;
     next();
   });
 }

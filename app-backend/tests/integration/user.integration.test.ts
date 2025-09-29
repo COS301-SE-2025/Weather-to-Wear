@@ -8,11 +8,17 @@ import path from "path";
 // --- Mock S3 utils used by users.controller ---
 // (Must match the import path used in the app code.)
 jest.mock("../../src/utils/s3", () => {
-  const mod = {
+  return {
     cdnUrlFor: (key: string) => `https://cdn.test/${key}`,
     uploadBufferToS3: jest.fn().mockResolvedValue(undefined),
+    putBufferSmart: jest.fn().mockImplementation(({ key }: { key: string }) => {
+      const publicUrl = `https://cdn.test/${key || 'mock-key'}`;
+      return Promise.resolve({
+        key: key || 'mock-key',
+        publicUrl: publicUrl
+      });
+    }),
   };
-  return mod;
 });
 import * as s3 from "../../src/utils/s3";
 
@@ -161,7 +167,7 @@ describe("Auth Integration Tests", () => {
         .delete(`/api/auth/users/${userId}`)
         .set("Authorization", "Bearer badtoken");
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
       expect(res.body.error).toMatch(/invalid token/i);
     });
 
@@ -233,6 +239,7 @@ describe("Users Controller Integration", () => {
     beforeEach(() => {
       // clear mock call history each test
       (s3.uploadBufferToS3 as jest.Mock).mockClear();
+      (s3.putBufferSmart as jest.Mock).mockClear();
     });
 
     it("requires auth", async () => {
@@ -268,10 +275,9 @@ describe("Users Controller Integration", () => {
       expect(res.body.user).toHaveProperty("profilePhoto");
 
       // Ensure our mocked S3 uploader was called
-      expect(s3.uploadBufferToS3).toHaveBeenCalledTimes(1);
-      const call = (s3.uploadBufferToS3 as jest.Mock).mock.calls[0][0];
-      // Bucket should come from env
-      expect(call.bucket).toBe(process.env.S3_BUCKET_NAME);
+      expect(s3.putBufferSmart).toHaveBeenCalledTimes(1);
+      const call = (s3.putBufferSmart as jest.Mock).mock.calls[0][0];
+      // Check the key pattern
       expect(call.key).toMatch(new RegExp(`^users/${user.id}/profile/`));
       expect(call.contentType).toMatch(/image\/png/);
 
@@ -286,11 +292,19 @@ describe("Users Controller Integration", () => {
 
     it("handles unexpected field name with multer error", async () => {
       const { token } = await signupUser();
+      
+      // Suppress console.error for this expected error
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+      
       const res = await request(app)
         .patch("/api/users/me/profile-photo")
         .set("Authorization", `Bearer ${token}`)
         // field name must be 'image' per router; send 'file' to simulate mistake
         .attach("file", Buffer.from("fake"), "avatar.png");
+
+      // Restore console.error
+      console.error = originalConsoleError;
 
       // Multer throws 500 for unexpected field, handled by global error handler
       expect(res.status).toBe(500);
@@ -307,7 +321,7 @@ describe("Users Controller Integration", () => {
       expect(res.status).toBe(200);
       expect(res.body.user.profilePhoto).toMatch(new RegExp(`^https://cdn\\.test/users/${user.id}/profile/`));
 
-      const call = (s3.uploadBufferToS3 as jest.Mock).mock.calls.pop()[0];
+      const call = (s3.putBufferSmart as jest.Mock).mock.calls.pop()[0];
       expect(call.contentType).toMatch(/image\/jpeg/);
       expect(call.key).toMatch(/\.jpg$/);
     });

@@ -1,14 +1,12 @@
 // src/modules/social/social.controller.ts
-
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import socialService from './social.service';
-import prisma from "../../prisma";
+import { PrismaClient } from '@prisma/client';
 
-import { cdnUrlFor, uploadBufferToS3 } from '../../utils/s3';
 import { randomUUID } from 'crypto';
-import path from 'path';
 import fs from 'fs/promises';
+import { putBufferSmart } from '../../utils/s3';
 
 function extFromMime(m: string) {
   if (m === 'image/png') return '.png';
@@ -24,36 +22,7 @@ async function fileBuffer(f: Express.Multer.File): Promise<Buffer> {
 }
 
 class SocialController {
-  // createPost = async (
-  //   req: Request,
-  //   res: Response,
-  //   next: NextFunction
-  // ): Promise<void> => {
-  //   try {
-  //     const { user } = req as AuthenticatedRequest;
-  //     if (!user?.id) {
-  //       res.status(401).json({ message: 'Unauthorized' });
-  //       return;
-  //     }
-
-  //     const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
-
-  //     const { caption, location, closetItemId, weather } = req.body;
-  //     const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
-
-  //     const post = await socialService.createPost(user.id, {
-  //       imageUrl,
-  //       caption,
-  //       location,
-  //       weather: weatherData,
-  //       closetItemId,
-  //     });
-
-  //     res.status(201).json({ message: 'Post created successfully', post });
-  //   } catch (err) {
-  //     next(err);
-  //   }
-  // };
+  private prisma = new PrismaClient();
 
   createPost = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -65,17 +34,22 @@ class SocialController {
         const ext = extFromMime(req.file.mimetype);
         const key = `users/${user.id}/posts/${Date.now()}-${randomUUID()}${ext}`;
         const body = await fileBuffer(req.file);
-        await uploadBufferToS3({
-          bucket: process.env.S3_BUCKET_NAME!,
+        const { publicUrl } = await putBufferSmart({
           key,
           contentType: req.file.mimetype || 'application/octet-stream',
           body,
         });
-        imageUrl = cdnUrlFor(key);
+        imageUrl = publicUrl;
       }
 
-      const { caption, location, closetItemId, weather } = req.body;
+      const { caption, location, closetItemId, closetItemIds, weather } = req.body;
       const weatherData = typeof weather === 'string' ? JSON.parse(weather) : weather;
+      
+      // Parse closetItemIds if it's a string
+      let parsedClosetItemIds: string[] | undefined;
+      if (closetItemIds) {
+        parsedClosetItemIds = typeof closetItemIds === 'string' ? JSON.parse(closetItemIds) : closetItemIds;
+      }
 
       const post = await socialService.createPost(user.id, {
         imageUrl,
@@ -83,6 +57,7 @@ class SocialController {
         location,
         weather: weatherData,
         closetItemId,
+        closetItemIds: parsedClosetItemIds,
       });
 
       res.status(201).json({ message: 'Post created successfully', post });
@@ -91,8 +66,7 @@ class SocialController {
     }
   };
 
-
-  getPosts = async (
+ getPosts = async (
     req: Request,
     res: Response,
     next: NextFunction
@@ -169,39 +143,77 @@ class SocialController {
     next: NextFunction
   ): Promise<void> => {
     try {
+      console.log(`Delete post request received for post: ${req.params.id}`);
       const { user } = req as AuthenticatedRequest;
       if (!user?.id) {
+        console.log('Unauthorized delete post attempt - no user ID');
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
 
       const { id } = req.params;
+      if (!id) {
+        console.log('Invalid post ID provided');
+        res.status(400).json({ message: 'Invalid post ID' });
+        return;
+      }
+      
+      console.log(`Processing delete request for post ${id} by user ${user.id}`);
 
-      await socialService.deletePost(id, user.id);
-
-      res.status(200).json({ message: 'Post deleted successfully' });
+      try {
+        await socialService.deletePost(id, user.id);
+        console.log(`Post ${id} successfully deleted`);
+        res.status(200).json({ message: 'Post deleted successfully' });
+      } catch (serviceErr: any) {
+        console.error(`Error in social service deletePost:`, serviceErr);
+        
+        if (serviceErr.message.includes('not found')) {
+          res.status(404).json({ message: 'Post not found' });
+        } else if (serviceErr.message.includes('Forbidden')) {
+          res.status(403).json({ message: 'You do not have permission to delete this post' });
+        } else if (serviceErr.code === 'P2003') {
+          // Prisma foreign key constraint error
+          console.error('Foreign key constraint error:', serviceErr);
+          res.status(500).json({ message: 'Cannot delete post because it is referenced by other records' });
+        } else {
+          res.status(500).json({ message: 'An error occurred while deleting the post' });
+        }
+      }
     } catch (err) {
-      next(err);
+      console.error(`Unexpected error in deletePost controller:`, err);
+      res.status(500).json({ message: 'An unexpected error occurred' });
     }
   };
+
   addComment = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      console.log("Comment request received:", { 
+        postId: req.params.postId,
+        userId: (req as AuthenticatedRequest).user?.id,
+        contentLength: req.body?.content?.length || 0
+      });
+      
       const { user } = req as AuthenticatedRequest;
       const { postId } = req.params;
       const { content } = req.body;
 
       if (!user?.id) {
+        console.log("Unauthorized: No user ID in request");
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
       if (!content) {
+        console.log("Bad request: No content provided");
         res.status(400).json({ message: 'Content is required' });
         return;
       }
 
+      console.log("Calling social service addComment...");
       const comment = await socialService.addComment(postId, user.id, content);
+      console.log("Comment created successfully:", comment.id);
       res.status(201).json({ message: 'Comment added successfully', comment });
     } catch (err: any) {
+      console.error("Error in addComment controller:", err);
       if (err.message === 'Post not found') {
         res.status(404).json({ message: err.message });
         return;
@@ -214,27 +226,51 @@ class SocialController {
     }
   };
 
-  getCommentsForPost = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { postId } = req.params;
-      const { limit = 20, offset = 0, include = '' } = req.query;
-      const includeArr = typeof include === 'string' ? include.split(',') : [];
+  async getCommentsForPost(
+    postId: string,
+    limit: number,
+    offset: number,
+    includeArr: string[]
+  ) {
+    // ensure post exists
+const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new Error("Post not found");
 
-      const comments = await socialService.getCommentsForPost(
-        postId,
-        Number(limit),
-        Number(offset),
-        includeArr
-      );
-      res.status(200).json({ message: 'Comments retrieved successfully', comments });
-    } catch (err: any) {
-      if (err.message === 'Post not found') {
-        res.status(404).json({ message: err.message });
-        return;
-      }
-      next(err);
-    }
-  };
+    return this.prisma.comment.findMany({
+      where: { postId },
+      skip: offset,
+      take: limit,
+      include: {
+        user: includeArr.includes("user"),
+        post: includeArr.includes("post"),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // in SocialController
+
+getCommentsForPostHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { postId } = req.params;
+    const { limit = 20, offset = 0, include = '' } = req.query;
+    const includeArr = typeof include === 'string' ? include.split(',') : [];
+
+    // call the existing prisma method
+    const comments = await this.getCommentsForPost(
+      postId,
+      Number(limit),
+      Number(offset),
+      includeArr
+    );
+
+    res.status(200).json({ message: 'Comments retrieved successfully', comments });
+  } catch (err: any) {
+    if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
+    next(err);
+  }
+};
+
 
   updateComment = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -294,14 +330,13 @@ class SocialController {
   likePost = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
-      const { postId } = req.params;
       if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
 
+      const { postId } = req.params;
       const like = await socialService.likePost(postId, user.id);
-      res.status(201).json({ message: "Post liked successfully", like });
-    } catch (err: any) {
-      if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
-      if (err.message === 'User already liked this post') return res.status(400).json({ message: err.message });
+
+      res.status(201).json({ message: 'Post liked successfully', like });
+    } catch (err) {
       next(err);
     }
   };
@@ -309,91 +344,124 @@ class SocialController {
   unlikePost = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user } = req as AuthenticatedRequest;
-      const { postId } = req.params;
       if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
 
+      const { postId } = req.params;
       await socialService.unlikePost(postId, user.id);
-      res.status(200).json({ message: "Post unliked successfully" });
-    } catch (err: any) {
-      if (err.message === 'Like not found') return res.status(404).json({ message: err.message });
+
+      res.status(200).json({ message: 'Post unliked successfully' });
+    } catch (err) {
       next(err);
     }
   };
 
-  getLikesForPost = async (req: Request, res: Response, next: NextFunction) => {
+  async getLikesForPost(
+    postId: string,
+    limit: number,
+    offset: number,
+    includeUser: boolean
+  ) {
+    // ensure post exists
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new Error("Post not found");
+
+    return this.prisma.like.findMany({
+      where: { postId },
+      skip: offset,
+      take: limit,
+      include: includeUser ? { user: true } : undefined,
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // followUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  //   try {
+  //     if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+  //     const follow = await socialService.followUser(req.user.id, req.params.userId);
+  //     res.status(201).json({ message: 'Follow request sent', follow });
+  //   } catch (err) {
+  //     next(err);
+  //   }
+  // };
+
+  followUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    const follow = await socialService.followUser(req.user.id, req.params.userId);
+
+    // Explicitly include status so frontend can decide "Following" vs "Requested"
+    res.status(201).json({
+      message: "Follow request processed",
+      follow: {
+        id: follow.id,
+        followerId: follow.followerId,
+        followingId: follow.followingId,
+        status: follow.status,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+  unfollowUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const { postId } = req.params;
-      const { limit = 20, offset = 0, include } = req.query;
-      const includeUser = (include as string)?.split(',').includes('user');
-      const likes = await socialService.getLikesForPost(postId, Number(limit), Number(offset), includeUser);
-      res.status(200).json({ message: "Likes retrieved successfully", likes });
-    } catch (err: any) {
-      if (err.message === 'Post not found') return res.status(404).json({ message: err.message });
-      next(err);
-    }
-  };
-
-  followUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { user } = req as AuthenticatedRequest;
-      const { userId } = req.params;
-      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
-
-      const follow = await socialService.followUser(user.id, userId);
-      res.status(200).json({ message: 'User followed successfully', follow });
-    } catch (err: any) {
-      if (err.message === 'You cannot follow yourself' || err.message === 'Already following this user') {
-        return res.status(400).json({ message: err.message });
-      }
-      if (err.message === 'User not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      next(err);
-    }
-  };
-
-  unfollowUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { user } = req as AuthenticatedRequest;
-      const { userId } = req.params;
-      if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
-
-      await socialService.unfollowUser(user.id, userId);
+      if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+      await socialService.unfollowUser(req.user.id, req.params.userId);
       res.status(200).json({ message: 'User unfollowed successfully' });
-    } catch (err: any) {
-      if (err.message === 'Follow relationship not found') {
-        return res.status(404).json({ message: err.message });
-      }
+    } catch (err) {
       next(err);
     }
   };
 
   getFollowers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { userId } = req.params;
-      const { limit = 20, offset = 0 } = req.query;
-
-      const followers = await socialService.getFollowers(userId, Number(limit), Number(offset));
-      res.status(200).json({ message: 'Followers retrieved successfully', followers });
-    } catch (err: any) {
-      if (err.message === 'User not found') {
-        return res.status(404).json({ message: err.message });
-      }
+      const followers = await socialService.getFollowers(req.params.userId);
+      res.status(200).json({ followers });
+    } catch (err) {
       next(err);
     }
   };
 
   getFollowing = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { userId } = req.params;
-      const { limit = 20, offset = 0 } = req.query;
+      const following = await socialService.getFollowing(req.params.userId);
+      res.status(200).json({ following });
+    } catch (err) {
+      next(err);
+    }
+  };
 
-      const following = await socialService.getFollowing(userId, Number(limit), Number(offset));
-      res.status(200).json({ message: 'Following users retrieved successfully', following });
-    } catch (err: any) {
-      if (err.message === 'User not found') {
-        return res.status(404).json({ message: err.message });
-      }
+ getNotifications = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    const notifications = await socialService.getNotifications(req.user.id);
+    res.status(200).json({ notifications });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+  acceptFollowRequest = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+      const updated = await socialService.acceptFollowRequest(req.user.id, req.params.followId);
+      res.status(200).json({ message: 'Follow request accepted', follow: updated });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  rejectFollowRequest = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+      const removed = await socialService.rejectFollowRequest(req.user.id, req.params.followId);
+      res.status(200).json({ message: 'Follow request rejected', follow: removed });
+    } catch (err) {
       next(err);
     }
   };
@@ -428,9 +496,6 @@ class SocialController {
       next(err);
     }
   };
-
-
-
 }
 
 export default new SocialController();

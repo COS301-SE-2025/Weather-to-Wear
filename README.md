@@ -48,15 +48,18 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [Software Requirements Specification Document](https://drive.google.com/file/d/1U083rgOyIj0SYvtvvNEAVmJ_hiqZszTE/view?usp=sharing)     | Details on project requirements            |
-| [Architectural Requirements Document](https://drive.google.com/file/d/1NRUk_FsZobefiOehOOLIMRQJpB7K2T5F/view?usp=sharing)             | System design overview                     |
-| [Coding Standards Document](https://drive.google.com/file/d/1-GVhvXCzHwzrMyoxF0nbIiW-RsiMfJ3S/view?usp=sharing)           |  Guidelines for writing code      |
-| [User Manual](https://drive.google.com/file/d/1VcYgjySl7maCwzJXc20XVbOpQpQ7bmmB/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
-| [Use-Case Diagrams](https://drive.google.com/file/d/1J8guwOLnyf0yeS8Seb1SW4_17_MRY2PO/view?usp=sharing)                   | Use Case Diagrams               |
+| [Architectural Requirements Document](https://drive.google.com/file/d/1eFGHK3_sefOQkad6DRKjER63mKK0wnNt/view?usp=drive_link)             | System design overview                     |
+| [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
+| [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
+| [User Manual]()           |  Guidelines for using Weather To Wear      |
+| [Service Contracts](https://drive.google.com/file/d/1KG_b2IHcPWZOfn3m-_Taj5A1m9nEpQVo/view?usp=drive_link)           |  Service contracts for Weather to Wear     |
+| [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
+| [Deployment Model](https://drive.google.com/file/d/1eiw_zUMCsmGaZwp1r7FcGcFyeVBZ4Pp4/view?usp=drive_link)                   | Description of Deployment Model                |
+| [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
+| [Software Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
+| [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
 | [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
-| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Project-Board)                                                           | Team organisation and progress tracking    |
-| [Git and GitHub Standards](https://drive.google.com/file/d/1sAcW-bNa4szmS_0Ff-vWiEi-2TF57S6p/view?usp=sharing)                        | Guidelines for using Git and GitHub               |
-| [Deployment Diagram](https://drive.google.com/file/d/1BBB1pN3eXfr2grslP9WU_jZRM8dDGzgy/view?usp=sharing)                   | Plan for project deployment                |
+| [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
 
@@ -68,7 +71,8 @@ while expressing their unique fashion sense.
 | Demo                        | Video | Slides |
 |---------------------------------|---------------------------------|---------------------------------|
 | Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
-| Demo 2 | [Demo 2 Video]() | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
+| Demo 2 | [Demo 2 Video](https://drive.google.com/file/d/1KGmEKBSlrwvg-jyh0UD6E8v92oZqQfoY/view?usp=sharing) | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
+| Demo 3 | [Demo 3 Video]() | [Demo 3 Slides]() |
 
 
 </div>

@@ -64,7 +64,7 @@ const TypingSlogan: React.FC<TypingSloganProps> = ({
       aria-live="polite"
     >
       {before}
-      {highlighted && <span className="text-[#3F978F]">{highlighted}</span>}
+      {highlighted && <span className="text-[#FFFFFF]">{highlighted}</span>}
       {after}
       <span className="animate-pulse">|</span>
     </h2>

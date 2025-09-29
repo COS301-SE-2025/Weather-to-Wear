@@ -1,4 +1,3 @@
-// src/pages/postsPage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Settings, MoreHorizontal, X, Heart } from "lucide-react";
 import {
@@ -14,7 +13,6 @@ import { API_BASE } from '../config';
 import { getMe } from "../services/usersApi";
 import { absolutize } from '../utils/url';
 
-// Adjust to your backend origin
 const API_URL = `${API_BASE}`;
 const prefixed = (url: string) =>
     url.startsWith("http") ? url : `${API_URL}${url}`;
@@ -55,14 +53,13 @@ function decodeToken() {
         if (!raw) return null;
         const [, payload] = raw.split(".");
         const json = JSON.parse(atob(payload));
-        return json; // expect { id, name?, profilePhoto? ... }
+        return json; 
     } catch {
         return null;
     }
 }
 
 const PostsPage: React.FC = () => {
-    // ----- auth / current user -----
     const me = useMemo(() => {
         const fromToken = decodeToken();
         try {
@@ -94,17 +91,15 @@ const PostsPage: React.FC = () => {
     const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(me?.profilePhoto ?? null);
 
     async function countFollowers(userId: string): Promise<number> {
-        const page = 50;           // tune as you like
+        const page = 50;           
         let offset = 0;
         let total = 0;
 
-        // loop through all pages
-        // getFollowers(userId, limit, offset) -> { followers: [...] }
         while (true) {
             const res = await getFollowers(userId, page, offset);
             const chunk = res?.followers ?? [];
             total += chunk.length;
-            if (chunk.length < page) break; // last page
+            if (chunk.length < page) break; 
             offset += page;
         }
         return total;
@@ -128,14 +123,12 @@ const PostsPage: React.FC = () => {
     useEffect(() => {
         (async () => {
             try {
-                const { user } = await getMe(); // { id, name, email, profilePhoto, ... }
+                const { user } = await getMe(); 
                 setCurrentUserName(user.name ?? "You");
                 setCurrentUserAvatar(user.profilePhoto ?? null);
 
-                // optional: keep localStorage in sync for other pages
                 localStorage.setItem("user", JSON.stringify(user));
             } catch {
-                // if it fails, we just keep whatever we had (token/localStorage fallback)
             }
         })();
     }, []);
@@ -160,11 +153,10 @@ const PostsPage: React.FC = () => {
     }, [currentUserId]);
 
 
-    // ----- fetch my posts (paged) -----
     const fetchNext = useCallback(async () => {
         if (!currentUserId || inFlightRef.current || !hasMore) return;
 
-        inFlightRef.current = true;       // guard: prevent concurrent runs
+        inFlightRef.current = true;       
         setLoadingMore(true);
 
         try {
@@ -173,7 +165,6 @@ const PostsPage: React.FC = () => {
                 (p: Post) => p.userId === currentUserId
             );
 
-            // de-dupe in case multiple triggers happened
             setPosts(prev => {
                 const seen = new Set(prev.map(p => p.id));
                 const add = batch.filter(p => !seen.has(p.id));
@@ -186,12 +177,11 @@ const PostsPage: React.FC = () => {
             setHasMore(false);
         } finally {
             setLoadingMore(false);
-            inFlightRef.current = false;    // release guard
+            inFlightRef.current = false;    
         }
     }, [currentUserId, offset, hasMore, pageSize]);
 
 
-    // reset when user changes
     useEffect(() => {
         if (!currentUserId) return;
         setPosts([]);
@@ -199,17 +189,14 @@ const PostsPage: React.FC = () => {
         setHasMore(true);
     }, [currentUserId]);
 
-    // kick off first page
     useEffect(() => {
         if (!currentUserId) return;
         fetchNext();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUserId]);
 
-    // infinite scroll
     useEffect(() => {
         const el = sentinelRef.current;
-        if (!el || posts.length === 0) return;  // wait until first page is shown
+        if (!el || posts.length === 0) return;  
 
         const io = new IntersectionObserver(
             entries => {
@@ -223,10 +210,8 @@ const PostsPage: React.FC = () => {
     }, [fetchNext, posts.length]);
 
 
-    // ----- derived counts -----
     const postsCount = posts.length;
 
-    // ----- like toggle inside modal -----
     const isLikedByMe = (post: Post) =>
         (post.likes ?? []).some((l) => l.userId === currentUserId);
 
@@ -234,7 +219,6 @@ const PostsPage: React.FC = () => {
         if (!currentUserId) return;
         const liked = isLikedByMe(post);
 
-        // optimistic update within grid + active modal
         setPosts(prev =>
             prev.map(p =>
                 p.id === post.id
@@ -262,7 +246,6 @@ const PostsPage: React.FC = () => {
             if (liked) await unlikePost(post.id);
             else await likePost(post.id);
         } catch {
-            // revert on failure
             setPosts(prev =>
                 prev.map(p =>
                     p.id === post.id
@@ -274,7 +257,6 @@ const PostsPage: React.FC = () => {
         }
     };
 
-    // ----- comment add (modal) -----
     const handleAddComment = async () => {
         const content = newComment.trim();
         if (!activePost || !content) return;
@@ -302,11 +284,9 @@ const PostsPage: React.FC = () => {
             );
             setNewComment("");
         } catch {
-            // ignore for now
         }
     };
 
-    // ----- small helpers -----
     const visibleComments = (comments?: Comment[], expanded?: boolean) => {
         if (!comments) return [];
         if (expanded) return comments;
@@ -315,22 +295,22 @@ const PostsPage: React.FC = () => {
 
     const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
-    // ----- UI -----
     return (
-        <div className="w-full max-w-screen-xl mx-auto md:px-6 -mt-16 md:-mt-4">
+        <div
+      className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 transition-all duration-700 ease-in-out overflow-x-hidden ml-[calc(-50vw+50%)]"
+    >
             {/* Profile header */}
             <div className="px-4 pt-6 md:pt-10">
                 <div className="flex items-center gap-6">
                     <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
                         {currentUserAvatar ? (
                             <img
-                                // src={prefixed(currentUserAvatar)}
                                 src={absolutize(currentUserAvatar, API_BASE)}
                                 alt={currentUserName}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                     (e.currentTarget as HTMLImageElement).style.display = "none";
-                                    setCurrentUserAvatar(null); // fall back to initial
+                                    setCurrentUserAvatar(null); 
                                 }}
                             />
                         ) : (
@@ -354,7 +334,7 @@ const PostsPage: React.FC = () => {
                         </div>
 
                         <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                            Welcome to my wardrobe & fits ✨
+                            Welcome to my wardrobe & fits 
                         </div>
                     </div>
 
