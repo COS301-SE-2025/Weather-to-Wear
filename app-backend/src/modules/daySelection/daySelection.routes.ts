@@ -32,7 +32,7 @@ router.patch('/:id', authenticateToken, async (req, res, next) => {
 	} catch (err) {
 		next(err);
 	}
-});        // partial updates
+});        
 export default router;
 
 router.delete('/:date', authenticateToken, async (req, res, next) => {

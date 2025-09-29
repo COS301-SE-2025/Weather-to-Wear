@@ -3,7 +3,7 @@
 export interface WeatherCondition {
   minTemp: number;
   maxTemp: number;
-  conditions: string[]; // ["sunny", "rainy", "windy", etc.]
+  conditions: string[];
 }
 
 export interface InspoOutfitRecommendation {
@@ -43,5 +43,5 @@ export interface GenerateInspoRequest {
 
 export interface LikedItem {
   closetItemId: string;
-  tags: string[]; // Extracted from the item (style, category, color, etc.)
+  tags: string[]; 
 }

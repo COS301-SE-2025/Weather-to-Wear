@@ -4,15 +4,14 @@ import path from 'path';
 import closetController from './closet.controller';
 import { upload } from '../../middleware/upload.middleware';
 import { authenticateToken } from '../auth/auth.middleware';
-import { markPerfTest } from '../../middleware/upload.middleware'; // ! perf
+import { markPerfTest } from '../../middleware/upload.middleware'; 
 
 const router = Router();
 
-// protect all closet endpoints with authentication
 router.post(
   '/upload',
   authenticateToken,
-  markPerfTest, // ! perf
+  markPerfTest, 
   upload.single('image'),
   closetController.uploadImage
 );
@@ -20,7 +19,7 @@ router.post(
 router.post(
   '/upload/batch',
   authenticateToken,
-  markPerfTest, // ! perf
+  markPerfTest, 
   upload.any(),
   closetController.uploadImagesBatch
 );
