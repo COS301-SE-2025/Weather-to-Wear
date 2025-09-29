@@ -82,7 +82,7 @@ while expressing their unique fashion sense.
 | Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 2 | [Demo 2 Video](https://drive.google.com/file/d/1KGmEKBSlrwvg-jyh0UD6E8v92oZqQfoY/view?usp=sharing) | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 3 | [Demo 3 Video](https://drive.google.com/file/d/1l9zM6gVoOu1_PHj3VN0-MpvKMGhCRAob/view?usp=sharing) | [Demo 3 Slides](https://drive.google.com/file/d/1fxbzPkf-n0Bbjb-JeXmzErP_y-l3ikdM/view?usp=drive_link) |
-| Demo 4 | [Demo 4 Video]() | [Demo 4 Slides](docs/demo4/DEMO4Slides.pdf) |
+| Demo 4 | [Demo 4 Video](https://drive.google.com/file/d/176BHmsyvkqqzTDMhl-kp-5iz1VFNhPC8/view?usp=sharing) | [Demo 4 Slides](docs/demo4/DEMO4Slides.pdf) |
 
 </div>
 
