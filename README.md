@@ -56,7 +56,7 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [SRS - Architectural Requirements Document](docs/demo4/SRS%20-%20Architectural%20Diagram.pdf)             | System design overview                     |
+| [SRS - Architectural Requirements Document](docs/demo4/Architecture%20Document.pdf)             | System design overview                     |
 | [Coding Standards Document](docs/demo4/Coding%20Standards.pdf)           |  Guidelines for writing code      |
 | [Testing Policy](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/See-our-Testing-Here#testing)           |  Guidelines for Testing     |
 | [User Manual](docs/demo4/User%20Manual.pdf)           |  Guidelines for using Weather To Wear      |
