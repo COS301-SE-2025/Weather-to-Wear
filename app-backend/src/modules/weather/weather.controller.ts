@@ -6,10 +6,35 @@ import {
   searchCities
 } from './weather.service';
 
+// instead of using server IP, we need client's IP
+function getClientIp(req: Request): string | undefined {
+  const cf = req.headers['cf-connecting-ip'];
+  if (typeof cf === 'string' && cf) return cf;
+
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff) return xff.split(',')[0].trim();
+
+  const real = req.headers['x-real-ip'];
+  if (typeof real === 'string' && real) return real;
+
+  const fastly = req.headers['fastly-client-ip'];
+  if (typeof fastly === 'string' && fastly) return fastly;
+
+  const trueClient = req.headers['true-client-ip'];
+  if (typeof trueClient === 'string' && trueClient) return trueClient;
+
+  const xclient = req.headers['x-client-ip'];
+  if (typeof xclient === 'string' && xclient) return xclient;
+
+  const ra = req.socket?.remoteAddress;
+  return typeof ra === 'string' ? ra : undefined;
+}
+
 export async function getWeather(req: Request, res: Response) {
   try {
-    const location = (req.query.location as string) || ''; // or manual input
-    const weather = await getWeatherByLocation(location);
+    const location = (req.query.location as string) || '';
+    const clientIp = getClientIp(req); 
+    const weather = await getWeatherByLocation(location, clientIp); 
     res.json(weather);
   } catch (error: any) {
     console.error('Weather fetch error:', error.message);
@@ -37,13 +62,12 @@ export async function getWeatherForDay(req: Request, res: Response): Promise<voi
   }
 }
 
-/** NEW: 7-day planner */
 export async function getWeatherForWeek(req: Request, res: Response) {
   try {
     let location = (req.query.location as string) || '';
     if (!location) {
-      // fall back to same auto-detect used by getWeatherByLocation
-      const today = await getWeatherByLocation(''); // this resolves a city name
+      const clientIp = getClientIp(req); 
+      const today = await getWeatherByLocation('', clientIp);
       location = today.location;
     }
     const weather = await getWeatherWeek(location);
@@ -59,7 +83,6 @@ export async function getWeatherForWeek(req: Request, res: Response) {
 }
 
 
-/** NEW: city search for disambiguation */
 export async function getCityMatches(req: Request, res: Response): Promise<void> {
   try {
     const q = (req.query.q as string) || '';
