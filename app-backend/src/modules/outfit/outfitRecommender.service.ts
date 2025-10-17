@@ -144,6 +144,26 @@ function warmthTolerance(minTemp: number, avgTemp: number): number {
   return 3;
 }
 
+function buildCoreOnlyFallback(
+  partitioned: PartitionedCloset,
+  style: Style
+): ClosetItem[] | null {
+  const core = ['base_top', 'base_bottom', 'footwear'] as const;
+
+  const pick = (layer: typeof core[number]) => {
+    const styled = (partitioned[layer] || []).filter(i => i.style === style);
+    if (styled.length) return styled[0];
+    const any = (partitioned[layer] || []);
+    return any.length ? any[0] : null;
+  };
+
+  const chosen = core.map(pick);
+  if (chosen.some(i => i === null)) return null; // truly missing a core item
+  // Ensure distinct items
+  const unique = Array.from(new Map(chosen.map(i => [i!.id, i!])).values());
+  return unique.length === core.length ? unique : null;
+}
+
 // ---------------------------------------------
 //       Scoring (uses weighted warmth)
 // ---------------------------------------------
@@ -225,7 +245,7 @@ function getMinWarmthForLayer(layer: string, minTemp: number): number {
     switch (layer) {
       case 'base_bottom': return 5;
       case 'base_top': return 4;
-      case 'footwear': return 5;
+      case 'footwear': return 3; // AHH MAYBE ISSUE 
       case 'mid_top': return 6;
       case 'outerwear': return 7;
       default: return 1;
@@ -234,13 +254,13 @@ function getMinWarmthForLayer(layer: string, minTemp: number): number {
     switch (layer) {
       case 'base_bottom': return 3;
       case 'base_top': return 2;
-      case 'footwear': return 3;
+      case 'footwear': return 1; // AHH MAYBE ISSUE again
       case 'mid_top': return 4;
       case 'outerwear': return 5;
       default: return 1;
     }
   } else {
-    return 1; 
+    return 1;
   }
 }
 
@@ -250,12 +270,23 @@ function getCandidateOutfits(
   style: Style,
   weather: { minTemp: number; avgTemp: number }
 ): ClosetItem[][] {
-  const choices = requiredLayers.map(layer => {
+  const strictChoices = requiredLayers.map(layer => {
     const minWarmth = getMinWarmthForLayer(layer, weather.minTemp);
-    const layerItems = (partitioned[layer] || []).filter(item =>
-      item.style === style && (item.warmthFactor || 0) >= minWarmth
+    const items = (partitioned[layer] || []).filter(
+      item => item.style === style && (item.warmthFactor || 0) >= minWarmth
     );
-    return layerItems.length > 5 ? shuffleArray(layerItems).slice(0, 5) : layerItems;
+    return items.length > 5 ? shuffleArray(items).slice(0, 5) : items;
+  });
+
+  const choices = strictChoices.map((opts, idx) => {
+    if (opts.length > 0) return opts;
+    const layer = requiredLayers[idx];
+    const styleOnly = (partitioned[layer] || []).filter(it => it.style === style);
+    if (styleOnly.length > 0) {
+      return styleOnly.length > 5 ? shuffleArray(styleOnly).slice(0, 5) : styleOnly;
+    }
+    const any = (partitioned[layer] || []);
+    return any.length > 0 ? (any.length > 5 ? shuffleArray(any).slice(0, 5) : any) : [];
   });
 
   if (choices.some(arr => arr.length === 0)) {
@@ -263,10 +294,7 @@ function getCandidateOutfits(
   }
 
   function* combine(i = 0, current: ClosetItem[] = []): Generator<ClosetItem[]> {
-    if (i === choices.length) {
-      yield current;
-      return;
-    }
+    if (i === choices.length) { yield current; return; }
     for (const itm of choices[i]) {
       if (current.some(c => c.id === itm.id)) continue;
       yield* combine(i + 1, current.concat(itm));
@@ -276,12 +304,26 @@ function getCandidateOutfits(
   const target = targetWeightedWarmth(weather.minTemp, weather.avgTemp);
   const tol = warmthTolerance(weather.minTemp, weather.avgTemp);
 
-  const candidates = Array.from(combine()).filter(outfit => {
+  const allCombos = Array.from(combine());
+  if (!allCombos.length) return [];
+
+  let kept = allCombos.filter(outfit => {
     const w = outfit.reduce((s, i) => s + weightedItemWarmth(i), 0);
     return w >= (target - tol) * 0.75 && w <= (target + tol) * 1.25;
   });
 
-  return candidates.length > 100 ? shuffleArray(candidates).slice(0, 100) : candidates;
+  if (!kept.length) {
+    kept = allCombos.filter(outfit => {
+      const w = outfit.reduce((s, i) => s + weightedItemWarmth(i), 0);
+      return w >= (target - tol * 2.5) * 0.5 && w <= (target + tol * 2.5) * 1.75;
+    });
+  }
+
+  if (!kept.length) {
+    kept = allCombos;
+  }
+
+  return kept.length > 120 ? shuffleArray(kept).slice(0, 120) : kept;
 }
 
 // ---------------------------------------------
@@ -413,7 +455,6 @@ export async function recommendOutfits(
     allCandidates.push(...(cands.length > 120 ? cands.slice(0, 120) : cands));
   }
 
-  // De-dup by closet item IDs
   const seen = new Set<string>();
   const uniqueCandidates = allCandidates.filter(outfit => {
     const key = outfit.map(i => i.id).sort().join('|');
@@ -421,6 +462,41 @@ export async function recommendOutfits(
     seen.add(key);
     return true;
   });
+
+  // if no candidates, synthesize a minimal core-only outfit.
+  if (!uniqueCandidates.length) {
+    const coreFallback = buildCoreOnlyFallback(partitioned, style);
+    if (coreFallback) {
+      const items = coreFallback.map(item => ({
+        closetItemId: item.id,
+        imageUrl: cdnUrlFor(item.filename),
+        layerCategory: item.layerCategory,
+        category: item.category,
+        style: item.style ?? Style.Casual,
+        dominantColors:
+          Array.isArray(item.dominantColors) && item.dominantColors.length > 0
+            ? (item.dominantColors as string[])
+            : [item.colorHex ?? '#000000'],
+        warmthFactor: item.warmthFactor ?? 5,
+        waterproof: item.waterproof ?? false,
+      }));
+
+      const fallbackRec = {
+        outfitItems: items,
+        overallStyle: style,
+        score: scoreOutfit(coreFallback, prefColors, req.weatherSummary),
+        warmthRating: Math.round(weightedOutfitWarmth(coreFallback)),
+        waterproof: coreFallback.some(i => i.waterproof),
+        weatherSummary: req.weatherSummary,
+      };
+
+      // return to single fallback outfit
+      return [fallbackRec];
+    }
+
+    // if there lacks a core item, don't return any outfit
+    return [];
+  }
 
   // Map + score
   const scored = uniqueCandidates.map(outfit => {
@@ -515,9 +591,11 @@ export async function recommendOutfits(
     const waterproofOnly = augmented.filter(a => a.waterproof);
     if (waterproofOnly.length) pool = waterproofOnly;
   }
+  if (!pool.length) pool = withCF; // fallback to non-waterproof if filter emptied pool
 
   // Cluster and pick top up to 5
-  const k = Math.min(10, pool.length);
+  // const k = Math.min(10, pool.length);
+  const k = Math.max(1, Math.min(10, pool.length)); // avoid k=0
   const clusters = kMeansCluster(pool, k);
   const selected: OutfitRecommendation[] = [];
   for (const cluster of clusters) {
