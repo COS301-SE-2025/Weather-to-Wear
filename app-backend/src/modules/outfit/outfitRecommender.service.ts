@@ -110,14 +110,14 @@ function weightedOutfitWarmth(items: ClosetItem[]): number {
 
 function targetWeightedWarmth(minTemp: number, avgTemp: number): number {
   const t = Math.min(avgTemp, (avgTemp + minTemp) / 2 + 2);
-
+  // temp vs desired warmth rating
   const points: Array<[number, number]> = [
     [30, 5],
     [25, 7],
     [20, 10],
     [15, 14],
-    [10, 20],
-    [5, 24],
+    [10, 22],
+    [5, 26],
     [0, 28],
     [-5, 32],
   ];
