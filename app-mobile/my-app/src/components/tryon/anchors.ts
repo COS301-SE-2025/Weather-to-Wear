@@ -39,10 +39,10 @@ export const FRONT_V1: PoseAnchors = {
    RIGHT_SHOE_BOX: { x: 0.517, y: 0.8, w: 0.3, h: 0.2 },
   },
   layerDefaults: {
-    base_top:    { z: 275 },
+    base_top:    { z: 200 },
     base_bottom: { z: 250 },
     mid_top:     { z: 300 },
-    mid_bottom:  { z: 200 },
+    mid_bottom:  { z: 275 },
     outerwear:   { z: 400 },
     accessory:   { z: 500 },
     footwear:    { z: 600 },
