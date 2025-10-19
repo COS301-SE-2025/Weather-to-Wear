@@ -15,28 +15,38 @@ import {
 import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
 import PostClothingPicker from "../components/PostClothingPicker";
+import { fetchWeather, fetchCitySuggestions } from "../services/weatherApi";
 
-  const formatNsfwLabel = (raw?: string) => {
-    const key = (raw || "").toLowerCase();
-    const map: Record<string, string> = {
-      explicit: "explicit content",
-      suggestive: "suggestive content",
-      "offensive_any": "offensive content",
-      "explicit_image": "explicit content",
-
-      sexual: "sexual content",
-      insulting: "insulting language",
-      toxic: "toxic language",
-      discriminatory: "discriminatory language",
-      violent: "violent content",
-      hasprofanity: "profanity",
-      profanity: "profanity",
-      "profanity_text": "profanity",
-
-      nsfw: "inappropriate content",
-    };
-    return map[key] || key || "inappropriate content";
+const formatNsfwLabel = (raw?: string) => {
+  const key = (raw || "").toLowerCase();
+  const map: Record<string, string> = {
+    explicit: "explicit content",
+    suggestive: "suggestive content",
+    offensive_any: "offensive content",
+    explicit_image: "explicit content",
+    sexual: "sexual content",
+    insulting: "insulting language",
+    toxic: "toxic language",
+    discriminatory: "discriminatory language",
+    violent: "violent content",
+    hasprofanity: "profanity",
+    profanity: "profanity",
+    profanity_text: "profanity",
+    nsfw: "inappropriate content",
   };
+  return map[key] || key || "inappropriate content";
+};
+
+const mapWeatherCondition = (apiCondition: string): string => {
+  const cond = apiCondition.toLowerCase();
+  if (cond.includes("clear") || cond.includes("sunny")) return "Sunny";
+  if (cond.includes("cloud") || cond.includes("overcast")) return "Cloudy";
+  if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("shower")) return "Rainy";
+  if (cond.includes("snow") || cond.includes("sleet")) return "Snowy";
+  if (cond.includes("wind") || cond.includes("storm") || cond.includes("thunderstorm")) return "Windy";
+  if (cond.includes("fog")) return "Cloudy";
+  return "Cloudy"; // default fallback
+};
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
@@ -46,6 +56,10 @@ const PostToFeed = () => {
   const [weather, setWeather] = useState<{ temp: number; condition: string } | null>(null);
   const [showWeatherDropdown, setShowWeatherDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [citySuggestions, setCitySuggestions] = useState<{ name: string; country: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
@@ -68,6 +82,59 @@ const PostToFeed = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Fetch user's location and weather on mount
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      setIsFetchingLocation(true);
+      try {
+        const weatherData = await fetchWeather("");
+        setLocation(weatherData.location !== "Pretoria" ? weatherData.location : "");
+        if (weatherData.forecast.length > 0) {
+          const { temperature, description } = weatherData.forecast[0];
+          setWeather({
+            temp: temperature,
+            condition: mapWeatherCondition(description),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch location:", err);
+        setError("Could not detect your location. Please enter it manually.");
+      } finally {
+        setIsFetchingLocation(false);
+      }
+    };
+
+    fetchUserLocation();
+  }, []);
+
+  // Debounced fetch for city suggestions
+  useEffect(() => {
+    if (location.length < 2) {
+      setCitySuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        const suggestions = await fetchCitySuggestions(location);
+        setCitySuggestions(suggestions);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error("Failed to fetch city suggestions:", err);
+      }
+    }, 300);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [location]);
 
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
@@ -145,6 +212,8 @@ const PostToFeed = () => {
     setLocation("");
     setWeather(null);
     setSelectedClothingItems([]);
+    setCitySuggestions([]);
+    setShowSuggestions(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
@@ -203,36 +272,33 @@ const PostToFeed = () => {
       });
 
       navigate("/feed", { state: { postSuccess: true } });
-
     } catch (err: any) {
-    const data = err?.data || err?.response?.data;
+      const data = err?.data || err?.response?.data;
 
-    if (data?.error === "NSFW_BLOCKED") {
-      handleReset();
+      if (data?.error === "NSFW_BLOCKED") {
+        handleReset();
+        const scores = (data?.scores ?? {}) as Record<string, number>;
+        const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
 
-      const scores = (data?.scores ?? {}) as Record<string, number>;
-      const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
+        let rawLabel = data?.label || "nsfw";
+        let topScore = 0;
 
-      let rawLabel = data?.label || "nsfw";
-      let topScore = 0;
+        if (entries.length) {
+          const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
+          rawLabel = k;
+          topScore = Number(v);
+        }
 
-      if (entries.length) {
-        const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
-        rawLabel = k;
-        topScore = Number(v);
+        setNsfwPostNotice({
+          displayLabel: formatNsfwLabel(rawLabel),
+          score: topScore,
+        });
+        return;
       }
 
-      setNsfwPostNotice({
-        displayLabel: formatNsfwLabel(rawLabel),
-        score: topScore,
-      });
-      return; 
+      console.error("Failed to create post:", err);
+      setError(err?.message || "Failed to share post.");
     }
-
-    console.error("Failed to create post:", err);
-    setError(err?.message || "Failed to share post.");
-  }
-
   };
 
   const weatherOptions = [
@@ -244,8 +310,28 @@ const PostToFeed = () => {
   ];
 
   const handleWeatherSelect = (value: string) => {
-    setWeather(value ? { temp: 20, condition: value } : null);
+    setWeather(value ? { temp: weather?.temp || 20, condition: value } : null);
     setShowWeatherDropdown(false);
+  };
+
+  const handleCitySelect = (city: { name: string; country: string }) => {
+    setLocation(`${city.name}${city.country ? ', ' + city.country : ''}`);
+    setShowSuggestions(false);
+    setCitySuggestions([]);
+    // Optionally fetch weather for the selected city
+    fetchWeather(`${city.name}${city.country ? ', ' + city.country : ''}`)
+      .then((weatherData) => {
+        if (weatherData.forecast.length > 0) {
+          const { temperature, description } = weatherData.forecast[0];
+          setWeather({
+            temp: temperature,
+            condition: mapWeatherCondition(description),
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch weather for selected city:", err);
+      });
   };
 
   const canSubmit = Boolean(
@@ -265,7 +351,6 @@ const PostToFeed = () => {
         />
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative z-10 flex h-full items-center justify-center px-0">
-
           <div className="px-6 py-2 border-2 border-white">
             <h1 className="text-2xl font-bodoni font-light text-center text-white">
               MAKE A POST
@@ -275,13 +360,9 @@ const PostToFeed = () => {
       </div>
       <div className="px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom)+90px)] md:pb-10 max-w-2xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md">
-
-
           <div className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                
-
                 <div className="mt-3 flex flex-col items-center gap-3">
                   <div className="flex w-full justify-center gap-2">
                     <label className="cursor-pointer">
@@ -316,29 +397,50 @@ const PostToFeed = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-2 relative">
                   <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
                     Location
                   </label>
                   <input
                     id="location"
                     type="text"
-                    placeholder="Enter your location"
+                    placeholder={isFetchingLocation ? "Detecting location..." : "Enter your location"}
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                     className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                    aria-autocomplete="list"
+                    aria-controls="city-suggestions"
                   />
+                  {showSuggestions && citySuggestions.length > 0 && (
+                    <div
+                      id="city-suggestions"
+                      className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden max-h-60 overflow-y-auto"
+                    >
+                      {citySuggestions.map((city, index) => (
+                        <button
+                          key={`${city.name}-${city.country}-${index}`}
+                          type="button"
+                          onClick={() => handleCitySelect(city)}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                        >
+                          {city.name}{city.country ? `, ${city.country}` : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:col-span-1">
-                  <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
-                    Weather
-                  </label>
+                  <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">Weather</label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowWeatherDropdown((s) => !s)}
                       className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                      aria-label="Select weather condition"
+                      aria-expanded={showWeatherDropdown}
                     >
                       <span className="flex items-center">
                         {weather ? (
@@ -352,7 +454,6 @@ const PostToFeed = () => {
                       </span>
                       <ChevronDown className="w-5 h-5" />
                     </button>
-
                     {showWeatherDropdown && (
                       <div className="absolute right-0 z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
                         <button
@@ -392,7 +493,6 @@ const PostToFeed = () => {
                 />
               </div>
 
-              {/* Clothing Items Section */}
               <div>
                 <label className="block text-center font-livvic text-sm text-gray-700 dark:text-gray-200 mb-3">
                   Tag Clothing Items
@@ -454,7 +554,7 @@ const PostToFeed = () => {
                 <button
                   type="submit"
                   className="flex-1 py-2 px-4 rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] text-white transition-colors font-livvic disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!canSubmit}
+                  disabled={!canSubmit || isFetchingLocation}
                 >
                   Share Post
                 </button>
@@ -464,7 +564,6 @@ const PostToFeed = () => {
         </div>
       </div>
 
-      {/* Camera modal */}
       {showCameraPopup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 w-full max-w-sm text-center shadow-2xl">
@@ -538,7 +637,6 @@ const PostToFeed = () => {
         </div>
       )}
 
-      {/* Clothing picker modal */}
       {showClothingPicker && (
         <PostClothingPicker
           visible={showClothingPicker}
@@ -558,7 +656,6 @@ const PostToFeed = () => {
       {nsfwPostNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-            {/* Close (X) */}
             <button
               onClick={() => setNsfwPostNotice(null)}
               className="absolute top-3 right-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
@@ -574,7 +671,6 @@ const PostToFeed = () => {
               <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 Your post was blocked due to{" "}
                 <span className="font-medium">{nsfwPostNotice.displayLabel}</span>
-                {" "}
               </p>
 
               <div className="mt-4 flex justify-end">
