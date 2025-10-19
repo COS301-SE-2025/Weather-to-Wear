@@ -184,7 +184,7 @@ describe('outfitRecommender.service (pure helpers)', () => {
       expect(result).toEqual([]);
     });
 
-    it('filters out outfits with insufficient warmth', () => {
+    it('still returns outfits even if warmth is insufficient (business rule fallback)', () => {
       const partitioned = {
         base_top: [{ ...dummyItem('1', LayerCategory.base_top as any), warmthFactor: 1 }],
         base_bottom: [{ ...dummyItem('2', LayerCategory.base_bottom as any), warmthFactor: 1 }],
@@ -198,7 +198,10 @@ describe('outfitRecommender.service (pure helpers)', () => {
         { minTemp: 0, avgTemp: 0 } as any
       );
 
-      expect(result).toEqual([]);
+      // New rule: as long as each core layer exists, we return something (even if it'll score badly).
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].length).toBe(3); // one per required layer
     });
   });
 
