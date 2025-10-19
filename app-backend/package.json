@@ -45,6 +45,7 @@
     "@aws-sdk/client-s3": "^3.890.0",
     "@aws-sdk/s3-request-presigner": "^3.896.0",
     "@prisma/client": "^6.16.2",
+    "@types/node-fetch": "^2.6.13",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
@@ -55,6 +56,7 @@
     "google-search-results-nodejs": "^2.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.0",
+    "node-fetch": "^2.7.0",
     "tinycolor2": "^1.6.0",
     "uuid": "^11.1.0",
     "winston": "^3.17.0"

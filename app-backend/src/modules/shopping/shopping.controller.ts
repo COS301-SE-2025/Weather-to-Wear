@@ -7,6 +7,7 @@ import closetService from '../closet/closet.service';
 import usersService from '../users/users.service';
 import { cdnUrlFor } from '../../utils/s3';
 import { mapHexColorsToNames } from './color-mapping.util';
+import colorNameService from './color-name.service';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -190,16 +191,38 @@ class SafeShoppingController {
         const descriptiveParts = [];
         
         if (clothingItem.colorHex) {
-          console.log(`Color mapping for ${clothingItem.colorHex}:`);
-          const colorName = mapHexColorsToNames([clothingItem.colorHex])[0];
-          console.log(`Mapped to color name: ${colorName}`);
+          console.log(`Processing color: ${clothingItem.colorHex}`);
           
-          if (colorName && colorName !== 'Unknown') {
-            parts.push(colorName.toLowerCase());
-            descriptiveParts.push(`${colorName} (${clothingItem.colorHex})`);
+          // Check if this is a background white that should be filtered
+          const isBackgroundWhite = this.isBackgroundWhite(clothingItem.colorHex);
+          if (isBackgroundWhite) {
+            console.log(`Skipping background white color: ${clothingItem.colorHex}`);
           } else {
-            // If we can't map the color, try to use hex directly
-            descriptiveParts.push(`Color: ${clothingItem.colorHex}`);
+            try {
+              // Try to get a proper color name from the Color API
+              const colorName = await colorNameService.getColorName(clothingItem.colorHex);
+              console.log(`Color API result: ${clothingItem.colorHex} -> ${colorName}`);
+              
+              if (colorName && colorName !== 'Unknown') {
+                parts.push(colorName.toLowerCase());
+                descriptiveParts.push(`${colorName} (${clothingItem.colorHex})`);
+              } else {
+                // Fallback to our mapping
+                const fallbackName = mapHexColorsToNames([clothingItem.colorHex])[0];
+                if (fallbackName && fallbackName !== 'Unknown') {
+                  parts.push(fallbackName.toLowerCase());
+                  descriptiveParts.push(`${fallbackName} (${clothingItem.colorHex})`);
+                }
+              }
+            } catch (error) {
+              console.error(`Color processing failed for ${clothingItem.colorHex}:`, error);
+              // Fallback to basic mapping
+              const fallbackName = mapHexColorsToNames([clothingItem.colorHex])[0];
+              if (fallbackName && fallbackName !== 'Unknown') {
+                parts.push(fallbackName.toLowerCase());
+                descriptiveParts.push(`${fallbackName} (${clothingItem.colorHex})`);
+              }
+            }
           }
         }
         
@@ -343,13 +366,41 @@ class SafeShoppingController {
               .filter((color): color is string => typeof color === 'string' && color !== null);
           }
           
+          // Filter out extreme whites and near-whites that come from background removal
+          colorArray = this.filterBackgroundWhites(colorArray);
+          
           if (colorArray.length > 0) {
-            const dominantColorNames = mapHexColorsToNames(colorArray.slice(0, 2));
-            dominantColorNames.forEach(colorName => {
-              if (colorName && colorName !== 'Unknown') {
-                parts.push(colorName.toLowerCase());
+            const dominantColorNames: string[] = [];
+            
+            // Use Color API for dominant colors (take first 2-3 colors)
+            const colorsToProcess = colorArray.slice(0, 3);
+            for (const hexColor of colorsToProcess) {
+              try {
+                const apiColorName = await colorNameService.getColorName(hexColor);
+                if (apiColorName && apiColorName !== 'Unknown') {
+                  dominantColorNames.push(apiColorName);
+                  parts.push(apiColorName.toLowerCase());
+                  console.log(`Dominant color API result: ${hexColor} -> ${apiColorName}`);
+                } else {
+                  // Fallback to local mapping
+                  const fallbackName = mapHexColorsToNames([hexColor])[0];
+                  if (fallbackName && fallbackName !== 'Unknown') {
+                    dominantColorNames.push(fallbackName);
+                    parts.push(fallbackName.toLowerCase());
+                    console.log(`Dominant color fallback: ${hexColor} -> ${fallbackName}`);
+                  }
+                }
+              } catch (error) {
+                console.error(`Failed to get name for dominant color ${hexColor}:`, error);
+                // Use fallback on error
+                const fallbackName = mapHexColorsToNames([hexColor])[0];
+                if (fallbackName && fallbackName !== 'Unknown') {
+                  dominantColorNames.push(fallbackName);
+                  parts.push(fallbackName.toLowerCase());
+                }
               }
-            });
+            }
+            
             if (dominantColorNames.length > 0) {
               descriptiveParts.push(`Dominant colors: ${dominantColorNames.join(', ')}`);
             }
@@ -534,6 +585,105 @@ class SafeShoppingController {
       res.status(500).json({ error: 'Color mapping test failed', details: error });
     }
   };
+
+  /**
+   * Debug endpoint to test color naming API
+   */
+  debugColorNaming = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { hex } = req.query;
+      
+      if (!hex || typeof hex !== 'string') {
+        res.status(400).json({ error: 'Please provide a hex color query parameter' });
+        return;
+      }
+      
+      console.log(`Testing color naming API for hex: ${hex}`);
+      
+      // Check if it would be filtered as background white
+      const isBackground = this.isBackgroundWhite(hex);
+      
+      if (isBackground) {
+        res.status(200).json({
+          inputHex: hex,
+          isBackgroundWhite: true,
+          message: 'This color would be filtered out as background white'
+        });
+        return;
+      }
+      
+      // Test the color naming API
+      const apiColorName = await colorNameService.getColorName(hex);
+      const fallbackColorName = mapHexColorsToNames([hex])[0];
+      
+      res.status(200).json({
+        inputHex: hex,
+        isBackgroundWhite: false,
+        colorNameAPI: apiColorName,
+        fallbackColorName: fallbackColorName,
+        wouldUse: apiColorName !== 'Unknown' ? apiColorName : fallbackColorName
+      });
+    } catch (error) {
+      console.error('Color naming debug error:', error);
+      res.status(500).json({ error: 'Color naming test failed', details: error });
+    }
+  };
+
+  /**
+   * Check if a color is likely a background white from image processing
+   */
+  private isBackgroundWhite(hex: string): boolean {
+    try {
+      // Convert hex to RGB
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      
+      // Filter out extreme whites (RGB values above 240)
+      if (r > 240 && g > 240 && b > 240) {
+        return true;
+      }
+      
+      // Filter out colors that are too close to white
+      const brightness = (r + g + b) / 3;
+      if (brightness > 245) {
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error checking background white for ${hex}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Filter out extreme whites and near-whites that come from background removal
+   */
+  private filterBackgroundWhites(hexColors: string[]): string[] {
+    return hexColors.filter(hex => {
+      // Convert hex to RGB
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      
+      // Filter out extreme whites (RGB values above 240)
+      // Also filter out very light grays that are likely backgrounds
+      if (r > 240 && g > 240 && b > 240) {
+        console.log(`Filtering out background white/light color: ${hex} (${r}, ${g}, ${b})`);
+        return false;
+      }
+      
+      // Filter out colors that are too close to white
+      const brightness = (r + g + b) / 3;
+      if (brightness > 245) {
+        console.log(`Filtering out bright background color: ${hex} (brightness: ${brightness.toFixed(1)})`);
+        return false;
+      }
+      
+      return true;
+    });
+  }
 
 }
 

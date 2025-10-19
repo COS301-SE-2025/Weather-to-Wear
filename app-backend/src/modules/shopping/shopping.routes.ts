@@ -11,5 +11,6 @@ router.post('/item/:itemId/purchase-options', authenticateToken, shoppingControl
 // Debug endpoints
 router.get('/debug/item/:itemId', authenticateToken, shoppingController.debugGetItem);
 router.get('/debug/color-mapping', authenticateToken, shoppingController.debugColorMapping);
+router.get('/debug/color-naming', authenticateToken, shoppingController.debugColorNaming);
 
 export default router;

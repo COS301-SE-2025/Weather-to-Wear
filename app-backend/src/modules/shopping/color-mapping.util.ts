@@ -1,4 +1,5 @@
 // app-backend/src/modules/shopping/color-mapping.util.ts
+
 const FRONTEND_COLOR_PALETTE = [
   { hex: "#E53935", label: "Red" },
   { hex: "#D32F2F", label: "Dark Red" },
@@ -36,6 +37,57 @@ const FRONTEND_COLOR_PALETTE = [
   { hex: "#E1BEE7", label: "Light Purple" },
   { hex: "#FFCDD2", label: "Light Pink" },
 ];
+
+/**
+ * Try to get color name from a free color naming API
+ */
+async function getColorNameFromAPI(hex: string): Promise<string | null> {
+  try {
+    // Remove # from hex if present
+    const cleanHex = hex.replace('#', '');
+    
+    // Try TheColorAPI (free, no key needed)
+    const response = await fetch(`https://www.thecolorapi.com/id?hex=${cleanHex}&format=json`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.name && data.name.value) {
+        console.log(`Color API: ${hex} -> ${data.name.value}`);
+        return data.name.value;
+      }
+    }
+  } catch (error) {
+    console.log(`Color API failed for ${hex}:`, error instanceof Error ? error.message : 'Unknown error');
+  }
+  return null;
+}
+
+/**
+ * Filter out extreme whites and near-whites that are likely background artifacts
+ */
+function isBackgroundColor(hex: string): boolean {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return false;
+  
+  const { r, g, b } = rgb;
+  
+  // Check if it's very close to white (background removal artifacts)
+  if (r > 240 && g > 240 && b > 240) {
+    return true;
+  }
+  
+  // Check if it's very close to pure white variations
+  const whiteVariations = [
+    '#FFFFFF', '#FFFEFF', '#FEFEFE', '#FDFDFD', '#FCFCFC', 
+    '#FBFBFB', '#FAFAFA', '#F9F9F9', '#F8F8F8', '#F7F7F7'
+  ];
+  
+  return whiteVariations.some(white => {
+    const whiteRgb = hexToRgb(white);
+    if (!whiteRgb) return false;
+    return colorDistance(rgb, whiteRgb) < 10; // Very close to these whites
+  });
+}
 
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {

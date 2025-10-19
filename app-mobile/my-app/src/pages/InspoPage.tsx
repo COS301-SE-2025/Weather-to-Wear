@@ -294,8 +294,7 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
 
         {/* Tags */}
         <div className="mt-3 sm:mt-4 flex justify-center flex-wrap gap-1.5 sm:gap-2">
-          {/* Warmth Factor Tag */}
-          {/* Warmth Factor Tag (icon-only, no color) */}
+          {/* Warmth Factor Tag - How the outfit feels */}
           {(() => {
             const rating = outfit.warmthRating;
 
@@ -310,15 +309,14 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             else { label = 'Cold'; Icon = Snowflake; }
 
             return (
-              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium inline-flex items-center gap-1">
+              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium inline-flex items-center gap-1" title="How this outfit will feel when worn">
                 <Icon size={14} />
-                {label}
+                Feels {label}
               </span>
             );
           })()}
 
-
-          {/* Weather Condition Tag */}
+          {/* Weather Condition Tag - What weather it's suitable for */}
           {(() => {
             const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
             const primaryIcon = getWeatherIconForTemperature(avgTemp, outfit.recommendedWeather.conditions, 14);
@@ -341,9 +339,9 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             }
 
             return (
-              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1">
+              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1" title="Weather conditions this outfit is suitable for">
                 {primaryIcon}
-                <span>{weatherLabel}</span>
+                <span>For {weatherLabel} Weather</span>
               </span>
             );
           })()}
