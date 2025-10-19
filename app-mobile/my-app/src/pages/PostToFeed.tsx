@@ -555,6 +555,7 @@ const PostToFeed = () => {
           }}
         />
       )}
+
       {nsfwPostNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
@@ -589,6 +590,7 @@ const PostToFeed = () => {
           </div>
         </div>
       )}
+      
     </div>
   );
 };
