@@ -25,6 +25,8 @@ export default function TryOnViewer({
   poseId?: string;          // current visual pose id (e.g., 'front_v4') – used only for UI label
   outfitItems: OutfitItemLite[];
 }) {
+  // const [items, setItems] = useState<TryOnItem[]>([]);
+  // const [items, setItems] = useState<TryOnItem[] | null>(null);
   const [items, setItems] = useState<TryOnItem[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [dirty, setDirty] = useState<Record<string, FitTransform>>({});
@@ -43,42 +45,50 @@ export default function TryOnViewer({
         url: cdnUrlFor(o.urlKey ?? o.imageUrl ?? ""),
         layerCategory: o.layerCategory,
       })),
-    // stringify is okay here because we only need a shallow rerun on prop change
     [JSON.stringify(outfitItems)]
   );
 
   // load fits once per outfit (from canonical pose)
   useEffect(() => {
-    const ids = outfitItems.map((o) => o.closetItemId);
+    if (baseItems.length === 0) { setItems([]); return; }
+
+    // 1) Set base immediately (so canvas sees non-empty items)
+    setItems(baseItems);
+    setDirty({});
+
+    // 2) Then fetch fits and overlay
+    const ids = outfitItems.map(o => o.closetItemId);
     getItemFits(canonicalPoseId, ids)
       .then(({ fits }) => {
         const byId: Record<string, any> = {};
         fits.forEach((f: any) => { byId[f.itemId] = f; });
-        const mapped: TryOnItem[] = baseItems.map((o) => {
+        setItems(baseItems.map(o => {
           const fr = byId[o.id];
-          const fit = fr
-            ? {
-                x: fr.transform?.x ?? 0,
-                y: fr.transform?.y ?? 0,
-                scale: fr.transform?.scale ?? 1,
-                rotationDeg: fr.transform?.rotationDeg ?? 0,
-                mesh: fr.mesh ?? undefined,
-              }
-            : undefined;
-          return { ...o, fit };
-        });
-        setItems(mapped);
-        setDirty({});
+          return {
+            ...o,
+            fit: fr ? {
+              x: fr.transform?.x ?? 0,
+              y: fr.transform?.y ?? 0,
+              scale: fr.transform?.scale ?? 1,
+              rotationDeg: fr.transform?.rotationDeg ?? 0,
+              mesh: fr.mesh ?? undefined,
+            } : undefined
+          };
+        }));
       })
       .catch(() => {
-        setItems(baseItems);
-        setDirty({});
+        setItems(baseItems);       // keep base if fits fail
       });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[TRYON] viewer set baseItems:", baseItems.length);
+    }
   }, [JSON.stringify(baseItems)]);
 
   const onChangeFit = (itemId: string, transform: FitTransform) => {
     setDirty((prev) => ({ ...prev, [itemId]: transform }));
     setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, fit: { ...transform } } : it)));
+    // setItems(prev => (prev ?? []).map(it => it.id === itemId ? { ...it, fit: { ...transform } } : it));
   };
 
   const onSaveAll = async () => {
@@ -111,20 +121,18 @@ export default function TryOnViewer({
       >
         <button
           onClick={() => setEditMode((v) => !v)}
-          className={`px-3 py-1 rounded-full text-sm border ${
-            editMode ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300"
-          }`}
+          className={`px-3 py-1 rounded-full text-sm border ${editMode ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300"
+            }`}
         >
           {editMode ? "Editing" : "View"}
         </button>
         <button
           onClick={onSaveAll}
           disabled={Object.keys(dirty).length === 0}
-          className={`px-3 py-1 rounded-full text-sm border ${
-            Object.keys(dirty).length === 0
-              ? "opacity-40 cursor-not-allowed"
-              : "bg-teal-600 text-white border-teal-600 hover:bg-teal-700"
-          }`}
+          className={`px-3 py-1 rounded-full text-sm border ${Object.keys(dirty).length === 0
+            ? "opacity-40 cursor-not-allowed"
+            : "bg-teal-600 text-white border-teal-600 hover:bg-teal-700"
+            }`}
           title={Object.keys(dirty).length === 0 ? "No changes" : "Save all changes"}
         >
           Save All
@@ -148,13 +156,15 @@ export default function TryOnViewer({
       </div>
 
       {/* Canvas */}
-      <TryOnCanvas
-        mannequinFrames={mannequinFrames}
-        frameIndex={frameIndex}
-        items={items}
-        editable={editMode}
-        onChangeFit={onChangeFit}
-      />
+      {items && items.length > 0 && (
+        <TryOnCanvas
+          mannequinFrames={mannequinFrames}
+          frameIndex={frameIndex}
+          items={items}
+          editable={editMode}
+          onChangeFit={onChangeFit}
+        />
+      )}
     </div>
   );
 }

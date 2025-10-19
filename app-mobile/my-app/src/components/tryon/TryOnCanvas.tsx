@@ -59,16 +59,15 @@ function loadTexture(url: string): Promise<PIXI.Texture> {
     });
 }
 
-function onTexReady(tex: PIXI.Texture, cb: () => void) {
-    if ((tex as any).valid) {
-        cb();
+function onTexReady(tex: PIXI.Texture | undefined, cb: () => void) {
+    if (!tex) return;
+    const anyTex = tex as any;
+    if (anyTex.valid) {
+        requestAnimationFrame(cb);
         return;
     }
-    const once = () => {
-        requestAnimationFrame(cb);
-    };
-    (tex as any).once?.("update", once);
-    (tex.baseTexture as any)?.once?.("update", once);
+    const once = () => requestAnimationFrame(cb);
+    anyTex.once?.("update", once);
 }
 
 
@@ -76,8 +75,8 @@ function preloadTextures(urls: string[]) {
     const unique = Array.from(new Set(urls.filter(Boolean)));
     return Promise.all(unique.map(loadTexture));
 }
-function getTex(url: string): PIXI.Texture {
-    return texCache.get(url) ?? PIXI.Texture.from(url);
+function getTex(url: string): PIXI.Texture | undefined {
+    return texCache.get(url);
 }
 
 export default function TryOnCanvas({
@@ -124,13 +123,25 @@ export default function TryOnCanvas({
     const rad = (deg: number) => (deg * Math.PI) / 180;
 
     const layoutAll = () => {
+        // ! DEBUG
+        console.log("[TRYON] layoutAll start",
+            {
+                manW: sizeRef.current.manW, manH: sizeRef.current.manH,
+                items: items.length, app: !!appRef.current, man: !!mannequinRef.current
+            });
+
+
+        if (!appRef.current || !mannequinRef.current) return;
+        if (sizeRef.current.manW === 0 || sizeRef.current.manH === 0) return;
+        if (!items || items.length === 0) return;
+
         const app = appRef.current;
         const mannequin = mannequinRef.current;
         if (!app || !mannequin) return;
 
         const stage = app.stage;
         const renderer = app.renderer;
-        const pose = FRONT_V1; // anchors identical across frames per your spec
+        const pose = FRONT_V1;
 
         const { manW, manH } = sizeRef.current;
 
@@ -155,14 +166,17 @@ export default function TryOnCanvas({
         const getEffectiveFit = (id: string, fallback?: FitTransform) =>
             localFitsRef.current.get(id) ?? fallback;
 
+        // ! DEBUG
+        console.log("[TRYON] about to place garments");
+
         // garments (non-footwear)
         items
             .filter((it) => !!it.url && it.layerCategory !== "footwear")
             .forEach((it) => {
                 const tex = getTex(it.url);
                 if (!tex || !(tex as any).valid) {
-                    if (tex) onTexReady(tex, () => requestLayout.current?.());
-                    return; // skip now; we'll come back when it’s ready
+                    loadTexture(it.url).then(() => requestLayout.current?.()).catch(() => { });
+                    return;
                 }
 
                 let node = nodeByIdRef.current.get(it.id) as PIXI.Sprite | undefined;
@@ -206,6 +220,15 @@ export default function TryOnCanvas({
                 const offsetY = norm.ny * manH;
                 const scl = (effFit?.scale ?? 1) * baseScale;
                 const rot = rad(effFit?.rotationDeg ?? 0);
+                console.log("HELLO");
+                // ! DEBUG
+                if (process.env.NODE_ENV !== "production") {
+                    console.log("[TRYON] place", it.id, {
+                        texW: tex.width, texH: tex.height,
+                        anchor: it.layerCategory,
+                        cx, cy, pw, ph,
+                    });
+                }
 
                 node.x = cx + offsetX;
                 node.y = cy + offsetY;
@@ -228,7 +251,7 @@ export default function TryOnCanvas({
             .forEach((it) => {
                 const tex = getTex(it.url);
                 if (!tex || !(tex as any).valid) {
-                    if (tex) onTexReady(tex, () => requestLayout.current?.());
+                    loadTexture(it.url).then(() => requestLayout.current?.()).catch(() => { });
                     return;
                 }
 
@@ -339,6 +362,7 @@ export default function TryOnCanvas({
         drawGizmo(selectedId ?? undefined, undefined);
         app.stage.sortChildren();
     };
+    requestLayout.current = layoutAll;
 
     const commit = (id: string) => {
         const mannequin = mannequinRef.current;
@@ -468,6 +492,16 @@ export default function TryOnCanvas({
             app.stage.addChild(mannequin);
             mannequinRef.current = mannequin;
 
+            // If the texture isn’t ready yet, wait before first resize/layout.
+            if (!(firstTex as any)?.valid) {
+                (firstTex as any).once?.("update", () => {
+                    resizeAndRelayout();
+                    requestLayout.current?.();
+                });
+            } else {
+                resizeAndRelayout();
+            }
+
             // initial size
             sizeRef.current = { manW: 0, manH: 0 };
 
@@ -506,7 +540,7 @@ export default function TryOnCanvas({
             //     stage.addChild(g);
             // }
 
-            // // ===== Debug Grid
+            // ===== Debug Grid
             // if (DEBUG_GRID) {
             //     const grid = new PIXI.Graphics();
             //     grid.zIndex = 9998;
@@ -642,23 +676,40 @@ export default function TryOnCanvas({
         if (!mannequin) return;
         const url = mannequinFrames[frameIndex] ?? mannequinFrames[0];
         const tex = getTex(url);
-        if (!tex || tex.width === 0) return;
-
-        // swap texture + recompute scale/geometry; garments stay put
+        if (!tex || !(tex as any).valid) {
+            loadTexture(url).then(() => {
+                const t2 = getTex(url);
+                if (t2) {
+                    mannequin.texture = t2;
+                    resizeAndRelayout();
+                    requestLayout.current?.();
+                }
+            }).catch(() => { });
+            return;
+        }
         mannequin.texture = tex;
         resizeAndRelayout();
+        requestLayout.current?.();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [frameIndex, mannequinFrames.join("|")]);
 
-    // re-layout if items change (positions/urls)
     useEffect(() => {
+        if (!items || items.length === 0) {
+            return;
+        }
         const urls = items.map(i => i.url).filter(Boolean);
-        if (urls.length) {
-            preloadTextures(urls).finally(() => requestLayout.current?.());
-        } else {
+        const kick = () => requestLayout.current ? requestLayout.current() : setTimeout(() => requestLayout.current?.(), 32);
+
+        preloadTextures(urls)
+            .catch(() => { })
+            .finally(kick);
+    }, [items]);
+
+    useEffect(() => {
+        if (appRef.current && mannequinRef.current && items.length > 0) {
             requestLayout.current?.();
         }
-    }, [items]);
+    }, [!!appRef.current, !!mannequinRef.current, items.length]);
 
     // --- gizmo ---
     drawGizmo = (forcedId?: string, startDragEv?: PIXI.FederatedPointerEvent) => {
