@@ -15,37 +15,57 @@ import {
 import { useImage } from "../components/ImageContext";
 import { createPost } from "../services/socialApi";
 import PostClothingPicker from "../components/PostClothingPicker";
+import { fetchWeather, geocodeCity } from "../services/weatherApi";
 
-  const formatNsfwLabel = (raw?: string) => {
-    const key = (raw || "").toLowerCase();
-    const map: Record<string, string> = {
-      explicit: "explicit content",
-      suggestive: "suggestive content",
-      "offensive_any": "offensive content",
-      "explicit_image": "explicit content",
-
-      sexual: "sexual content",
-      insulting: "insulting language",
-      toxic: "toxic language",
-      discriminatory: "discriminatory language",
-      violent: "violent content",
-      hasprofanity: "profanity",
-      profanity: "profanity",
-      "profanity_text": "profanity",
-
-      nsfw: "inappropriate content",
-    };
-    return map[key] || key || "inappropriate content";
+const formatNsfwLabel = (raw?: string) => {
+  const key = (raw || "").toLowerCase();
+  const map: Record<string, string> = {
+    explicit: "explicit content",
+    suggestive: "suggestive content",
+    offensive_any: "offensive content",
+    explicit_image: "explicit content",
+    sexual: "sexual content",
+    insulting: "insulting language",
+    toxic: "toxic language",
+    discriminatory: "discriminatory language",
+    violent: "violent content",
+    hasprofanity: "profanity",
+    profanity: "profanity",
+    profanity_text: "profanity",
+    nsfw: "inappropriate content",
   };
+  return map[key] || key || "inappropriate content";
+};
+
+const mapWeatherCondition = (apiCondition: string): string => {
+  const cond = apiCondition.toLowerCase();
+  if (cond.includes("clear") || cond.includes("sunny")) return "Sunny";
+  if (cond.includes("cloud") || cond.includes("overcast")) return "Cloudy";
+  if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("shower")) return "Rainy";
+  if (cond.includes("snow") || cond.includes("sleet")) return "Snowy";
+  if (cond.includes("wind") || cond.includes("storm") || cond.includes("thunderstorm")) return "Windy";
+  if (cond.includes("fog")) return "Cloudy";
+  return "Cloudy"; // default fallback
+};
 
 const PostToFeed = () => {
   const { image: uploadedImage, setImage } = useImage();
   const [content, setContent] = useState("");
   const [image, setLocalImage] = useState<string | null>(null);
-  const [location, setLocation] = useState<string>("");
+  const [location, setLocation] = useState<string>(
+    localStorage.getItem("selectedCity") || ""
+  );
   const [weather, setWeather] = useState<{ temp: number; condition: string } | null>(null);
+  const [isFetchingWeather, setIsFetchingWeather] = useState(false);
   const [showWeatherDropdown, setShowWeatherDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [citySuggestions, setCitySuggestions] = useState<
+    Array<{ label: string; city: string }>
+  >([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionsBoxRef = useRef<HTMLDivElement | null>(null);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraPreview, setCameraPreview] = useState<string | null>(null);
@@ -68,6 +88,117 @@ const PostToFeed = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const weatherOptions = [
+    { value: "Sunny", icon: <Sun className="w-5 h-5" /> },
+    { value: "Cloudy", icon: <Cloud className="w-5 h-5" /> },
+    { value: "Rainy", icon: <CloudRain className="w-5 h-5" /> },
+    { value: "Snowy", icon: <CloudSnow className="w-5 h-5" /> },
+    { value: "Windy", icon: <Wind className="w-5 h-5" /> },
+  ];
+
+  // Fetch user's location and weather on mount
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      setIsFetchingLocation(true);
+      let loc = localStorage.getItem("selectedCity") || "";
+      let storedWeather = localStorage.getItem("selectedWeather");
+      try {
+        if (storedWeather) {
+          const parsedWeather = JSON.parse(storedWeather);
+          if (parsedWeather.location === loc) {
+            setWeather(parsedWeather.weather);
+            setIsFetchingLocation(false);
+            return;
+          }
+        }
+
+        if (!loc) {
+          const weatherData = await fetchWeather("");
+          loc = weatherData.location !== "Pretoria" ? weatherData.location : "";
+          setLocation(loc);
+          localStorage.setItem("selectedCity", loc);
+        }
+        if (loc) {
+          await fetchWeatherForLocation(loc);
+        }
+      } catch (err) {
+        console.error("Failed to fetch location or weather:", err);
+        // Do not set error in UI
+      } finally {
+        setIsFetchingLocation(false);
+      }
+    };
+
+    fetchUserLocation();
+  }, []);
+
+  // Fetch city suggestions on location input change
+  useEffect(() => {
+    const q = location.trim();
+    if (!q || q.length < 2) {
+      setCitySuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        const suggestions = await geocodeCity(q, 6);
+        setCitySuggestions(suggestions);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error("Failed to fetch city suggestions:", err);
+        // Do not set error in UI
+      }
+    }, 350);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [location]);
+
+  // Handle clicks outside suggestions dropdown
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (suggestionsBoxRef.current && !suggestionsBoxRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+        setCitySuggestions([]);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // Fetch weather for a given location silently
+  const fetchWeatherForLocation = async (loc: string) => {
+    setIsFetchingWeather(true);
+    try {
+      const weatherData = await fetchWeather(loc);
+      let newWeather = null;
+      if (weatherData.summary) {
+        const condition = mapWeatherCondition(weatherData.summary.mainCondition);
+        newWeather = {
+          temp: weatherData.summary.avgTemp,
+          condition,
+        };
+        setWeather(newWeather);
+        localStorage.setItem("selectedWeather", JSON.stringify({ location: loc, weather: newWeather }));
+      } else {
+        setWeather({ temp: 20, condition: "Cloudy" });
+      }
+    } catch (err) {
+      console.error("Failed to fetch weather for location:", err);
+      setWeather({ temp: 20, condition: "Cloudy" });
+    } finally {
+      setIsFetchingWeather(false);
+    }
+  };
 
   useEffect(() => {
     if (stream && videoRef.current && !cameraPreview) {
@@ -142,13 +273,21 @@ const PostToFeed = () => {
     setLocalImage(null);
     setCameraPreview(null);
     setImage(null);
-    setLocation("");
+    setLocation(localStorage.getItem("selectedCity") || "");
     setWeather(null);
     setSelectedClothingItems([]);
+    setCitySuggestions([]);
+    setShowSuggestions(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
+    }
+    setError(null);
+    // Refetch weather for reset location
+    const loc = localStorage.getItem("selectedCity") || "";
+    if (loc) {
+      fetchWeatherForLocation(loc);
     }
   };
 
@@ -203,49 +342,46 @@ const PostToFeed = () => {
       });
 
       navigate("/feed", { state: { postSuccess: true } });
-
     } catch (err: any) {
-    const data = err?.data || err?.response?.data;
+      const data = err?.data || err?.response?.data;
 
-    if (data?.error === "NSFW_BLOCKED") {
-      handleReset();
+      if (data?.error === "NSFW_BLOCKED") {
+        handleReset();
+        const scores = (data?.scores ?? {}) as Record<string, number>;
+        const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
 
-      const scores = (data?.scores ?? {}) as Record<string, number>;
-      const entries = Object.entries(scores).filter(([, v]) => typeof v === "number");
+        let rawLabel = data?.label || "nsfw";
+        let topScore = 0;
 
-      let rawLabel = data?.label || "nsfw";
-      let topScore = 0;
+        if (entries.length) {
+          const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
+          rawLabel = k;
+          topScore = Number(v);
+        }
 
-      if (entries.length) {
-        const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
-        rawLabel = k;
-        topScore = Number(v);
+        setNsfwPostNotice({
+          displayLabel: formatNsfwLabel(rawLabel),
+          score: topScore,
+        });
+        return;
       }
 
-      setNsfwPostNotice({
-        displayLabel: formatNsfwLabel(rawLabel),
-        score: topScore,
-      });
-      return; 
+      console.error("Failed to create post:", err);
+      setError("Failed to share post.");
     }
-
-    console.error("Failed to create post:", err);
-    setError(err?.message || "Failed to share post.");
-  }
-
   };
 
-  const weatherOptions = [
-    { value: "Sunny", icon: <Sun className="w-5 h-5" /> },
-    { value: "Cloudy", icon: <Cloud className="w-5 h-5" /> },
-    { value: "Rainy", icon: <CloudRain className="w-5 h-5" /> },
-    { value: "Snowy", icon: <CloudSnow className="w-5 h-5" /> },
-    { value: "Windy", icon: <Wind className="w-5 h-5" /> },
-  ];
-
   const handleWeatherSelect = (value: string) => {
-    setWeather(value ? { temp: 20, condition: value } : null);
+    setWeather(value ? { temp: weather?.temp || 20, condition: value } : null);
     setShowWeatherDropdown(false);
+  };
+
+  const handleCitySelect = (city: string) => {
+    setLocation(city);
+    localStorage.setItem("selectedCity", city);
+    setShowSuggestions(false);
+    setCitySuggestions([]);
+    fetchWeatherForLocation(city);
   };
 
   const canSubmit = Boolean(
@@ -265,7 +401,6 @@ const PostToFeed = () => {
         />
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative z-10 flex h-full items-center justify-center px-0">
-
           <div className="px-6 py-2 border-2 border-white">
             <h1 className="text-2xl font-bodoni font-light text-center text-white">
               MAKE A POST
@@ -275,13 +410,9 @@ const PostToFeed = () => {
       </div>
       <div className="px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom)+90px)] md:pb-10 max-w-2xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-md">
-
-
           <div className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                
-
                 <div className="mt-3 flex flex-col items-center gap-3">
                   <div className="flex w-full justify-center gap-2">
                     <label className="cursor-pointer">
@@ -316,32 +447,98 @@ const PostToFeed = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-2 relative">
                   <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
                     Location
                   </label>
-                  <input
-                    id="location"
-                    type="text"
-                    placeholder="Enter your location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
-                  />
+                  <div className="relative">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <input
+                      id="location"
+                      type="text"
+                      placeholder={isFetchingLocation ? "Detecting location..." : "Enter your location"}
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      onFocus={() => setShowSuggestions(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setCitySuggestions([]);
+                          setShowSuggestions(false);
+                        }
+                      }}
+                      className="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                      aria-autocomplete="list"
+                      aria-controls="city-suggestions"
+                      aria-expanded={showSuggestions}
+                      role="combobox"
+                    />
+                    {isFetchingLocation && (
+                      <svg
+                        className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin h-5 w-5 text-gray-400"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                    )}
+                  </div>
+                  {showSuggestions && citySuggestions.length > 0 && (
+                    <div
+                      id="city-suggestions"
+                      ref={suggestionsBoxRef}
+                      className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto"
+                      role="listbox"
+                    >
+                      {citySuggestions.map((opt, index) => (
+                        <button
+                          key={`${opt.city}-${index}`}
+                          type="button"
+                          onClick={() => handleCitySelect(opt.city)}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                          role="option"
+                          aria-selected={false}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:col-span-1">
-                  <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">
-                    Weather
-                  </label>
+                  <label className="block font-livvic text-sm text-gray-700 dark:text-gray-200 mb-1">Weather</label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowWeatherDropdown((s) => !s)}
                       className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#3F978F]"
+                      aria-label="Select weather condition"
+                      aria-expanded={showWeatherDropdown}
                     >
                       <span className="flex items-center">
-                        {weather ? (
+                        {isFetchingWeather ? (
+                          <svg
+                            className="animate-spin h-5 w-5 text-gray-400"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                          </svg>
+                        ) : weather ? (
                           <>
                             {weatherOptions.find((opt) => opt.value === weather.condition)?.icon}
                             <span className="ml-2">{weather.condition}</span>
@@ -352,7 +549,6 @@ const PostToFeed = () => {
                       </span>
                       <ChevronDown className="w-5 h-5" />
                     </button>
-
                     {showWeatherDropdown && (
                       <div className="absolute right-0 z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
                         <button
@@ -392,7 +588,6 @@ const PostToFeed = () => {
                 />
               </div>
 
-              {/* Clothing Items Section */}
               <div>
                 <label className="block text-center font-livvic text-sm text-gray-700 dark:text-gray-200 mb-3">
                   Tag Clothing Items
@@ -454,7 +649,7 @@ const PostToFeed = () => {
                 <button
                   type="submit"
                   className="flex-1 py-2 px-4 rounded-full bg-[#3F978F] hover:bg-[#2F6F6A] text-white transition-colors font-livvic disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!canSubmit}
+                  disabled={!canSubmit || isFetchingLocation}
                 >
                   Share Post
                 </button>
@@ -464,7 +659,6 @@ const PostToFeed = () => {
         </div>
       </div>
 
-      {/* Camera modal */}
       {showCameraPopup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 w-full max-w-sm text-center shadow-2xl">
@@ -538,7 +732,6 @@ const PostToFeed = () => {
         </div>
       )}
 
-      {/* Clothing picker modal */}
       {showClothingPicker && (
         <PostClothingPicker
           visible={showClothingPicker}
@@ -559,8 +752,8 @@ const PostToFeed = () => {
       {nsfwPostNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-            {/* Close (X) */}
             <button
+              type="button"
               onClick={() => setNsfwPostNotice(null)}
               className="absolute top-3 right-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
               aria-label="Close"
@@ -575,11 +768,11 @@ const PostToFeed = () => {
               <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 Your post was blocked due to{" "}
                 <span className="font-medium">{nsfwPostNotice.displayLabel}</span>
-                {" "}
               </p>
 
               <div className="mt-4 flex justify-end">
                 <button
+                  type="button"
                   onClick={() => setNsfwPostNotice(null)}
                   className="px-4 py-2 rounded-full bg-[#3F978F] text-white hover:opacity-95"
                 >

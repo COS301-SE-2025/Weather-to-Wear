@@ -16,7 +16,6 @@ import { getMe } from "../services/usersApi";
 import { absolutize } from "../utils/url";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 
-// Adjust to your backend origin
 const API_URL = `${API_BASE}`;
 const prefixed = (url: string) =>
   url.startsWith("http") ? url : `${API_URL}${url}`;
@@ -62,40 +61,10 @@ function decodeToken() {
     if (!raw) return null;
     const [, payload] = raw.split(".");
     const json = JSON.parse(atob(payload));
-    return json; // expect { id, name?, profilePhoto? ... }
+    return json;
   } catch {
     return null;
   }
-}
-
-async function countFollowers(userId: string): Promise<number> {
-  const page = 50;
-  let offset = 0;
-  let total = 0;
-
-  while (true) {
-    const res = await getFollowers(userId, page, offset);
-    const chunk = res?.followers ?? [];
-    total += chunk.length;
-    if (chunk.length < page) break;
-    offset += page;
-  }
-  return total;
-}
-
-async function countFollowing(userId: string): Promise<number> {
-  const page = 50;
-  let offset = 0;
-  let total = 0;
-
-  while (true) {
-    const res = await getFollowing(userId, page, offset);
-    const chunk = res?.following ?? [];
-    total += chunk.length;
-    if (chunk.length < page) break;
-    offset += page;
-  }
-  return total;
 }
 
 const UsersPostsPage: React.FC = () => {
@@ -105,7 +74,7 @@ const UsersPostsPage: React.FC = () => {
 
   const initialUser = location.state?.user as UserResult | undefined;
 
-  // ----- auth / current user -----
+  // Auth / current user
   const me = useMemo(() => {
     const fromToken = decodeToken();
     try {
@@ -121,13 +90,13 @@ const UsersPostsPage: React.FC = () => {
   const currentUserId: string | null = me?.id ?? null;
   const isMe = userId === currentUserId;
 
-  const [followersCount, setFollowersCount] = useState<number | null>(initialUser?.followersCount ?? null);
-  const [followingCount, setFollowingCount] = useState<number | null>(initialUser?.followingCount ?? null);
-  const [isFollowing, setIsFollowing] = useState(initialUser?.isFollowing ?? false);
-  const [followRequested, setFollowRequested] = useState<boolean>(initialUser?.followRequested ?? false);
-  const [isPrivate, setIsPrivate] = useState(initialUser?.isPrivate ?? false);
+  // User profile state
+  const [userProfile, setUserProfile] = useState<UserResult | null>(null);
+  const [postsCount, setPostsCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Posts state
   const pageSize = 12;
   const [posts, setPosts] = useState<Post[]>([]);
   const [offset, setOffset] = useState(0);
@@ -136,151 +105,155 @@ const UsersPostsPage: React.FC = () => {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const inFlightRef = useRef(false);
 
+  // Modal state
   const [activePost, setActivePost] = useState<Post | null>(null);
   const [newComment, setNewComment] = useState<string>("");
   const [currentUserName, setCurrentUserName] = useState<string>(me?.name ?? "You");
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(me?.profilePhoto ?? null);
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
-  const canViewPosts = !isPrivate || isFollowing || isMe;
+  // Derived values - FIXED: Only show posts if actually following (not just requested)
+  const canViewPosts = isMe || !userProfile?.isPrivate || (userProfile?.isPrivate && userProfile?.isFollowing);
+  const shouldShowPrivateMessage = userProfile?.isPrivate && !userProfile?.isFollowing && !isMe;
+  const shouldShowNoPosts = canViewPosts && posts.length === 0 && !loadingMore && !isLoading;
 
+  // Load user profile data
   useEffect(() => {
     if (!userId) {
       setError("Invalid user ID");
+      setIsLoading(false);
       return;
     }
 
-    (async () => {
+    const loadUserData = async () => {
       try {
-        const { user } = await getMe();
-        setCurrentUserName(user.name ?? "You");
-        setCurrentUserAvatar(user.profilePhoto ?? null);
-        localStorage.setItem("user", JSON.stringify(user));
-      } catch {
-        // Fallback to token/localStorage data
-      }
-    })();
-  }, [userId]);
+        setIsLoading(true);
+        setError(null);
 
-  useEffect(() => {
-    if (!userId) {
-      setError("Invalid user ID");
-      return;
-    }
-
-    if (initialUser) {
-      setFollowersCount(initialUser.followersCount);
-      setFollowingCount(initialUser.followingCount);
-      setIsFollowing(initialUser.isFollowing);
-      setFollowRequested(initialUser.followRequested ?? false);
-      setIsPrivate(initialUser.isPrivate);
-    } else {
-      // Fallback if no state
-      (async () => {
+        // Get current user info
         try {
+          const { user } = await getMe();
+          setCurrentUserName(user.name ?? "You");
+          setCurrentUserAvatar(user.profilePhoto ?? null);
+          localStorage.setItem("user", JSON.stringify(user));
+        } catch {}
+
+        let userData: UserResult;
+
+        if (initialUser) {
+          userData = initialUser;
+        } else {
           const data = await searchUsers(userId, 1, 0);
-          const user = data.results[0];
-          if (user) {
-            setFollowersCount(user.followersCount);
-            setFollowingCount(user.followingCount);
-            setIsFollowing(user.isFollowing);
-            setFollowRequested(user.followRequested ?? false);
-            setIsPrivate(user.isPrivate);
-          } else {
+          userData = data.results[0];
+          if (!userData) {
             setError("User not found");
+            setIsLoading(false);
+            return;
           }
-        } catch {
-          setError("Failed to fetch user data");
         }
-      })();
-    }
-  }, [initialUser, userId]);
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      try {
-        const [fCount, gCount] = await Promise.all([
-          countFollowers(userId),
-          countFollowing(userId),
-        ]);
-        setFollowersCount(fCount);
-        setFollowingCount(gCount);
-      } catch {
-        setFollowersCount(null);
-        setFollowingCount(null);
+        setUserProfile(userData);
+
+        // Count posts - only if we can view them
+        if (isMe || !userData.isPrivate || (userData.isPrivate && userData.isFollowing)) {
+          try {
+            const resp = await getPosts(1, 0, ["user"], userId);
+            const allPosts: Post[] = (resp.posts ?? []) as Post[];
+            const userPosts = allPosts.filter((post) => post.userId === userId);
+            setPostsCount(userPosts.length);
+          } catch {
+            setPostsCount(0);
+          }
+        } else {
+          setPostsCount(0);
+        }
+
+      } catch (err: any) {
+        setError(err.message || "Failed to load user data");
+      } finally {
+        setIsLoading(false);
       }
-    })();
-  }, [userId]);
+    };
 
-  // ----- fetch user posts (paged) -----
-  const fetchNext = useCallback(async () => {
-    if (!userId || inFlightRef.current || !hasMore || !canViewPosts) return;
+    loadUserData();
+  }, [userId, initialUser]);
+
+  // Load user posts
+  const fetchPosts = useCallback(async (reset = false) => {
+    if (!userId || !canViewPosts) return;
+
+    if (reset) {
+      setPosts([]);
+      setOffset(0);
+      setHasMore(true);
+    }
+
+    if (inFlightRef.current || !hasMore) return;
 
     inFlightRef.current = true;
     setLoadingMore(true);
 
     try {
-      console.log(`Fetching posts for userId: ${userId}`); // Debug log
-      const resp = await getPosts(pageSize, offset, ["user", "comments", "comments.user", "likes"], userId);
+      const currentOffset = reset ? 0 : offset;
+      const resp = await getPosts(pageSize, currentOffset, ["user", "comments", "comments.user", "likes"], userId);
       const batch: Post[] = (resp.posts ?? []) as Post[];
 
-      // Verify posts belong to the correct user
-      const filteredBatch = batch.filter((post) => post.userId === userId);
-      if (batch.length > 0 && filteredBatch.length === 0) {
-        console.warn(`Backend returned posts for wrong user. Expected userId: ${userId}`);
-        setHasMore(false);
-        return;
+      const userPosts = batch.filter((post) => post.userId === userId);
+
+      if (reset) {
+        setPosts(userPosts);
+      } else {
+        setPosts(prev => {
+          const seen = new Set(prev.map(p => p.id));
+          const newPosts = userPosts.filter(p => !seen.has(p.id));
+          return [...prev, ...newPosts];
+        });
       }
 
-      setPosts((prev) => {
-        const seen = new Set(prev.map((p) => p.id));
-        const add = filteredBatch.filter((p) => !seen.has(p.id));
-        return [...prev, ...add];
-      });
+      const newOffset = currentOffset + userPosts.length;
+      setOffset(newOffset);
+      setHasMore(userPosts.length === pageSize);
 
-      setOffset((prev) => prev + pageSize);
-      setHasMore(filteredBatch.length === pageSize);
+      // Update posts count based on actual loaded posts
+      if (reset) {
+        setPostsCount(userPosts.length);
+      }
+
     } catch (err: any) {
-      setHasMore(false);
       setError(err.message || "Failed to load posts");
+      setHasMore(false);
     } finally {
       setLoadingMore(false);
       inFlightRef.current = false;
     }
   }, [userId, offset, hasMore, canViewPosts, pageSize]);
 
-  // reset when user changes
+  // Load posts when user profile is loaded and we can view them
   useEffect(() => {
-    if (!userId) return;
-    console.log(`Resetting posts for userId: ${userId}`); // Debug log
-    setPosts([]); // Clear posts
-    setOffset(0);
-    setHasMore(true);
-    setError(null);
-  }, [userId]);
+    if (userProfile && canViewPosts && posts.length === 0 && !loadingMore) {
+      fetchPosts(true);
+    }
+  }, [userProfile, canViewPosts]);
 
-  // kick off first page
-  useEffect(() => {
-    fetchNext();
-  }, [fetchNext]);
-
-  // infinite scroll
+  // Infinite scroll
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || posts.length === 0) return;
+    if (!el || !hasMore || loadingMore || !canViewPosts) return;
 
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) fetchNext();
+        if (entries[0].isIntersecting) {
+          fetchPosts(false);
+        }
       },
       { rootMargin: "600px" }
     );
 
     io.observe(el);
     return () => io.disconnect();
-  }, [fetchNext, posts.length]);
+  }, [fetchPosts, hasMore, loadingMore, canViewPosts]);
 
-  // ----- like toggle inside modal -----
+  // Like functionality
   const isLikedByMe = (post: Post) =>
     (post.likes ?? []).some((l) => l.userId === currentUserId);
 
@@ -288,45 +261,42 @@ const UsersPostsPage: React.FC = () => {
     if (!currentUserId) return;
     const liked = isLikedByMe(post);
 
-    // optimistic update within grid + active modal
-    setPosts((prev) =>
-      prev.map((p) =>
+    // Optimistic update
+    setPosts(prev =>
+      prev.map(p =>
         p.id === post.id
           ? {
               ...p,
               likes: liked
-                ? (p.likes ?? []).filter((l) => l.userId !== currentUserId)
+                ? (p.likes ?? []).filter(l => l.userId !== currentUserId)
                 : [...(p.likes ?? []), { userId: currentUserId }],
             }
           : p
       )
     );
-    setActivePost((prev) =>
-      prev && prev.id === post.id
-        ? {
-            ...prev,
-            likes: liked
-              ? (prev.likes ?? []).filter((l) => l.userId !== currentUserId)
-              : [...(prev.likes ?? []), { userId: currentUserId }],
-          }
-        : prev
-    );
+
+    if (activePost?.id === post.id) {
+      setActivePost(prev =>
+        prev ? {
+          ...prev,
+          likes: liked
+            ? (prev.likes ?? []).filter(l => l.userId !== currentUserId)
+            : [...(prev.likes ?? []), { userId: currentUserId }],
+        } : prev
+      );
+    }
 
     try {
       if (liked) await unlikePost(post.id);
       else await likePost(post.id);
     } catch {
-      // revert on failure
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === post.id ? { ...p, likes: post.likes } : p
-        )
-      );
+      // Revert on failure
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: post.likes } : p));
       setActivePost(post);
     }
   };
 
-  // ----- comment add (modal) -----
+  // Comment functionality
   const handleAddComment = async () => {
     const content = newComment.trim();
     if (!activePost || !content) return;
@@ -340,54 +310,92 @@ const UsersPostsPage: React.FC = () => {
         user: created.user ?? { id: created.userId, name: currentUserName },
       };
 
-      setPosts((prev) =>
-        prev.map((p) =>
+      setPosts(prev =>
+        prev.map(p =>
           p.id === activePost.id
             ? { ...p, comments: [...(p.comments ?? []), appended] }
             : p
         )
       );
-      setActivePost((prev) =>
-        prev
-          ? { ...prev, comments: [...(prev.comments ?? []), appended] }
-          : prev
+
+      setActivePost(prev =>
+        prev ? { ...prev, comments: [...(prev.comments ?? []), appended] } : prev
       );
+
       setNewComment("");
     } catch {
       setError("Failed to add comment");
     }
   };
 
-  // ----- toggle follow -----
+  // Follow functionality - FIXED: Don't load posts when request is pending
   const toggleFollow = async () => {
-    if (isMe || !userId) return;
-    const liked = isFollowing || followRequested;
-    setIsFollowing(!liked);
-    setFollowRequested(false); // Reset requested if unfollowing
+    if (isMe || !userId || !userProfile) return;
+
+    const oldIsFollowing = userProfile.isFollowing;
+    const oldFollowRequested = userProfile.followRequested;
+
+    // Optimistic update
+    setUserProfile(prev => prev ? {
+      ...prev,
+      isFollowing: false,
+      followRequested: false,
+      followersCount: oldIsFollowing ? prev.followersCount - 1 : prev.followersCount
+    } : prev);
+
     try {
-      if (liked) await unfollowUser(userId);
-      else {
+      if (oldIsFollowing || oldFollowRequested) {
+        await unfollowUser(userId);
+        // If unfollowing a private account, clear posts
+        if (userProfile.isPrivate && !isMe) {
+          setPosts([]);
+          setHasMore(false);
+          setPostsCount(0);
+        }
+      } else {
         const { follow } = await followUser(userId);
-        setFollowRequested(follow.status === "pending");
-        setIsFollowing(follow.status === "accepted");
+        const newIsFollowing = follow.status === "accepted";
+        const newFollowRequested = follow.status === "pending";
+        
+        setUserProfile(prev => prev ? {
+          ...prev,
+          isFollowing: newIsFollowing,
+          followRequested: newFollowRequested,
+          followersCount: newIsFollowing ? prev.followersCount + 1 : prev.followersCount
+        } : prev);
+
+        // ONLY load posts if follow was immediately accepted
+        if (newIsFollowing) {
+          // Wait a bit for state to update, then load posts
+          setTimeout(() => {
+            fetchPosts(true);
+          }, 100);
+        } else if (newFollowRequested) {
+          // If request is pending, ensure posts are cleared
+          setPosts([]);
+          setHasMore(false);
+          setPostsCount(0);
+        }
       }
     } catch {
-      setIsFollowing(liked);
-      setFollowRequested(false);
+      // Revert on failure
+      setUserProfile(prev => prev ? {
+        ...prev,
+        isFollowing: oldIsFollowing,
+        followRequested: oldFollowRequested,
+        followersCount: oldIsFollowing ? prev.followersCount : prev.followersCount - 1
+      } : prev);
       setError("Failed to update follow status");
     }
   };
 
-  // ----- small helpers -----
+  // Helper functions
   const visibleComments = (comments?: Comment[], expanded?: boolean) => {
     if (!comments) return [];
-    if (expanded) return comments;
-    return comments.slice(0, 3);
+    return expanded ? comments : comments.slice(0, 3);
   };
 
-  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
-
-  // ----- UI -----
+  // Render
   if (!userId) {
     return (
       <div className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 p-4">
@@ -398,11 +406,21 @@ const UsersPostsPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 p-4">
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !userProfile) {
     return (
       <div className="flex flex-col min-h-screen w-screen bg-white dark:bg-gray-900 p-4">
         <div className="text-center text-sm text-red-500 dark:text-red-400">
-          {error}
+          {error || "User not found"}
         </div>
       </div>
     );
@@ -414,39 +432,36 @@ const UsersPostsPage: React.FC = () => {
       <div className="px-4 pt-6 md:pt-10">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-semibold relative">
-            {initialUser?.profilePhoto ? (
+            {userProfile.profilePhoto ? (
               <img
-                src={absolutize(initialUser.profilePhoto, API_BASE)}
-                alt={initialUser.name}
+                src={absolutize(userProfile.profilePhoto, API_BASE)}
+                alt={userProfile.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
-                  setCurrentUserAvatar(null); // fall back to initial
                 }}
               />
             ) : (
               <span className="text-xl">
-                {initialUser?.name?.trim()?.charAt(0)?.toUpperCase() ?? "U"}
+                {userProfile.name?.trim()?.charAt(0)?.toUpperCase() ?? "U"}
               </span>
             )}
           </div>
 
           <div className="flex-1">
             <h1 className="text-lg md:text-2xl font-semibold dark:text-gray-100 -mt-1">
-              {initialUser?.name}
+              {userProfile.name}
             </h1>
 
             <div className="mt-3 flex items-center gap-6 text-sm">
               <div>
-                <span className="font-semibold">{posts.length}</span> posts
+                <span className="font-semibold">{postsCount}</span> posts
               </div>
               <div>
-                <span className="font-semibold">{followersCount ?? "—"}</span>{" "}
-                followers
+                <span className="font-semibold">{userProfile.followersCount}</span> followers
               </div>
               <div>
-                <span className="font-semibold">{followingCount ?? "—"}</span>{" "}
-                following
+                <span className="font-semibold">{userProfile.followingCount}</span> following
               </div>
             </div>
 
@@ -459,14 +474,14 @@ const UsersPostsPage: React.FC = () => {
             <button
               onClick={toggleFollow}
               className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                isFollowing || followRequested
+                userProfile.isFollowing || userProfile.followRequested
                   ? "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
                   : "bg-[#3F978F] text-white hover:bg-[#357f78]"
               }`}
             >
-              {isFollowing
+              {userProfile.isFollowing
                 ? "Following"
-                : followRequested
+                : userProfile.followRequested
                 ? "Requested"
                 : "Follow"}
             </button>
@@ -479,13 +494,15 @@ const UsersPostsPage: React.FC = () => {
 
       {/* Posts section */}
       <div className="px-0 md:px-4 py-4 md:py-6">
-        {!canViewPosts ? (
+        {shouldShowPrivateMessage || userProfile.followRequested ? (
           <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-10">
-            This account is private. Follow to see posts.
+            {userProfile.followRequested 
+              ? "Follow request sent." 
+              : "This account is private. Follow to see posts."}
           </div>
-        ) : posts.length === 0 && !hasMore && !loadingMore ? (
+        ) : shouldShowNoPosts ? (
           <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-10">
-            No posts yet.
+            
           </div>
         ) : (
           <>
@@ -508,7 +525,6 @@ const UsersPostsPage: React.FC = () => {
                       No Image
                     </div>
                   )}
-                  {/* subtle overlay on hover (desktop) */}
                   <div className="hidden md:flex absolute inset-0 items-center justify-center bg-black/0 hover:bg-black/20 transition-colors">
                     <MoreHorizontal className="text-white opacity-0 hover:opacity-100 transition-opacity" />
                   </div>
@@ -517,7 +533,7 @@ const UsersPostsPage: React.FC = () => {
             </div>
 
             {/* Sentinel for infinite scroll */}
-            {hasMore && posts.length > 0 && <div ref={sentinelRef} className="h-12" />}
+            {hasMore && <div ref={sentinelRef} className="h-12" />}
 
             {loadingMore && (
               <div className="flex justify-center py-6">
@@ -527,7 +543,7 @@ const UsersPostsPage: React.FC = () => {
 
             {!hasMore && posts.length > 0 && (
               <div className="text-center text-xs text-gray-400 py-6">
-                You’re all caught up ✨
+                You're all caught up ✨
               </div>
             )}
           </>
