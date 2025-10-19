@@ -10,7 +10,8 @@ export class ProtectedRekognitionService {
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-      }
+      },
+      maxAttempts: 3 // Add retry attempts
     });
   }
 
@@ -57,12 +58,16 @@ export class ProtectedRekognitionService {
       });
 
       const labelResponse = await this.rekognition.send(labelCommand);
+      console.log(`Rekognition raw labels (${labelResponse.Labels?.length || 0} total):`, 
+        labelResponse.Labels?.map(l => `${l.Name} (${l.Confidence?.toFixed(1)}%)`).join(', '));
+      
       const clothingKeywords = this.extractClothingFromLabels(labelResponse.Labels || []);
+      console.log(`Extracted clothing keywords:`, clothingKeywords);
       
       const allKeywords = clothingKeywords;
       const searchString = this.buildSearchString(allKeywords);
       
-      console.log(`Rekognition success: "${searchString}" (${recordResult.remaining} calls remaining)`);
+      console.log(`Final search string: "${searchString}" (${recordResult.remaining} calls remaining)`);
       
       return {
         keywords: searchString,
@@ -72,6 +77,16 @@ export class ProtectedRekognitionService {
 
     } catch (error) {
       console.error('Rekognition analysis failed:', error);
+      
+      // Check if it's a DNS/network issue
+      if (error instanceof Error) {
+        if (error.message.includes('EAI_AGAIN') || error.message.includes('getaddrinfo')) {
+          console.error('DNS resolution failed - check Docker DNS configuration');
+        } else if (error.message.includes('ENOTFOUND')) {
+          console.error('Network connectivity issue - check internet connection');
+        }
+      }
+      
       return {
         keywords: '',
         usedRekognition: false,
@@ -102,6 +117,8 @@ export class ProtectedRekognitionService {
 
   private extractClothingFromLabels(labels: any[]): string[] {
     const clothingTerms: string[] = [];
+    const rawLabels = labels.map(l => l.Name?.toLowerCase()).filter(Boolean);
+    console.log(`Processing labels for clothing terms:`, rawLabels);
     
     const categoryMap = new Map([
       // Base Top
@@ -162,23 +179,33 @@ export class ProtectedRekognitionService {
     for (const label of labels) {
       if (label.Name && label.Confidence && label.Confidence > 60) {
         const labelName = label.Name.toLowerCase();
+        console.log(`Processing label: "${labelName}" (${label.Confidence.toFixed(1)}%)`);
         
         // Map to frontend category
+        let foundCategory = false;
         for (const [rekLabel, frontendCategory] of categoryMap) {
           if (labelName.includes(rekLabel)) {
+            console.log(`  Matched "${rekLabel}" -> ${frontendCategory}`);
             clothingTerms.push(frontendCategory.toLowerCase());
+            foundCategory = true;
             break;
           }
         }
         
         // Check if it's a style
         if (styleTerms.has(labelName)) {
+          console.log(`  Found style: ${labelName}`);
           clothingTerms.push(labelName);
         }
         
         // Check if it's a material
         if (materialTerms.has(labelName)) {
+          console.log(`  Found material: ${labelName}`);
           clothingTerms.push(labelName);
+        }
+        
+        if (!foundCategory && !styleTerms.has(labelName) && !materialTerms.has(labelName)) {
+          console.log(`  No match for: ${labelName}`);
         }
         
         // Check parent categories for clothing

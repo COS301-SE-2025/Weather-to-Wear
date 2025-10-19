@@ -102,6 +102,18 @@ export class SerpApiService {
       return response.shopping_results || [];
     } catch (error) {
       console.error('SerpApi search failed:', error);
+      
+      // Check if it's a DNS/network issue
+      if (error instanceof Error) {
+        if (error.message.includes('EAI_AGAIN') || error.message.includes('getaddrinfo')) {
+          console.error('DNS resolution failed for SerpAPI - check Docker DNS configuration');
+        } else if (error.message.includes('ENOTFOUND')) {
+          console.error('Network connectivity issue for SerpAPI - check internet connection');
+        } else if (error.message.includes('serpapi.com')) {
+          console.error('Cannot reach SerpAPI servers - check network connectivity');
+        }
+      }
+      
       return [];
     }
   }

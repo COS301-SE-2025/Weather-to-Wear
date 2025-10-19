@@ -226,12 +226,12 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
                     />
                   )}
                   {/* Shopping Button Overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
                     <button
                       onClick={() => handleViewRecommendations(item)}
-                      className="opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-200 bg-white text-gray-800 px-3 py-2 rounded-full shadow-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
+                      className="opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 bg-[#3F978F] text-white px-4 py-2.5 rounded-2xl shadow-xl hover:bg-[#347e77] flex items-center gap-2 text-sm font-semibold hover:shadow-2xl backdrop-blur-sm"
                     >
-                      <ShoppingBag size={14} />
+                      <ShoppingBag size={16} />
                       Buy Similar
                     </button>
                   </div>
@@ -707,17 +707,17 @@ const InspoPage = () => {
 
           {/* Shopping Info Section */}
           {allOutfits.length > 0 && (
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-white p-2 rounded-xl shadow-sm">
-                  <ShoppingBag className="text-green-600" size={20} />
+            <div className="bg-gradient-to-r from-[#3F978F]/5 via-[#3F978F]/10 to-emerald-50 border border-[#3F978F]/20 rounded-2xl p-5 mb-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="bg-[#3F978F] p-3 rounded-2xl shadow-md">
+                  <ShoppingBag className="text-white" size={22} />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-800 mb-1">
-                    🛍️ Shop Your Inspiration
+                  <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                    <span>🛍️ Shop Your Inspiration</span>
                   </h3>
-                  <p className="text-sm text-gray-600">
-                    Hover over any item below and click <strong>"Buy Similar"</strong> to find where you can purchase it online!
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Hover over any item below and click <strong className="text-[#3F978F]">"Buy Similar"</strong> to discover where you can purchase it online!
                   </p>
                 </div>
               </div>

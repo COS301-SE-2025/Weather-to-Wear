@@ -190,11 +190,15 @@ class SafeShoppingController {
         const descriptiveParts = [];
         
         if (clothingItem.colorHex) {
+          console.log(`Color mapping for ${clothingItem.colorHex}:`);
           const colorName = mapHexColorsToNames([clothingItem.colorHex])[0];
+          console.log(`Mapped to color name: ${colorName}`);
+          
           if (colorName && colorName !== 'Unknown') {
             parts.push(colorName.toLowerCase());
             descriptiveParts.push(`${colorName} (${clothingItem.colorHex})`);
           } else {
+            // If we can't map the color, try to use hex directly
             descriptiveParts.push(`Color: ${clothingItem.colorHex}`);
           }
         }
@@ -501,6 +505,33 @@ class SafeShoppingController {
     } catch (error) {
       console.error('Debug usage file error:', error);
       res.status(500).json({ error: 'Debug failed', details: error });
+    }
+  };
+
+  /**
+   * Debug endpoint to test color mapping
+   */
+  debugColorMapping = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { hex } = req.query;
+      
+      if (!hex || typeof hex !== 'string') {
+        res.status(400).json({ error: 'Please provide a hex color query parameter' });
+        return;
+      }
+      
+      console.log(`Testing color mapping for hex: ${hex}`);
+      const colorName = mapHexColorsToNames([hex])[0];
+      console.log(`Mapped to: ${colorName}`);
+      
+      res.status(200).json({
+        inputHex: hex,
+        mappedColorName: colorName,
+        isValid: colorName !== 'Unknown'
+      });
+    } catch (error) {
+      console.error('Color mapping debug error:', error);
+      res.status(500).json({ error: 'Color mapping test failed', details: error });
     }
   };
 
