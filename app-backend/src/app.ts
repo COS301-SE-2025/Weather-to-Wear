@@ -17,6 +17,7 @@ import usersRoutes from './modules/users/users.routes';
 import daySelectionRoutes from './modules/daySelection/daySelection.routes'
 import tryonRoutes from "./modules/tryon/tryon.routes";
 import tryonSelfRoutes from './modules/tryon-self/tryon-self.routes';
+import shoppingRoutes from './modules/shopping/shopping.routes';
 import fs from 'fs';
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/day-selections', daySelectionRoutes);
 app.use(`/api/tryon`, tryonRoutes);
 app.use('/api/tryon-self', tryonSelfRoutes);
+app.use('/api/shopping', shoppingRoutes);
 
 // health check
 const healthz: RequestHandler = (_req, res) => {

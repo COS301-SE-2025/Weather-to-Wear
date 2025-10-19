@@ -164,6 +164,12 @@ class ClosetService {
     });
   }
 
+  async getClosetItemById(userId: string, itemId: string): Promise<ClosetItem | null> {
+    return this.prisma.closetItem.findFirst({
+      where: { id: itemId, ownerId: userId },
+    });
+  }
+
   async deleteImage(id: string, ownerId: string): Promise<void> {
     const item = await this.prisma.closetItem.findFirst({
       where: { id, ownerId },

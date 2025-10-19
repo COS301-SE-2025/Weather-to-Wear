@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow, Flame } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow, Flame, ShoppingBag } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { absolutize } from '../utils/url';
+import ShoppingModal from '../components/ShoppingModal';
 
 interface WeatherCondition {
   minTemp: number;
@@ -157,6 +158,35 @@ const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = []
 
 
 const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: string) => void }) => {
+  const [shoppingModal, setShoppingModal] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    itemCategory: string;
+    itemImage: string;
+  }>({
+    isOpen: false,
+    itemId: '',
+    itemCategory: '',
+    itemImage: ''
+  });
+
+  const handleViewRecommendations = (item: InspoItem) => {
+    setShoppingModal({
+      isOpen: true,
+      itemId: item.closetItemId,
+      itemCategory: item.category,
+      itemImage: item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'
+    });
+  };
+
+  const closeShoppingModal = () => {
+    setShoppingModal({
+      isOpen: false,
+      itemId: '',
+      itemCategory: '',
+      itemImage: ''
+    });
+  };
   return (
     <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-4 border border-gray-200">
       {/* Header */}
@@ -183,7 +213,7 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((item) => (
               <div key={item.closetItemId} className="relative group">
-                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
                   <img
                     src={item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'}
                     alt={item.category}
@@ -195,6 +225,16 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
                       style={{ backgroundColor: item.colorHex }}
                     />
                   )}
+                  {/* Shopping Button Overlay */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+                    <button
+                      onClick={() => handleViewRecommendations(item)}
+                      className="opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-200 bg-white text-gray-800 px-3 py-2 rounded-full shadow-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
+                    >
+                      <ShoppingBag size={14} />
+                      Buy Similar
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1 text-xs text-center">
                   <p className="font-medium capitalize text-gray-700">{item.category}</p>
@@ -342,6 +382,15 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
           </span>
         </div>
       </div>
+
+      {/* Shopping Modal */}
+      <ShoppingModal
+        isOpen={shoppingModal.isOpen}
+        onClose={closeShoppingModal}
+        itemId={shoppingModal.itemId}
+        itemCategory={shoppingModal.itemCategory}
+        itemImage={shoppingModal.itemImage}
+      />
     </div>
   );
 };
@@ -655,6 +704,25 @@ const InspoPage = () => {
             onGenerate={handleGenerate}
             isGenerating={generateMutation.isPending}
           />
+
+          {/* Shopping Info Section */}
+          {allOutfits.length > 0 && (
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-white p-2 rounded-xl shadow-sm">
+                  <ShoppingBag className="text-green-600" size={20} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 mb-1">
+                    🛍️ Shop Your Inspiration
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Hover over any item below and click <strong>"Buy Similar"</strong> to find where you can purchase it online!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error States */}
 
