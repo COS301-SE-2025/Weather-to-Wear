@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow, Flame } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow, Flame, ShoppingBag } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { absolutize } from '../utils/url';
+import ShoppingModal from '../components/ShoppingModal';
+
 // for virtual try on 
 import { motion, AnimatePresence } from "framer-motion";
 import TryOnViewer from "../components/tryon/TryOnViewer";
@@ -17,6 +19,7 @@ import {
 } from "../services/tryonApi";
 import { X, Heart } from "lucide-react";
 import Toast from "../components/Toast";
+
 
 interface WeatherCondition {
   minTemp: number;
@@ -209,15 +212,37 @@ const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = []
 };
 
 
-const OutfitCard = ({
-  outfit,
-  onDelete,
-  onTryOn,
-}: {
-  outfit: InspoOutfit;
-  onDelete: (id: string) => void;
-  onTryOn: (o: InspoOutfit) => void;
-}) => {
+const OutfitCard = ({ outfit, onDelete, onTryOn, }: { outfit: InspoOutfit; onDelete: (id: string) => void; onTryOn: (o: InspoOutfit) => void; }) => {
+  const [shoppingModal, setShoppingModal] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    itemCategory: string;
+    itemImage: string;
+  }>({
+    isOpen: false,
+    itemId: '',
+    itemCategory: '',
+    itemImage: ''
+  });
+
+  const handleViewRecommendations = (item: InspoItem) => {
+    setShoppingModal({
+      isOpen: true,
+      itemId: item.closetItemId,
+      itemCategory: item.category,
+      itemImage: item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'
+    });
+  };
+
+  const closeShoppingModal = () => {
+    setShoppingModal({
+      isOpen: false,
+      itemId: '',
+      itemCategory: '',
+      itemImage: ''
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-4 border border-gray-200">
       {/* Header */}
@@ -243,7 +268,7 @@ const OutfitCard = ({
             .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((item) => (
               <div key={item.closetItemId} className="relative group">
-                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
                   <img
                     src={item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'}
                     alt={item.category}
@@ -255,6 +280,16 @@ const OutfitCard = ({
                       style={{ backgroundColor: item.colorHex }}
                     />
                   )}
+                  {/* Shopping Button Overlay */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
+                    <button
+                      onClick={() => handleViewRecommendations(item)}
+                      className="opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 bg-[#3F978F] text-white px-4 py-2.5 rounded-2xl shadow-xl hover:bg-[#347e77] flex items-center gap-2 text-sm font-semibold hover:shadow-2xl backdrop-blur-sm"
+                    >
+                      <ShoppingBag size={16} />
+                      Buy Similar
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1 text-xs text-center">
                   <p className="font-medium capitalize text-gray-700">{item.category}</p>
@@ -314,8 +349,7 @@ const OutfitCard = ({
 
         {/* Tags */}
         <div className="mt-3 sm:mt-4 flex justify-center flex-wrap gap-1.5 sm:gap-2">
-          {/* Warmth Factor Tag */}
-          {/* Warmth Factor Tag (icon-only, no color) */}
+          {/* Warmth Factor Tag - How the outfit feels */}
           {(() => {
             const rating = outfit.warmthRating;
 
@@ -330,15 +364,14 @@ const OutfitCard = ({
             else { label = 'Cold'; Icon = Snowflake; }
 
             return (
-              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium inline-flex items-center gap-1">
+              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium inline-flex items-center gap-1" title="How this outfit will feel when worn">
                 <Icon size={14} />
-                {label}
+                Feels {label}
               </span>
             );
           })()}
 
-
-          {/* Weather Condition Tag */}
+          {/* Weather Condition Tag - What weather it's suitable for */}
           {(() => {
             const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
             const primaryIcon = getWeatherIconForTemperature(avgTemp, outfit.recommendedWeather.conditions, 14);
@@ -361,9 +394,9 @@ const OutfitCard = ({
             }
 
             return (
-              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1">
+              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1" title="Weather conditions this outfit is suitable for">
                 {primaryIcon}
-                <span>{weatherLabel}</span>
+                <span>For {weatherLabel} Weather</span>
               </span>
             );
           })()}
@@ -412,6 +445,15 @@ const OutfitCard = ({
           </div>
         </div>
       </div>
+
+      {/* Shopping Modal */}
+      <ShoppingModal
+        isOpen={shoppingModal.isOpen}
+        onClose={closeShoppingModal}
+        itemId={shoppingModal.itemId}
+        itemCategory={shoppingModal.itemCategory}
+        itemImage={shoppingModal.itemImage}
+      />
     </div>
   );
 };
@@ -909,6 +951,25 @@ const InspoPage = () => {
             onGenerate={handleGenerate}
             isGenerating={generateMutation.isPending}
           />
+
+          {/* Shopping Info Section */}
+          {allOutfits.length > 0 && (
+            <div className="bg-gradient-to-r from-[#3F978F]/5 via-[#3F978F]/10 to-emerald-50 border border-[#3F978F]/20 rounded-2xl p-5 mb-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="bg-[#3F978F] p-3 rounded-2xl shadow-md">
+                  <ShoppingBag className="text-white" size={22} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                    <span>🛍️ Shop Your Inspiration</span>
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Hover over any item below and click <strong className="text-[#3F978F]">"Buy Similar"</strong> to discover where you can purchase it online!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error States */}
 
