@@ -144,7 +144,7 @@ class ColorNameService {
       'graphite': 'gray',
       'manatee': 'black',
       
-      // Unusual names that should map to basic colors
+      // Unusual names 
       'shark': 'black',
       'martini': 'green',
       'whiskey': 'brown',
@@ -154,7 +154,9 @@ class ColorNameService {
       'midnight': 'black',
       'snow': 'white',
       'pearl': 'white',
-      'coconut': 'white'
+      'coconut': 'white',
+      'onyx':'black',
+      'timberwolf':'white'
     };
     
     // Check direct mapping first
@@ -170,25 +172,19 @@ class ColorNameService {
       }
     }
     
-    // If no mapping found, return the original name
     return apiColorName;
   }
   
-  /**
-   * Get color name from hex using The Color API with searchable mapping
-   */
+
   async getColorName(hex: string): Promise<string> {
     try {
-      // Remove # from hex if present
       const cleanHex = hex.replace('#', '');
       
-      // Check cache first
       const cacheKey = cleanHex.toLowerCase();
       if (this.cache.has(cacheKey)) {
         return this.cache.get(cacheKey)!;
       }
       
-      // Call The Color API
       const response = await fetch(`https://www.thecolorapi.com/id?hex=${cleanHex}`, {
         timeout: 5000 // 5 second timeout
       });
@@ -201,10 +197,8 @@ class ColorNameService {
       const data = await response.json() as ColorAPIResponse;
       const apiColorName = data.name?.value || 'Unknown';
       
-      // Map to searchable color name
       const searchableColorName = this.mapToSearchableColor(apiColorName);
       
-      // Cache the result
       this.cache.set(cacheKey, searchableColorName);
       
       console.log(`Color API: ${hex} -> ${apiColorName} -> ${searchableColorName}`);
@@ -216,29 +210,23 @@ class ColorNameService {
     }
   }
   
-  /**
-   * Get multiple color names in parallel
-   */
+  
   async getColorNames(hexColors: string[]): Promise<string[]> {
     const promises = hexColors.map(hex => this.getColorName(hex));
     return Promise.all(promises);
   }
   
-  /**
-   * Fallback color naming using basic color analysis
-   */
+
   private fallbackColorName(hex: string): string {
     try {
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
       const b = parseInt(hex.slice(5, 7), 16);
       
-      // Simple heuristic-based color naming
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const diff = max - min;
       
-      // Grayscale
       if (diff < 30) {
         if (max < 50) return 'black';
         if (max < 100) return 'gray';
@@ -247,7 +235,6 @@ class ColorNameService {
         return 'white';
       }
       
-      // Primary colors
       if (r > g && r > b) {
         if (g > 100 && b < 100) return 'orange';
         if (g < 100 && b > 100) return 'purple';
@@ -274,9 +261,6 @@ class ColorNameService {
     }
   }
   
-  /**
-   * Clear the cache (useful for testing)
-   */
   clearCache(): void {
     this.cache.clear();
   }

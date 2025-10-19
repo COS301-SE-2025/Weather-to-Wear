@@ -101,6 +101,21 @@ function scoreItemForWeatherWeighted(item: ClosetItem, temperature?: number, wea
   // Additional category-based filtering for extreme temperatures
   const category = item.category?.toLowerCase() || '';
   
+  // Temperature-based shorts filtering
+  if (category.includes('shorts')) {
+    if (temperature < 5) {
+      // Never allow shorts in very cold weather (below 5°C)
+      score *= 0.01; // Effectively eliminates them
+    } else if (temperature < 15) {
+      // Rarely allow shorts in cold weather (5-15°C)
+      score *= 0.1; // Heavy penalty but not complete elimination
+    } else if (temperature < 20) {
+      // Slightly discourage shorts in cool weather (15-20°C)
+      score *= 0.5; // Moderate penalty
+    }
+    // No penalty for shorts in warm weather (20°C+)
+  }
+  
   if (temperature > 25) {
     // Hot weather - heavily penalize inappropriate categories
     if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') {
@@ -330,14 +345,28 @@ function generateRandomOutfitsWeighted(
       
       // Filter inappropriate items for temperature
       let filteredItems = scoredItems;
-      if (temperature && temperature > 25) {
+      if (temperature) {
         filteredItems = scoredItems.filter(scored => {
           const item = scored.item;
           const category = item.category?.toLowerCase() || '';
           
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('jacket') || category.includes('coat')) return false;
+          // Hot weather filtering (>25°C)
+          if (temperature > 25) {
+            if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
+            if (category.includes('hoodie') || category.includes('sweater') || 
+                category.includes('jacket') || category.includes('coat')) return false;
+          }
+          
+          // Cold weather filtering for shorts
+          if (category.includes('shorts')) {
+            if (temperature < 5) {
+              // Never allow shorts in very cold weather (below 5°C)
+              return false;
+            } else if (temperature < 15) {
+              // Rarely allow shorts in cold weather (5-15°C) - 10% chance
+              return Math.random() < 0.1;
+            }
+          }
           
           return true;
         });
@@ -391,14 +420,28 @@ function generateRandomOutfitsWeighted(
       }));
       
       let filteredItems = scoredItems;
-      if (temperature && temperature > 25) {
+      if (temperature) {
         filteredItems = scoredItems.filter(scored => {
           const item = scored.item;
           const category = item.category?.toLowerCase() || '';
           
-          if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
-          if (category.includes('hoodie') || category.includes('sweater') || 
-              category.includes('jacket') || category.includes('coat')) return false;
+          // Hot weather filtering (>25°C)
+          if (temperature > 25) {
+            if (item.layerCategory === 'outerwear' || item.layerCategory === 'mid_top') return false;
+            if (category.includes('hoodie') || category.includes('sweater') || 
+                category.includes('jacket') || category.includes('coat')) return false;
+          }
+          
+          // Cold weather filtering for shorts
+          if (category.includes('shorts')) {
+            if (temperature < 5) {
+              // Never allow shorts in very cold weather (below 5°C)
+              return false;
+            } else if (temperature < 15) {
+              // Rarely allow shorts in cold weather (5-15°C) - 10% chance
+              return Math.random() < 0.1;
+            }
+          }
           
           return true;
         });
@@ -653,6 +696,24 @@ function isOutfitSuitableForWeather(
     
     if (hasInappropriateItems) {
       return false;
+    }
+  }
+  
+  // CRITICAL FIX: Shorts filtering for cold weather
+  if (temperature < 15) {
+    const hasShorts = outfit.inspoItems.some(item => {
+      const category = item.category?.toLowerCase() || '';
+      return category.includes('shorts');
+    });
+    
+    if (hasShorts) {
+      if (temperature < 5) {
+        // Never allow shorts in very cold weather (below 5°C)
+        return false;
+      } else {
+        // Rarely allow shorts in cold weather (5-15°C) - only 10% chance
+        return Math.random() < 0.1;
+      }
     }
   }
   
