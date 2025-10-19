@@ -1149,7 +1149,6 @@ export default function ClosetPage() {
                 </div>
 
                 {/* Outfit Info */}
-                {/* Outfit Info */}
                 <div className="space-y-3 text-gray-700 text-base mt-2">
                   <div> {activeDetailsOutfit.overallStyle} <span> Outfit</span> </div>
 
@@ -1184,7 +1183,6 @@ export default function ClosetPage() {
 
                   {typeof activeDetailsOutfit.userRating === 'number' && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">Your Rating:</span>
                       <div className="flex gap-1">
                         {[0, 1, 2, 3, 4].map(i => (
                           <Star
