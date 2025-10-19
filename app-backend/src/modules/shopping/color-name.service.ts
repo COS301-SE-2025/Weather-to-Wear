@@ -156,7 +156,8 @@ class ColorNameService {
       'pearl': 'white',
       'coconut': 'white',
       'onyx':'black',
-      'timberwolf':'white'
+      'timberwolf':'white',
+      'schooner':'blue'
     };
     
     // Check direct mapping first
