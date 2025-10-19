@@ -18,7 +18,10 @@ Epi-Use Africa     </a>
 [![Build Status](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml/badge.svg)](https://github.com/COS301-SE-2025/Weather-To-Wear/actions/workflows/ci.yml)
 ![Dockerized](https://img.shields.io/badge/docker-ready-blue)
 
+<p></p>
 
+
+<p></p>
 
 
 
@@ -38,12 +41,14 @@ while expressing their unique fashion sense.
 
 </p>
 
-[Our Team Website](https://gitgood.netlify.app/) 
+[Visit our site](https://weather-to-wear.com/) 
+
 <p></p>
 
 
 
   <h1 align="center"> Documentation and Resources </h1>
+  
 
 <div align="center" >
 
@@ -51,21 +56,16 @@ while expressing their unique fashion sense.
 
 | Resource                             | Description                                                                                                                         |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [SRS - Architectural Requirements Document](https://drive.google.com/file/d/1Ks9EmRCO2uaso_XHqwyW_eL1V2MCNxPK/view?usp=sharing)             | System design overview                     |
-| [Architectural Diagram](https://drive.google.com/file/d/1k58rqWWvfRNujXopW8fJtZiOBDE-xpEi/view?usp=sharing)             | Architectural diagram overview                    |
-| [Coding Standards Document](https://drive.google.com/file/d/1d6znnTFrbmvGASALxOcCGLJvQzRb4rN3/view?usp=sharing)           |  Guidelines for writing code      |
-| [User Manual](https://drive.google.com/file/d/1cNthfpx0T-8xEaA-NzAYWVo78XtEZIwc/view?usp=sharing)           |  Guidelines for using Weather To Wear      |
-| [Service Contracts](https://drive.google.com/file/d/1KG_b2IHcPWZOfn3m-_Taj5A1m9nEpQVo/view?usp=drive_link)           |  Service contracts for Weather to Wear     |
-| [Technical Installation](https://drive.google.com/file/d/1t-dAXwdq3XbwQUn7cmBJ-TCtehda6XUp/view?usp=sharing)                        | Guidelines for installing Weather To Wear              |
-| [Deployment Model](https://drive.google.com/file/d/1eiw_zUMCsmGaZwp1r7FcGcFyeVBZ4Pp4/view?usp=drive_link)                   | Description of Deployment Model                |
-| [Deployment Diagram](https://drive.google.com/file/d/1W3ft8p6dSi-MfEqv_-Pg36av-5ZJQjP-/view?usp=sharing)                   | Plan for project deployment                |
-| [Requirements Specification Document](https://drive.google.com/file/d/18unsmLIjsdccWC2KgX291vJZWQS9z0lj/view?usp=sharing)     | Details on project requirements            |
-| [Use-Case Diagrams](https://drive.google.com/file/d/1dAjbBkgJbfUG0LFHR6i6d_46k1RiZCI4/view?usp=sharing)                   | Use Case Diagrams               |
-| [Class Diagram](https://drive.google.com/file/d/1C8O1hi8RmQ9HCU3T96ZP061vIWcOOZIp/view?usp=sharing)                        | Visual representation of Weather To Wear structure     |
+| [SRS - Architectural Requirements Document](docs/demo4/Architecture%20Document.pdf)             | System design overview                     |
+| [Coding Standards Document](docs/demo4/Coding%20Standards.pdf)           |  Guidelines for writing code      |
+| [Testing Policy](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/See-our-Testing-Here#testing)           |  Guidelines for Testing     |
+| [User Manual](docs/demo4/User%20Manual.pdf)           |  Guidelines for using Weather To Wear      |
+| [Technical Installation](docs/demo4/Technical%20Installation.pdf)                        | Guidelines for installing Weather To Wear              |
+| [Deployment Model](docs/demo4/Deployment%20Diagram%20Description%20(1).pdf)                   | Description of Deployment Model                |
+| [Service Contracts](docs/demo4/Service%20Contract%20(4).pdf)           |  Service contracts for Weather to Wear     |
 | [Project Board](https://github.com/COS301-SE-2025/Weather-to-Wear/projects?query=is%3Aopen)                                                           | Team organisation and progress tracking    |
 | [Tender Document Proposal](https://drive.google.com/file/d/16_RmKBtDhNpgXp95yghXMCpzRlVstp1S/view?usp=sharing)     | See our initial tender document   |
 | [Previous Documentation](https://github.com/COS301-SE-2025/Weather-to-Wear/wiki/Previous-Documentation)     | See our previous documentation  |
-| [E2E Testing](https://drive.google.com/drive/folders/1BlKT7uJLDbouhGfVRa9eTWFZF3Bh__BL)     | End-to-end Testing  |
 
 
 <h1 align="center"> Demo Resources </h1>
@@ -77,7 +77,7 @@ while expressing their unique fashion sense.
 | Demo 1 | [Demo 1 Video](https://drive.google.com/file/d/1GyHs1VCjNgNZzOnTfQ42bB9qiGFx9cDD/view?usp=drive_link) | [Demo 1 Slides](https://www.canva.com/design/DAGoo6VD59E/H3WMgCOqYhneGzFKsbAXyA/edit?utm_content=DAGoo6VD59E&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 2 | [Demo 2 Video](https://drive.google.com/file/d/1KGmEKBSlrwvg-jyh0UD6E8v92oZqQfoY/view?usp=sharing) | [Demo 2 Slides](https://www.canva.com/design/DAGrdP6mmEo/M21LCP-2bE7OZnUnH_WtqQ/edit?utm_content=DAGrdP6mmEo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) |
 | Demo 3 | [Demo 3 Video](https://drive.google.com/file/d/1l9zM6gVoOu1_PHj3VN0-MpvKMGhCRAob/view?usp=sharing) | [Demo 3 Slides](https://drive.google.com/file/d/1fxbzPkf-n0Bbjb-JeXmzErP_y-l3ikdM/view?usp=drive_link) |
-
+| Demo 4 | [Demo 4 Video](https://drive.google.com/file/d/176BHmsyvkqqzTDMhl-kp-5iz1VFNhPC8/view?usp=sharing) | [Demo 4 Slides](docs/demo4/DEMO4Slides.pdf) |
 
 </div>
 
@@ -102,6 +102,11 @@ while expressing their unique fashion sense.
 <br>
 
 <h1 align="center">Meet The Team</h1>
+<p></p>
+
+[Our Team Website](https://gitgood.netlify.app/) 
+
+<p></p>
 <p align="center">
   <img src="docs/assets/team/Team.jpeg" width="600" height="auto" style="display: block; margin: 0 auto;">
 </p><table style="border-width: 1px; width: 100%; font-family: Arial, sans-serif; border-collapse: collapse;">

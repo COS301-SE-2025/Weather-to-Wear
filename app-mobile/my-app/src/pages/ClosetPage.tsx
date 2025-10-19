@@ -143,6 +143,24 @@ type UIOutfit = RecommendedOutfit & {
 };
 
 export default function ClosetPage() {
+  const getWarmthMeta = (rating: number) => {
+    // Assume rating roughly 0–25+. Clamp for safety.
+    const r = Math.max(0, Math.min(25, Number.isFinite(rating) ? rating : 0));
+
+    // % fill across the bar. 0 => 10%, 25 => 90% to keep nice padding.
+    const fillPct = 10 + (r / 25) * 80;
+
+    // Color gradient & label by ranges
+    // colder => teal, moderate => yellow/orange, warm/hot => rose/red
+    if (r >= 35) return { fillPct, label: "Extreme Warmth", gradient: "from-rose-300 via-rose-500 to-rose-700" };
+    if (r >= 28) return { fillPct, label: "Very Warm", gradient: "from-rose-300 via-rose-500 to-rose-700" };
+    if (r >= 20) return { fillPct, label: "Warm", gradient: "from-yellow-400 via-orange-400 to-rose-400" };
+    if (r >= 18) return { fillPct, label: "Moderate", gradient: "from-yellow-400 via-orange-400 to-rose-400" };
+    if (r >= 5) return { fillPct, label: "Cool", gradient: "from-teal-300 via-teal-500 to-teal-700" };
+    return { fillPct, label: "Cold", gradient: "from-teal-300 via-teal-500 to-teal-700" };
+  };
+
+
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [items, setItems] = useState<Item[]>([]);
   const [outfits, setOutfits] = useState<UIOutfit[]>([]);
@@ -169,7 +187,7 @@ export default function ClosetPage() {
 
   const [editingOutfit, setEditingOutfit] = useState<UIOutfit | null>(null);
 
-  const [showTryOnModal, setShowTryOnModal] = useState(false); 
+  const [showTryOnModal, setShowTryOnModal] = useState(false);
   const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfit | null>(null);
 
   const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
@@ -270,7 +288,7 @@ export default function ClosetPage() {
         showToast('Could not update favourite.');
       }
     } else {
-      const newFav = !item.favourite; 
+      const newFav = !item.favourite;
       setOutfits(prev =>
         prev.map(o => (o.id === item.id ? { ...o, favourite: newFav } : o))
       );
@@ -368,7 +386,7 @@ export default function ClosetPage() {
   const isItemPackedAnywhere = async (closetItemId: string): Promise<boolean> => {
     try {
       const events = await fetchAllEvents();
-      const subset = events.slice(0, 12); 
+      const subset = events.slice(0, 12);
       const checks = subset.map(async ev => {
         try {
           const list = await getPackingList(ev.id).catch(() => null);
@@ -552,7 +570,7 @@ export default function ClosetPage() {
   async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    const b64 = await resizeToDataUrl(f, 1280, 1280); 
+    const b64 = await resizeToDataUrl(f, 1280, 1280);
     setSelfPhotoPreview(b64);
   }
 
@@ -1131,31 +1149,53 @@ export default function ClosetPage() {
                 </div>
 
                 {/* Outfit Info */}
-                <div className="space-y-2 text-gray-700 text-base mt-2">
-                  <div><span className="font-semibold">Warmth Rating:</span> {activeDetailsOutfit.warmthRating}</div>
+                <div className="space-y-3 text-gray-700 text-base mt-2">
+                  <div> {activeDetailsOutfit.overallStyle} <span> Outfit</span> </div>
+
+                  {/* Warmth bar block */}
+                  {(() => {
+                    const r = activeDetailsOutfit.warmthRating ?? 0;
+                    const { fillPct, label, gradient } = getWarmthMeta(r);
+                    return (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] sm:text-xs font-medium text-gray-600">Warmth</span>
+                          <span className="text-[11px] sm:text-xs text-gray-500">{label}{typeof r === 'number' ? ` • ${r}` : ""}</span>
+                        </div>
+                        <div className="w-full h-2.5 sm:h-3 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full bg-gradient-to-r ${gradient} transition-all duration-500 ease-out rounded-full`}
+                            style={{ width: `${fillPct}%` }}
+                          />
+                        </div>
+                        <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mt-1">
+                          <span className="text-[10px] sm:text-xs text-teal-700 font-medium">Cold</span>
+                          <span className="text-[10px] sm:text-xs font-medium text-gray-700">{label}</span>
+                          <span className="text-[10px] sm:text-xs text-rose-700 font-medium">Hot</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+
+
                   <div><span className="font-semibold">Waterproof:</span> {activeDetailsOutfit.waterproof ? "Yes" : "No"}</div>
-                  <div><span className="font-semibold">Overall Style:</span> {activeDetailsOutfit.overallStyle}</div>
+
                   {typeof activeDetailsOutfit.userRating === 'number' && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">Your Rating:</span>
-
                       <div className="flex gap-1">
-                        {[0,1,2,3,4].map(i => (
+                        {[0, 1, 2, 3, 4].map(i => (
                           <Star
                             key={i}
-                            className={`w-5 h-5 ${
-                              i < (activeDetailsOutfit.userRating || 0)
-                                ? 'text-teal-500'
-                                : 'text-gray-300'
-                            }`}
+                            className={`w-5 h-5 ${i < (activeDetailsOutfit.userRating || 0) ? 'text-teal-500' : 'text-gray-300'}`}
                           />
                         ))}
                       </div>
-
                       <span className="ml-1">{activeDetailsOutfit.userRating}/5</span>
                     </div>
                   )}
                 </div>
+
 
                 {/* Actions: single Try On (left) + Edit/Delete (right) */}
                 <div className="flex justify-between items-center pt-6">
@@ -1231,7 +1271,7 @@ export default function ClosetPage() {
                       onClick={() => {
                         if (!tryOnOutfit) return;
                         setShowTryOnModal(false);
-                        openSelfTryOn(tryOnOutfit); 
+                        openSelfTryOn(tryOnOutfit);
                       }}
                     >
                       Virtual Try On
@@ -1520,7 +1560,7 @@ export default function ClosetPage() {
                   <button
                     onClick={() => {
                       setShowSelfPreviewModal(false);
-                      openSelfTryOn(selfTryOnOutfit); 
+                      openSelfTryOn(selfTryOnOutfit);
                     }}
                     className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
                   >
@@ -1657,46 +1697,46 @@ export default function ClosetPage() {
           )}
         </AnimatePresence>
 
-          {/* Remove Confirmation (HomePage style) */}
-          <AnimatePresence>
-            {showModal && itemToRemove && (
+        {/* Remove Confirmation (HomePage style) */}
+        <AnimatePresence>
+          {showModal && itemToRemove && (
+            <motion.div
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
               <motion.div
-                className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative"
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
               >
-                <motion.div
-                  className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-5 w-full max-w-sm relative"
-                  initial={{ scale: 0.95 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0.95 }}
-                >
-                  <h3 className="text-lg font-semibold">Delete From Closet</h3>
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    Are you sure you want to delete this?
-                  </p>
+                <h3 className="text-lg font-semibold">Delete From Closet</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  Are you sure you want to delete this?
+                </p>
 
-                  <div className="mt-4 flex justify-end gap-2">
-                    <button
-                      onClick={cancelRemove}
-                      className="px-4 py-2 rounded-full border border-black dark:border-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={confirmRemove}
-                      className="px-4 py-2 rounded-full bg-red-500 text-white"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </motion.div>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={cancelRemove}
+                    className="px-4 py-2 rounded-full border border-black dark:border-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmRemove}
+                    className="px-4 py-2 rounded-full bg-red-500 text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
               </motion.div>
-            )}
-          </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        
+
         {/* Edit Modal */}
         <AnimatePresence>
           {showEditModal && itemToEdit && (
@@ -1734,17 +1774,17 @@ export default function ClosetPage() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Category</label>
                   <select
-  value={editedCategory}
-  onChange={e => setEditedCategory(e.target.value)}
-  className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
->
-  <option value="">Select Category</option>
-  {itemToEdit.layerCategory &&
-    (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
-      <option key={o.value} value={o.value}>{o.label}</option>
-    ))
-  }
-</select>
+                    value={editedCategory}
+                    onChange={e => setEditedCategory(e.target.value)}
+                    className="w-full border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    <option value="">Select Category</option>
+                    {itemToEdit.layerCategory &&
+                      (CATEGORY_BY_LAYER[itemToEdit.layerCategory] || []).map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))
+                    }
+                  </select>
                 </div>
 
                 {/* Style & Material */}
@@ -1842,42 +1882,42 @@ export default function ClosetPage() {
         </AnimatePresence>
 
         {editingOutfit && (
-  <EditOutfitModal
-    outfitId={editingOutfit.id}
-    initialStyle={editingOutfit.overallStyle}
-    initialRating={editingOutfit.userRating}
-    initialItems={editingOutfit.outfitItems.map(it => ({
-      closetItemId: it.closetItemId,
-      layerCategory: it.layerCategory,
-      imageUrl: it.imageUrl,
-      category: toSentenceCase(it.category),
-    }))}
-    onClose={() => setEditingOutfit(null)}
-    onSaved={(updated) => {
-      setOutfits(prev =>
-        prev.map(o =>
-          o.id === updated.id
-            ? {
-              ...o,
-              overallStyle: updated.overallStyle,
-              userRating: updated.userRating ?? o.userRating,
-              outfitItems: (updated.outfitItems || []).map((it: any) => ({
-                closetItemId: it.closetItemId,
-                layerCategory: it.layerCategory,
-                imageUrl:
-                  it.imageUrl && it.imageUrl.length > 0
-                    ? it.imageUrl
-                    : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE), 
-                category: it?.closetItem?.category ?? it.category,
-              })),
-            }
-            : o
-        )
-      );
-      showToast('Outfit updated successfully.');
-    }}
-  />
-)}
+          <EditOutfitModal
+            outfitId={editingOutfit.id}
+            initialStyle={editingOutfit.overallStyle}
+            initialRating={editingOutfit.userRating}
+            initialItems={editingOutfit.outfitItems.map(it => ({
+              closetItemId: it.closetItemId,
+              layerCategory: it.layerCategory,
+              imageUrl: it.imageUrl,
+              category: toSentenceCase(it.category),
+            }))}
+            onClose={() => setEditingOutfit(null)}
+            onSaved={(updated) => {
+              setOutfits(prev =>
+                prev.map(o =>
+                  o.id === updated.id
+                    ? {
+                      ...o,
+                      overallStyle: updated.overallStyle,
+                      userRating: updated.userRating ?? o.userRating,
+                      outfitItems: (updated.outfitItems || []).map((it: any) => ({
+                        closetItemId: it.closetItemId,
+                        layerCategory: it.layerCategory,
+                        imageUrl:
+                          it.imageUrl && it.imageUrl.length > 0
+                            ? it.imageUrl
+                            : absolutize(`/uploads/${it?.closetItem?.filename ?? ""}`, API_BASE),
+                        category: it?.closetItem?.category ?? it.category,
+                      })),
+                    }
+                    : o
+                )
+              );
+              showToast('Outfit updated successfully.');
+            }}
+          />
+        )}
       </div>
 
       {toast ? <Toast message={toast.msg} /> : null}

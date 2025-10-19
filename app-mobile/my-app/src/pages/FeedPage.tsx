@@ -227,9 +227,14 @@ const weatherIcon = (cond?: string | null) => {
 };
 
 // Maps raw labels/keys to human-friendly phrases used in the NSFW popup
-const formatNsfwLabel = (raw: string | undefined) => {
+const formatNsfwLabel = (raw?: string) => {
   const key = (raw || "").toLowerCase();
   const map: Record<string, string> = {
+    explicit: "explicit content",
+    suggestive: "suggestive content",
+    offensive_any: "offensive content",
+    explicit_image: "explicit content",
+
     sexual: "sexual content",
     insulting: "insulting language",
     toxic: "toxic language",
@@ -237,11 +242,13 @@ const formatNsfwLabel = (raw: string | undefined) => {
     violent: "violent content",
     hasprofanity: "profanity",
     profanity: "profanity",
-    "profanity_text": "profanity",
+    profanity_text: "profanity",
+
     nsfw: "inappropriate content",
   };
   return map[key] || key || "inappropriate content";
 };
+
 
 
 const FeedPage: React.FC = () => {
@@ -506,38 +513,53 @@ const FeedPage: React.FC = () => {
       );
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
       setExpandedComments((prev) => ({ ...prev, [postId]: true }));
-    } catch (err: any) {
-      // Handle NSFW filter responses
-      const data = err?.data;
+    }
+    catch (err: any) {
+      const data = err?.data || err?.response?.data;
       if (data?.error === "NSFW_BLOCKED") {
         // Clear the input for this post
         setNewComment((prev) => ({ ...prev, [postId]: "" }));
 
-        // Determine the top scoring category (ignore profanityMatches)
         const scores = (data?.scores ?? {}) as Record<string, number>;
-        const entries = Object.entries(scores).filter(([k]) => k !== "profanityMatches");
+
+        // Exclude all profanity-type keys when picking the top category
+        const isProfanityKey = (k: string) =>
+          ["profanity", "hasprofanity", "profanity_text", "profanitymatches"].includes(
+            k.toLowerCase()
+          );
+
+        const numericEntries = Object.entries(scores).filter(
+          ([k, v]) => typeof v === "number" && !isProfanityKey(k)
+        );
 
         let rawLabel = data?.label || "nsfw";
         let topScore = 0;
 
-        if (entries.length) {
-          const [k, v] = entries.reduce((a, b) => (Number(b[1]) > Number(a[1]) ? b : a));
-          rawLabel = k;                 // use the top score's key (e.g., "toxic")
+        if (numericEntries.length) {
+          const [k, v] = numericEntries.reduce((a, b) =>
+            Number(b[1]) > Number(a[1]) ? b : a
+          );
+          rawLabel = k;          // e.g. "toxic", "insulting", etc.
           topScore = Number(v);
+        } else {
+          // No non-profanity categories – treat as profanity if present
+          const profanityScore =
+            Number(scores.profanity) ||
+            Number(scores.hasprofanity) ||
+            Number(scores.profanity_text) ||
+            Number(scores.profanityMatches) ||
+            0;
+
+          rawLabel = profanityScore > 0 ? "profanity" : "nsfw";
+          topScore = profanityScore;
         }
 
-        // If the API only reports profanityMatches, treat it as profanity with score 1.0
-        const fallbackScore =
-          typeof scores?.profanityMatches === "number" && scores.profanityMatches > 0 ? 1 : 0;
-        const finalScore = Math.max(topScore, fallbackScore);
-
         setNsfwNotice({
-          displayLabel: formatNsfwLabel(rawLabel),  // human-friendly text
-          score: finalScore,
+          displayLabel: formatNsfwLabel(rawLabel),
+          score: topScore,
         });
         return;
       }
-
 
       // Fallback error
       setError(err?.message || "Failed to add comment");
@@ -1529,14 +1551,13 @@ const FeedPage: React.FC = () => {
 
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Comment Blocked
+                Post Blocked
               </h3>
               <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                Your comment was blocked due to{" "}
+                Your post was blocked due to{" "}
                 <span className="font-medium">{nsfwNotice.displayLabel}</span>
                 {" "}
               </p>
-
 
               <div className="mt-4 flex justify-end">
                 <button
@@ -1550,6 +1571,7 @@ const FeedPage: React.FC = () => {
           </div>
         </div>
       )}
+
 
       {/* ======= /Overlays & Toasts ======= */}
     </div>

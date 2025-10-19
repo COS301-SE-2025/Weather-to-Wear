@@ -115,6 +115,146 @@ async function validateAndStandardizeLocation(raw: string): Promise<string | nul
   return matches[0]?.city ?? null;
 }
 
+// --- 3-up stacked carousel (center big, sides small) ---
+  const OutfitCarousel3: React.FC<{
+    outfits: RecommendedOutfit[];
+    index: number;
+    onIndexChange: (i: number) => void;
+    normalizeUrl: (u?: string | null) => string | null;
+  }> = ({ outfits, index, onIndexChange, normalizeUrl }) => {
+    if (!outfits.length) {
+      return (
+        <div className="text-sm text-gray-500 text-center px-4 h-72 flex items-center justify-center">
+          No outfit yet. Click “Regenerate”.
+        </div>
+      );
+    }
+
+    const total = outfits.length;
+    const leftIdx  = (index - 1 + total) % total;
+    const mainIdx  = index % total;
+    const rightIdx = (index + 1) % total;
+
+    const Card: React.FC<{
+      rec: RecommendedOutfit;
+      isMain?: boolean;
+      side?: 'left' | 'right';
+      onClick?: () => void;
+    }> = ({ rec, isMain, side, onClick }) => {
+      const base =
+        "absolute rounded-2xl border bg-white shadow-md transition-all duration-300 ease-out";
+      const mainSize =
+        "w-[min(92%,280px)] sm:w-[320px] md:w-[360px] min-h-[420px] px-4 py-5";
+      const sideSize =
+        "w-[min(70%,180px)] sm:w-[220px] min-h-[300px] px-3 py-4";
+      const pos = isMain
+        ? "z-20 left-1/2 -translate-x-1/2 scale-100"
+        : side === "left"
+          ? "z-10 left-[14%] sm:left-[18%] scale-90 -rotate-[1.5deg]"
+          : "z-10 right-[14%] sm:right-[18%] scale-90 rotate-[1.5deg]";
+      const morePos = isMain ? "" : "opacity-80";
+
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          className={[
+            base,
+            isMain ? mainSize : sideSize,
+            pos,
+            morePos,
+            isMain ? "ring-2 ring-[#3F978F] border-[#3F978F]" : "border-gray-200"
+          ].join(" ")}
+          title={isMain ? "Current outfit" : "Tap to focus"}
+        >
+          <div className="flex flex-col items-center justify-start gap-3">
+            {/* Tops */}
+            <div className="flex flex-wrap items-end justify-center gap-2">
+              {rec.outfitItems
+                .filter(it => ["base_top", "mid_top", "outerwear"].includes(it.layerCategory))
+                .map(it => (
+                  <img
+                    key={it.closetItemId}
+                    src={normalizeUrl(it.imageUrl) || ""}
+                    className={isMain ? "h-24 w-auto object-contain" : "h-16 w-auto object-contain"}
+                    alt=""
+                  />
+                ))}
+            </div>
+            {/* Bottoms */}
+            <div className="flex justify-center gap-2">
+              {rec.outfitItems
+                .filter(it => it.layerCategory === "base_bottom")
+                .map(it => (
+                  <img
+                    key={it.closetItemId}
+                    src={normalizeUrl(it.imageUrl) || ""}
+                    className={isMain ? "h-24 w-auto object-contain" : "h-16 w-auto object-contain"}
+                    alt=""
+                  />
+                ))}
+            </div>
+            {/* Footwear */}
+            <div className="flex justify-center gap-2">
+              {rec.outfitItems
+                .filter(it => it.layerCategory === "footwear")
+                .map(it => (
+                  <img
+                    key={it.closetItemId}
+                    src={normalizeUrl(it.imageUrl) || ""}
+                    className={isMain ? "h-16 w-auto object-contain" : "h-12 w-auto object-contain"}
+                    alt=""
+                  />
+                ))}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">{isMain ? "Tap to select" : "Tap to preview"}</div>
+          </div>
+        </button>
+      );
+    };
+
+    return (
+      <div className="relative w-full h-[500px] sm:h-[520px] md:h-[540px] overflow-visible">
+        {/* Cards */}
+        <Card
+          rec={outfits[leftIdx]}
+          side="left"
+          onClick={() => onIndexChange(leftIdx)}
+        />
+        <Card
+          rec={outfits[mainIdx]}
+          isMain
+          onClick={() => onIndexChange(mainIdx)}
+        />
+        <Card
+          rec={outfits[rightIdx]}
+          side="right"
+          onClick={() => onIndexChange(rightIdx)}
+        />
+
+        {/* Arrows (appear if >1) */}
+        {outfits.length > 1 && (
+          <>
+            <button
+              className="absolute z-40 top-1/2 -translate-y-1/2 left-2 sm:left-4 w-9 h-9 rounded-full border bg-white/90 backdrop-blur flex items-center justify-center shadow pointer-events-auto"
+              onClick={() => onIndexChange((index - 1 + total) % total)}
+              aria-label="Previous"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              className="absolute z-40 top-1/2 -translate-y-1/2 right-2 sm:right-4 w-9 h-9 rounded-full border bg-white/90 backdrop-blur flex items-center justify-center shadow pointer-events-auto"
+              onClick={() => onIndexChange((index + 1) % total)}
+              aria-label="Next"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+    );
+  };
+
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
@@ -210,6 +350,8 @@ export default function CalendarPage() {
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genIndex, setGenIndex] = useState(0); 
+  const [genSelected, setGenSelected] = useState<number | null>(null); 
+
 
   const [chosenDraft, setChosenDraft] = useState<DayChoice | null>(null);
 
@@ -939,7 +1081,9 @@ export default function CalendarPage() {
 
   useEffect(() => {
     setGenIndex(0);
+    setGenSelected(null);
   }, [genOutfits.length]);
+
 
   async function generateTwoSuitcaseRecs(trip: Event, d: Date, style: Style) {
     const startOfToday = new Date();
@@ -976,7 +1120,7 @@ export default function CalendarPage() {
       const uniqueKey = (o: RecommendedOutfit) =>
         (o.outfitItems || []).map(i => i.closetItemId).sort().join(',');
 
-      while (picks.length < 1 && attempts < 3) {
+      while (picks.length < 3 && attempts < 7) {
         attempts += 1;
         let recs = await fetchRecommendedOutfits(summary, style, trip.id);
         recs = (recs || [])
@@ -990,7 +1134,7 @@ export default function CalendarPage() {
 
         recs = shuffle(recs);
         for (const r of recs) {
-          if (picks.length >= 1) break;
+          if (picks.length >= 3) break;
           picks.push(r);
         }
       }
@@ -1000,7 +1144,7 @@ export default function CalendarPage() {
         let recs = await fetchRecommendedOutfits(summary, style, trip.id);
         recs = shuffle((recs || [])
           .filter(r => (r.outfitItems || []).every(it => poolIds.has(it.closetItemId))));
-        picks = recs.slice(0, 1);
+        picks = recs.slice(0, 3);
       }
 
       setGenOutfits(picks);
@@ -1910,6 +2054,8 @@ export default function CalendarPage() {
                     onClick={() => {
                       setChosenDraft(null);
                       setGenOutfits([]);
+                      setGenSelected(null);
+                      setGenIndex(0);
                       generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
                       setPlanTab('generate');
                     }}
@@ -1976,7 +2122,9 @@ export default function CalendarPage() {
                     onChange={(e) => {
                       const s = e.target.value as Style;
                       setGenStyle(s);
-                      setGenOutfits([]);            
+                      setGenOutfits([]);
+                      setGenSelected(null);
+                      setGenIndex(0);
                       generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, s);
                     }}
                   >
@@ -1994,6 +2142,8 @@ export default function CalendarPage() {
                     title="Regenerate"
                     onClick={() => {
                       setGenOutfits([]);
+                      setGenSelected(null);
+                      setGenIndex(0);
                       generateTwoSuitcaseRecs(planModal.trip!, planModal.date!, genStyle);
                     }}
                   >
@@ -2003,76 +2153,51 @@ export default function CalendarPage() {
 
                 {genError && <div className="text-sm text-red-500">{genError}</div>}
 
-                {/* Single recommendation */}
-                <div className="rounded-2xl border bg-white h-96 flex items-center justify-center">
-                  {!genOutfits.length ? (
-                    <div className="text-sm text-gray-500 text-center px-4">
-                      No outfit yet. Click “Regenerate”.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-4">
-                      <div className="flex items-end justify-center gap-3">
-                        {genOutfits[0].outfitItems
-                          .filter(it => ['base_top', 'mid_top', 'outerwear'].includes(it.layerCategory))
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="h-24 w-auto object-contain"
-                            />
-                          ))}
-                      </div>
-                      <div className="flex justify-center">
-                        {genOutfits[0].outfitItems
-                          .filter(it => it.layerCategory === 'base_bottom')
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="h-24 w-auto object-contain"
-                            />
-                          ))}
-                      </div>
-                      <div className="flex justify-center">
-                        {genOutfits[0].outfitItems
-                          .filter(it => it.layerCategory === 'footwear')
-                          .map(it => (
-                            <img
-                              key={it.closetItemId}
-                              src={normalizeUrl(it.imageUrl) || ''}
-                              className="h-16 w-auto object-contain"
-                            />
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-
-                <div className="flex justify-between">
-                  <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
-                    Back
-                  </button>
-                  <button
-                    disabled={!genOutfits.length}
-                    onClick={() => {
-                      if (!genOutfits.length) return;
-                      const rec = genOutfits[0];
-                      saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), {
-                        kind: 'items',
-                        items: rec.outfitItems,
-                      });
-                      showToast('Outfit set for the day');
-                      setPlanTab('chosen');
+                {/* Stacked 3-up carousel like homepage */}
+                <div className="relative rounded-2xl border bg-white py-6">
+                  <OutfitCarousel3
+                    outfits={genOutfits}
+                    index={genSelected ?? genIndex}
+                    onIndexChange={(i) => {
+                      setGenSelected(i);
+                      setGenIndex(i);
                     }}
-                    className={`px-4 py-2 rounded ${genOutfits.length
-                      ? 'bg-[#3F978F] text-white'
-                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                  >
-                    Set Outfit
-                  </button>
+                    normalizeUrl={normalizeUrl}
+                  />
                 </div>
+
+
+  {/* position indicator (like home, but short) */}
+  {genOutfits.length > 0 && (
+    <div className="text-center text-xs text-gray-500 mt-2">
+      {((genSelected ?? genIndex) + 1)} / {genOutfits.length}
+    </div>
+  )}
+
+  <div className="flex justify-between mt-2">
+    <button className="px-4 py-2 rounded border" onClick={() => setPlanTab('landing')}>
+      Back
+    </button>
+    <button
+      disabled={!genOutfits.length}
+      onClick={() => {
+        if (!genOutfits.length) return;
+        const useIdx = (genSelected ?? genIndex) % genOutfits.length;
+        const rec = genOutfits[useIdx];
+        saveTripDayChoice(planModal.trip!.id, toDateKey(planModal.date!), {
+          kind: 'items',
+          items: rec.outfitItems,
+        });
+        showToast('Outfit set for the day');
+        setPlanTab('chosen');
+      }}
+      className={`px-4 py-2 rounded ${
+        genOutfits.length ? 'bg-[#3F978F] text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+      }`}
+    >
+      Set Outfit
+    </button>
+  </div>
               </div>
             )}
           </div>

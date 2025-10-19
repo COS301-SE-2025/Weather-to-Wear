@@ -11,18 +11,30 @@ jobs:
       BASE_URL: ${{ secrets.PERF_BASE_URL }}
       TEST_USER_EMAIL: ${{ secrets.PERF_USER_EMAIL }}
       TEST_USER_PASSWORD: ${{ secrets.PERF_USER_PASSWORD }}
+      CITY: ${{ secrets.PERF_CITY }}
     steps:
       - uses: actions/checkout@v4
-      - uses: grafana/setup-k6-action@v1
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Prepare artifact dir
+        run: mkdir -p app-backend/tests/nonfunctional/perf/artifacts
+
       - name: Smoke
         run: |
-          k6 run --summary-export smoke.json tests/nonfunctional/perf/smoke-read.k6.js
+          k6 run \
+            --summary-export app-backend/tests/nonfunctional/perf/artifacts/smoke.json \
+            app-backend/tests/nonfunctional/perf/smoke-read.k6.js
+
       - name: Upload pipeline (seed few items)
         run: |
-          k6 run --summary-export upload.json tests/nonfunctional/perf/upload-pipeline.k6.js
+          k6 run \
+            --summary-export app-backend/tests/nonfunctional/perf/artifacts/upload.json \
+            app-backend/tests/nonfunctional/perf/upload-pipeline.k6.js
+
       - uses: actions/upload-artifact@v4
         with:
           name: k6-summaries
-          path: |
-            smoke.json
-            upload.json
+          path: app-backend/tests/nonfunctional/perf/artifacts/
+          if-no-files-found: error
