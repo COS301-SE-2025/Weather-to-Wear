@@ -59,3 +59,15 @@ export const fetchCitySuggestions = async (query: string): Promise<CityMatch[]> 
     throw new Error("Failed to fetch city suggestions");
   }
 };
+
+export const geocodeCity = async (query: string, count = 5): Promise<Array<{ label: string; city: string }>> => {
+  try {
+    const matches = await fetchCitySuggestions(query);
+    return matches.slice(0, count).map((r) => ({
+      label: [r.name, r.admin1, r.country].filter(Boolean).join(", "),
+      city: `${r.name}${r.country ? ", " + r.country : ""}`,
+    }));
+  } catch (error) {
+    return [];
+  }
+};
