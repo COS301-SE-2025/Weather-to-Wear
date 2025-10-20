@@ -65,13 +65,11 @@ class ClosetService {
   ): Promise<ClosetItem> {
     const skipPipeline = process.env.SKIP_IMAGE_PIPELINE === 'true';
 
-    // Prepare input stream/buffer
     const { stream, filename, contentType } = streamFromFileOrBuffer(file);
 
-    // 1) Background removal (optional in dev)
+    // 1) Background removal 
     let noBgBuffer: Buffer;
     if (skipPipeline) {
-      // just use the original bytes
       noBgBuffer = file.buffer && file.buffer.length
         ? Buffer.from(file.buffer)
         : await fs.promises.readFile(file.path!);
@@ -115,8 +113,7 @@ class ClosetService {
     }
 
     // 3) Store (S3 if configured, else /uploads)
-    // const key = `users/${userId}/closet/${Date.now()}-${randomUUID()}.png`;
-    const base = (keyPrefix && keyPrefix.trim()) ? keyPrefix : `users/${userId}/`; // ! perf
+    const base = (keyPrefix && keyPrefix.trim()) ? keyPrefix : `users/${userId}/`; 
     const key = `${base}closet/${Date.now()}-${randomUUID()}.png`;
     const { key: storedKey } = await putBufferSmart({
       key,
@@ -167,6 +164,12 @@ class ClosetService {
     });
   }
 
+  async getClosetItemById(userId: string, itemId: string): Promise<ClosetItem | null> {
+    return this.prisma.closetItem.findFirst({
+      where: { id: itemId, ownerId: userId },
+    });
+  }
+
   async deleteImage(id: string, ownerId: string): Promise<void> {
     const item = await this.prisma.closetItem.findFirst({
       where: { id, ownerId },
@@ -175,7 +178,6 @@ class ClosetService {
 
     await this.prisma.closetItem.delete({ where: { id } });
 
-    // For now, we leave S3 garbage-collection and maybe enhance in future
     const uploadDir = path.join(__dirname, '../../uploads');
     const filePath = path.join(uploadDir, item.filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

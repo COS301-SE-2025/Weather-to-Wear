@@ -19,19 +19,40 @@ interface IPApiResponse {
   [key: string]: any;
 }
 
-// automatically detect user's location, otherwise fallback to pretoria 
-async function detectUserLocation(): Promise<string> {
+function cleanIp(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  // strip IPv6 zone/port
+  let ip = raw.trim();
+
+  // If "ip:port" form, drop port
+  const idx = ip.lastIndexOf(':');
+  if (idx > -1 && ip.indexOf('.') > -1) {
+    // Heuristic: IPv4-with-port often has a colon; keep pure IPv6 as-is
+    const maybePort = ip.slice(idx + 1);
+    if (/^\d+$/.test(maybePort)) ip = ip.slice(0, idx);
+  }
+
+  // If IPv6-mapped IPv4 like ::ffff:1.2.3.4 => keep just 1.2.3.4
+  const v4Match = ip.match(/(\d{1,3}\.){3}\d{1,3}/);
+  if (v4Match) return v4Match[0];
+
+  return ip;
+}
+
+// automatically detect user's location, otherwise fallback to Pretoria
+async function detectUserLocation(clientIp?: string): Promise<string> {
   try {
-    // const response = await axios.get<IPApiResponse>('http://ip-api.com/json');
-    const response = await http.get<IPApiResponse>('http://ip-api.com/json');
+    const ip = cleanIp(clientIp);
+    // ip-api supports /json/{IP}. If IP missing, it uses caller IP (which was the bug - better than nothing tho).
+    const url = ip ? `http://ip-api.com/json/${ip}` : 'http://ip-api.com/json';
+    const response = await http.get<IPApiResponse>(url);
     if (response.data && response.data.city) {
       return response.data.city;
     }
   } catch (err) {
-    console.log("User Location Detection Failed, falling back to pretoria");
-    return "Pretoria";
+    // fall through to fallback below
   }
-  return '';
+  return "Pretoria";
 }
 
 // If multiple cities are returned, avoid ambiguity by letting the user decide
@@ -576,18 +597,17 @@ export function summarizeWeather(forecast: HourlyForecast[]): WeatherSummary {
 
 // --------------------------- PUBLIC SERVICE API --------------------------
 
-export async function getWeatherByLocation(manualLocation?: string): Promise<WeatherDataWithSummary> {
-  const location = manualLocation || await detectUserLocation();
+export async function getWeatherByLocation(manualLocation?: string, clientIp?: string): Promise<WeatherDataWithSummary> {
+  const location = manualLocation || await detectUserLocation(clientIp); 
   const cacheKey = `loc:${location.trim().toLowerCase()}`;
   const now = Date.now();
 
   const cached = weatherCache.get(cacheKey);
-  const staleCandidate = cached?.data; // ! perf
+  const staleCandidate = cached?.data;
   if (cached && now - cached.time < CACHE_TTL) {
     return cached.data;
   }
 
-  // PRIMARY: Open-Meteo — keep legacy “next 24h” behavior here (UI dependence), but request extra data
   const primaryWeather = await fetchFromOpenMeteo(location, 24, { days: 7 });
   if (primaryWeather) {
     const summary = summarizeWeather(primaryWeather.forecast);
@@ -596,7 +616,6 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
     return result;
   }
 
-  // Fallback: FreeWeatherAPI
   const fallback1 = await fetchFromFreeWeatherAPI(location, 24);
   if (fallback1) {
     const summary = summarizeWeather(fallback1.forecast);
@@ -605,7 +624,6 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
     return result;
   }
 
-  // Fallback: OpenWeatherMap
   const fallback2 = await fetchFromOpenWeatherMap(location, 24);
   if (fallback2) {
     const summary = summarizeWeather(fallback2.forecast);
@@ -614,7 +632,6 @@ export async function getWeatherByLocation(manualLocation?: string): Promise<Wea
     return result;
   }
 
-  // throw new Error('Both weather services failed. Please try again later.'); // ! perf
   if (staleCandidate) {
     logger.warn(`Weather providers failed; serving stale cache for key=${cacheKey}`);
     return staleCandidate;

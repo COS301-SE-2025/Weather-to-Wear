@@ -1,10 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow, Flame } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Cloud, CloudRain, Wind, Filter, Trash2, RefreshCw, Snowflake, CloudSnow, Flame, ShoppingBag } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { absolutize } from '../utils/url';
+import ShoppingModal from '../components/ShoppingModal';
+
+// for virtual try on 
+import { motion, AnimatePresence } from "framer-motion";
+import TryOnViewer from "../components/tryon/TryOnViewer";
+import {
+  getTryOnPhoto,
+  setTryOnPhotoBase64,
+  runTryOnSelf,
+  getTryOnCredits,
+  getTryOnResult,
+} from "../services/tryonApi";
+import { X, Heart } from "lucide-react";
+import Toast from "../components/Toast";
+
 
 interface WeatherCondition {
   minTemp: number;
@@ -56,6 +71,47 @@ type ConfirmState = {
   cancelLabel?: string;
   resolve?: (ok: boolean) => void;
 };
+
+// --> Start try on feature
+type UIOutfitLike = {
+  id: string;
+  outfitItems: Array<{
+    closetItemId: string;
+    imageUrl: string;
+    layerCategory: string;
+    category?: string;
+  }>;
+  overallStyle?: string;
+  warmthRating?: number;
+  waterproof?: boolean;
+  favourite?: boolean;
+};
+
+function toUIOutfitLike(inspo: InspoOutfit): UIOutfitLike {
+  return {
+    id: inspo.id,
+    outfitItems: inspo.inspoItems
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((it) => {
+        const cid =
+          (it as any).closetItemId != null && String((it as any).closetItemId).length > 0
+            ? String((it as any).closetItemId)
+            : `${inspo.id}-${it.layerCategory}-${it.category}-${it.sortOrder}`;
+
+        return {
+          closetItemId: cid,
+          imageUrl: it.imageUrl,
+          layerCategory: it.layerCategory,
+          category: it.category,
+        };
+      }),
+    overallStyle: inspo.overallStyle,
+    warmthRating: inspo.warmthRating,
+    waterproof: inspo.waterproof,
+  };
+}
+// <-- End try on feature
 
 const API_ENDPOINT = `${API_BASE}/api`;
 
@@ -156,10 +212,39 @@ const getWeatherIconForTemperature = (avgTemp: number, conditions: string[] = []
 };
 
 
-const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: string) => void }) => {
+const OutfitCard = ({ outfit, onDelete, onTryOn, }: { outfit: InspoOutfit; onDelete: (id: string) => void; onTryOn: (o: InspoOutfit) => void; }) => {
+  const [shoppingModal, setShoppingModal] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    itemCategory: string;
+    itemImage: string;
+  }>({
+    isOpen: false,
+    itemId: '',
+    itemCategory: '',
+    itemImage: ''
+  });
+
+  const handleViewRecommendations = (item: InspoItem) => {
+    setShoppingModal({
+      isOpen: true,
+      itemId: item.closetItemId,
+      itemCategory: item.category,
+      itemImage: item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'
+    });
+  };
+
+  const closeShoppingModal = () => {
+    setShoppingModal({
+      isOpen: false,
+      itemId: '',
+      itemCategory: '',
+      itemImage: ''
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-4 border border-gray-200">
-      {/* Header */}
       {/* Header */}
       <div className="bg-black text-white px-4 py-3 relative">
         <h3 className="text-lg sm:text-xl font-livvic text-center capitalize">          {outfit.overallStyle} Outfit Idea
@@ -183,7 +268,7 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((item) => (
               <div key={item.closetItemId} className="relative group">
-                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
                   <img
                     src={item.imageUrl ? absolutize(item.imageUrl, API_BASE) : '/api/placeholder/150/150'}
                     alt={item.category}
@@ -195,6 +280,16 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
                       style={{ backgroundColor: item.colorHex }}
                     />
                   )}
+                  {/* Shopping Button Overlay */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
+                    <button
+                      onClick={() => handleViewRecommendations(item)}
+                      className="opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 bg-[#3F978F] text-white px-4 py-2.5 rounded-2xl shadow-xl hover:bg-[#347e77] flex items-center gap-2 text-sm font-semibold hover:shadow-2xl backdrop-blur-sm"
+                    >
+                      <ShoppingBag size={16} />
+                      Buy Similar
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1 text-xs text-center">
                   <p className="font-medium capitalize text-gray-700">{item.category}</p>
@@ -223,15 +318,15 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
 
             if (avgTemp >= 22) {
               barColor = 'from-rose-300 via-rose-500 to-rose-700';
-              fillPercentage = Math.min(85, 60 + ((avgTemp - 22) / 14) * 25); 
+              fillPercentage = Math.min(85, 60 + ((avgTemp - 22) / 14) * 25);
               tempLabel = 'Hot Weather';
             } else if (avgTemp >= 12) {
               barColor = 'from-yellow-400 via-orange-400 to-rose-400';
-              fillPercentage = 35 + ((avgTemp - 12) / 10) * 20; 
+              fillPercentage = 35 + ((avgTemp - 12) / 10) * 20;
               tempLabel = 'Moderate Weather';
             } else {
               barColor = 'from-teal-300 via-teal-500 to-teal-700';
-              fillPercentage = Math.max(10, 30 - ((12 - avgTemp) / 22) * 20); 
+              fillPercentage = Math.max(10, 30 - ((12 - avgTemp) / 22) * 20);
               tempLabel = 'Cold Weather';
             }
 
@@ -254,8 +349,7 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
 
         {/* Tags */}
         <div className="mt-3 sm:mt-4 flex justify-center flex-wrap gap-1.5 sm:gap-2">
-          {/* Warmth Factor Tag */}
-          {/* Warmth Factor Tag (icon-only, no color) */}
+          {/* Warmth Factor Tag - How the outfit feels */}
           {(() => {
             const rating = outfit.warmthRating;
 
@@ -265,20 +359,19 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             if (rating >= 25) { label = 'Extreme Warmth'; Icon = Flame; }
             else if (rating >= 20) { label = 'Very Warm'; Icon = Flame; }
             else if (rating >= 15) { label = 'Warm'; Icon = Thermometer; }
-            else if (rating >= 10) { label = 'Moderate'; Icon = Sun; }         
+            else if (rating >= 10) { label = 'Moderate'; Icon = Sun; }
             else if (rating >= 6) { label = 'Cool'; Icon = Wind; }
             else { label = 'Cold'; Icon = Snowflake; }
 
             return (
-              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium inline-flex items-center gap-1">
+              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium inline-flex items-center gap-1" title="How this outfit will feel when worn">
                 <Icon size={14} />
-                {label}
+                Feels {label}
               </span>
             );
           })()}
 
-
-          {/* Weather Condition Tag */}
+          {/* Weather Condition Tag - What weather it's suitable for */}
           {(() => {
             const avgTemp = (outfit.recommendedWeather.minTemp + outfit.recommendedWeather.maxTemp) / 2;
             const primaryIcon = getWeatherIconForTemperature(avgTemp, outfit.recommendedWeather.conditions, 14);
@@ -301,9 +394,9 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
             }
 
             return (
-              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1">
+              <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium flex items-center gap-1" title="Weather conditions this outfit is suitable for">
                 {primaryIcon}
-                <span>{weatherLabel}</span>
+                <span>For {weatherLabel} Weather</span>
               </span>
             );
           })()}
@@ -314,7 +407,7 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
               .flatMap(item => item.dominantColors || (item.colorHex ? [item.colorHex] : []))
               .filter(Boolean);
 
-            const uniqueColors = Array.from(new Set(allColors)).slice(0, 4); 
+            const uniqueColors = Array.from(new Set(allColors)).slice(0, 4);
 
             if (uniqueColors.length > 0) {
               return (
@@ -340,8 +433,27 @@ const OutfitCard = ({ outfit, onDelete }: { outfit: InspoOutfit; onDelete: (id: 
           <span className="px-3 py-1 border bg-gray-100 text-gray-800 text-xs rounded-full font-medium capitalize">
             {outfit.overallStyle} Style
           </span>
+
+          {/* Virtual try on */}
+          <div className="px-4 pb-4 pt-2 flex justify-center">
+            <button
+              onClick={() => onTryOn(outfit)}
+              className="px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
+            >
+              Try On
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Shopping Modal */}
+      <ShoppingModal
+        isOpen={shoppingModal.isOpen}
+        onClose={closeShoppingModal}
+        itemId={shoppingModal.itemId}
+        itemCategory={shoppingModal.itemCategory}
+        itemImage={shoppingModal.itemImage}
+      />
     </div>
   );
 };
@@ -504,7 +616,191 @@ const FilterPanel = ({
 };
 
 const InspoPage = () => {
-  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 5 }); 
+  // --> Start virtual try on feature 
+  const [showTryOnModal, setShowTryOnModal] = useState(false);
+  const [tryOnOutfit, setTryOnOutfit] = useState<UIOutfitLike | null>(null);
+
+  const [showSelfTryOnModal, setShowSelfTryOnModal] = useState(false);
+  const [selfTryOnOutfit, setSelfTryOnOutfit] = useState<UIOutfitLike | null>(null);
+
+  const [storedTryOnPhoto, setStoredTryOnPhoto] = useState<string | null>(null);
+  const [selfPhotoPreview, setSelfPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("Waiting…");
+  const [stepImages, setStepImages] = useState<string[]>([]);
+  const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  const progressTimer = useRef<number | null>(null);
+
+  const [credits, setCredits] = useState<{ total: number; subscription: number; on_demand: number } | null>(null);
+
+  const [showSelfPreviewModal, setShowSelfPreviewModal] = useState(false);
+  const [selfPreviewUrl, setSelfPreviewUrl] = useState<string | null>(null);
+  const [selfPreviewDate, setSelfPreviewDate] = useState<string | null>(null);
+
+  const [toast, setToast] = useState<{ msg: string } | null>(null);
+  function showToast(message: string) {
+    setToast({ msg: message });
+    setTimeout(() => setToast(null), 2200);
+  }
+
+  // Helpers (same as ClosetPage)
+  function resolveImgSrc(u?: string): string {
+    if (!u) return "";
+    if (u.startsWith("data:") || u.startsWith("http://") || u.startsWith("https://")) return u;
+    return absolutize(u, API_BASE);
+  }
+
+  async function resizeToDataUrl(file: File, maxW = 1280, maxH = 1280): Promise<string> {
+    const img = document.createElement("img");
+    const url = URL.createObjectURL(file);
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = rej;
+      img.src = url;
+    });
+    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    return canvas.toDataURL("image/jpeg", 0.9);
+  }
+
+  async function openSelfTryOn(outfit: UIOutfitLike) {
+    setSelfTryOnOutfit(outfit);
+    setShowSelfTryOnModal(true);
+    setFinalImageUrl(null);
+    setStepImages([]);
+    setProgress(0);
+    setProgressLabel("Checking your try-on photo…");
+
+    try {
+      const [photoRes, creditRes] = await Promise.allSettled([getTryOnPhoto(), getTryOnCredits()]);
+      if (photoRes.status === "fulfilled") {
+        setStoredTryOnPhoto(photoRes.value?.tryOnPhoto ?? null);
+        setSelfPhotoPreview(photoRes.value?.tryOnPhoto ?? null);
+      }
+      if (creditRes.status === "fulfilled") setCredits(creditRes.value);
+    } finally {
+      setProgressLabel("Ready");
+    }
+  }
+
+  function closeSelfTryOn() {
+    setShowSelfTryOnModal(false);
+    setSelfTryOnOutfit(null);
+    setSelfPhotoPreview(null);
+    setIsUploadingPhoto(false);
+    setIsGenerating(false);
+    setProgress(0);
+    setProgressLabel("Waiting…");
+    setFinalImageUrl(null);
+    setStepImages([]);
+    if (progressTimer.current) {
+      window.clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+  }
+
+  async function handlePickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const b64 = await resizeToDataUrl(f, 1280, 1280);
+    setSelfPhotoPreview(b64);
+  }
+
+  async function saveTryOnPhoto() {
+    if (!selfPhotoPreview) return;
+    setIsUploadingPhoto(true);
+    try {
+      const res = await setTryOnPhotoBase64(selfPhotoPreview);
+      setStoredTryOnPhoto(res.tryOnPhoto || null);
+      setProgressLabel("Saved your try-on photo");
+      showToast("Try-on photo saved successfully!");
+    } catch {
+      showToast("Failed to save try-on photo.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  function startFakeProgress(maxBeforeFinish = 85) {
+    if (progressTimer.current) window.clearInterval(progressTimer.current);
+    setProgress(5);
+    progressTimer.current = window.setInterval(() => {
+      setProgress((p) => {
+        const next = p + Math.random() * 4 + 1;
+        return next >= maxBeforeFinish ? maxBeforeFinish : next;
+      });
+    }, 500) as unknown as number;
+  }
+
+  async function startGeneration() {
+    if (!selfTryOnOutfit) return;
+    if (!storedTryOnPhoto) {
+      showToast("Please upload and save a full-body photo first.");
+      return;
+    }
+
+    const closetItemIds = selfTryOnOutfit.outfitItems.map((it) => it.closetItemId);
+
+    setIsGenerating(true);
+    setProgressLabel("Generating outfit…");
+    startFakeProgress(88);
+
+    try {
+      const res = await runTryOnSelf({
+        outfitId: selfTryOnOutfit.id,
+        useTryOnPhoto: true,
+        closetItemIds,
+        mode: "balanced",
+        returnBase64: false,
+      });
+
+      if (progressTimer.current) {
+        window.clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+      setStepImages(res.stepOutputs || []);
+      setProgressLabel("Finalizing…");
+      setProgress(97);
+
+      const url = res.finalUrl || (res.finalBase64 ? res.finalBase64 : null);
+      setFinalImageUrl(url);
+      setTimeout(() => setProgress(100), 400);
+      setProgressLabel("Done");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || "Try-on failed.");
+      setProgressLabel("Failed");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function openSelfTryOnOrPreview(outfit: UIOutfitLike) {
+    try {
+      const hit = await getTryOnResult(outfit.id);
+      if (hit?.finalImageUrl) {
+        setSelfPreviewUrl(hit.finalImageUrl);
+        setSelfPreviewDate(new Date(hit.createdAt).toLocaleString());
+        setSelfTryOnOutfit(outfit);
+        setShowSelfPreviewModal(true);
+        return;
+      }
+    } catch { }
+    await openSelfTryOn(outfit);
+  }
+  // <-- End virtual try on feature
+
+
+  const [filters, setFilters] = useState<GenerateInspoRequest>({ limit: 5 });
   const queryClient = useQueryClient();
   const { token, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -523,7 +819,7 @@ const InspoPage = () => {
   }, []);
 
   const [generatedOutfits, setGeneratedOutfits] = useState<InspoOutfit[]>([]);
-  const [hasGenerated, setHasGenerated] = useState(false); 
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({ open: false, message: '' });
   const askConfirm = (message: string, confirmLabel = 'Delete', cancelLabel = 'Cancel') =>
@@ -549,7 +845,7 @@ const InspoPage = () => {
     },
     onError: (error) => {
       console.error('Failed to generate outfits:', error);
-      setHasGenerated(true); 
+      setHasGenerated(true);
     },
   });
 
@@ -656,6 +952,25 @@ const InspoPage = () => {
             isGenerating={generateMutation.isPending}
           />
 
+          {/* Shopping Info Section */}
+          {allOutfits.length > 0 && (
+            <div className="bg-gradient-to-r from-[#3F978F]/5 via-[#3F978F]/10 to-emerald-50 border border-[#3F978F]/20 rounded-2xl p-5 mb-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="bg-[#3F978F] p-3 rounded-2xl shadow-md">
+                  <ShoppingBag className="text-white" size={22} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                    <span>🛍️ Shop Your Inspiration</span>
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Hover over any item below and click <strong className="text-[#3F978F]">"Buy Similar"</strong> to discover where you can purchase it online!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Error States */}
 
           {deleteMutation.isError && (
@@ -680,9 +995,15 @@ const InspoPage = () => {
 
               {allOutfits.map((outfit) => (
                 <OutfitCard
-                  key={outfit.id}
                   outfit={outfit}
-                  onDelete={handleDelete}
+                  onDelete={handleDelete} // whatever you already use
+                  onTryOn={(o) => {
+                    const ui = toUIOutfitLike(o);
+                    // If you want the same “preview if cached” behavior:
+                    openSelfTryOnOrPreview(ui);
+                    // If you want to open Avatar first instead:
+                    // setTryOnOutfit(ui); setShowTryOnModal(true);
+                  }}
                 />
               ))}
             </div>
@@ -736,6 +1057,161 @@ const InspoPage = () => {
           </div>
         </div>
       )}
+
+      {/* Virtual Try-On (Yourself) Modal */}
+      <AnimatePresence>
+        {showSelfTryOnModal && selfTryOnOutfit && (
+          <motion.div
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeSelfTryOn}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl relative flex flex-col w-[min(95vw,1100px)] h-[min(95vh,820px)]"
+            >
+              <button
+                onClick={closeSelfTryOn}
+                className="absolute top-3 right-3 text-gray-700 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-full p-2 z-[111]"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="px-5 pt-5">
+                <h2 className="text-xl font-semibold">Virtual Try On</h2>
+                <p className="text-sm text-gray-500">
+                  Use your stored full-body photo or upload a new one, then we’ll put this outfit on you.
+                </p>
+              </div>
+
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-5 overflow-hidden">
+                {/* Left: Photo input */}
+                <div className="border rounded-xl p-4 overflow-auto">
+                  <h3 className="font-medium mb-2">1) Your full-body photo</h3>
+
+                  {selfPhotoPreview ? (
+                    <div className="relative">
+                      <img
+                        src={resolveImgSrc(selfPhotoPreview || "")}
+                        alt="Your try-on photo"
+                        className="w-full max-h-80 object-contain rounded-lg border"
+                      />
+                      <div className="flex gap-2 mt-3">
+                        <label className="px-3 py-1.5 border rounded-full cursor-pointer hover:bg-gray-50">
+                          Replace Photo
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePickPhoto} />
+                        </label>
+                        <button
+                          disabled={isUploadingPhoto}
+                          onClick={saveTryOnPhoto}
+                          className="px-3 py-1.5 rounded-full bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60"
+                        >
+                          {isUploadingPhoto ? "Saving…" : "Save as My Try-On Photo"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-dashed rounded-lg p-6 text-center">
+                      <p className="text-gray-600 mb-3">No photo yet. Upload or take one:</p>
+                      <label className="inline-block px-4 py-2 border rounded-full cursor-pointer hover:bg-gray-50">
+                        Choose Photo
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePickPhoto} />
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="mt-4 text-xs text-gray-500">
+                    Tip: Stand straight, good lighting, no occlusions. Face & shoes visible if possible.
+                  </div>
+
+                  {credits && (
+                    <div className="mt-4 text-sm text-gray-600">
+                      <span className="font-medium">Credits:</span> {credits.total} total
+                      <span className="mx-2">•</span> sub: {credits.subscription}
+                      <span className="mx-2">•</span> on-demand: {credits.on_demand}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Generate */}
+                <div className="border rounded-xl p-4 overflow-auto">
+                  <h3 className="font-medium mb-2">2) Generate</h3>
+
+                  <div className="mb-3">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-teal-600 transition-all" style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>{progressLabel}</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={startGeneration}
+                      disabled={!storedTryOnPhoto || isGenerating}
+                      className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 disabled:opacity-60"
+                    >
+                      {isGenerating ? "Generating…" : "Try On Outfit"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFinalImageUrl(null);
+                        setStepImages([]);
+                        setProgress(0);
+                        setProgressLabel("Ready");
+                      }}
+                      className="px-4 py-2 rounded-full border hover:bg-gray-50"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  {finalImageUrl ? (
+                    <div className="space-y-3">
+                      <img
+                        src={resolveImgSrc(finalImageUrl)}
+                        alt="Final try-on"
+                        className="w-full max-h-[520px] object-contain rounded-lg border"
+                      />
+                      {stepImages?.length > 1 && (
+                        <div>
+                          <div className="text-sm text-gray-600 mb-1">Construction (step-by-step)</div>
+                          <div className="flex flex-wrap gap-2">
+                            {stepImages.map((s, idx) => (
+                              <img
+                                key={idx}
+                                src={resolveImgSrc(s)}
+                                alt={`Step ${idx + 1}`}
+                                className="w-24 h-24 object-contain rounded border"
+                                title={`Step ${idx + 1}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Click <span className="font-medium">Try On Outfit</span> to generate your image.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {toast ? <Toast message={toast.msg} /> : null}
+
     </div>
   );
 };

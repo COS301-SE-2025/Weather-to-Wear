@@ -1,24 +1,14 @@
 // Security Headers Middleware
-// Add this to your app.ts to implement production security headers
-
 import { Request, Response, NextFunction } from 'express';
 
 export const securityHeaders = (req: Request, res: Response, next: NextFunction): void => {
-  // Prevent clickjacking attacks
   res.setHeader('X-Frame-Options', 'DENY');
-  
-  // Prevent MIME sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  // Enable XSS filtering (legacy browsers)
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  
-  // Control referrer information
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   
   // HTTPS-only security headers (only set if request is secure)
   if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
-    // Force HTTPS for future requests
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   
@@ -26,9 +16,9 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   const csp = [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'", // Allow inline styles for React
+    "style-src 'self' 'unsafe-inline'", 
     "img-src 'self' data: https:",
-    "connect-src 'self' https://api.openweathermap.org", // Add your API domains
+    "connect-src 'self' https://api.openweathermap.org", 
     "font-src 'self'",
     "object-src 'none'",
     "media-src 'self'",
@@ -37,7 +27,6 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   
   res.setHeader('Content-Security-Policy', csp);
   
-  // Permissions Policy - control browser features
   const permissions = [
     'camera=()',
     'microphone=()',
@@ -58,8 +47,7 @@ export const rateLimit = (maxRequests: number = 100, windowMs: number = 15 * 60 
     const clientId = req.ip || req.connection.remoteAddress || 'unknown';
     const now = Date.now();
     
-    // Clean up old entries
-    if (now % 1000 === 0) { // Clean every second
+    if (now % 1000 === 0) { 
       for (const [id, data] of requests.entries()) {
         if (now > data.resetTime) {
           requests.delete(id);
@@ -99,15 +87,11 @@ export const noCache = (req: Request, res: Response, next: NextFunction): void =
 
 // Security middleware setup function
 export const setupSecurity = (app: any): void => {
-  // Apply security headers to all routes
   app.use(securityHeaders);
   
-  // Apply rate limiting to all routes
   app.use(rateLimit());
   
-  // Apply no-cache to sensitive auth routes
   app.use('/api/auth/profile', noCache);
   app.use('/api/users/me', noCache);
   
-  console.log('Security middleware applied');
 };

@@ -68,9 +68,7 @@ class InspoController {
 
       // Force limit to exactly 5 outfits per generation (replaces previous recommendations)
       const requestWithLimit = { ...req.body, limit: 5 };
-      console.log(`[INSPO] Generating outfits for user ${user.id} with limit: ${requestWithLimit.limit}`);
       const recommendations = await generateInspoOutfits(user.id, requestWithLimit);
-      console.log(`[INSPO] Generated ${recommendations.length} recommendations`);
       
       if (recommendations.length === 0) {
         res.status(404).json({ 
