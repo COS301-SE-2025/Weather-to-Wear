@@ -9,6 +9,7 @@ import { absolutize } from '../utils/url';
 import { motion } from 'framer-motion';
 import { getDaySelection, upsertDaySelection, deleteDaySelection, type DaySelectionDTO } from '../services/daySelectionApi';
 import { fetchAllItems } from '../services/closetApi';
+import WeatherIcon from '../components/WeatherIcon';
 
 import {
   fetchRecommendedOutfits,
@@ -71,112 +72,112 @@ function formatTimeAmPm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-    function useAutoplayScrolling(
-      ref: React.RefObject<HTMLDivElement | null>,
-      opts: {
-        pxPerSec?: number;
-        pauseMsAfterInteract?: number;
-        respectReducedMotion?: boolean;
-      } = {}
-    ): { pause: (ms?: number) => void } {
-      const isCoarse =
-        typeof window !== "undefined" &&
-        typeof matchMedia === "function" &&
-        matchMedia("(pointer: coarse)").matches;
+function useAutoplayScrolling(
+  ref: React.RefObject<HTMLDivElement | null>,
+  opts: {
+    pxPerSec?: number;
+    pauseMsAfterInteract?: number;
+    respectReducedMotion?: boolean;
+  } = {}
+): { pause: (ms?: number) => void } {
+  const isCoarse =
+    typeof window !== "undefined" &&
+    typeof matchMedia === "function" &&
+    matchMedia("(pointer: coarse)").matches;
 
-      const {
-        pxPerSec = isCoarse ? 30 : 60,
-        pauseMsAfterInteract = isCoarse ? 1200 : 1600,
-        respectReducedMotion = false,
-      } = opts;
+  const {
+    pxPerSec = isCoarse ? 30 : 60,
+    pauseMsAfterInteract = isCoarse ? 1200 : 1600,
+    respectReducedMotion = false,
+  } = opts;
 
-      const pauseUntilRef = useRef(0);
-      const rafRef = useRef<number | null>(null);
-      const intervalRef = useRef<number | null>(null);
-      const halfRef = useRef(0);
+  const pauseUntilRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const halfRef = useRef(0);
 
-      const pause = useCallback((ms?: number) => {
-        const dur = typeof ms === "number" ? ms : pauseMsAfterInteract;
-        pauseUntilRef.current = Date.now() + Math.max(0, dur);
-      }, [pauseMsAfterInteract]);
+  const pause = useCallback((ms?: number) => {
+    const dur = typeof ms === "number" ? ms : pauseMsAfterInteract;
+    pauseUntilRef.current = Date.now() + Math.max(0, dur);
+  }, [pauseMsAfterInteract]);
 
-      useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
 
-        const updateHalf = () => { halfRef.current = el.scrollWidth / 2; };
-        updateHalf();
-        const ro = new ResizeObserver(updateHalf);
-        ro.observe(el);
+    const updateHalf = () => { halfRef.current = el.scrollWidth / 2; };
+    updateHalf();
+    const ro = new ResizeObserver(updateHalf);
+    ro.observe(el);
 
-        const reduce =
-          typeof matchMedia === "function" &&
-          matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce =
+      typeof matchMedia === "function" &&
+      matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-        if (respectReducedMotion && reduce && !isCoarse) {
-          return () => ro.disconnect();
-        }
-
-        const bumpPause = () => pause();
-
-        el.addEventListener("pointerdown", bumpPause, { passive: true });
-        el.addEventListener("wheel", bumpPause, { passive: true });
-        el.addEventListener("mouseenter", bumpPause, { passive: true });
-        el.addEventListener("focusin", bumpPause, { passive: true });
-        el.addEventListener("touchstart", bumpPause, { passive: true });
-
-        let last = performance.now();
-        const stepFrame = (dtMs: number) => {
-          if (Date.now() < pauseUntilRef.current) return;
-          const step = (pxPerSec * dtMs) / 1000;
-          const half = halfRef.current || 0;
-
-          let next = el.scrollLeft + step;
-          if (half > 0 && next >= half) next -= half;
-
-          const prev = el.style.scrollBehavior;
-          el.style.scrollBehavior = "auto";
-          el.scrollLeft = next;
-          el.style.scrollBehavior = prev;
-        };
-
-        const startRaf = () => {
-          const tick = (now: number) => {
-            rafRef.current = requestAnimationFrame(tick);
-            const dt = now - last;
-            last = now;
-            stepFrame(dt);
-          };
-          last = performance.now();
-          rafRef.current = requestAnimationFrame(tick);
-        };
-
-        const startInterval = () => {
-          last = performance.now();
-          intervalRef.current = window.setInterval(() => {
-            const now = performance.now();
-            const dt = now - last;
-            last = now;
-            stepFrame(dt);
-          }, 16);
-        };
-
-        if (isCoarse) startInterval(); else startRaf();
-
-        return () => {
-          ro.disconnect();
-          el.removeEventListener("pointerdown", bumpPause);
-          el.removeEventListener("wheel", bumpPause);
-          el.removeEventListener("mouseenter", bumpPause);
-          el.removeEventListener("focusin", bumpPause);
-          el.removeEventListener("touchstart", bumpPause);
-          if (rafRef.current) cancelAnimationFrame(rafRef.current);
-          if (intervalRef.current) clearInterval(intervalRef.current);
-        };
-      }, [ref, pxPerSec, respectReducedMotion, isCoarse, pause]);
-
-      return { pause };
+    if (respectReducedMotion && reduce && !isCoarse) {
+      return () => ro.disconnect();
     }
+
+    const bumpPause = () => pause();
+
+    el.addEventListener("pointerdown", bumpPause, { passive: true });
+    el.addEventListener("wheel", bumpPause, { passive: true });
+    el.addEventListener("mouseenter", bumpPause, { passive: true });
+    el.addEventListener("focusin", bumpPause, { passive: true });
+    el.addEventListener("touchstart", bumpPause, { passive: true });
+
+    let last = performance.now();
+    const stepFrame = (dtMs: number) => {
+      if (Date.now() < pauseUntilRef.current) return;
+      const step = (pxPerSec * dtMs) / 1000;
+      const half = halfRef.current || 0;
+
+      let next = el.scrollLeft + step;
+      if (half > 0 && next >= half) next -= half;
+
+      const prev = el.style.scrollBehavior;
+      el.style.scrollBehavior = "auto";
+      el.scrollLeft = next;
+      el.style.scrollBehavior = prev;
+    };
+
+    const startRaf = () => {
+      const tick = (now: number) => {
+        rafRef.current = requestAnimationFrame(tick);
+        const dt = now - last;
+        last = now;
+        stepFrame(dt);
+      };
+      last = performance.now();
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    const startInterval = () => {
+      last = performance.now();
+      intervalRef.current = window.setInterval(() => {
+        const now = performance.now();
+        const dt = now - last;
+        last = now;
+        stepFrame(dt);
+      }, 16);
+    };
+
+    if (isCoarse) startInterval(); else startRaf();
+
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("pointerdown", bumpPause);
+      el.removeEventListener("wheel", bumpPause);
+      el.removeEventListener("mouseenter", bumpPause);
+      el.removeEventListener("focusin", bumpPause);
+      el.removeEventListener("touchstart", bumpPause);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [ref, pxPerSec, respectReducedMotion, isCoarse, pause]);
+
+  return { pause };
+}
 
 async function geocodeCity(query: string, count = 6): Promise<Array<{ label: string; city: string }>> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
@@ -196,7 +197,7 @@ async function validateAndStandardizeCity(raw: string): Promise<string | null> {
   const q = raw.trim();
   if (!q) return null;
   const matches = await geocodeCity(q, 1);
-  return matches[0]?.city ?? null; 
+  return matches[0]?.city ?? null;
 }
 
 function toLocalDatetimeInputValue(iso: string) {
@@ -322,8 +323,8 @@ const TypingSlogan = () => {
 
 // ---------------- Temp range bar (single definition) ----------------
 const THEME = {
-  coldHue: 185, 
-  hotHue: 18,   
+  coldHue: 185,
+  hotHue: 18,
   sat: 58,
   light: 38,
 };
@@ -472,7 +473,7 @@ export default function HomePage() {
     const q = raw.trim();
     if (!q) return null;
     const matches = await geocodeCity(q, 1);
-    return matches[0]?.city ?? null; 
+    return matches[0]?.city ?? null;
   }
 
   useEffect(() => {
@@ -554,7 +555,7 @@ export default function HomePage() {
     });
   }, [selectedEvent]);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null); 
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // ---------- Weather (React Query) ----------
   const weatherQuery = useWeatherQuery(city);
@@ -1027,7 +1028,7 @@ export default function HomePage() {
         condition: outfit.weatherSummary.mainCondition,
       }),
 
-      userRating: ratings[key] ?? null, 
+      userRating: ratings[key] ?? null,
 
     };
 
@@ -1391,7 +1392,7 @@ export default function HomePage() {
     );
   }
 
-    // === REPLACE: marquee-feel + swipe + desktop arrows ===
+  // === REPLACE: marquee-feel + swipe + desktop arrows ===
   function EventsCarousel({
     items,
     onOpen,
@@ -1419,7 +1420,7 @@ export default function HomePage() {
         24;
       const w = (firstCard?.offsetWidth || 260) + gap;
       el.scrollBy({ left: dir * w, behavior: 'smooth' });
-      pauseAuto(1200); 
+      pauseAuto(1200);
     };
 
 
@@ -1805,6 +1806,15 @@ export default function HomePage() {
                     >
                       <span className="text-lg font-medium leading-none">{shortDow(iso)}</span>
                       <span className="text-sm mt-1 tabular-nums">{avg !== null ? `${avg}°C` : '—'}</span>
+                      {/* minimal white line icon under the temp */}
+                      <span className="mt-1 inline-flex">
+                        <WeatherIcon
+                          description={daySummaries[iso]?.mainCondition}
+                          size={18}
+                          className="opacity-90"
+                        />
+                      </span>
+
                     </button>
                   );
                 })}
@@ -1994,16 +2004,16 @@ export default function HomePage() {
                                           layerCategory: i.layerCategory,
                                           sortOrder: idx,
                                         })),
-                                        warmthRating: meta?.warmthRating,            
-                                        waterproof: !!meta?.waterproof,              
-                                        overallStyle: meta?.overallStyle ?? selectedStyle, 
+                                        warmthRating: meta?.warmthRating,
+                                        waterproof: !!meta?.waterproof,
+                                        overallStyle: meta?.overallStyle ?? selectedStyle,
                                         weatherSummary: JSON.stringify(
                                           meta?.weatherSummary ?? {
                                             temperature: selectedOutfitFromDaySel!.weatherSummary.avgTemp,
                                             condition: selectedOutfitFromDaySel!.weatherSummary.mainCondition,
                                           }
                                         ),
-                                        userRating: rating ?? null,                  
+                                        userRating: rating ?? null,
                                       });
                                       targetId = created.id;
                                       setOutfitIdMap(prev => ({ ...prev, [key]: targetId! }));
@@ -2314,7 +2324,7 @@ export default function HomePage() {
                         type="button"
                         className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => {
-                          setNewEvent(prev => ({ ...prev, location: opt.city })); 
+                          setNewEvent(prev => ({ ...prev, location: opt.city }));
                           setLocSuggest([]);
                           setLocError(null);
                         }}
@@ -2632,7 +2642,7 @@ export default function HomePage() {
                       const payload = {
                         id: editEventData.id || selectedEvent!.id,
                         name: editEventData.name || selectedEvent!.name,
-                        location: standardized, 
+                        location: standardized,
                         dateFrom: new Date(
                           editEventData.dateFrom || toLocalDatetimeInputValue(selectedEvent!.dateFrom)
                         ).toISOString(),

@@ -9,6 +9,7 @@ import {
   IconWind,
   IconMist,
 } from '@tabler/icons-react';
+import WeatherIcon from './WeatherIcon';
 
 function toDateFromAPITime(s: string) {
   const isoish = s.includes('T') ? s : s.replace(' ', 'T');
@@ -17,9 +18,17 @@ function toDateFromAPITime(s: string) {
 }
 
 // Map description → simple Tabler icon
-function IconFor({ description }: { description?: string }) {
+export function IconFor({
+  description,
+  size = 24,
+  className = '',
+}: {
+  description?: string;
+  size?: number;
+  className?: string;
+}) {
   const c = (description || '').toLowerCase();
-  const commonProps = { size: 24, stroke: 2, className: 'shrink-0' };
+  const commonProps = { size, stroke: 2, className: `shrink-0 ${className}` };
 
   if (c.includes('thunder') || c.includes('storm')) return <IconCloudStorm {...commonProps} />;
   if (c.includes('snow') || c.includes('sleet')) return <IconSnowflake {...commonProps} />;
