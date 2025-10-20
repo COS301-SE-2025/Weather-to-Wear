@@ -1,4 +1,4 @@
-[![Watch the video](docs/assets/DummyPlay.png.png)](https://drive.google.com/file/d/1-7vPinN2aR2QUJEuz562amDCMtV6CchV/view?usp=sharing)
+[![Watch the demonstration!](docs/assets/DummyPlay.png)](https://drive.google.com/file/d/1-7vPinN2aR2QUJEuz562amDCMtV6CchV/view?usp=sharing)
 
 
 <p align="center">
