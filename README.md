@@ -2,8 +2,6 @@
 
 
 <p align="center">
-  <img src="docs/assets/Weather_To_Wear.png" height="auto">
-
   <h1 align="center">A Capstone Project for
    <a href="https://www.epiuse.com">
 Epi-Use Africa     </a>
