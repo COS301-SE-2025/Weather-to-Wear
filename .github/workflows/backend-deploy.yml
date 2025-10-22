@@ -1,0 +1,58 @@
+name: Backend Deploy (Prod)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "app-backend/**"
+      - ".github/workflows/backend-deploy.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: backend-prod
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPO: ${{ vars.ECR_REPO }}
+  APP_RUNNER_SERVICE_ARN: ${{ vars.APP_RUNNER_SERVICE_ARN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tags
+        id: vars
+        run: |
+          echo "SHA_TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "PROD_TAG=prod" >> $GITHUB_OUTPUT
+
+      - name: Build image
+        working-directory: app-backend
+        run: |
+          docker build --no-cache -f Dockerfile.prod -t ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.vars.outputs.SHA_TAG }} .
+          docker tag ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.vars.outputs.SHA_TAG }} ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.vars.outputs.PROD_TAG }}
+
+      - name: Push image
+        run: |
+          docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.vars.outputs.SHA_TAG }}
+          docker push ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.vars.outputs.PROD_TAG }}
+
