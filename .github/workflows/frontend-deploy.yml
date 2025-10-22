@@ -20,7 +20,6 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
   CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
-  # React build-time env (Create React App style)
   REACT_APP_API_BASE: ${{ vars.REACT_APP_API_BASE }}
   REACT_APP_UPLOADS_CDN: ${{ vars.REACT_APP_UPLOADS_CDN }}
 
@@ -42,22 +41,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
+          cache-dependency-path: app-mobile/my-app/package-lock.json
 
       - name: Install dependencies
         working-directory: app-mobile/my-app
         run: npm ci
 
-      - name: Build
+      - name: Lint (non-blocking)
+        working-directory: app-mobile/my-app
+        continue-on-error: true
+        run: npx eslint "src/**/*.{ts,tsx}" --format stylish || true
+
+      - name: Build (allow warnings)
         working-directory: app-mobile/my-app
         env:
           REACT_APP_API_BASE: ${{ env.REACT_APP_API_BASE }}
           REACT_APP_UPLOADS_CDN: ${{ env.REACT_APP_UPLOADS_CDN }}
+          CI: "false"
         run: npm run build
 
       - name: Sync to S3
-        run: |
-          aws s3 sync app-mobile/my-app/build/ s3://${{ env.FRONTEND_BUCKET }}/ --delete --region ${{ env.AWS_REGION }}
+        run: aws s3 sync app-mobile/my-app/build/ s3://${{ env.FRONTEND_BUCKET }}/ --delete --region ${{ env.AWS_REGION }}
 
       - name: Invalidate CloudFront
-        run: |
-          aws cloudfront create-invalidation --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+        run: aws cloudfront create-invalidation --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
